@@ -1,0 +1,112 @@
+<H4 class=subsection>11.3.7 Extracting Programs from Texinfo Source Files</H4><A name=index-Texinfo_002c-extracting-programs-from-source-files></A><A name=index-files_002c-Texinfo_002c-extracting-programs-from></A>
+<P>Both this chapter and the previous chapter (<A href="http://www.gnu.org/software/gawk/manual/gawk.html#Library-Functions">Library Functions</A>) present a large number of <CODE>awk</CODE> programs. If you want to experiment with these programs, it is tedious to have to type them in by hand. Here we present a program that can extract parts of a Texinfo input file into separate files. </P><A name=index-Texinfo-3></A>
+<P>This Web page is written in <A href="http://www.gnu.org/software/texinfo/">Texinfo</A>, the GNU project&#8217;s document formatting language. A single Texinfo source file can be used to produce both printed and online documentation. Texinfo is fully documented in the book <CITE>Texinfo&#8212;The GNU Documentation Format</CITE>, available from the Free Software Foundation, and also available <A href="http://www.gnu.org/software/texinfo/manual/texinfo/">online</A>. </P>
+<P>For our purposes, it is enough to know three things about Texinfo input files: </P>
+<UL>
+<LI>The &#8220;at&#8221; symbol (&#8216;<SAMP>@</SAMP>&#8217;) is special in Texinfo, much as the backslash (&#8216;<SAMP>\</SAMP>&#8217;) is in C or <CODE>awk</CODE>. Literal &#8216;<SAMP>@</SAMP>&#8217; symbols are represented in Texinfo source files as &#8216;<SAMP>@@</SAMP>&#8217;. </LI>
+<LI>Comments start with either &#8216;<SAMP>@c</SAMP>&#8217; or &#8216;<SAMP>@comment</SAMP>&#8217;. The file-extraction program works by using special comments that start at the beginning of a line. </LI>
+<LI>Lines containing &#8216;<SAMP>@group</SAMP>&#8217; and &#8216;<SAMP>@end group</SAMP>&#8217; commands bracket example text that should not be split across a page boundary. (Unfortunately, TeX isn&#8217;t always smart enough to do things exactly right, so we have to give it some help.) </LI></UL>
+<P>The following program, <SAMP>extract.awk</SAMP>, reads through a Texinfo source file and does two things, based on the special comments. Upon seeing &#8216;<SAMP>@c&nbsp;system&nbsp;&#8230;<!-- /@w --></SAMP>&#8217;, it runs a command, by extracting the command text from the control line and passing it on to the <CODE>system()</CODE> function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#I_002fO-Functions">I/O Functions</A>). Upon seeing &#8216;<SAMP>@c file <VAR>filename</VAR></SAMP>&#8217;, each subsequent line is sent to the file <VAR>filename</VAR>, until &#8216;<SAMP>@c endfile</SAMP>&#8217; is encountered. The rules in <SAMP>extract.awk</SAMP> match either &#8216;<SAMP>@c</SAMP>&#8217; or &#8216;<SAMP>@comment</SAMP>&#8217; by letting the &#8216;<SAMP>omment</SAMP>&#8217; part be optional. Lines containing &#8216;<SAMP>@group</SAMP>&#8217; and &#8216;<SAMP>@end group</SAMP>&#8217; are simply removed. <SAMP>extract.awk</SAMP> uses the <CODE>join()</CODE> library function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Join-Function">Join Function</A>). </P>
+<P>The example programs in the online Texinfo source for <CITE>GAWK: Effective AWK Programming</CITE> (<SAMP>gawktexi.in</SAMP>) have all been bracketed inside &#8216;<SAMP>file</SAMP>&#8217; and &#8216;<SAMP>endfile</SAMP>&#8217; lines. The <CODE>gawk</CODE> distribution uses a copy of <SAMP>extract.awk</SAMP> to extract the sample programs and install many of them in a standard directory where <CODE>gawk</CODE> can find them. The Texinfo file looks something like this: </P>
+<DIV class=example><PRE class=example>&#8230;
+This program has a @code{BEGIN} rule,
+that prints a nice message:
+
+@example
+@c file examples/messages.awk
+BEGIN @{ print "Don't panic!" @}
+@c end file
+@end example
+
+It also prints some final advice:
+
+@example
+@c file examples/messages.awk
+END @{ print "Always avoid bored archeologists!" @}
+@c end file
+@end example
+&#8230;
+</PRE></DIV>
+<P><SAMP>extract.awk</SAMP> begins by setting <CODE>IGNORECASE</CODE> to one, so that mixed upper- and lowercase letters in the directives won&#8217;t matter. </P>
+<P>The first rule handles calling <CODE>system()</CODE>, checking that a command is given (<CODE>NF</CODE> is at least three) and also checking that the command exits with a zero exit status, signifying OK: </P><A name=index-extract_002eawk-program></A>
+<DIV class=example><PRE class=example># extract.awk --- extract files and run programs
+#                 from texinfo files
+
+BEGIN    { IGNORECASE = 1 }
+
+/^@c(omment)?[ \t]+system/    \
+{
+    if (NF &lt; 3) {
+        e = (FILENAME ":" FNR)
+        e = (e  ": badly formed `system' line")
+        print e &gt; "/dev/stderr"
+        next
+    }
+    $1 = ""
+    $2 = ""
+    stat = system($0)
+    if (stat != 0) {
+        e = (FILENAME ":" FNR)
+        e = (e ": warning: system returned " stat)
+        print e &gt; "/dev/stderr"
+    }
+}
+</PRE></DIV>
+<P>The variable <CODE>e</CODE> is used so that the rule fits nicely on the page. screen. </P>
+<P>The second rule handles moving data into files. It verifies that a file name is given in the directive. If the file named is not the current file, then the current file is closed. Keeping the current file open until a new file is encountered allows the use of the &#8216;<SAMP>&gt;</SAMP>&#8217; redirection for printing the contents, keeping open file management simple. </P>
+<P>The <CODE>for</CODE> loop does the work. It reads lines using <CODE>getline</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Getline">Getline</A>). For an unexpected end of file, it calls the <CODE><SPAN class=nolinebreak>unexpected_eof()</SPAN><!-- /@w --></CODE> function. If the line is an &#8220;endfile&#8221; line, then it breaks out of the loop. If the line is an &#8216;<SAMP>@group</SAMP>&#8217; or &#8216;<SAMP>@end group</SAMP>&#8217; line, then it ignores it and goes on to the next line. Similarly, comments within examples are also ignored. </P>
+<P>Most of the work is in the following few lines. If the line has no &#8216;<SAMP>@</SAMP>&#8217; symbols, the program can print it directly. Otherwise, each leading &#8216;<SAMP>@</SAMP>&#8217; must be stripped off. To remove the &#8216;<SAMP>@</SAMP>&#8217; symbols, the line is split into separate elements of the array <CODE>a</CODE>, using the <CODE>split()</CODE> function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>). The &#8216;<SAMP>@</SAMP>&#8217; symbol is used as the separator character. Each element of <CODE>a</CODE> that is empty indicates two successive &#8216;<SAMP>@</SAMP>&#8217; symbols in the original line. For each two empty elements (&#8216;<SAMP>@@</SAMP>&#8217; in the original file), we have to add a single &#8216;<SAMP>@</SAMP>&#8217; symbol back in.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT77" name=DOCF77><SUP>77</SUP></A> </P>
+<P>When the processing of the array is finished, <CODE>join()</CODE> is called with the value of <CODE>SUBSEP</CODE>, to rejoin the pieces back into a single line. That line is then printed to the output file: </P>
+<DIV class=example><PRE class=example>/^@c(omment)?[ \t]+file/    \
+{
+    if (NF != 3) {
+        e = (FILENAME ":" FNR ": badly formed `file' line")
+        print e &gt; "/dev/stderr"
+        next
+    }
+    if ($3 != curfile) {
+        if (curfile != "")
+            close(curfile)
+        curfile = $3
+    }
+
+    for (;;) {
+        if ((getline line) &lt;= 0)
+            unexpected_eof()
+        if (line ~ /^@c(omment)?[ \t]+endfile/)
+            break
+        else if (line ~ /^@(end[ \t]+)?group/)
+            continue
+        else if (line ~ /^@c(omment+)?[ \t]+/)
+            continue
+        if (index(line, "@") == 0) {
+            print line &gt; curfile
+            continue
+        }
+        n = split(line, a, "@")
+        # if a[1] == "", means leading @,
+        # don't add one back in.
+        for (i = 2; i &lt;= n; i++) {
+            if (a[i] == "") { # was an @@
+                a[i] = "@"
+                if (a[i+1] == "")
+                    i++
+            }
+        }
+        print join(a, 1, n, SUBSEP) &gt; curfile
+    }
+}
+</PRE></DIV>
+<P>An important thing to note is the use of the &#8216;<SAMP>&gt;</SAMP>&#8217; redirection. Output done with &#8216;<SAMP>&gt;</SAMP>&#8217; only opens the file once; it stays open and subsequent output is appended to the file (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Redirection">Redirection</A>). This makes it easy to mix program text and explanatory prose for the same sample source file (as has been done here!) without any hassle. The file is only closed when a new data file name is encountered or at the end of the input file. </P>
+<P>Finally, the function <CODE><SPAN class=nolinebreak>unexpected_eof()</SPAN><!-- /@w --></CODE> prints an appropriate error message and then exits. The <CODE>END</CODE> rule handles the final cleanup, closing the open file: </P>
+<DIV class=example><PRE class=example>function unexpected_eof()
+{
+    printf("%s:%d: unexpected EOF or error\n",
+        FILENAME, FNR) &gt; "/dev/stderr"
+    exit 1
+}
+</PRE><PRE class=example>END {
+    if (curfile)
+        close(curfile)
+}
+</PRE></DIV>

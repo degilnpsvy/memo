@@ -1,0 +1,143 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>12.5.&nbsp;Lookup Tables</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s04.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;12.&nbsp;Memory and Arrays</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s06.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="12.5.&nbsp;Lookup Tables" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=lookup_tables></A>12.5.&nbsp;Lookup Tables</H2></DIV></DIV></DIV>
+<P>Lookup tables were first mentioned with regard to using jump tables to implement case statements in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title="12.6.&nbsp;Jump Tables" href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s06.html">Section&nbsp;12.6, &#8220;Jump Tables&#8221;</A>.</P>
+<P>Lookup tables have many other uses as well. Consider the factorial function, N! = 1 * 2 * 3 * ... * N. This function is defined only for non-negative integers, and it grows so fast that even with a 64-bit integer, we cannot represent the factorial of 20. As a result, we can easily precompute and store all computable factorials in a small array, and at run-time simply retrieve them from the array instead of compute them over and over. This eliminates a loop of up to 18 iterations each time a factorial is needed.</P>
+<P>Functions that use lookup tables are meant to be very fast, and therefore we want to minimize function overhead wherever possible. This means avoiding unnecessary memory access, and minimizing the use of registers that need to be saved and restored.</P>
+<P>A sub-optimal example, using the stack to pass arguments (unnecessary memory access) and modifying $a0 (which needs to be restored):</P><PRE class=programlisting>	main:
+		...
+		push($s0)
+		jal     factorial
+		...
+		jr      $ra
+		
+	# Local variables
+		.data 
+		.align 2
+	factorial_table:    .word   1, 1, 2, 6, 24
+	
+	# Subprogram body
+		.text
+	factorial:
+		pop($a0)        # Get argument N from stack: extra mem access
+		push($ra)       # Unnecessary for leaf functions
+		push($a0)       # Can avoid by using temp register instead
+		
+		bltz    $a0, factorial_out_of_range
+		bgt     $a0, 4, factorial_out_of_range
+		mul     $a0, $a0, 4
+		lw      $v0, factorial_table($a0)
+		
+		# Return to caller
+		jr      $ra
+	
+	factorial_out_of_range:
+		li      $v0, -1
+		
+		pop($a0)
+		pop($ra)
+		jr      $ra
+	</PRE>
+<P>An optimal example using argument registers to pass N, and only modifying temporary registers, which do not need to be restored:</P><PRE class=programlisting>	# Local variables
+		.data 
+		.align 2
+	factorial_table:    .word   1, 1, 2, 6, 24
+	
+	# Subprogram body
+		.text
+	factorial:
+		# An unsigned comparison for &gt; 4 will also yield true
+		# for negative numbers, which are greater than all
+		# positive numbers when interpreted as unsigned.  This
+		# eliminates the need to check for negatives separately.  This
+		# sort of clever programming should be avoided unless
+		# performance is crucial, and then should be conspicuously
+		# commented.
+		bgtu    $a0, 4, factorial_out_of_range
+		
+		# A multiply can take up to 38 clock cycles, which could
+		# be more than the rest of the subprogram call!  Hence,
+		# we use sll to shift the bits 2 positions left, which
+		# has the effect of multiplying by 4, but takes only 1
+		# clock cycle.
+		sll     $t0, $a0, 2
+		lw      $v0, factorial_table($t0)
+		
+		# Return to caller
+		jr      $ra
+	
+	factorial_out_of_range:
+		li      $v0, -1
+		jr      $ra
+	</PRE>
+<P></P>
+<P>To generate the factorial data for the lookup table requires a program. Integers are limited to about 19!. Double precision floating point can represent up to 170!, but there's another problem: As soon as the true factorial value reaches 17 significant digits, it gets rounded. All later factorials are computed from this rounded value, and so the round-off error gets worse over time. 170! has 305 significant digits, but at most 16 of them will be accurate if the value is computed using double precision. Output from a C program using double precision follows. Note that 171! is reported as infinity, since 64-bit IEEE format cannot represent it.</P>
+<P></P><PRE class=screen>    169! =
+    4.26906800900470559560e+304
+    
+    170! =
+    7.25741561530800402460e+306
+    
+    171! =
+    inf
+    </PRE>
+<P></P>
+<P>What we need to compute large factorials precisely is an arbitrary-precision integer package. Such a package works by concatenating integer values end-to-end, and processing these large integers in chunks (e.g. 64 bits at a time on a 64 bit computer). There are libraries available for C, C++, Java, etc. However, the Unix<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=command><STRONG>bc</STRONG></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>is quite convenient for this purpose, and includes a C-like scripting language. Below is a bc script that prints factorials. You can run it by saving it to a file (e.g. fact.bc) and running<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=code>bc fact.bc</CODE>at the Unix prompt.</P>
+<P></P><PRE class=programlisting>    f = 1
+    for (c = 1; c &lt; 20; ++c) {
+	f
+	f = f*c
+    }
+    quit
+    </PRE>
+<P></P><PRE class=screen>    169! =
+    42690680090047052749392518888995665380688186360567361038491634111179\
+    77554942180092854323970142716152653818230139905012221568248567907501\
+    77960523574894559464847084134121076211998036035274015123788150487897\
+    50405684196703601544535852628274771797464002689372589486243840000000\
+    000000000000000000000000000000000
+    
+    170! =
+    72574156153079989673967282111292631147169916812964513765435777989005\
+    61843401706157852350749242617459511490991237838520776666022565442753\
+    02532890077320751090240043028005829560396661259965825710439855829425\
+    75689663134396122625710949468067112055688804571933402126614528000000\
+    00000000000000000000000000000000000
+    </PRE>
+<P></P>
+<P>A modified version of the bc script can generate output that can be copied and pasted directly into a program. Note that this version requires GNU bc, which is not available on all systems. It is the standard bc on Cygwin, FreeBSD, Linux, and Mac OS X, however.</P>
+<P></P><PRE class=programlisting>    for (c = 0; c &lt;= 19; ++c) {
+	fact=1;
+	for (c2 = c; c2 &gt; 1; --c2)
+	    fact *= c2;
+	print fact, ",\n";
+    }
+    quit
+    </PRE>
+<P></P></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s04.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s06.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">12.4.&nbsp;Arrays in Assembly Language&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;12.6.&nbsp;Jump Tables</TD></TR></TBODY></TABLE></DIV>

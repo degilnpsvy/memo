@@ -1,0 +1,11 @@
+/**<BR>&nbsp;* platform_device_register_full - add a platform-level device with<BR>&nbsp;* resources and platform-specific data<BR>&nbsp;*<BR>&nbsp;* @pdevinfo: data used to create device<BR>&nbsp;*<BR>&nbsp;* Returns &amp;struct platform_device pointer on success, or ERR_PTR() on error.<BR>&nbsp;*/<BR>struct platform_device *platform_device_register_full(<BR>&nbsp;&nbsp;const struct platform_device_info *pdevinfo)<BR>{<BR>&nbsp;int ret = -ENOMEM;<BR>&nbsp;struct platform_device *pdev;
+<P></P>
+<P>&nbsp;pdev = platform_device_alloc(pdevinfo-&gt;name, pdevinfo-&gt;id);<BR>&nbsp;if (!pdev)<BR>&nbsp;&nbsp;goto err_alloc;</P>
+<P>&nbsp;pdev-&gt;dev.parent = pdevinfo-&gt;parent;<BR>&nbsp;pdev-&gt;dev.fwnode = pdevinfo-&gt;fwnode;</P>
+<P>&nbsp;if (pdevinfo-&gt;dma_mask) {<BR>&nbsp;&nbsp;/*<BR>&nbsp;&nbsp; * This memory isn't freed when the device is put,<BR>&nbsp;&nbsp; * I don't have a nice idea for that though.&nbsp; Conceptually<BR>&nbsp;&nbsp; * dma_mask in struct device should not be a pointer.<BR>&nbsp;&nbsp; * See <A href="http://thread.gmane.org/gmane.linux.kernel.pci/9081">http://thread.gmane.org/gmane.linux.kernel.pci/9081</A><BR>&nbsp;&nbsp; */<BR>&nbsp;&nbsp;pdev-&gt;dev.dma_mask =<BR>&nbsp;&nbsp;&nbsp;kmalloc(sizeof(*pdev-&gt;dev.dma_mask), GFP_KERNEL);<BR>&nbsp;&nbsp;if (!pdev-&gt;dev.dma_mask)<BR>&nbsp;&nbsp;&nbsp;goto err;</P>
+<P>&nbsp;&nbsp;*pdev-&gt;dev.dma_mask = pdevinfo-&gt;dma_mask;<BR>&nbsp;&nbsp;pdev-&gt;dev.coherent_dma_mask = pdevinfo-&gt;dma_mask;<BR>&nbsp;}</P>
+<P>&nbsp;ret = platform_device_add_resources(pdev,<BR>&nbsp;&nbsp;&nbsp;pdevinfo-&gt;res, pdevinfo-&gt;num_res);<BR>&nbsp;if (ret)<BR>&nbsp;&nbsp;goto err;</P>
+<P>&nbsp;ret = platform_device_add_data(pdev,<BR>&nbsp;&nbsp;&nbsp;pdevinfo-&gt;data, pdevinfo-&gt;size_data);<BR>&nbsp;if (ret)<BR>&nbsp;&nbsp;goto err;</P>
+<P>&nbsp;ret = platform_device_add(pdev);<BR>&nbsp;if (ret) {<BR>err:<BR>&nbsp;&nbsp;ACPI_COMPANION_SET(&amp;pdev-&gt;dev, NULL);<BR>&nbsp;&nbsp;kfree(pdev-&gt;dev.dma_mask);</P>
+<P>err_alloc:<BR>&nbsp;&nbsp;platform_device_put(pdev);<BR>&nbsp;&nbsp;return ERR_PTR(ret);<BR>&nbsp;}</P>
+<P>&nbsp;return pdev;<BR>}<BR>EXPORT_SYMBOL_GPL(platform_device_register_full);

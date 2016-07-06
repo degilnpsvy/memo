@@ -1,0 +1,26 @@
+# Documentation/cpu-load.txt 
+<P></P>
+<P>CPU load<BR>--------</P>
+<P></P>
+<P>Linux exports various bits of information via `/proc/stat' and<BR>`/proc/uptime' that userland tools, such as top(1), use to calculate<BR>the average time system spent in a particular state, for example:</P>
+<P>&nbsp;&nbsp;&nbsp; $ iostat<BR>&nbsp;&nbsp;&nbsp; Linux 2.6.18.3-exp (linmac)&nbsp;&nbsp;&nbsp;&nbsp; 02/20/2007</P>
+<P>&nbsp;&nbsp;&nbsp; avg-cpu:&nbsp; %user&nbsp;&nbsp; %nice %system %iowait&nbsp; %steal&nbsp;&nbsp; %idle<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 10.01&nbsp;&nbsp;&nbsp; 0.00&nbsp;&nbsp;&nbsp; 2.92&nbsp;&nbsp;&nbsp; 5.44&nbsp;&nbsp;&nbsp; 0.00&nbsp;&nbsp; 81.63</P>
+<P>&nbsp;&nbsp;&nbsp; ...</P>
+<P>Here the system thinks that over the default sampling period the<BR>system spent 10.01% of the time doing work in user space, 2.92% in the<BR>kernel, and was overall 81.63% of the time idle.</P>
+<P>In most cases the `/proc/stat' information reflects the reality quite<BR>closely, however due to the nature of how/when the kernel collects<BR>this data sometimes it can not be trusted at all.</P>
+<P>So how is this information collected?&nbsp; Whenever timer interrupt is<BR>signalled the kernel looks what kind of task was running at this<BR>moment and increments the counter that corresponds to this tasks<BR>kind/state.&nbsp; The problem with this is that the system could have<BR>switched between various states multiple times between two timer<BR>interrupts yet the counter is incremented only for the last state.</P>
+<P><BR>Example<BR>-------</P>
+<P>If we imagine the system with one task that periodically burns cycles<BR>in the following manner:</P>
+<P>&nbsp;time line between two timer interrupts<BR>|--------------------------------------|<BR>&nbsp;^&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ^<BR>&nbsp;|_ something begins working&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |_ something goes to sleep<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (only to be awaken quite soon)</P>
+<P>In the above situation the system will be 0% loaded according to the<BR>`/proc/stat' (since the timer interrupt will always happen when the<BR>system is executing the idle handler), but in reality the load is<BR>closer to 99%.</P>
+<P>One can imagine many more situations where this behavior of the kernel<BR>will lead to quite erratic information inside `/proc/stat'.</P>
+<P><BR>/* gcc -o hog smallhog.c */<BR>#include &lt;time.h&gt;<BR>#include &lt;limits.h&gt;<BR>#include &lt;signal.h&gt;<BR>#include &lt;sys/time.h&gt;<BR>#define HIST 10</P>
+<P>static volatile sig_atomic_t stop;</P>
+<P>static void sighandler (int signr)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp; (void) signr;<BR>&nbsp;&nbsp;&nbsp;&nbsp; stop = 1;<BR>}<BR>static unsigned long hog (unsigned long niters)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp; stop = 0;<BR>&nbsp;&nbsp;&nbsp;&nbsp; while (!stop &amp;&amp; --niters);<BR>&nbsp;&nbsp;&nbsp;&nbsp; return niters;<BR>}<BR>int main (void)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp; int i;<BR>&nbsp;&nbsp;&nbsp;&nbsp; struct itimerval it = { .it_interval = { .tv_sec = 0, .tv_usec = 1 },<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .it_value = { .tv_sec = 0, .tv_usec = 1 } };<BR>&nbsp;&nbsp;&nbsp;&nbsp; sigset_t set;<BR>&nbsp;&nbsp;&nbsp;&nbsp; unsigned long v[HIST];<BR>&nbsp;&nbsp;&nbsp;&nbsp; double tmp = 0.0;<BR>&nbsp;&nbsp;&nbsp;&nbsp; unsigned long n;<BR>&nbsp;&nbsp;&nbsp;&nbsp; signal (SIGALRM, &amp;sighandler);<BR>&nbsp;&nbsp;&nbsp;&nbsp; setitimer (ITIMER_REAL, &amp;it, NULL);</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; hog (ULONG_MAX);<BR>&nbsp;&nbsp;&nbsp;&nbsp; for (i = 0; i &lt; HIST; ++i) v[i] = ULONG_MAX - hog (ULONG_MAX);<BR>&nbsp;&nbsp;&nbsp;&nbsp; for (i = 0; i &lt; HIST; ++i) tmp += v[i];<BR>&nbsp;&nbsp;&nbsp;&nbsp; tmp /= HIST;<BR>&nbsp;&nbsp;&nbsp;&nbsp; n = tmp - (tmp / 3.0);</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; sigemptyset (&amp;set);<BR>&nbsp;&nbsp;&nbsp;&nbsp; sigaddset (&amp;set, SIGALRM);</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; for (;;) {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; hog (n);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; sigwait (&amp;set, &amp;i);<BR>&nbsp;&nbsp;&nbsp;&nbsp; }<BR>&nbsp;&nbsp;&nbsp;&nbsp; return 0;<BR>}</P>
+<P><BR>References<BR>----------</P>
+<P><A href="http://lkml.org/lkml/2007/2/12/6">http://lkml.org/lkml/2007/2/12/6</A><BR>Documentation/filesystems/proc.txt (1.8)</P>
+<P><BR>Thanks<BR>------</P>
+<P>Con Kolivas, Pavel Machek

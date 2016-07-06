@@ -1,0 +1,88 @@
+<H3 id=700181-856 class=docSection1Title>17.2. Kernel Preemption</H3>
+<P class=docText><A name=iddle1253></A><A name=iddle1792></A><A name=iddle1794></A><A name=iddle2046></A><A name=iddle2232></A><A name=iddle2234></A><A name=iddle2243></A><A name=iddle2321></A><A name=iddle2323></A>In the early Linux days of Linux 1.<SPAN class=docEmphasis>x</SPAN>, there was no kernel preemption. This meant that when a user space process requested kernel services, no other task could be scheduled to run until that process either blocked (goes to sleep) waiting on something (usually I/O), or until the kernel request is completed. Making the kernel preemptable<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch173">[3]</A></SUP> means that while one process is running in the kernel, another process can preempt the first and be allowed to run even though the first process had not completed its in-kernel processing. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch17fig02">Figure 17-2</A> illustrates this.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch173>[3]</A></SUP> Interestingly, there is much debate on the correct spelling of <SPAN class=docEmphasis>preemptable</SPAN>! I defer to the survey done by Rick Lehrbaum on <A class=docLink href="http://www.linuxdevices.com/articles/AT5136316996.html" target=_blank>www.linuxdevices.com/articles/AT5136316996.html</A>.</P></BLOCKQUOTE><A name=ch17fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 17-2. Kernel preemption</H5>
+<P class=docText><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/17elp02.jpg" width=400 height=271></P></CENTER>
+<P></P><BR>
+<P class=docText>In this figure, Process A has entered the kernel via a system call. Perhaps it was a call to <TT>write()</TT> to a device such as the console or a file. While executing in the kernel on behalf of Process A, Process B with higher priority is woken up by an interrupt. The kernel <SPAN class=docEmphasis>preempts</SPAN> Process A and assigns the CPU to Process B, even though Process A had neither blocked nor completed its kernel processing.</P><A name=ch17lev2sec5></A>
+<H4 id=title-IDAXNNXC class=docSection2Title>17.2.1. Impediments to Preemption</H4>
+<P class=docText>The challenge in making the kernel fully preemptable is to identify all the places in the kernel that must be protected from preemption. These are the <SPAN class=docEmphasis>critical sections</SPAN> <A name=iddle1968></A>within the kernel where preemption cannot be allowed to occur. For example, assume that Process A in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch17fig02">Figure 17-2</A> is executing in the kernel performing a file system operation. At some point, the code might need to write to an in-kernel data structure representing a file on the file system. To protect that data structure from corruption, the process must lock out all other processes from accessing the shared data structure. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch17list01">Listing 17-1</A> illustrates this concept using C syntax.</P><A name=ch17list01></A>
+<H5 id=title-IDAAPNXC class=docExampleTitle>Listing 17-1. Locking Critical Sections</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+  preempt_disable();
+  ...
+  /* Critical section */
+  update_shared_data();
+  ...
+  preempt_enable();
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>If we did not protect shared data in this fashion, the process updating the shared data structure could be preempted in the middle of the update. If another process attempted to update the same shared data, corruption of the data would be virtually certain. The classic example is when two processes are operating directly on common variables and making decisions on their values. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch17fig03">Figure 17-3</A> illustrates such a case.</P><A name=ch17fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 17-3. Shared data concurrency error</H5>
+<P class=docText><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/17elp03.jpg" width=389 height=267></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1793></A><A name=iddle1811></A><A name=iddle1861></A><A name=iddle2233></A><A name=iddle2322></A>In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch17fig03">Figure 17-3</A>, Process A is interrupted after updating the shared data but before it makes a decision based on it. By design, Process A cannot detect that it has been preempted. Process B changes the value of the shared data before Process A gets to run again. As you can see, Process A will be making a decision based on a value determined by Process B. If this is not the behavior you seek, you must disable preemption in Process A around the shared datain this case, the operation and decision on the variable <TT>count</TT>.</P><A name=ch17lev2sec6></A>
+<H4 id=title-IDAVSNXC class=docSection2Title>17.2.2. Preemption Models</H4>
+<P class=docText>The first solution to kernel preemption was to place checks at strategic locations within the kernel code where it was known to be safe to preempt the current thread of execution. These locations included entry and exit to system calls, release of certain kernel locks, and return from interrupt processing. At each of these points, code similar to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch17list02">Listing 17-2</A> was used to perform preemption.</P><A name=ch17list02></A>
+<H5 id=title-IDAKTNXC class=docExampleTitle>Listing 17-2. Check for Preemption a la Linux 2.4 + Preempt Patch</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+  /*
+   * This code is executed at strategic locations within
+   * the Linux kernel where it is known to be safe to
+   * preempt the current thread of execution
+   */
+  if (kernel_is_preemptable() &amp;&amp; current-&gt;need_resched)
+    preempt_schedule();
+...
+
+  /*
+   * This code is in .../kernel/sched.c and is invoked from
+   * those strategic locations as above
+   */
+  #ifdef CONFIG_PREEMPT
+  asmlinkage void preempt_schedule(void)
+  {
+        while (current-&gt;need_resched) {
+	      ctx_sw_off();
+	      current-&gt;state |= TASK_PREEMPTED;
+	      schedule();
+	      current-&gt;state &amp;= ~TASK_PREEMPTED;
+	      ctx_sw_on_no_preempt();
+        }
+  }
+  #endif
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2335></A><A name=iddle2420></A>The first snippet of code in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch17list02">Listing 17-2</A> (simplified from the actual code) is invoked at those strategic locations described earlier, where it is known that the kernel is safe to preempt. The second snippet of code in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec2.html#ch17list02">Listing 17-2</A> is the actual code from an early Linux 2.4 kernel with the preempt patch applied. This interesting <TT>while</TT> loop causes a context switch via the call to <TT>schedule()</TT> until all requests for preemption have been satisfied.</P>
+<P class=docText>Although this approach led to reduced latencies in the Linux system, it was not ideal. The developers working on low-latency soon realized the need to "flip the logic." With earlier preemption models, we had this:</P>
+<UL>
+<LI>
+<P class=docList>The Linux kernel was fundamentally nonpreemptable.</P></LI>
+<LI>
+<P class=docList>Preemption checks were sprinkled around the kernel at strategic locations known to be safe for preemption.</P></LI>
+<LI>
+<P class=docList>Preemption was enabled only at these known-safe points.</P></LI></UL>
+<P class=docText>To achieve a further significant reduction in latency, we want this in a preemptable kernel:</P>
+<UL>
+<LI>
+<P class=docList>The Linux kernel is fully preemptable everywhere.</P></LI>
+<LI>
+<P class=docList>Preemption is disabled only around critical sections.</P></LI></UL>
+<P class=docText>This is where the kernel developers have been heading since the original preemptable kernel patch series. However, this is no easy task. It involves poring over the entire kernel source code base, analyzing exactly what data must be protected from concurrency, and disabling preemption at only those locations. The method used for this has been to instrument the kernel for latency measurements, find the longest latency code paths, and fix them. The more recent Linux 2.6 kernels can be configured for very low-latency applications because of the effort that has gone into this "lock-breaking" methodology.</P><A name=ch17lev2sec7></A>
+<H4 id=title-IDA5VNXC class=docSection2Title>17.2.3. SMP Kernel</H4>
+<P class=docText>It is interesting to note that much of the work involved in creating an efficient multiprocessor architecture also benefits real time. The SMP challenge is more complex than the uniprocessor challenge because there is an additional element of concurrency to protect against. In the uniprocessor model, only a single task can be executing in the kernel at a time. Protection from concurrency involves only <A name=iddle1059></A><A name=iddle1074></A><A name=iddle1775></A><A name=iddle1812></A><A name=iddle1833></A><A name=iddle2044></A><A name=iddle2050></A><A name=iddle2230></A><A name=iddle2326></A><A name=iddle2327></A><A name=iddle2347></A>protection from interrupt or exception processing. In the SMP model, multiple threads of execution in the kernel are possible in addition to the threat from interrupt and exception processing.</P>
+<P class=docText>SMP has been supported from early Linux 2.<SPAN class=docEmphasis>x</SPAN> kernels. A <SPAN class=docEmphasis>Big Kernel Lock</SPAN> (BKL) was used to protect against concurrency in the transition from uniprocessor to SMP operation. The BKL is a global spinlock, which prevents any other tasks from executing in the kernel. In his excellent book <SPAN class=docEmphasis>Linux Kernel Development</SPAN> (Novell Press, 2005), Robert Love characterized the BKL as the "redheaded stepchild of the kernel." In describing the characteristics of the BKL, Robert jokingly added "evil" to its list of attributes!</P>
+<P class=docText>Early implementations of the SMP kernel based on the BKL led to significant inefficiencies in scheduling. It was found that one of the CPUs could be kept idle for long periods of time. Much of the work that led to an efficient SMP kernel also directly benefited real-time applicationsprimarily lowered latency. Replacing the BKL with smaller-grained locking surrounding only the actual shared data to be protected led to significantly reduced preemption latency.</P><A name=ch17lev2sec8></A>
+<H4 id=title-IDAM0NXC class=docSection2Title>17.2.4. Sources of Preemption Latency</H4>
+<P class=docText>A real-time system must be capable of servicing its real-time tasks within a specified upper boundary of time. Achieving consistently low preemption latency is critical to a real-time system. The two single largest contributors to preemption latency are interrupt-context processing and critical section processing where interrupts are disabled. You have already learned that a great deal of effort has been targeted at reducing the size (and thus, duration) of the critical sections. This leaves interrupt-context processing as the next challenge. This was answered with the Linux 2.6 real-time patch.

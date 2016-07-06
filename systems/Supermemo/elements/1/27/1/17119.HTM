@@ -1,0 +1,18 @@
+PRIME Buffer Sharing
+<P>Overview and Driver Interface<BR>PRIME Helper Functions</P>
+<P>PRIME is the cross device buffer sharing framework in drm, originally created for the OPTIMUS range of multi-gpu platforms. To userspace PRIME buffers are dma-buf based file descriptors.<BR>Overview and Driver Interface</P>
+<P>Similar to GEM global names, PRIME file descriptors are also used to share buffer objects across processes. They offer additional security: as file descriptors must be explicitly sent over UNIX domain sockets to be shared between applications, they can't be guessed like the globally unique GEM names.</P>
+<P>Drivers that support the PRIME API must set the DRIVER_PRIME bit in the struct drm_driver driver_features field, and implement the prime_handle_to_fd and prime_fd_to_handle operations.</P>
+<P>int (*prime_handle_to_fd)(struct drm_device *dev,<BR>&nbsp;&nbsp;&nbsp;&nbsp; struct drm_file *file_priv, uint32_t handle,<BR>&nbsp;&nbsp;&nbsp;&nbsp; uint32_t flags, int *prime_fd);<BR>int (*prime_fd_to_handle)(struct drm_device *dev,<BR>&nbsp;&nbsp;&nbsp;&nbsp; struct drm_file *file_priv, int prime_fd,<BR>&nbsp;&nbsp;&nbsp;&nbsp; uint32_t *handle);</P>
+<P>Those two operations convert a handle to a PRIME file descriptor and vice versa. Drivers must use the kernel dma-buf buffer sharing framework to manage the PRIME file descriptors. Similar to the mode setting API PRIME is agnostic to the underlying buffer object manager, as long as handles are 32bit unsigned integers.</P>
+<P>While non-GEM drivers must implement the operations themselves, GEM drivers must use the drm_gem_prime_handle_to_fd and drm_gem_prime_fd_to_handle helper functions. Those helpers rely on the driver gem_prime_export and gem_prime_import operations to create a dma-buf instance from a GEM object (dma-buf exporter role) and to create a GEM object from a dma-buf instance (dma-buf importer role).</P>
+<P>struct dma_buf * (*gem_prime_export)(struct drm_device *dev,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct drm_gem_object *obj,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int flags);<BR>struct drm_gem_object * (*gem_prime_import)(struct drm_device *dev,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct dma_buf *dma_buf);</P>
+<P>These two operations are mandatory for GEM drivers that support PRIME.<BR>PRIME Helper Functions</P>
+<P>Drivers can implement gem_prime_export and gem_prime_import in terms of simpler APIs by using the helper functions drm_gem_prime_export and drm_gem_prime_import. These functions implement dma-buf support in terms of five lower-level driver callbacks:</P>
+<P>Export callbacks:</P>
+<P>- gem_prime_pin (optional): prepare a GEM object for exporting</P>
+<P>- gem_prime_get_sg_table: provide a scatter/gather table of pinned pages</P>
+<P>- gem_prime_vmap: vmap a buffer exported by your driver</P>
+<P>- gem_prime_vunmap: vunmap a buffer exported by your driver</P>
+<P>Import callback:</P>
+<P>- gem_prime_import_sg_table (import): produce a GEM object from another driver's scatter/gather table

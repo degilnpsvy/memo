@@ -1,0 +1,29 @@
+<H4 class=subsection>5.7.1 Special Files for Standard Descriptors</H4><A name=index-standard-input-1></A><A name=index-input_002c-standard-1></A><A name=index-standard-output></A><A name=index-output_002c-standard></A><A name=index-error-output></A><A name=index-standard-error></A><A name=index-file-descriptors></A><A name=index-files_002c-descriptors_002c-See-file-descriptors></A>
+<P>Running programs conventionally have three input and output streams already available to them for reading and writing. These are known as the <EM>standard input</EM>, <EM>standard output</EM>, and <EM>standard error output</EM>. These streams are, by default, connected to your keyboard and screen, but they are often redirected with the shell, via the &#8216;<SAMP>&lt;</SAMP>&#8217;, &#8216;<SAMP>&lt;&lt;</SAMP>&#8217;, &#8216;<SAMP>&gt;</SAMP>&#8217;, &#8216;<SAMP>&gt;&gt;</SAMP>&#8217;, &#8216;<SAMP>&gt;&amp;</SAMP>&#8217;, and &#8216;<SAMP>|</SAMP>&#8217; operators. Standard error is typically used for writing error messages; the reason there are two separate streams, standard output and standard error, is so that they can be redirected separately. </P><A name=index-differences-in-awk-and-gawk_002c-error-messages></A><A name=index-error-handling></A>
+<P>In other implementations of <CODE>awk</CODE>, the only way to write an error message to standard error in an <CODE>awk</CODE> program is as follows: </P>
+<DIV class=example><PRE class=example>print "Serious error detected!" | "cat 1&gt;&amp;2"
+</PRE></DIV>
+<P>This works by opening a pipeline to a shell command that can access the standard error stream that it inherits from the <CODE>awk</CODE> process. This is far from elegant, and it is also inefficient, because it requires a separate process. So people writing <CODE>awk</CODE> programs often don&#8217;t do this. Instead, they send the error messages to the screen, like this: </P>
+<DIV class=example><PRE class=example>print "Serious error detected!" &gt; "/dev/tty"
+</PRE></DIV>
+<P>(<SAMP>/dev/tty</SAMP> is a special file supplied by the operating system that is connected to your keyboard and screen. It represents the &#8220;terminal,&#8221;<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT28" name=DOCF28><SUP>28</SUP></A> which on modern systems is a keyboard and screen, not a serial console.) This usually has the same effect but not always: although the standard error stream is usually the screen, it can be redirected; when that happens, writing to the screen is not correct. In fact, if <CODE>awk</CODE> is run from a background job, it may not have a terminal at all. Then opening <SAMP>/dev/tty</SAMP> fails. </P>
+<P><CODE>gawk</CODE> provides special file names for accessing the three standard streams. (c.e.). It also provides syntax for accessing any other inherited open files. If the file name matches one of these special names when <CODE>gawk</CODE> redirects input or output, then it directly uses the stream that the file name stands for. These special file names work for all operating systems that <CODE>gawk</CODE> has been ported to, not just those that are POSIX-compliant: </P><A name=index-common-extensions_002c-_002fdev_002fstdin-special-file></A><A name=index-common-extensions_002c-_002fdev_002fstdout-special-file></A><A name=index-common-extensions_002c-_002fdev_002fstderr-special-file></A><A name=index-extensions_002c-common_002c-_002fdev_002fstdin-special-file></A><A name=index-extensions_002c-common_002c-_002fdev_002fstdout-special-file></A><A name=index-extensions_002c-common_002c-_002fdev_002fstderr-special-file></A><A name=index-file-names_002c-standard-streams-in-gawk></A><A name=index-_002fdev_002f_2026-special-files></A><A name=index-files_002c-_002fdev_002f_2026-special-files></A><A name=index-_002fdev_002ffd_002fN-special-files-_0028gawk_0029></A>
+<DL compact>
+<DT><SAMP>/dev/stdin</SAMP></DT>
+<DD>
+<P>The standard input (file descriptor 0). </P></DD>
+<DT><SAMP>/dev/stdout</SAMP></DT>
+<DD>
+<P>The standard output (file descriptor 1). </P></DD>
+<DT><SAMP>/dev/stderr</SAMP></DT>
+<DD>
+<P>The standard error output (file descriptor 2). </P></DD>
+<DT><SAMP>/dev/fd/<VAR>N</VAR></SAMP></DT>
+<DD>
+<P>The file associated with file descriptor <VAR>N</VAR>. Such a file must be opened by the program initiating the <CODE>awk</CODE> execution (typically the shell). Unless special pains are taken in the shell from which <CODE>gawk</CODE> is invoked, only descriptors 0, 1, and 2 are available. </P></DD></DL>
+<P>The file names <SAMP>/dev/stdin</SAMP>, <SAMP>/dev/stdout</SAMP>, and <SAMP>/dev/stderr</SAMP> are aliases for <SAMP>/dev/fd/0</SAMP>, <SAMP>/dev/fd/1</SAMP>, and <SAMP>/dev/fd/2</SAMP>, respectively. However, they are more self-explanatory. The proper way to write an error message in a <CODE>gawk</CODE> program is to use <SAMP>/dev/stderr</SAMP>, like this: </P>
+<DIV class=example><PRE class=example>print "Serious error detected!" &gt; "/dev/stderr"
+</PRE></DIV><A name=index-troubleshooting_002c-quotes-with-file-names></A>
+<P>Note the use of quotes around the file name. Like any other redirection, the value must be a string. It is a common error to omit the quotes, which leads to confusing results. </P>
+<P>Finally, using the <CODE>close()</CODE> function on a file name of the form <CODE>"/dev/fd/<VAR>N</VAR>"</CODE>, for file descriptor numbers above two, does actually close the given file descriptor. </P>
+<P>The <SAMP>/dev/stdin</SAMP>, <SAMP>/dev/stdout</SAMP>, and <SAMP>/dev/stderr</SAMP> special files are also recognized internally by several other versions of <CODE>awk</CODE>.

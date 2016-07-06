@@ -1,0 +1,27 @@
+<P class=docText><FONT class=extract><FONT class=extract>The kernel also provides timer APIs to execute a function at a point of time in the future. You can dynamically define a timer using <TT>init_timer()</TT></FONT></FONT><A name="statically create"></A><FONT class=extract> or statically create one with <TT>DEFINE_TIMER()</TT>. After this is done, populate a <TT>timer_list</TT> </FONT><A name=iddle1047></A><A name=iddle1487></A><A name=iddle1489></A><A name=iddle1744></A><A name=iddle3021></A><A name=iddle3989></A><A name=iddle4262></A><A name=iddle4264></A><A name="it using"></A><FONT class=extract><FONT class=extract>with the address and parameters of your handler function, and register it using <TT>add_timer()</TT></FONT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <LINUX timer.h="">
+
+struct timer_list my_timer;
+
+init_timer(&amp;my_timer);            /* Also see setup_timer() */
+my_timer.expire = jiffies + n*HZ; /* n is the timeout in number
+                                     of seconds */
+my_timer.function = timer_func;   /* Function to execute
+                                     after n seconds */
+my_timer.data = func_parameter;   /* Parameter to be passed
+                                     to timer_func */
+add_timer(&amp;my_timer);             /* Start the timer */</FONT></LINUX></PRE></DIV><BR>
+<P class=docText><A name="Note that"></A><FONT class=extract>Note that this is a one-shot timer. If you want to run <TT>timer_func()</TT></FONT><A name="need to"></A><FONT class=extract> periodically, you also need to add the preceding code inside <TT>timer_func()</TT></FONT><A name="schedule itself"></A><FONT class=extract> to schedule itself after the next timeout:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>static void timer_func(unsigned long func_parameter)
+{
+  /* Do work to be done periodically */
+  /* ... */
+
+  init_timer(&amp;my_timer);
+  my_timer.expire   = jiffies + n*HZ;
+  my_timer.data     = func_parameter;
+  my_timer.function = timer_func;
+  add_timer(&amp;my_timer);
+}</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>You may use <TT>mod_timer()</TT> to change the expiration of <TT>my_timer, del_timer()</TT> to cancel <TT>my_timer</TT>, and <TT>timer_pending()</TT> to see whether <TT>my_timer</TT> is pending at the moment. If you look at <SPAN class=docEmphasis>kernel/timer.c</SPAN>, you will find that <TT>schedule_timeout()</TT> internally uses these same APIs.</FONT></P>
+<P class=docText><FONT class=extract>User-space functions such as <TT>clock_settime()</TT> and <TT>clock_gettime()</TT></FONT><A name="A user"></A><FONT class=extract> are used to access kernel timer services from user space. A user application may use <TT>setitimer()</TT> </FONT><A name=iddle1621></A><A name=iddle1747></A><A name=iddle2142></A><A name=iddle2615></A><A name=iddle2616></A><A name=iddle2643></A><A name=iddle2644></A><A name=iddle2853></A><A name=iddle2919></A><A name=iddle3208></A><A name=iddle3553></A><A name=iddle3995></A><A name=iddle4271></A><A name=iddle4272></A><A name=iddle4274></A><A name=iddle4310></A><A name=iddle4377></A><A name=iddle4570></A><FONT class=extract>and <TT>getitimer()</TT></FONT><A name="an alarm"></A><FONT class=extract> to control the delivery of an alarm signal when a specified timeout expires.</FONT>

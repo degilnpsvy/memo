@@ -1,0 +1,236 @@
+<H3 id=title-IDARJC3D class=docSection1Title>7.4. Porting U-Boot</H3>
+<P class=docText><A name=iddle1126></A><A name=iddle1407></A><A name=iddle2218></A><A name=iddle2220></A><A name=iddle2561></A><A name=iddle2563></A>One of the reasons U-Boot has become so popular is the ease in which new platforms can be supported. Each board port must supply a subordinate makefile that supplies board-specific definitions to the build process. These files are all given the name <TT>config.mk</TT> and exist in the <TT>.../board/xxx</TT> subdirectory under the U-Boot top-level source directory, where <TT>xxx</TT> specifies a particular board.</P>
+<P class=docText>As of a recent U-Boot 1.1.4 snapshot, more than 240 different board configuration files are named <TT>config.mk</TT> under the <TT>.../boards</TT> subdirectory. In this same U-Boot version, 29 different CPU configurations are supported (counted in the same manner). Note that, in some cases, the CPU configuration covers a family of chips, such as <TT>ppc4xx</TT>, which has support for several processors in the PowerPC 4<SPAN class=docEmphasis>xx</SPAN> family. U-Boot supports a large variety of popular CPUs and CPU families in use today, and a much larger collection of reference boards based on these processors.</P>
+<P class=docText>If your board contains one of the supported CPUs, porting U-Boot is quite straightforward. If you must add a new CPU, plan on significantly more effort. The good news is that someone before you has probably done the bulk of the work. Whether you are porting to a new CPU or a new board based on an existing CPU, study the existing source code for specific guidance. Determine what CPU is closest to yours, and clone the functionality found in that CPU-specific directory. Finally, modify the resulting sources to add the specific support for your new CPU's requirements.</P><A name=ch07lev2sec10></A>
+<H4 id=title-IDATMC3D class=docSection2Title>7.4.1. EP405 U-Boot Port</H4>
+<P class=docText>The same logic applies to porting U-Boot to a new board. Let's look at an example. We will use the Embedded Planet EP405 board, which contains the AMCC PowerPC 405GP processor. The particular board used for this example was provided courtesy of Embedded Planet and came with 64MB of SDRAM and 16MB of on-board Flash. Numerous other devices complete the design.</P>
+<P class=docText>The first step is to see how close we can come to an existing board. Many boards in the U-Boot source tree support the 405GP processor. A quick <TT>grep</TT> of the board-configuration header files narrows the choices to those that support the 405GP processor:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>cd .../u-boot/include/configs$ grep -l CONFIG_405GP *</SPAN>
+</PRE></DIV><BR>
+<P class=docText><A name=iddle2611></A>In a recent U-Boot snapshot, 25 board configuration files are configured for 405GP. After examining a few, the AR405.h configuration is chosen as a baseline. It contains support for the LXT971 Ethernet transceiver, which is also on the EP405. The goal is to minimize any development work by borrowing from others in the spirit of open source. Let's tackle the easy steps first. Copy the board-configuration file to a new file with a name appropriate for your board. We'll call ours EP405.h. These commands are issued from the top-level U-Boot source tree.</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>cp .../include/configs/AR405.h .../include/configs/EP405.h</SPAN></PRE></DIV><BR>
+<P class=docText>Then create the board-specific directory and make a copy of the AR405 board files. We don't know yet whether we need all of them. That step comes later. After copying the files to your new board directory, edit the filenames appropriately for your board name.</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>$ cd board   &lt;&lt;&lt; from top level U-Boot source directory
+$ mkdir ep405
+$ cp esd/ar405/* ep405
+</SPAN></PRE></DIV><BR>
+<P class=docText>Now comes the hard part. Jerry Van Baren, a developer and U-Boot contributor, detailed a humorous though realistic process for porting U-Boot in an e-mail posting to the U-Boot mailing list. His complete process, documented in C, can be found in the U-Boot <TT>README</TT> file. The following summarizes the hard part of the porting process in Jerry's style and spirit:</P>
+<DIV class=docText><PRE>while (!running) {
+      do {
+            Add / modify source code
+      } until (compiles);
+      Debug;
+...
+}</PRE></DIV><BR>
+<P class=docText>Jerry's process, as summarized here, is the simple truth. When you have selected a baseline from which to port, you must add, delete, and modify source code until it compiles, and then debug it until it is running without error! There is no magic formula. Porting any bootloader to a new board requires knowledge of many areas of hardware and software. Some of these disciplines, such as setting up SDRAM controllers, are rather specialized and complex. Virtually all of this work involves a detailed knowledge of the underlying hardware. The net result: Be prepared to spend many entertaining hours poring over your processor's hardware reference manual, along with the data sheets of numerous other components that reside on your board.</P><A name=ch07lev2sec11></A>
+<H4 id=title-IDAEPC3D class=docSection2Title>7.4.2. U-Boot Makefile Configuration Target</H4>
+<P class=docText><A name=iddle1227></A><A name=iddle1409></A><A name=iddle1410></A><A name=iddle1631></A><A name=iddle2068></A><A name=iddle2221></A><A name=iddle2222></A><A name=iddle2260></A><A name=iddle2564></A><A name=iddle2565></A>Now that we have a code base to start from, we must make some modifications to the top-level U-Boot makefile to add the configuration steps for our new board. Upon examining this makefile, we find a section for configuring the U-Boot source tree for the various supported boards. We now add support for our new one so we can build it. Because we derived our board from the ESD AR405, we will use that rule as the template for building our own. If you follow along in the U-Boot source code, you will see that these rules are placed in the makefile in alphabetical order of their configuration name. We shall be good open-source citizens and follow that lead. We call our configuration target <TT>EP405_config</TT>, again in concert with the U-Boot conventions.</P>
+<DIV class=docText><PRE>EBONY_config:       unconfig
+      @./mkconfig $(@:_config=) ppc ppc4xx ebony
+
+<SPAN class=docEmphStrong>+EP405_config:      unconfig</SPAN>
+<SPAN class=docEmphStrong>+     @./mkconfig $(@:_config=) ppc ppc4xx ep405</SPAN>
+<SPAN class=docEmphStrong>+</SPAN>
+ERIC_config:        unconfig
+      @./mkconfig $(@:_config=) ppc ppc4xx eric</PRE></DIV><BR>
+<P class=docText>Our new configuration rule has been inserted as shown in the three lines preceded with the <TT>+</TT> character (unified <TT>diff</TT> format).</P>
+<P class=docText>Upon completing the steps just described, we have a U-Boot source tree that represents a <SPAN class=docEmphasis>starting point</SPAN>. It probably will not even compile cleanly, and that should be our first step. At least the compiler can give us some guidance on where to start.</P><A name=ch07lev2sec12></A>
+<H4 id=title-IDAAUC3D class=docSection2Title>7.4.3. EP405 Processor Initialization</H4>
+<P class=docText>The first task that your new U-Boot port must do correctly is to initialize the processor and the memory (DRAM) subsystems. After reset, the 405GP processor core is designed to fetch instructions starting from 0xFFFF_FFFC. The core attempts to execute the instructions found here. Because this is the top of the memory range, the instruction found here must be an unconditional branch instruction.</P>
+<P class=docText>This processor core is also hard-coded to configure the upper 2MB memory region so that it is accessible without programming the external bus controller, to which Flash memory is usually attached. This forces the requirement to branch to a location within this address space because the processor is incapable of addressing memory anywhere else until our bootloader code initializes additional memory <A name=iddle2031></A>regions. We must branch to somewhere at or above 0xFFE0_0000. How did we know all this? Because we read the 405GP user's manual!</P>
+<P class=docText>The behavior of the 405GP processor core, as described in the previous paragraph, places requirements on the hardware designer to ensure that, on power-up, nonvolatile memory (Flash) is mapped to the required upper 2MB memory region. Certain attributes of this initial memory region assume default values on reset. For example, this upper 2MB region will be configured for 256 wait states, three cycles of address-to-chip select delay, three cycles of chip select to output enable delay, and seven cycles of hold time.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec4.html#ch07fn03">[3]</A></SUP> This allows maximum freedom for the hardware designer to select appropriate devices or methods of getting instruction code to the processor directly after reset.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch07fn03>[3]</A></SUP> This data was taken directly from the 405GP user's manual, referenced at the end of this chapter.</P></BLOCKQUOTE>
+<P class=docText>We've already seen how the reset vector is installed to the top of Flash in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec2.html#ch07list02">Listing 7-2</A>. When configured for the 405GP, our first lines of code will be found in the file <TT>.../cpu/ppc4xx/start.S</TT>. The U-Boot developers intended this code to be <SPAN class=docEmphasis>processor generic</SPAN>. In theory, there should be no need for board-specific code in this file. You will see how this is accomplished.</P>
+<P class=docText>We don't need to understand PowerPC assembly language in any depth to understand the logical flow in <TT>start.S</TT>. Many frequently asked questions (FAQs) have been posted to the U-Boot mailing list about modifying low-level assembly code. In nearly all cases, it is not necessary to modify this code if you are porting to one of the many supported processors. It is mature code, with many successful ports running on it. You need to modify the board-specific code (at a bare minimum) for your port. If you find yourself troubleshooting or modifying the early startup assembler code for a processor that has been around for a while, you are most likely heading down the wrong road.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec4.html#ch07list06">Listing 7-6</A> reproduces a portion of <TT>start.S</TT> for the 4<SPAN class=docEmphasis>xx architecture</SPAN>.</P><A name=ch07list06></A>
+<H5 id=title-IDAHWC3D class=docExampleTitle>Listing 7-6. U-Boot 4xx startup code</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+#if defined(CONFIG_405GP) || defined(CONFIG_405CR) ||
+ defined(CONFIG_405) || defined(CONFIG_405EP)
+     /*--------------------------------- */
+/* Clear and set up some registers.  */
+/*--------------------------------- */
+addi    r4,r0,0x0000
+mtspr   sgr,r4
+mtspr   dcwr,r4
+mtesr   r4              /* clear Exception Syndrome Reg */
+mttcr   r4              /* clear Timer Control Reg */
+mtxer   r4              /* clear Fixed-Point Exception Reg */
+mtevpr  r4            /* clear Exception Vector Prefix Reg */
+addi    r4,r0,0x1000   /* set ME bit (Machine Exceptions) */
+oris    r4,r4,0x0002             /* set CE bit (Critical Exceptions) */
+mtmsr   r4                        /* change MSR */
+addi    r4,r0,(0xFFFF-0x10000)  /* set r4 to 0xFFFFFFFF (status in the */
+                             /* dbsr is cleared by setting bits to 1) */
+mtdbsr  r4                        /* clear/reset the dbsr */
+
+/*---------------------------------- */
+/* Invalidate I and D caches. Enable I cache for defined memory regions */
+/* to speed things up. Leave the D cache disabled for now. It will be  */
+/* enabled/left disabled later based on user selected menu options. */
+/* Be aware that the I cache may be disabled later based on the menu */
+/* options as well. See miscLib/main.c.  */
+/*------------------------------------- */
+bl      invalidate_icache
+bl      invalidate_dcache
+
+/*-------------------------------------- */
+/* Enable two 128MB cachable regions.     */
+/*-----------------------------------    */
+addis   r4,r0,0x8000
+addi    r4,r4,0x0001
+mticcr  r4                        /* instruction cache */
+isync
+
+addis   r4,r0,0x0000
+addi    r4,r4,0x0000
+mtdccr  r4                        /* data cache */</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The first code to execute in <TT>start.S</TT> for the 405GP processor starts about a third of the way into the source file, where a handful of processor registers are cleared or set to sane initial values. The instruction and data caches are then invalidated, and the instruction cache is enabled to speed up the initial load. Two 128MB cacheable regions are set up, one at the high end of memory (the Flash region) and the other at the bottom (normally the start of system DRAM). U-Boot eventually is copied <A name=iddle1080></A><A name=iddle1408></A><A name=iddle1574></A><A name=iddle1623></A><A name=iddle1624></A><A name=iddle1903></A><A name=iddle2219></A><A name=iddle2562></A>to RAM in this region and executed from there. The reason for this is performance: Raw reads from RAM are an order of magnitude (or more) faster than reads from Flash. However, for the 4<SPAN class=docEmphasis>xx</SPAN> CPU, there is another subtle reason for enabling the instruction cache, as we shall soon discover.</P><A name=ch07lev2sec13></A>
+<H4 id=title-IDA3ZC3D class=docSection2Title>7.4.4. Board-Specific Initialization</H4>
+<P class=docText>The first opportunity for any board-specific initialization comes in <TT>.../cpu/ppc4xx/start.S</TT> just after the cacheable regions have been initialized. Here we find a call to an external assembler language routine called <TT>ext_bus_cntlr_init</TT>.</P>
+<DIV class=docText><PRE>bl ext_bus_cntlr_init   /* Board specific bus cntrl init */</PRE></DIV><BR>
+<P class=docText>This routine is defined in <TT>.../board/ep405/init.S</TT>, in the new board-specific directory for our board. It provides a hook for very early hardware-based initialization. This is one of the files that has been customized for our EP405 platform. This file contains the board-specific code to initialize the 405GP's external bus controller for our application. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec4.html#ch07list07">Listing 7-7</A> contains the meat of the functionality from this file. This is the code that initializes the 405GP's external bus controller.</P><A name=ch07list07></A>
+<H5 id=title-IDAG1C3D class=docExampleTitle>Listing 7-7. External Bus Controller Initialization</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>     .globl  ext_bus_cntlr_init
+ext_bus_cntlr_init:
+   mflr      r4             /* save link register          */
+   bl        ..getAddr
+..getAddr:
+   mflr      r3            /* get _this_ address           */
+   mtlr      r4            /* restore link register        */
+   addi      r4,0,14       /* prefetch 14 cache lines...   */
+   mtctr     r4            /* ...to fit this function      */
+                           /* cache (8x14=112 instr)       */
+..ebcloop:
+   icbt      r0,r3         /* prefetch cache line for [r3] */
+   addi      r3,r3,32      /* move to next cache line      */
+   bdnz      ..ebcloop     /* continue for 14 cache lines  */
+
+    /*---------------------------------------------------  */
+    /* Delay to ensure all accesses to ROM are complete    */
+    /* before changing  bank 0 timings                     */
+    /* 200usec should be enough.                           */
+    /* 200,000,000 (cycles/sec) X .000200 (sec) =          */
+    /* 0x9C40 cycles                                       */
+    /*---------------------------------------------------  */
+
+    addis    r3,0,0x0
+    ori      r3,r3,0xA000 /* ensure 200usec have passed t  */
+    mtctr    r3
+
+..spinlp:
+    bdnz     ..spinlp      /* spin loop                    */
+
+    /*----------------------------------------------------*/
+    /* Now do the real work of this function              */
+    /* Memory Bank 0 (Flash and SRAM) initialization      */
+    /*----------------------------------------------------*/
+
+    addi     r4,0,pb0ap         /* *ebccfga = pb0ap;      */
+    mtdcr    ebccfga,r4
+    addis    r4,0,EBC0_B0AP@h   /* *ebccfgd = EBC0_B0AP;  */
+    ori      r4,r4,EBC0_B0AP@l
+    mtdcr    ebccfgd,r4
+
+    addi     r4,0,pb0cr         /* *ebccfga = pb0cr;      */
+    mtdcr    ebccfga,r4
+    addis    r4,0,EBC0_B0CR@h   /* *ebccfgd = EBC0_B0CR;  */
+    ori      r4,r4,EBC0_B0CR@l
+    mtdcr    ebccfgd,r4
+
+    /*----------------------------------------------------*/
+    /* Memory Bank 4 (NVRAM &amp; BCSR) initialization    */
+    /*----------------------------------------------------*/
+
+    addi     r4,0,pb4ap         /* *ebccfga = pb4ap;      */
+    mtdcr    ebccfga,r4
+    addis    r4,0,EBC0_B4AP@h   /* *ebccfgd = EBC0_B4AP;  */
+    ori      r4,r4,EBC0_B4AP@l
+    mtdcr    ebccfgd,r4
+
+    addi     r4,0,pb4cr         /* *ebccfga = pb4cr;      */
+    mtdcr    ebccfga,r4
+    addis    r4,0,EBC0_B4CR@h   /* *ebccfgd = EBC0_B4CR;  */
+    ori      r4,r4,EBC0_B4CR@l
+    mtdcr    ebccfgd,r4
+
+    blr                           /* return               */</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The example in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec4.html#ch07list07">Listing 7-7</A> was chosen because it is typical of the subtle complexities involved in low-level processor initialization. It is important to realize the context in which this code is running. It is executing from Flash, before any DRAM is available. There is no stack. This code is preparing to make fundamental changes to the controller that governs access to the very Flash it is executing from. It is well documented for this particular processor that executing code from Flash while modifying the external bus controller to which the Flash is attached can lead to errant reads and a resulting processor crash.</P>
+<P class=docText>The solution is shown in this assembly language routine. Starting at the label <TT>..getAddr</TT>, and for the next seven assembly language instructions, the code essentially prefetches itself into the instruction cache, using the <TT>icbt</TT> instruction. When the entire subroutine has been successfully read into the instruction cache, it can proceed to make the required changes to the external bus controller without fear of a crash because it is executing directly from the internal instruction cache. Subtle, but clever! This is followed by a short delay to make sure all the requested i-cache reads have completed.</P>
+<P class=docText>When the prefetch and delay have completed, the code proceeds to configure Memory Bank 0 and Memory Bank 4 appropriately for our board. The values come from a detailed knowledge of the underlying components and their interconnection on the board. The interested reader can consult the "Suggestions for Additional Reading" at the end of the chapter for all the details of PowerPC assembler and the 405GP processor from which this example was derived.</P>
+<P class=docText>Consider making a change to this code without a complete understanding of what is happening here. Perhaps you added a few lines and increased its size beyond the range that was prefetched into the cache. It would likely crash (worse, it might crash only sometimes), but stepping through this code with a debugger would not yield a single clue as to why.</P>
+<P class=docText>The next opportunity for board-specific initialization comes after a temporary stack has been allocated from the processor's data cache. This is the branch to initialize the SDRAM controller around line 727 of <TT>.../cpu/ppc4xx/start.S:</TT></P>
+<P class=docText><TT>bl sdram_init</TT></P>
+<P class=docText>The execution context now includes a stack pointer and some temporary memory for local data storagethat is, a partial C context, allowing the developer to use C for the relatively complex task of setting up the system SDRAM controller and other initialization tasks. In our EP405 port, the <TT>sdram_init()</TT> code resides in <TT>.../board/ep405/ep405.c</TT> and was customized for this particular board and DRAM configuration. Because this board does not use a commercially available memory SIMM, it is not possible to determine the configuration of the DRAM dynamically, like so many other boards supported by U-Boot. It is hard-coded in <TT>sdram_init</TT>.</P>
+<P class=docText>Many off-the-shelf memory DDR modules have a SPD (Serial Presence Detect) PROM containing parameters defining the memory module. These parameters can be read under program control via I2C and can be used as input to determine proper parameters for the memory controller. U-Boot has support for this technique but might need to be modified to work with your specific board. Many examples of its use can be found in the U-Boot source code. The configuration option <TT>CONFIG_SPD_EEPROM</TT> enables this feature. You can <TT>grep</TT> for this option to find examples of its use.</P><A name=ch07lev2sec14></A>
+<H4 id=title-IDAH3C3D class=docSection2Title>7.4.5. Porting Summary</H4>
+<P class=docText>By now, you can appreciate some of the difficulties of porting a bootloader to a hardware platform. There is simply no substitute for a detailed knowledge of the underlying hardware. Of course, we'd like to minimize our investment in time required for this task. After all, we usually are not paid based on how well we understand every hardware detail of a given processor, but rather on our ability to deliver a working solution in a timely manner. Indeed, this is one of the primary reasons open source has flourished. We just saw how easy it was to port U-Boot to a new hardware platformnot because we're world-class experts on the processor, but because many before us have done the bulk of the hard work already.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec4.html#ch07list08">Listing 7-8</A> is the complete list of new or modified files that complete the basic EP405 port for U-Boot. Of course, if there had been new hardware devices for which no support exists in U-Boot, or if we were porting to a new CPU that is not yet supported in U-Boot, this would have been a much more significant effort. The point to be made here, at the risk of sounding redundant, is that there is simply no substitute for a detailed knowledge of both the hardware (CPU and subsystems) and the underlying software (U-Boot) to complete a port successfully in a reasonable time frame. If you start the project from that frame of mind, you will have a successful outcome.</P>
+<P class=docText></P><A name=ch07list08></A>
+<H5 id=title-IDA53C3D class=docExampleTitle>Listing 7-8. New or Changed Files for U-Boot EP405 Port</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ diff -purN u-boot u-boot-ep405/ | grep +++
++++ u-boot-ep405/board/ep405/config.mk
++++ u-boot-ep405/board/ep405/ep405.c
++++ u-boot-ep405/board/ep405/ep405.h
++++ u-boot-ep405/board/ep405/flash.c
++++ u-boot-ep405/board/ep405/init.S
++++ u-boot-ep405/board/ep405/Makefile
++++ u-boot-ep405/board/ep405/u-boot.lds
++++ u-boot-ep405/include/config.h
++++ u-boot-ep405/include/config.mk
++++ u-boot-ep405/include/configs/EP405.h
++++ u-boot-ep405/include/ppc405.h
++++ u-boot-ep405/Makefile</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1120></A><A name=iddle1603></A><A name=iddle2033></A><A name=iddle2095></A><A name=iddle2555></A>Recall that we derived all the files in the <TT>.../board/ep405</TT> directory from another directory. Indeed, we didn't create any files from scratch for this port. We borrowed from the work of others and customized where necessary to achieve our goals.</P><A name=ch07lev2sec15></A>
+<H4 id=title-IDAIAD3D class=docSection2Title>7.4.6. U-Boot Image Format</H4>
+<P class=docText>Now that we have a working bootloader for our EP405 board, we can load and run programs on it. Ideally, we want to run an operating system such as Linux. To do this, we need to understand the image format that U-Boot requires. U-Boot expects a small header on the image file that identifies several attributes of the image. U-Boot uses the <TT>mkimage</TT> tool (part of the U-Boot source code) to build this image header.</P>
+<P class=docText>Recent Linux kernel distributions have built-in support for building images directly bootable by U-Boot. Both the ARM and PPC branches of the kernel source tree have support for a target called <TT>uImage</TT>. Let's look at the PPC case. The following snippet from the Linux kernel PPC makefile <TT>.../arch/ppc/boot/images/Makefile</TT> contains the rule for building the U-Boot target called <TT>uImage</TT>:</P>
+<DIV class=docText><PRE>quiet_cmd_uimage = UIMAGE  $@
+       cmd_uimage = $(CONFIG_SHELL) $(MKIMAGE) -A ppc \
+      -O linux -T kernel -C gzip -a 00000000 -e 00000000 \
+      -n 'Linux-$(KERNELRELEASE)' -d $&lt; $@</PRE></DIV><BR>
+<P class=docText><A name=iddle2034></A>Ignoring the syntactical complexity, understand that this rule calls a shell script identified by the variable <TT>$(MKIMAGE)</TT>. The shell script executes the U-Boot <TT>mkimage</TT> utility with the parameters shown. The <TT>mkimage</TT> utility creates the U-Boot header and prepends it to the supplied kernel image. The parameters are defined as follows:</P>
+<P class=docText><TT>-A</TT> Specifies the target image architecture</P>
+<P class=docText><TT>-O</TT> Species the target image OSin this case, Linux</P>
+<P class=docText><TT>-T</TT> Specifies the target image typea kernel, in this case</P>
+<P class=docText><TT>-C</TT> Specifies the target image compression typehere, <TT>gzip</TT></P>
+<P class=docText><TT>-a</TT> Sets the U-Boot <SPAN class=docEmphasis>loadaddress</SPAN> to the value specifiedin this case, <TT>0</TT></P>
+<P class=docText><TT>-e</TT> Sets the U-Boot image entry point to the supplied value</P>
+<P class=docText><TT>-n</TT> A text field used to identify the image to the human user</P>
+<P class=docText><TT>-d</TT> The executable image file to which the header is prepended</P>
+<P class=docText>Several U-Boot commands use this header data both to verify the integrity of the image (U-Boot also puts a CRC signature in the header) and to instruct various commands what to do with the image. U-Boot has a command called <TT>iminfo</TT> that reads the image header and displays the image attributes from the target image. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec4.html#ch07list09">Listing 7-9</A> contains the results of loading a <TT>uImage</TT> (bootable Linux kernel image formatted for U-Boot) to the EP405 board via U-Boot's <TT>tftpboot</TT> command and executing the <TT>iminfo</TT> command on the image.</P><A name=ch07list09></A>
+<H5 id=title-IDATDD3D class=docExampleTitle>Listing 7-9. U-Boot <TT>iminfo</TT> Command</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>=&gt; <SPAN class=docEmphStrong>tftpboot 400000 uImage-ep405</SPAN>
+ENET Speed is 100 Mbps - FULL duplex connection
+TFTP from server 192.168.1.9; our IP address is 192.168.1.33
+Filename 'uImage-ep405'.
+Load address: 0x400000
+Loading: ##########  done
+Bytes transferred = 891228 (d995c hex)
+=&gt; <SPAN class=docEmphStrong>iminfo</SPAN>
+
+## Checking Image at 00400000 ...
+   Image Name:   Linux-2.6.11.6
+   Image Type:   PowerPC Linux Kernel Image (gzip compressed)
+   Data Size:    891164 Bytes = 870.3 kB
+   Load Address: 00000000
+   Entry Point:  00000000
+   Verifying Checksum ... OK
+=&gt;</PRE></TD></TR></TBODY></TABLE>

@@ -1,0 +1,14 @@
+Kconfig hints<BR>-------------<BR>This is a collection of Kconfig tips, most of which aren't obvious at<BR>first glance and most of which have become idioms in several Kconfig<BR>files. 
+<P></P>
+<P><FONT class=extract>Adding common features and make the usage configurable<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~<BR>It is a common idiom to implement a feature/functionality that are<BR>relevant for some architectures but not all.<BR>The recommended way to do so is to use a config variable named HAVE_*<BR>that is defined in a common Kconfig file and selected by the relevant<BR>architectures.<BR>An example is the generic IOMAP functionality.</FONT></P>
+<P><FONT class=extract>We would in lib/Kconfig see:</FONT></P>
+<P><FONT class=extract># Generic IOMAP is used to ...<BR>config HAVE_GENERIC_IOMAP</FONT></P>
+<P><FONT class=extract>config GENERIC_IOMAP<BR>&nbsp;depends on HAVE_GENERIC_IOMAP &amp;&amp; FOO</FONT></P>
+<P><FONT class=extract>And in lib/Makefile we would see:<BR>obj-$(CONFIG_GENERIC_IOMAP) += iomap.o</FONT></P>
+<P><FONT class=extract>For each architecture using the generic IOMAP functionality we would see:</FONT></P>
+<P><FONT class=extract>config X86<BR>&nbsp;select ...<BR>&nbsp;select HAVE_GENERIC_IOMAP<BR>&nbsp;select ...</FONT></P>
+<P><FONT class=extract>Note: we use the existing config option and avoid creating a new<BR>config variable to select HAVE_GENERIC_IOMAP.</FONT></P>
+<P><FONT class=extract>Note: the use of the internal config variable HAVE_GENERIC_IOMAP, it is<BR>introduced to overcome the limitation of select which will force a<BR>config option to 'y' no matter the dependencies.<BR>The dependencies are moved to the symbol GENERIC_IOMAP and we avoid the<BR>situation where select forces a symbol equals to 'y'.</FONT></P>
+<P><FONT class=extract>Build as module only<BR>~~~~~~~~~~~~~~~~~~~~<BR>To restrict a component build to module-only, qualify its config symbol<BR>with "depends on m".&nbsp; E.g.:</FONT></P>
+<P><FONT class=extract>config FOO<BR>&nbsp;depends on BAR &amp;&amp; m</FONT></P>
+<P><FONT class=extract>limits FOO to module (=m) or disabled (=n).</FONT>

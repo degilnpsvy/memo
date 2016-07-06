@@ -1,0 +1,10 @@
+schedule_timeout
+<P></P>
+<P>signed long __sched schedule_timeout(signed long timeout)<BR>{<BR>&nbsp;struct timer_list timer;<BR>&nbsp;unsigned long expire; </P>
+<P></P>
+<P>&nbsp;switch (timeout)<BR>&nbsp;{<BR>&nbsp;case MAX_SCHEDULE_TIMEOUT:<BR>&nbsp;&nbsp;/*<BR>&nbsp;&nbsp; * These two special cases are useful to be comfortable<BR>&nbsp;&nbsp; * in the caller. Nothing more. We could take<BR>&nbsp;&nbsp; * MAX_SCHEDULE_TIMEOUT from one of the negative value<BR>&nbsp;&nbsp; * but I' d like to return a valid offset (&gt;=0) to allow<BR>&nbsp;&nbsp; * the caller to do everything it want with the retval.<BR>&nbsp;&nbsp; */<BR>&nbsp;&nbsp;schedule();<BR>&nbsp;&nbsp;goto out;<BR>&nbsp;default:<BR>&nbsp;&nbsp;/*<BR>&nbsp;&nbsp; * Another bit of PARANOID. Note that the retval will be<BR>&nbsp;&nbsp; * 0 since no piece of kernel is supposed to do a check<BR>&nbsp;&nbsp; * for a negative retval of schedule_timeout() (since it<BR>&nbsp;&nbsp; * should never happens anyway). You just have the printk()<BR>&nbsp;&nbsp; * that will tell you if something is gone wrong and where.<BR>&nbsp;&nbsp; */<BR>&nbsp;&nbsp;if (timeout &lt; 0) {<BR>&nbsp;&nbsp;&nbsp;printk(KERN_ERR "schedule_timeout: wrong timeout "<BR>&nbsp;&nbsp;&nbsp;&nbsp;"value %lx\n", timeout);<BR>&nbsp;&nbsp;&nbsp;dump_stack();<BR>&nbsp;&nbsp;&nbsp;current-&gt;state = TASK_RUNNING;<BR>&nbsp;&nbsp;&nbsp;goto out;<BR>&nbsp;&nbsp;}<BR>&nbsp;}</P>
+<P>&nbsp;expire = timeout + jiffies;</P>
+<P><FONT class=clozed>&nbsp;setup_timer_on_stack(&amp;timer, process_timeout, (unsigned long)current</FONT>);<BR>&nbsp;__mod_timer(&amp;timer, expire, false, TIMER_NOT_PINNED);<BR>&nbsp;schedule();<BR>&nbsp;del_singleshot_timer_sync(&amp;timer);</P>
+<P>&nbsp;/* Remove the timer from the object tracker */<BR>&nbsp;destroy_timer_on_stack(&amp;timer);</P>
+<P>&nbsp;timeout = expire - jiffies;</P>
+<P>&nbsp;out:<BR>&nbsp;return timeout &lt; 0 ? 0 : timeout;<BR>}<BR>EXPORT_SYMBOL(schedule_timeout);

@@ -1,0 +1,84 @@
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01">Listing 3.1</A><A name="as helpers"></A> shows the example implementation. Because kernel threads usually act as helpers to device drivers, they are created when the driver is initialized. In this case, however, the example thread can be created from any suitable place, for instance, <SPAN class=docEmphasis>init/main.c</SPAN>.</P>
+<P class=docText><A name="thread starts"></A>The thread starts by invoking <TT>daemonize()</TT><A name="calling thread"></A>, which performs initial housekeeping and changes the parent of the calling thread to a kernel thread called <SPAN class=docEmphasis>kthreadd.</SPAN><A name="Each Linux"></A> Each Linux thread has a single parent. If a parent process dies without waiting for its child <A name=iddle1093></A><A name=iddle3653></A><A name=iddle3999></A><A name=iddle4676></A><A name="child becomes"></A>to exit, the child becomes a <SPAN class=docEmphasis>zombie</SPAN><A name="and wastes"></A> process and wastes resources. Reparenting the child to kthreadd, avoids this and ensures proper cleanup when the thread exits.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03fn01">[1]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch03fn01>[1]</A></SUP> In 2.6.21 and earlier kernels, <TT>daemonize()</TT><A name=calling></A> reparents the calling thread to the init task by calling <TT>reparent_to_init()</TT>.</P></BLOCKQUOTE>
+<P class=docText>Because <TT>daemonize()</TT> blocks all signals by default, use <TT>allow_signal()</TT><A name="thread desires"></A> to enable delivery if your thread desires to handle a particular signal. There are no signal handlers inside the kernel, so use <TT>signal_pending()</TT><A name="the code"></A> to check for signals and take appropriate action. For debugging purposes, the code in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01">Listing 3.1</A> requests delivery of <TT>SIGKILL</TT> and dies if it's received.</P>
+<P class=docText><TT>kernel_thread()</TT> is depreciated in favor of the higher-level <SPAN class=docEmphasis>kthread</SPAN><A name="will look"></A> API, which is built over the former. We will look at kthreads later on.</P><A name=ch03ex01></A>
+<H5 id=title-ID0EBDPM class=docExampleTitle>Listing 3.1. Implementing a Kernel Thread</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>static DECLARE_WAIT_QUEUE_HEAD(myevent_waitqueue);
+rwlock_t myevent_lock;
+extern unsigned int myevent_id;  /* Holds the identity of the
+                                    troubled data structure.
+                                    Populated later on */
+static int mykthread(void *unused)
+{
+  unsigned int event_id = 0;
+  DECLARE_WAITQUEUE(wait, current);
+  /* Become a kernel thread without attached user resources */
+  daemonize("mykthread");
+
+  /* Request delivery of SIGKILL */
+  allow_signal(SIGKILL);
+
+  /* The thread sleeps on this wait queue until it's
+     woken up by parts of the kernel in charge of sensing
+     the health of data structures of interest */
+  add_wait_queue(&amp;myevent_waitqueue, &amp;wait);
+
+  for (;;) {
+    /* Relinquish the processor until the event occurs */
+    set_current_state(TASK_INTERRUPTIBLE);
+    schedule();  /* Allow other parts of the kernel to run */
+    /* Die if I receive SIGKILL */
+    if (signal_pending(current)) break;
+    /* Control gets here when the thread is woken up */
+    read_lock(&amp;myevent_lock);      /* Critical section starts */
+    if (myevent_id) { /* Guard against spurious wakeups */
+      event_id = myevent_id;
+      read_unlock(&amp;myevent_lock); /* Critical section ends */
+      /* Invoke the registered user mode helper and
+         pass the identity code in its environment */
+      run_umode_handler(event_id); /* Expanded later on */
+    } else {
+      read_unlock(&amp;myevent_lock);
+    }
+  }
+
+  set_current_state(TASK_RUNNING);
+  remove_wait_queue(&amp;myevent_waitqueue, &amp;wait);
+  return 0;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name="of the"></A>If you compile and run this as part of the kernel, you can see the newly created thread, <SPAN class=docEmphasis>mykthread</SPAN><A name="the ps"></A>, in the ps output:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ps -ef</SPAN>
+    UID        PID  PPID C STIME TTY       TIME CMD
+    root         1     0 0 21:56 ?     00:00:00 init [3]
+    root         2     1 0 22:36 ?     00:00:00 [ksoftirqd/0]
+    ...
+    <SPAN class=docEmphStrong>root         111   1 0 21:56 ?     00:00:00 [mykthread]</SPAN>
+    ...</PRE></DIV><BR>
+<P class=docText><A name="snippet that"></A>Before we delve further into the thread implementation, let's write a code snippet that monitors the health of a data structure of interest and awakens mykthread if a problem condition is detected:</P>
+<DIV class=docText><PRE>/* Executed by parts of the kernel that own the
+   data structures whose health you want to monitor */
+/* ... */
+
+if (my_key_datastructure looks troubled) {
+  write_lock(&amp;myevent_lock);  /* Serialize */
+  /* Fill in the identity of the data structure */
+  myevent_id = datastructure_id;
+
+  write_unlock(&amp;myevent_lock);
+
+  /* Wake up mykthread */
+  wake_up_interruptible(&amp;myevent_waitqueue);
+}
+
+/* ... */</PRE></DIV><BR>
+<P class=docText><A name=iddle1049></A><A name=iddle1573></A><A name=iddle2607></A><A name=iddle2609></A><A name=iddle2635></A><A name=iddle2637></A><A name=iddle3167></A><A name=iddle3168></A><A name=iddle3652></A><A name=iddle3699></A><A name=iddle4148></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01">Listing 3.1</A><A name="executes in"></A> executes in process context, whereas the preceding snippet runs from either process or interrupt context. Process and interrupt contexts communicate via kernel data structures. Our example uses <TT>myevent_id</TT> and <TT>myevent_waitqueue</TT> for this communication. <TT>myevent_id</TT><A name="identity of"></A> contains the identity of the data structure in trouble. Access to <TT>myevent_id</TT><A name="serialized using"></A> is serialized using locks.</P>
+<P class=docText>Note that kernel threads are preemptible only if <TT>CONFIG_PREEMPT</TT> is turned on at compile time. If <TT>CONFIG_PREEMPT</TT><A name="without the"></A> is off, or if you are still running a 2.4 kernel without the preemption patch, your thread will freeze the system if it does not go to sleep. If you comment out <TT>schedule()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01">Listing 3.1</A> and disable <TT>CONFIG_PREEMPT</TT><A name="will lock"></A> in your kernel configuration, your system will lock up.

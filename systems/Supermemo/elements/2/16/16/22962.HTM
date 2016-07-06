@@ -1,0 +1,44 @@
+# Documentation/console/console.txt 
+<P></P>
+<P><FONT class=extract>Console Drivers<BR>===============</FONT></P>
+<P><FONT class=extract></FONT></P>
+<P><FONT class=extract>The linux kernel has 2 general types of console drivers.&nbsp; The first type is<BR>assigned by the kernel to all the virtual consoles during the boot process.<BR>This type will be called 'system driver', and only one system driver is allowed<BR>to exist. The system driver is persistent and it can never be unloaded, though<BR>it may become inactive.</FONT></P>
+<P><FONT class=extract>The second type has to be explicitly loaded and unloaded. This will be called<BR>'modular driver' by this document. Multiple modular drivers can coexist at<BR>any time with each driver sharing the console with other drivers including<BR>the system driver. However, modular drivers cannot take over the console<BR>that is currently occupied by another modular driver. (Exception: Drivers that<BR>call take_over_console() will succeed in the takeover regardless of the type<BR>of driver occupying the consoles.) They can only take over the console that is<BR>occupied by the system driver. In the same token, if the modular driver is<BR>released by the console, the system driver will take over.</FONT></P>
+<P><FONT class=extract>Modular drivers, from the programmer's point of view, has to call:</FONT></P>
+<P><FONT class=extract>&nbsp; take_over_console() - load and bind driver to console layer<BR>&nbsp; give_up_console() - unbind and unload driver</FONT></P>
+<P><FONT class=extract>In newer kernels, the following are also available:</FONT></P>
+<P><FONT class=extract>&nbsp; register_con_driver()<BR>&nbsp; unregister_con_driver()</FONT></P>
+<P><FONT class=extract>If sysfs is enabled, the contents of /sys/class/vtconsole can be<BR>examined. This shows the console backends currently registered by the<BR>system which are named vtcon&lt;n&gt; where &lt;n&gt; is an integer from 0 to 15. Thus:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ls /sys/class/vtconsole<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .&nbsp; ..&nbsp; vtcon0&nbsp; vtcon1</FONT></P>
+<P><FONT class=extract>Each directory in /sys/class/vtconsole has 3 files:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp; ls /sys/class/vtconsole/vtcon0<BR>&nbsp;&nbsp;&nbsp;&nbsp; .&nbsp; ..&nbsp; bind&nbsp; name&nbsp; uevent</FONT></P>
+<P><FONT class=extract>What do these files signify?</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp; 1. bind - this is a read/write file. It shows the status of the driver if<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; read, or acts to bind or unbind the driver to the virtual consoles<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; when written to. The possible values are:</FONT></P>
+<P><FONT class=extract>&nbsp;0 - means the driver is not bound and if echo'ed, commands the driver<BR>&nbsp;&nbsp;&nbsp;&nbsp; to unbind</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 - means the driver is bound and if echo'ed, commands the driver to<BR>&nbsp;&nbsp;&nbsp;&nbsp; bind</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp; 2. name - read-only file. Shows the name of the driver in this format:</FONT></P>
+<P><FONT class=extract>&nbsp;cat /sys/class/vtconsole/vtcon0/name<BR>&nbsp;(S) VGA+</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp; '(S)' stands for a (S)ystem driver, ie, it cannot be directly<BR>&nbsp;&nbsp;&nbsp;&nbsp; commanded to bind or unbind</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp; 'VGA+' is the name of the driver</FONT></P>
+<P><FONT class=extract>&nbsp;cat /sys/class/vtconsole/vtcon1/name<BR>&nbsp;(M) frame buffer device</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp; In this case, '(M)' stands for a (M)odular driver, one that can be<BR>&nbsp;&nbsp;&nbsp;&nbsp; directly commanded to bind or unbind.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp; 3. uevent - ignore this file</FONT></P>
+<P><FONT class=extract>When unbinding, the modular driver is detached first, and then the system<BR>driver takes over the consoles vacated by the driver. Binding, on the other<BR>hand, will bind the driver to the consoles that are currently occupied by a<BR>system driver.</FONT></P>
+<P><FONT class=extract>NOTE1: Binding and unbinding must be selected in Kconfig. It's under:</FONT></P>
+<P><FONT class=extract>Device Drivers -&gt; Character devices -&gt; Support for binding and unbinding<BR>console drivers</FONT></P>
+<P><FONT class=extract>NOTE2: If any of the virtual consoles are in KD_GRAPHICS mode, then binding or<BR>unbinding will not succeed. An example of an application that sets the console<BR>to KD_GRAPHICS is X.</FONT></P>
+<P><FONT class=extract>How useful is this feature? This is very useful for console driver<BR>developers. By unbinding the driver from the console layer, one can unload the<BR>driver, make changes, recompile, reload and rebind the driver without any need<BR>for rebooting the kernel. For regular users who may want to switch from<BR>framebuffer console to VGA console and vice versa, this feature also makes<BR>this possible. (NOTE NOTE NOTE: Please read fbcon.txt under Documentation/fb<BR>for more details).</FONT></P>
+<P><FONT class=extract>Notes for developers:<BR>=====================</FONT></P>
+<P><FONT class=extract>take_over_console() is now broken up into:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp; register_con_driver()<BR>&nbsp;&nbsp;&nbsp;&nbsp; bind_con_driver() - private function</FONT></P>
+<P><FONT class=extract>give_up_console() is a wrapper to unregister_con_driver(), and a driver must<BR>be fully unbound for this call to succeed. con_is_bound() will check if the<BR>driver is bound or not.</FONT></P>
+<P><FONT class=extract>Guidelines for console driver writers:<BR>=====================================</FONT></P>
+<P><FONT class=extract>In order for binding to and unbinding from the console to properly work,<BR>console drivers must follow these guidelines:</FONT></P>
+<P><FONT class=extract>1. All drivers, except system drivers, must call either register_con_driver()<BR>&nbsp;&nbsp; or take_over_console(). register_con_driver() will just add the driver to<BR>&nbsp;&nbsp; the console's internal list. It won't take over the<BR>&nbsp;&nbsp; console. take_over_console(), as it name implies, will also take over (or<BR>&nbsp;&nbsp; bind to) the console.</FONT></P>
+<P><FONT class=extract>2. All resources allocated during con-&gt;con_init() must be released in<BR>&nbsp;&nbsp; con-&gt;con_deinit().</FONT></P>
+<P><FONT class=extract>3. All resources allocated in con-&gt;con_startup() must be released when the<BR>&nbsp;&nbsp; driver, which was previously bound, becomes unbound.&nbsp; The console layer<BR>&nbsp;&nbsp; does not have a complementary call to con-&gt;con_startup() so it's up to the<BR>&nbsp;&nbsp; driver to check when it's legal to release these resources. Calling<BR>&nbsp;&nbsp; con_is_bound() in con-&gt;con_deinit() will help.&nbsp; If the call returned<BR>&nbsp;&nbsp; false(), then it's safe to release the resources.&nbsp; This balance has to be<BR>&nbsp;&nbsp; ensured because con-&gt;con_startup() can be called again when a request to<BR>&nbsp;&nbsp; rebind the driver to the console arrives.</FONT></P>
+<P><FONT class=extract>4. Upon exit of the driver, ensure that the driver is totally unbound. If the<BR>&nbsp;&nbsp; condition is satisfied, then the driver must call unregister_con_driver()<BR>&nbsp;&nbsp; or give_up_console().</FONT></P>
+<P><FONT class=extract>5. unregister_con_driver() can also be called on conditions which make it<BR>&nbsp;&nbsp; impossible for the driver to service console requests.&nbsp; This can happen<BR>&nbsp;&nbsp; with the framebuffer console that suddenly lost all of its drivers.</FONT></P>
+<P><FONT class=extract>The current crop of console drivers should still work correctly, but binding<BR>and unbinding them may cause problems. With minimal fixes, these drivers can<BR>be made to work correctly.</FONT></P>
+<P>==========================<BR>Antonino Daplas &lt;<A href="mailto:adaplas@pol.net">adaplas@pol.net</A>&gt;</P>
+<P>&nbsp;

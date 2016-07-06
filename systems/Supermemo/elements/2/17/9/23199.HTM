@@ -1,0 +1,77 @@
+<H3 id=-100000 class=docSection1Title>Updating the NVRAM Driver</H3>
+<P class=docText><A name=iddle3308></A><A name=iddle3929></A><A name=iddle4008></A><A name=iddle4404></A><A name="The seq"></A>The seq file interface has been around since the latter versions of the 2.4 kernel, but its use has become widespread only with 2.6. Let's update the NVRAM driver (<SPAN class=docEmphasis>drivers/char/nvram.c</SPAN><A name="the few"></A>), one of the few remaining drivers that hasn't switched over to use seq files. (As usual, <SPAN class=docEmphStrong><TT>+</TT></SPAN> and <TT>-</TT><A name="the original"></A> show the differences from the original source file.) To do this, you may use an extra-simple flavor of seq files that uses only the <TT>show()</TT> iterator method. Use <TT>single_open()</TT> to register this method.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app03lev1sec2.html#app03ex04">Listing C.4</A><A name="NVRAM driver"></A> contains the updated NVRAM driver. Because the seq interface won't sleep between calls to iterator methods, you may hold locks inside the methods.</P><A name=app03ex04></A>
+<H5 id=title-ID0EACBO class=docExampleTitle>Listing C.4. Update the NVRAM Driver Using Seq Files</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>+static struct file_operations nvram_proc_fops = {</SPAN>
+<SPAN class=docEmphStrong>+  .owner   = THIS_MODULE</SPAN>,
+<SPAN class=docEmphStrong>+  .open    = nvram_seq_open</SPAN>,
+<SPAN class=docEmphStrong>+  .read    = seq_read</SPAN>,
+<SPAN class=docEmphStrong>+  .llseek  = seq_lseek</SPAN>,
+<SPAN class=docEmphStrong>+  .release = single_release</SPAN>,
+<SPAN class=docEmphStrong>+};</SPAN>
+-static struct file_operations nvram_fops = {
+-  .owner    = THIS_MODULE,
+-  .llseek   = nvram_llseek,
+-  .read     = nvram_read,
+-  .write    = nvram_write,
+-  .ioctl    = nvram_ioctl,
+-  .open     = nvram_open,
+-  .release  = nvram_release,
+-};
+
+<SPAN class=docEmphStrong>+static int nvram_seq_open(struct inode *inode, struct file *file)</SPAN>
+<SPAN class=docEmphStrong>+{</SPAN>
+<SPAN class=docEmphStrong>+  return single_open(file, nvram_show, NULL);</SPAN>
+<SPAN class=docEmphStrong>+}</SPAN>
+
+<SPAN class=docEmphStrong>+static int nvram_show(struct seq_file *seq, void *v)</SPAN>
+<SPAN class=docEmphStrong>+{</SPAN>
+<SPAN class=docEmphStrong>+  unsigned char contents[NVRAM_BYTES];</SPAN>
+<SPAN class=docEmphStrong>+  int i;</SPAN>
+<SPAN class=docEmphStrong>+</SPAN>
+<SPAN class=docEmphStrong>+  spin_lock_irq(&amp;rtc_lock);</SPAN>
+<SPAN class=docEmphStrong>+  for (i = 0; i &lt; NVRAM_BYTES; ++i)</SPAN>
+<SPAN class=docEmphStrong>+  contents[i] = __nvram_read_byte(i);</SPAN>
+<SPAN class=docEmphStrong>+  spin_unlock_irq(&amp;rtc_lock);</SPAN>
+<SPAN class=docEmphStrong>+</SPAN>
+<SPAN class=docEmphStrong>+  mach_proc_infos(seq, contents);</SPAN>
+<SPAN class=docEmphStrong>+  return 0;</SPAN>
+<SPAN class=docEmphStrong>+}</SPAN>
+
+static int __init
+nvram_init(void)
+{
+
+<SPAN class=docEmphStrong>+  ent = create_proc_entry("driver/nvram", 0, NULL);</SPAN>
+<SPAN class=docEmphStrong>+  if (!ent) {</SPAN>
+<SPAN class=docEmphStrong>+    printk(KERN_ERR "nvram: can't create /proc/driver/nvram\n");</SPAN>
+<SPAN class=docEmphStrong>+    ret = -ENOMEM;</SPAN>
+<SPAN class=docEmphStrong>+    goto outmisc;</SPAN>
+<SPAN class=docEmphStrong>+  }</SPAN>
+<SPAN class=docEmphStrong>+  ent-&gt;proc_fops = &amp;nvram_proc_fops;</SPAN>
+-  if (!create_proc_read_entry("driver/nvram", 0, NULL,
+-                              nvram_read_proc, NULL)) {
+-    printk(KERN_ERR "nvram: can't create /proc/driver/nvram\n");
+-    ret = -ENOMEM;
+-    goto outmisc;
+-  }
+   /* ... */
+}
+
+-#define PRINT_PROC(fmt,args...)      \
+-/* ... */
+
+-static int
+-nvram_read_proc(char *buffer, char **start, off_t offset,
+-    int size, int *eof, void *data)
+-{
+- /* ... */
+-}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1841></A><A name=iddle1842></A><A name=iddle3662></A><A name=iddle3927></A>In addition to the modifications in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app03lev1sec2.html#app03ex04">Listing C.4</A>, change all references to <TT>PRINT_PROC()</TT> in the original driver to <TT>seq_printf()</TT>. The original driver and the one in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app03lev1sec2.html#app03ex04">Listing C.4</A> produce the same output if you read from <SPAN class=docEmphasis>/proc/driver/nvram</SPAN>.

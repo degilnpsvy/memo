@@ -1,0 +1,15 @@
+Here comes a very simple example of an input device driver. The device has<BR>just one button and the button is accessible at i/o port BUTTON_PORT. When<BR>pressed or released a BUTTON_IRQ happens. The driver could look like: 
+<P></P>
+<P>#include &lt;linux/input.h&gt;<BR>#include &lt;linux/module.h&gt;<BR>#include &lt;linux/init.h&gt;</P>
+<P>#include &lt;asm/irq.h&gt;<BR>#include &lt;asm/io.h&gt;</P>
+<P>static struct input_dev *button_dev;</P>
+<P>static irqreturn_t button_interrupt(int irq, void *dummy)<BR>{<BR>&nbsp;input_report_key(button_dev, BTN_0, inb(BUTTON_PORT) &amp; 1);<BR>&nbsp;input_sync(button_dev);<BR>&nbsp;return IRQ_HANDLED;<BR>}</P>
+<P>static int __init button_init(void)<BR>{<BR>&nbsp;int error;</P>
+<P>&nbsp;if (request_irq(BUTTON_IRQ, button_interrupt, 0, "button", NULL)) {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; printk(KERN_ERR "button.c: Can't allocate irq %d\n", button_irq);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return -EBUSY;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }</P>
+<P>&nbsp;button_dev = input_allocate_device();<BR>&nbsp;if (!button_dev) {<BR>&nbsp;&nbsp;printk(KERN_ERR "button.c: Not enough memory\n");<BR>&nbsp;&nbsp;error = -ENOMEM;<BR>&nbsp;&nbsp;goto err_free_irq;<BR>&nbsp;}</P>
+<P>&nbsp;button_dev-&gt;evbit[0] = BIT_MASK(EV_KEY);<BR>&nbsp;button_dev-&gt;keybit[BIT_WORD(BTN_0)] = BIT_MASK(BTN_0);</P>
+<P>&nbsp;error = input_register_device(button_dev);<BR>&nbsp;if (error) {<BR>&nbsp;&nbsp;printk(KERN_ERR "button.c: Failed to register device\n");<BR>&nbsp;&nbsp;goto err_free_dev;<BR>&nbsp;}</P>
+<P>&nbsp;return 0;</P>
+<P>&nbsp;err_free_dev:<BR>&nbsp;input_free_device(button_dev);<BR>&nbsp;err_free_irq:<BR>&nbsp;free_irq(BUTTON_IRQ, button_interrupt);<BR>&nbsp;return error;<BR>}</P>
+<P>static void __exit button_exit(void)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; input_unregister_device(button_dev);<BR>&nbsp;free_irq(BUTTON_IRQ, button_interrupt);<BR>}</P>
+<P>module_init(button_init);<BR>module_exit(button_exit);

@@ -1,0 +1,99 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>10.4.&nbsp;Memory Segments</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s03.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;10.&nbsp;Subprogram Calls and the Stack</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s05.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="10.4.&nbsp;Memory Segments" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=segments></A>10.4.&nbsp;Memory Segments</H2></DIV></DIV></DIV>
+<P>The Von Neumann architecture is defined by the fact that both the machine instructions and data are stored in the same memory space. This fact necessitates dividing memory into text and data segments.</P>
+<P>In modern operating systems, there are more than just these two segments. Most systems use a single text segment, but actually use up to three data segments, depending on the<SPAN class=emphasis><EM>storage class</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>of the data being stored there. The four segments can be described as follows:<A class=indexterm name=id286962413></A></P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist type=disc>
+<LI class=listitem>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>code segment</EM>, also known as<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>text segment</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>contains the machine instructions of the program. The code can be thought of like the text of a novel: It tells the story of what the program does.<A class=indexterm name=id286962427></A><A class=indexterm name=id286962430></A></LI>
+<LI class=listitem>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>data segment</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>contains the<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>static</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>data of the program, i.e. the variables that exist throughout program execution.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286962442></A><A class=indexterm name=id286962445></A>Global variables in a C or C++ program are static, as are variables declared as static in C, C++, or Java.</LI>
+<LI class=listitem>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>stack segment</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>contains the system<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286962457></A>stack, which is used as temporary storage. The stack is a simple data structure with a<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>LIFO (last-in first-out)</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>access policy. Items are only added to or removed from the "top" of the stack. Implementing a stack requires only a block of memory (e.g. an array in a HLL) and a<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>stack pointer</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>which tells us where the top of the stack is. In the MIPS architecture, the $sp register is designated as the stack pointer. Adding an element to the top of the stack is known as a<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>push</EM></SPAN>, and retrieving an item from the top is known as a<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>pop</EM></SPAN>. If we were to push the values 1, 2, 3, 4, and 5, and then do a single pop, the stack would appear as follows:<PRE class=screen>	    +---+
+	    | 5 |
+	    | 4 | &lt;- sp
+	    | 3 |
+	    | 2 |
+	    | 1 |
+	    +---+
+	    </PRE></LI>
+<LI class=listitem>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>heap segment</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a pool of memory<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286962482></A>used for dynamically allocated memory, such as with<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>malloc()</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>in C or<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>new</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>in C++ and Java.</LI></UL></DIV>
+<P>The size of the text and data segments are known as soon as compilation or assembly is completed. The stack and heap segments, on the other hand, grow and shrink during program execution. For this reason, they tend to be configured such that they grow toward each other. This way, they each have a fixed starting point (one adjacent to the text and data segments, and the other at one end of the entire memory space), and the boundary between them is flexible. Both can grow until all available memory is used.</P><PRE class=screen>	+-----------+
+	|           |
+	|   text    | (fixed size)
+	|           |
+	+-----------+
+	|           |
+	|   data    | (fixed size)
+	|           |
+	+-----------+
+	|   stack   | | growth
+	+-----------+ V
+	|           |
+	|   free    |
+	|           |
+	+-----------+ ^
+	|   heap    | | growth
+	+-----------+
+	</PRE>
+<P>We can have as many .text and .data blocks in the source code as we want. The assembler will consolidate all the .text blocks into the text segment, and and all the .data blocks into the data segment.</P>
+<P>Each subprogram in a MAL program should have its own .text block and its own .data block.</P><PRE class=programlisting>	# Subprogram 1
+	
+		.data
+		# Variables for subprogram 1
+		
+		.text
+		# Subprogram body
+		
+		ret
+	
+	# Subprogram 2
+	
+		.data
+		# Variables for subprogram 2
+		
+		.text
+		# Subprogram body
+		
+		ret
+	
+	# Main program
+	
+		.data
+		# Variables for main
+		
+		.text
+		# Main body
+		
+		ret
+	</PRE>
+<P>Why use multiple .text and .data sections in a program?</P>
+<P>Variables should be defined along with the subprogram that uses them, for the sake of readability.</P>
+<P>In the assembler's point of view, all variables are<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>global</EM></SPAN>. The notion of a variable's<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>scope</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>in C or Java is enforced by the compiler, not the hardware. Hardware knows only about memory addresses, and the compiler must keep track of which addresses are used by each subprogram.</P>
+<P>In assembly language, it is the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>programmer's</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>responsibility to ensure that each subprogram accesses only its own variables. Although the assembler will not prevent it, you must ensure that no subprogram accesses variables of another subprogram. If you do, your program is not modular, and your subprograms are not independent, portable modules as they should be.</P>
+<P>A subprogram should never be considered part of the larger program it is used in. It should be considered an independent module that can be used within any other program without modification.</P>
+<P>As discussed in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title="Chapter&nbsp;7.&nbsp;Code Quality Standards" href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch07.html">Chapter&nbsp;7,<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>Code Quality Standards</I></A>, all variable names in assembly language programs should be prefixed with the name of the subprogram they belong to.</P></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s03.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s05.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">10.3.&nbsp;MIPS Subprograms&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;10.5.&nbsp;Using the Stack with Subprograms</TD></TR></TBODY></TABLE></DIV>

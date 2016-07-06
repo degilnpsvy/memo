@@ -1,0 +1,42 @@
+<H3 id=-100000 class=docSection1Title>Advanced Topics</H3>
+<P class=docText><A name=iddle1245></A><A name=iddle1663></A><A name=iddle1664></A><A name=iddle1665></A><A name=iddle1833></A><A name=iddle4305></A><A name="Unlike our"></A>Unlike our sample storage driver that transfers data byte by byte, performance-sensitive block drivers rely on DMA for data transfer. Consider, for example, the <TT>request()</TT><A name="the disk"></A> method of the disk array driver for Compaq SMART2 controllers <SPAN class=docEmphasis>drivers/block/-cpqarray.c</SPAN><A name="here from"></A> reproduced here from the 2.6.23.1 kernel sources:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>static do_ida_request(struct request_queue *q)
+{
+  struct request *creq;
+  struct scatterlist tmp_sg[SG_MAX];
+  cmdlist_t *c;
+  ctrl_info_t *h = q-&gt;queuedata;
+  int seg;
+
+  /* ... */
+  creq = elv_next_request(q);
+  /* ... */
+  c-&gt;rq = creq;
+  seg = blk_rq_map_sg(q, creq, tmp_sg);
+  /* ... */
+  for (i=0; i<SEQ; i++)="" {="" c-="">req.sg[i].size = tmp_sg[i].length;
+    c-&gt;req.sg[i].addr = (__u32) pci_map_page(h-&gt;pci_dev,
+                                             tmp_sg[i].page,
+                                             tmp_sg[i].offset,
+                                             tmp_sg[i].length, dir);
+  }
+  /* ... */
+}
+
+					  </SEQ;></PRE></DIV><BR>
+<P class=docText><A name=iddle1213></A><A name=iddle1235></A><A name=iddle1247></A><A name=iddle1624></A><A name=iddle1837></A><A name=iddle2425></A><A name=iddle3465></A><A name=iddle3845></A>DMA operations work at <TT>bio</TT> level. As you saw earlier, I/O requests are made up of <TT>bio</TT>s, each of which contains an array of <TT>bio_vec</TT><A name="Assuming that"></A>s, which in turn hold information about the constituent memory pages. Assuming that <TT>bio</TT> points to the <TT>bio</TT> structure associated with an I/O request, <TT>bio-&gt;bi_sector</TT><A name="which data"></A> contains the starting sector from which data access is requested, <TT>bio_cur_sectors(bio)</TT><A name="be performed"></A> returns the number of sectors on which I/O is to be performed, and <TT>bio_data_dir(bio)</TT><A name="of the"></A> provides the direction of data transfer. The addresses of the physical pages associated with the data buffer are described by the array of <TT>bio_vec</TT>s pointed to by <TT>bio-&gt;bi_io_vec</TT>. To iterate over each <TT>bio</TT> in a request, you can use the <TT>rq_for_each_bio()</TT>macro. To further loop through each page segment in a <TT>bio</TT>, use <TT>bio_for_each_segment()</TT>.</P>
+<P class=docText>In the preceding code snippet, <TT>blk_rq_map_sg()</TT> internally invokes <TT>rq_for_each_bio()</TT> and <TT>bio_for_each_segment()</TT><A name="a scatter"></A>to loop through all pages constituting the request and builds a scatter/gather list, <TT>tmp_sg</TT><A name="for each"></A>. Streaming DMA mappings for each page in the created scatter/gather list is performed by <TT>pci_map_page</TT><TT>()</TT>.</P>
+<P class=docText><A name="sample driver"></A>Unlike our sample driver that busy-waits for requested operations to finish, the <SPAN class=docEmphasis>cpqarray</SPAN><A name="driver implements"></A> driver implements an interrupt handler, <TT>do_ida_intr</TT><TT>()</TT><A name="alerts from"></A>, to receive alerts from the hardware upon completion of commands.</P>
+<P class=docText><A name="such as"></A>Some drivers, such as the ramdisk driver (<SPAN class=docEmphasis>drivers/block/rd.c</SPAN>) and the loopback driver (<SPAN class=docEmphasis>drivers/block/loop.c</SPAN><A name="from the"></A>), work over virtual block devices that do not benefit from the optimizing sort and merge operations on the request queue. Such drivers entirely bypass the request queue and directly obtain <TT>bio</TT><A name="using a"></A>s from the block layer using a <TT>make_request()</TT> function. So, instead of registering a request queue handler using <A name=iddle1231></A><A name=iddle1244></A><A name=iddle1681></A><A name=iddle2190></A><A name=iddle3919></A><A name=iddle4027></A><TT>blk_init_queue()</TT>, <SPAN class=docEmphasis>drivers/block/rd.c</SPAN> supplies a <TT>make_request()</TT> routine using <TT>blk_queue_make_request()</TT> as follows:</P>
+<DIV class=docText><PRE>static int __init rd_init(void)
+{
+  /* ... */
+  blk_queue_make_request(rd_queue[i], &amp;rd_make_request);
+  /* ... */
+}
+
+static int rd_make_request(struct request_queue *q, struct bio *bio)
+{
+  /* ... */
+}</PRE></DIV>

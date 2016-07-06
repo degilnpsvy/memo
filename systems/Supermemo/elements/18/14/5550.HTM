@@ -1,0 +1,65 @@
+Merging Two Branches 
+<P></P>
+<P>For the simplest scenario, let&#8217;s set up a repository with a single file, create two branches, and then merge the pair of branches together again. </P>
+<P>$ git init </P>
+<P>Initialized empty Git repository in /tmp/conflict/.git/ </P>
+<P>$ git config user.email <A href="mailto:jdl@example.com">jdl@example.com</A> </P>
+<P>$ git config user.name "Jon Loeliger" </P>
+<P>$ cat &gt; file Line 1 stuff</P>
+<P>Line 2 stuff </P>
+<P>Line 3 stuff</P>
+<P>^D </P>
+<P>$ git add file </P>
+<P>$ git commit -m "Initial 3 linefile"</P>
+<P>Created initial commit 8f4d2d5: Initial 3 line file </P>
+<P>1 files changed, 3 insertions(+), 0 deletions(-) </P>
+<P>create mode 100644 file</P>
+<P>Let&#8217;s create another commit on the master branch:</P>
+<P>$ cat &gt; other_file </P>
+<P>Here is stuff on another file! </P>
+<P>^D </P>
+<P>$ git add other_file </P>
+<P>$ git commit -m "Another file"</P>
+<P>Created commit 761d917: Another file </P>
+<P>1 files changed, 1 insertions(+), 0 deletions(-) </P>
+<P>create mode 100644 other_file</P>
+<P>So far, the repository has one branch with two commits, where each commit introduced a new file. Next, let&#8217;s change to a different branch and modify the first file. </P>
+<P>$ git checkout -b alternate master^</P>
+<P>Switched to a new branch "alternate"</P>
+<P>$ git show-branch </P>
+<P>* [alternate] Initial 3 line file </P>
+<P>&nbsp;! [master] Another file </P>
+<P>-- </P>
+<P>&nbsp;+ [master] Another file </P>
+<P>*+ [alternate] Initial 3 line file</P>
+<P>Here, the alternate branch is initially forked from the master^ commit, one commit behind the current head.</P>
+<P>Make a trivial change to the file so you have something to merge, and then commit it. Remember, it&#8217;s best to commit outstanding changes and start a merge with a clean working directory.</P>
+<P>$ cat &gt;&gt; file </P>
+<P>Line 4 alternate stuff </P>
+<P>^D </P>
+<P>$ git commit -a -m "Add alternate's line 4"</P>
+<P>Created commit b384721: Add alternate's line 4 </P>
+<P>1 files changed, 1 insertions(+), 0 deletions(-)</P>
+<P>Now there are two branches and each has different development work. A second file has been added to the master branch, and a modification has been made to alternate the branch. Because the two changes do not affect the same parts of a common file, a merge should proceed smoothly and without incident.</P>
+<P>The git merge operation is context sensitive. Your current branch is always the target branch, and the other branch or branches are merged into the current branch. In this case, the alternate branch should be merged into the master branch, so the latter must be checked out before you continue:</P>
+<P>$ git checkout master </P>
+<P>Switched to branch "master" </P>
+<P>$ git status </P>
+<P># On branch master</P>
+<P>nothing to commit (working directory clean)</P>
+<P># Yep, ready for a merge! </P>
+<P>$ git merge alternate </P>
+<P>Merge made by recursive.</P>
+<P>file | 1 + </P>
+<P>1 files changed, 1 insertions(+), 0 deletions(-)</P>
+<P>You can use another commit graph viewing tool, a part of git log, to see what what&#8217;s been done: </P>
+<P>$ git log --graph --pretty=oneline --abbrev-commit </P>
+<P>* 1d51b93... Merge branch 'alternate' </P>
+<P>| \ </P>
+<P>| * b384721... Add alternate's line4</P>
+<P>* | 761d917... Another file</P>
+<P>| / </P>
+<P>* 8f4d2d5... Initial 3 line file</P>
+<P>That is conceptually the commit graph described earlier in the section &#8220;Commit Graphs&#8221; on page 74 (Chapter 6), except that this graph is turned sideways, with the most recent commits at the top rather than the right. The two branches have split at the initial commit, 8f4d2d5; each branch shows one commit each (761d917 and b384721); and the two branches merge again at commit 1d51b93.</P>
+<P><FONT class=extract>Using git log --graph is an excellent alternative to graphical tools such as gitk. The visualization provided by git log --graph is well-suited to dumb terminals.</FONT></P>
+<P><FONT class=extract>Technically, Git performs each merge symmetrically to produce one identical, combined commit that is added to your current branch. The other branch is not affected by the merge. Because the merge commit is added only to your current branch, you can say, &#8220;I merged some other branch into this one.&#8221;</FONT>

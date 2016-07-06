@@ -1,0 +1,83 @@
+# Documentation/dynamic-debug-howto.txt 
+<P></P>
+<P>Introduction<BR>============ </P>
+<P></P>
+<P>This document describes how to use the dynamic debug (dyndbg) feature.</P>
+<P>Dynamic debug is designed to allow you to dynamically enable/disable<BR>kernel code to obtain additional kernel information.&nbsp; Currently, if<BR>CONFIG_DYNAMIC_DEBUG is set, then all pr_debug()/dev_dbg() and<BR>print_hex_dump_debug()/print_hex_dump_bytes() calls can be dynamically<BR>enabled per-callsite.</P>
+<P>If CONFIG_DYNAMIC_DEBUG is not set, print_hex_dump_debug() is just<BR>shortcut for print_hex_dump(KERN_DEBUG).</P>
+<P>For print_hex_dump_debug()/print_hex_dump_bytes(), format string is<BR>its 'prefix_str' argument, if it is constant string; or "hexdump"<BR>in case 'prefix_str' is build dynamically.</P>
+<P>Dynamic debug has even more useful features:</P>
+<P>&nbsp;* Simple query language allows turning on and off debugging<BR>&nbsp;&nbsp; statements by matching any combination of 0 or 1 of:</P>
+<P>&nbsp;&nbsp; - source filename<BR>&nbsp;&nbsp; - function name<BR>&nbsp;&nbsp; - line number (including ranges of line numbers)<BR>&nbsp;&nbsp; - module name<BR>&nbsp;&nbsp; - format string</P>
+<P>&nbsp;* Provides a debugfs control file: &lt;debugfs&gt;/dynamic_debug/control<BR>&nbsp;&nbsp; which can be read to display the complete list of known debug<BR>&nbsp;&nbsp; statements, to help guide you</P>
+<P>Controlling dynamic debug Behaviour<BR>===================================</P>
+<P>The behaviour of pr_debug()/dev_dbg()s are controlled via writing to a<BR>control file in the 'debugfs' filesystem. Thus, you must first mount<BR>the debugfs filesystem, in order to make use of this feature.<BR>Subsequently, we refer to the control file as:<BR>&lt;debugfs&gt;/dynamic_debug/control. For example, if you want to enable<BR>printing from source file 'svcsock.c', line 1603 you simply do:</P>
+<P>nullarbor:~ # echo 'file svcsock.c line 1603 +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control</P>
+<P>If you make a mistake with the syntax, the write will fail thus:</P>
+<P>nullarbor:~ # echo 'file svcsock.c wtf 1 +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control<BR>-bash: echo: write error: Invalid argument</P>
+<P>Viewing Dynamic Debug Behaviour<BR>===========================</P>
+<P>You can view the currently configured behaviour of all the debug<BR>statements via:</P>
+<P>nullarbor:~ # cat &lt;debugfs&gt;/dynamic_debug/control<BR># filename:lineno [module]function flags format<BR>/usr/src/packages/BUILD/sgi-enhancednfs-1.4/default/net/sunrpc/svc_rdma.c:323 [svcxprt_rdma]svc_rdma_cleanup =_ "SVCRDMA Module Removed, deregister RPC RDMA transport\012"<BR>/usr/src/packages/BUILD/sgi-enhancednfs-1.4/default/net/sunrpc/svc_rdma.c:341 [svcxprt_rdma]svc_rdma_init =_ "\011max_inline&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : %d\012"<BR>/usr/src/packages/BUILD/sgi-enhancednfs-1.4/default/net/sunrpc/svc_rdma.c:340 [svcxprt_rdma]svc_rdma_init =_ "\011sq_depth&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : %d\012"<BR>/usr/src/packages/BUILD/sgi-enhancednfs-1.4/default/net/sunrpc/svc_rdma.c:338 [svcxprt_rdma]svc_rdma_init =_ "\011max_requests&nbsp;&nbsp;&nbsp;&nbsp; : %d\012"<BR>...</P>
+<P><BR>You can also apply standard Unix text manipulation filters to this<BR>data, e.g.</P>
+<P>nullarbor:~ # grep -i rdma &lt;debugfs&gt;/dynamic_debug/control&nbsp; | wc -l<BR>62</P>
+<P>nullarbor:~ # grep -i tcp &lt;debugfs&gt;/dynamic_debug/control | wc -l<BR>42</P>
+<P>The third column shows the currently enabled flags for each debug<BR>statement callsite (see below for definitions of the flags).&nbsp; The<BR>default value, with no flags enabled, is "=_".&nbsp; So you can view all<BR>the debug statement callsites with any non-default flags:</P>
+<P>nullarbor:~ # awk '$3 != "=_"' &lt;debugfs&gt;/dynamic_debug/control<BR># filename:lineno [module]function flags format<BR>/usr/src/packages/BUILD/sgi-enhancednfs-1.4/default/net/sunrpc/svcsock.c:1603 [sunrpc]svc_send p "svc_process: st_sendto returned %d\012"</P>
+<P><BR>Command Language Reference<BR>==========================</P>
+<P>At the lexical level, a command comprises a sequence of words separated<BR>by spaces or tabs.&nbsp; So these are all equivalent:</P>
+<P>nullarbor:~ # echo -c 'file svcsock.c line 1603 +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control<BR>nullarbor:~ # echo -c '&nbsp; file&nbsp;&nbsp; svcsock.c&nbsp;&nbsp;&nbsp;&nbsp; line&nbsp; 1603 +p&nbsp; ' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control<BR>nullarbor:~ # echo -n 'file svcsock.c line 1603 +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control</P>
+<P>Command submissions are bounded by a write() system call.<BR>Multiple commands can be written together, separated by ';' or '\n'.</P>
+<P>&nbsp; ~# echo "func pnpacpi_get_resources +p; func pnp_assign_mem +p" \<BR>&nbsp;&nbsp;&nbsp;&nbsp; &gt; &lt;debugfs&gt;/dynamic_debug/control</P>
+<P>If your query set is big, you can batch them too:</P>
+<P>&nbsp; ~# cat query-batch-file &gt; &lt;debugfs&gt;/dynamic_debug/control</P>
+<P>At the syntactical level, a command comprises a sequence of match<BR>specifications, followed by a flags change specification.</P>
+<P>command ::= match-spec* flags-spec</P>
+<P>The match-spec's are used to choose a subset of the known pr_debug()<BR>callsites to which to apply the flags-spec.&nbsp; Think of them as a query<BR>with implicit ANDs between each pair.&nbsp; Note that an empty list of<BR>match-specs will select all debug statement callsites.</P>
+<P>A match specification comprises a keyword, which controls the<BR>attribute of the callsite to be compared, and a value to compare<BR>against.&nbsp; Possible keywords are:</P>
+<P>match-spec ::= 'func' string |<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 'file' string |<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 'module' string |<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 'format' string |<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 'line' line-range</P>
+<P>line-range ::= lineno |<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; '-'lineno |<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lineno'-' |<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lineno'-'lineno<BR>// Note: line-range cannot contain space, e.g.<BR>// "1-30" is valid range but "1 - 30" is not.</P>
+<P>lineno ::= unsigned-int</P>
+<P>The meanings of each keyword are:</P>
+<P>func<BR>&nbsp;&nbsp;&nbsp; The given string is compared against the function name<BR>&nbsp;&nbsp;&nbsp; of each callsite.&nbsp; Example:</P>
+<P>&nbsp;&nbsp;&nbsp; func svc_tcp_accept</P>
+<P>file<BR>&nbsp;&nbsp;&nbsp; The given string is compared against either the full pathname, the<BR>&nbsp;&nbsp;&nbsp; src-root relative pathname, or the basename of the source file of<BR>&nbsp;&nbsp;&nbsp; each callsite.&nbsp; Examples:</P>
+<P>&nbsp;&nbsp;&nbsp; file svcsock.c<BR>&nbsp;&nbsp;&nbsp; file kernel/freezer.c<BR>&nbsp;&nbsp;&nbsp; file /usr/src/packages/BUILD/sgi-enhancednfs-1.4/default/net/sunrpc/svcsock.c</P>
+<P>module<BR>&nbsp;&nbsp;&nbsp; The given string is compared against the module name<BR>&nbsp;&nbsp;&nbsp; of each callsite.&nbsp; The module name is the string as<BR>&nbsp;&nbsp;&nbsp; seen in "lsmod", i.e. without the directory or the .ko<BR>&nbsp;&nbsp;&nbsp; suffix and with '-' changed to '_'.&nbsp; Examples:</P>
+<P>&nbsp;&nbsp;&nbsp; module sunrpc<BR>&nbsp;&nbsp;&nbsp; module nfsd</P>
+<P>format<BR>&nbsp;&nbsp;&nbsp; The given string is searched for in the dynamic debug format<BR>&nbsp;&nbsp;&nbsp; string.&nbsp; Note that the string does not need to match the<BR>&nbsp;&nbsp;&nbsp; entire format, only some part.&nbsp; Whitespace and other<BR>&nbsp;&nbsp;&nbsp; special characters can be escaped using C octal character<BR>&nbsp;&nbsp;&nbsp; escape \ooo notation, e.g. the space character is \040.<BR>&nbsp;&nbsp;&nbsp; Alternatively, the string can be enclosed in double quote<BR>&nbsp;&nbsp;&nbsp; characters (") or single quote characters (').<BR>&nbsp;&nbsp;&nbsp; Examples:</P>
+<P>&nbsp;&nbsp;&nbsp; format svcrdma:&nbsp;&nbsp;&nbsp;&nbsp; // many of the NFS/RDMA server pr_debugs<BR>&nbsp;&nbsp;&nbsp; format readahead&nbsp;&nbsp;&nbsp;&nbsp; // some pr_debugs in the readahead cache<BR>&nbsp;&nbsp;&nbsp; format nfsd:\040SETATTR // one way to match a format with whitespace<BR>&nbsp;&nbsp;&nbsp; format "nfsd: SETATTR"&nbsp; // a neater way to match a format with whitespace<BR>&nbsp;&nbsp;&nbsp; format 'nfsd: SETATTR'&nbsp; // yet another way to match a format with whitespace</P>
+<P>line<BR>&nbsp;&nbsp;&nbsp; The given line number or range of line numbers is compared<BR>&nbsp;&nbsp;&nbsp; against the line number of each pr_debug() callsite.&nbsp; A single<BR>&nbsp;&nbsp;&nbsp; line number matches the callsite line number exactly.&nbsp; A<BR>&nbsp;&nbsp;&nbsp; range of line numbers matches any callsite between the first<BR>&nbsp;&nbsp;&nbsp; and last line number inclusive.&nbsp; An empty first number means<BR>&nbsp;&nbsp;&nbsp; the first line in the file, an empty line number means the<BR>&nbsp;&nbsp;&nbsp; last number in the file.&nbsp; Examples:</P>
+<P>&nbsp;&nbsp;&nbsp; line 1603&nbsp;&nbsp;&nbsp;&nbsp; // exactly line 1603<BR>&nbsp;&nbsp;&nbsp; line 1600-1605&nbsp; // the six lines from line 1600 to line 1605<BR>&nbsp;&nbsp;&nbsp; line -1605&nbsp;&nbsp;&nbsp;&nbsp; // the 1605 lines from line 1 to line 1605<BR>&nbsp;&nbsp;&nbsp; line 1600-&nbsp;&nbsp;&nbsp;&nbsp; // all lines from line 1600 to the end of the file</P>
+<P>The flags specification comprises a change operation followed<BR>by one or more flag characters.&nbsp; The change operation is one<BR>of the characters:</P>
+<P>&nbsp; -&nbsp;&nbsp;&nbsp; remove the given flags<BR>&nbsp; +&nbsp;&nbsp;&nbsp; add the given flags<BR>&nbsp; =&nbsp;&nbsp;&nbsp; set the flags to the given flags</P>
+<P>The flags are:</P>
+<P>&nbsp; p&nbsp;&nbsp;&nbsp; enables the pr_debug() callsite.<BR>&nbsp; f&nbsp;&nbsp;&nbsp; Include the function name in the printed message<BR>&nbsp; l&nbsp;&nbsp;&nbsp; Include line number in the printed message<BR>&nbsp; m&nbsp;&nbsp;&nbsp; Include module name in the printed message<BR>&nbsp; t&nbsp;&nbsp;&nbsp; Include thread ID in messages not generated from interrupt context<BR>&nbsp; _&nbsp;&nbsp;&nbsp; No flags are set. (Or'd with others on input)</P>
+<P>For print_hex_dump_debug() and print_hex_dump_bytes(), only 'p' flag<BR>have meaning, other flags ignored.</P>
+<P>For display, the flags are preceded by '='<BR>(mnemonic: what the flags are currently equal to).</P>
+<P>Note the regexp ^[-+=][flmpt_]+$ matches a flags specification.<BR>To clear all flags at once, use "=_" or "-flmpt".</P>
+<P><BR>Debug messages during Boot Process<BR>==================================</P>
+<P>To activate debug messages for core code and built-in modules during<BR>the boot process, even before userspace and debugfs exists, use<BR>dyndbg="QUERY", module.dyndbg="QUERY", or ddebug_query="QUERY"<BR>(ddebug_query is obsoleted by dyndbg, and deprecated).&nbsp; QUERY follows<BR>the syntax described above, but must not exceed 1023 characters.&nbsp; Your<BR>bootloader may impose lower limits.</P>
+<P>These dyndbg params are processed just after the ddebug tables are<BR>processed, as part of the arch_initcall.&nbsp; Thus you can enable debug<BR>messages in all code run after this arch_initcall via this boot<BR>parameter.</P>
+<P>On an x86 system for example ACPI enablement is a subsys_initcall and<BR>&nbsp;&nbsp; dyndbg="file ec.c +p"<BR>will show early Embedded Controller transactions during ACPI setup if<BR>your machine (typically a laptop) has an Embedded Controller.<BR>PCI (or other devices) initialization also is a hot candidate for using<BR>this boot parameter for debugging purposes.</P>
+<P>If foo module is not built-in, foo.dyndbg will still be processed at<BR>boot time, without effect, but will be reprocessed when module is<BR>loaded later.&nbsp; dyndbg_query= and bare dyndbg= are only processed at<BR>boot.</P>
+<P><BR>Debug Messages at Module Initialization Time<BR>============================================</P>
+<P>When "modprobe foo" is called, modprobe scans /proc/cmdline for<BR>foo.params, strips "foo.", and passes them to the kernel along with<BR>params given in modprobe args or /etc/modprob.d/*.conf files,<BR>in the following order:</P>
+<P>1. # parameters given via /etc/modprobe.d/*.conf<BR>&nbsp;&nbsp; options foo dyndbg=+pt<BR>&nbsp;&nbsp; options foo dyndbg # defaults to +p</P>
+<P>2. # foo.dyndbg as given in boot args, "foo." is stripped and passed<BR>&nbsp;&nbsp; foo.dyndbg=" func bar +p; func buz +mp"</P>
+<P>3. # args to modprobe<BR>&nbsp;&nbsp; modprobe foo dyndbg==pmf # override previous settings</P>
+<P>These dyndbg queries are applied in order, with last having final say.<BR>This allows boot args to override or modify those from /etc/modprobe.d<BR>(sensible, since 1 is system wide, 2 is kernel or boot specific), and<BR>modprobe args to override both.</P>
+<P>In the foo.dyndbg="QUERY" form, the query must exclude "module foo".<BR>"foo" is extracted from the param-name, and applied to each query in<BR>"QUERY", and only 1 match-spec of each type is allowed.</P>
+<P>The dyndbg option is a "fake" module parameter, which means:</P>
+<P>- modules do not need to define it explicitly<BR>- every module gets it tacitly, whether they use pr_debug or not<BR>- it doesnt appear in /sys/module/$module/parameters/<BR>&nbsp; To see it, grep the control file, or inspect /proc/cmdline.</P>
+<P>For CONFIG_DYNAMIC_DEBUG kernels, any settings given at boot-time (or<BR>enabled by -DDEBUG flag during compilation) can be disabled later via<BR>the sysfs interface if the debug messages are no longer needed:</P>
+<P>&nbsp;&nbsp; echo "module module_name -p" &gt; &lt;debugfs&gt;/dynamic_debug/control</P>
+<P>Examples<BR>========</P>
+<P>// enable the message at line 1603 of file svcsock.c<BR>nullarbor:~ # echo -n 'file svcsock.c line 1603 +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control</P>
+<P>// enable all the messages in file svcsock.c<BR>nullarbor:~ # echo -n 'file svcsock.c +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control</P>
+<P>// enable all the messages in the NFS server module<BR>nullarbor:~ # echo -n 'module nfsd +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control</P>
+<P>// enable all 12 messages in the function svc_process()<BR>nullarbor:~ # echo -n 'func svc_process +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control</P>
+<P>// disable all 12 messages in the function svc_process()<BR>nullarbor:~ # echo -n 'func svc_process -p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control</P>
+<P>// enable messages for NFS calls READ, READLINK, READDIR and READDIR+.<BR>nullarbor:~ # echo -n 'format "nfsd: READ" +p' &gt;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&lt;debugfs&gt;/dynamic_debug/control</P>
+<P>// enable all messages<BR>nullarbor:~ # echo -n '+p' &gt; &lt;debugfs&gt;/dynamic_debug/control</P>
+<P>// add module, function to all enabled messages<BR>nullarbor:~ # echo -n '+mf' &gt; &lt;debugfs&gt;/dynamic_debug/control</P>
+<P>// boot-args example, with newlines and comments for readability<BR>Kernel command line: ...<BR>&nbsp; // see whats going on in dyndbg=value processing<BR>&nbsp; dynamic_debug.verbose=1<BR>&nbsp; // enable pr_debugs in 2 builtins, #cmt is stripped<BR>&nbsp; dyndbg="module params +p #cmt ; module sys +p"<BR>&nbsp; // enable pr_debugs in 2 functions in a module loaded later<BR>&nbsp; pc87360.dyndbg="func pc87360_init_device +p; func pc87360_find +p"

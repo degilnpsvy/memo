@@ -1,0 +1,244 @@
+<H1 class=SECT1><A name=AEN9644></A>15.1. Job Control Commands</H1>
+<P>Certain of the following job control commands take a <I class=FIRSTTERM>job identifier</I> as an argument. See the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#JOBIDTABLE">table</A> at end of the chapter.</P>
+<P></P>
+<DIV class=VARIABLELIST>
+<DL>
+<DT><A name=JOBSREF></A><B class=COMMAND>jobs</B> 
+<DD>
+<P>Lists the jobs running in the background, giving the <I class=FIRSTTERM>job number</I>. Not as useful as <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PPSSREF">ps</A>.</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>It is all too easy to confuse <I class=FIRSTTERM>jobs</I> and <I class=FIRSTTERM>processes</I>. Certain <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BUILTINREF">builtins</A>, such as <B class=COMMAND>kill</B>, <B class=COMMAND>disown</B>, and <B class=COMMAND>wait</B> accept either a job number or a process number as an argument. The <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FGREF">fg</A>, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BGREF">bg</A> and <B class=COMMAND>jobs</B> commands accept only a job number.</P>
+<P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>sleep 100 &amp;</B></TT>
+<TT class=COMPUTEROUTPUT>[1] 1384</TT>
+
+<TT class=PROMPT>bash $ </TT><TT class=USERINPUT><B>jobs</B></TT>
+<TT class=COMPUTEROUTPUT>[1]+  Running                 sleep 100 &amp;</TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><SPAN class=QUOTE>"1"</SPAN> is the job number (jobs are maintained by the current shell). <SPAN class=QUOTE>"1384"</SPAN> is the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PPIDREF">PID</A> or <I class=FIRSTTERM>process ID number</I> (processes are maintained by the system). To kill this job/process, either a <B class=COMMAND>kill %1</B> or a <B class=COMMAND>kill 1384</B> works.</P>
+<P><EM>Thanks, S.C.</EM></P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=DISOWNREF></A><B class=COMMAND>disown</B> 
+<DD>
+<P>Remove job(s) from the shell's table of active jobs.</P>
+<DT><A name=FGREF></A><B class=COMMAND>fg</B>, <A name=BGREF></A><B class=COMMAND>bg</B> 
+<DD>
+<P>The <B class=COMMAND>fg</B> command switches a job running in the background into the foreground. The <B class=COMMAND>bg</B> command restarts a suspended job, and runs it in the background. If no job number is specified, then the <B class=COMMAND>fg</B> or <B class=COMMAND>bg</B> command acts upon the currently running job.</P>
+<DT><A name=WAITREF></A><B class=COMMAND>wait</B> 
+<DD>
+<P>Suspend script execution until all jobs running in background have terminated, or until the job number or process ID specified as an option terminates. Returns the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITSTATUSREF">exit status</A> of waited-for command.</P>
+<P>You may use the <B class=COMMAND>wait</B> command to prevent a script from exiting before a background job finishes executing (this would create a dreaded <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ZOMBIEREF">orphan process</A>).</P>
+<DIV class=EXAMPLE><A name=EX39></A>
+<P><B>Example 15-26. Waiting for a process to finish before proceeding</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+ROOT_UID=0   # Only users with $UID 0 have root privileges.
+E_NOTROOT=65
+E_NOPARAMS=66
+
+if [ "$UID" -ne "$ROOT_UID" ]
+then
+  echo "Must be root to run this script."
+  # "Run along kid, it's past your bedtime."
+  exit $E_NOTROOT
+fi  
+
+if [ -z "$1" ]
+then
+  echo "Usage: `basename $0` find-string"
+  exit $E_NOPARAMS
+fi
+
+
+echo "Updating 'locate' database..."
+echo "This may take a while."
+updatedb /usr &amp;     # Must be run as root.
+
+wait
+# Don't run the rest of the script until 'updatedb' finished.
+# You want the the database updated before looking up the file name.
+
+locate $1
+
+#  Without the 'wait' command, in the worse case scenario,
+#+ the script would exit while 'updatedb' was still running,
+#+ leaving it as an orphan process.
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Optionally, <B class=COMMAND>wait</B> can take a <I class=FIRSTTERM>job identifier</I> as an argument, for example, <TT class=REPLACEABLE><I>wait%1</I></TT> or <TT class=REPLACEABLE><I>wait $PPID</I></TT>. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN9753" name=AEN9753><SPAN class=footnote>[67]</SPAN></A> See the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#JOBIDTABLE">job id table</A>.</P>
+<P><A name=WAITHANG></A></P>
+<DIV class=TIP>
+<P></P>
+<TABLE class=TIP border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Tip src="http://tldp.org/LDP/abs/images/tip.gif"></TD>
+<TD vAlign=top align=left>
+<P>Within a script, running a command in the background with an ampersand (&amp;) may cause the script to hang until <B class=KEYCAP>ENTER</B> is hit. This seems to occur with commands that write to <TT class=FILENAME>stdout</TT>. It can be a major annoyance. 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# test.sh		  
+
+ls -l &amp;
+echo "Done."</PRE></FONT></TD></TR></TBODY></TABLE>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>./test.sh</B></TT>
+<TT class=COMPUTEROUTPUT>Done.
+ [bozo@localhost test-scripts]$ total 1
+ -rwxr-xr-x    1 bozo     bozo           34 Oct 11 15:09 test.sh
+ _</TT>
+               </PRE></FONT></TD></TR></TBODY></TABLE></P><A name=AEN9768></A>
+<BLOCKQUOTE class=BLOCKQUOTE>
+<P class=LITERALLAYOUT>&nbsp;&nbsp;&nbsp;&nbsp;As&nbsp;Walter&nbsp;Brameld&nbsp;IV&nbsp;explains&nbsp;it:<BR><BR>&nbsp;&nbsp;&nbsp;&nbsp;As&nbsp;far&nbsp;as&nbsp;I&nbsp;can&nbsp;tell,&nbsp;such&nbsp;scripts&nbsp;don't&nbsp;actually&nbsp;hang.&nbsp;It&nbsp;just<BR>&nbsp;&nbsp;&nbsp;&nbsp;seems&nbsp;that&nbsp;they&nbsp;do&nbsp;because&nbsp;the&nbsp;background&nbsp;command&nbsp;writes&nbsp;text&nbsp;to<BR>&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;console&nbsp;after&nbsp;the&nbsp;prompt.&nbsp;The&nbsp;user&nbsp;gets&nbsp;the&nbsp;impression&nbsp;that<BR>&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;prompt&nbsp;was&nbsp;never&nbsp;displayed.&nbsp;Here's&nbsp;the&nbsp;sequence&nbsp;of&nbsp;events:<BR><BR>&nbsp;&nbsp;&nbsp;&nbsp;1.&nbsp;Script&nbsp;launches&nbsp;background&nbsp;command.<BR>&nbsp;&nbsp;&nbsp;&nbsp;2.&nbsp;Script&nbsp;exits.<BR>&nbsp;&nbsp;&nbsp;&nbsp;3.&nbsp;Shell&nbsp;displays&nbsp;the&nbsp;prompt.<BR>&nbsp;&nbsp;&nbsp;&nbsp;4.&nbsp;Background&nbsp;command&nbsp;continues&nbsp;running&nbsp;and&nbsp;writing&nbsp;text&nbsp;to&nbsp;the<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;console.<BR>&nbsp;&nbsp;&nbsp;&nbsp;5.&nbsp;Background&nbsp;command&nbsp;finishes.<BR>&nbsp;&nbsp;&nbsp;&nbsp;6.&nbsp;User&nbsp;doesn't&nbsp;see&nbsp;a&nbsp;prompt&nbsp;at&nbsp;the&nbsp;bottom&nbsp;of&nbsp;the&nbsp;output,&nbsp;thinks&nbsp;script<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is&nbsp;hanging.<BR></P></BLOCKQUOTE>
+<P>Placing a <B class=COMMAND>wait</B> after the background command seems to remedy this. 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# test.sh		  
+
+ls -l &amp;
+echo "Done."
+wait</PRE></FONT></TD></TR></TBODY></TABLE>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>./test.sh</B></TT>
+<TT class=COMPUTEROUTPUT>Done.
+ [bozo@localhost test-scripts]$ total 1
+ -rwxr-xr-x    1 bozo     bozo           34 Oct 11 15:09 test.sh</TT>
+               </PRE></FONT></TD></TR></TBODY></TABLE><A href="http://tldp.org/LDP/abs/html/abs-guide.html#IOREDIRREF">Redirecting</A> the output of the command to a file or even to <TT class=FILENAME>/dev/null</TT> also takes care of this problem. </P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=SUSPENDREF></A><B class=COMMAND>suspend</B> 
+<DD>
+<P>This has a similar effect to <B class=KEYCAP>Control</B>-<B class=KEYCAP>Z</B>, but it suspends the shell (the shell's parent process should resume it at an appropriate time).</P>
+<DT><A name=LOGOUTREF></A><B class=COMMAND>logout</B> 
+<DD>
+<P>Exit a login shell, optionally specifying an <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITSTATUSREF">exit status</A>.</P>
+<DT><A name=TIMESREF></A><B class=COMMAND>times</B> 
+<DD>
+<P>Gives statistics on the system time elapsed when executing commands, in the following form: 
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=COMPUTEROUTPUT>0m0.020s 0m0.020s</TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>This capability is of relatively limited value, since it is not common to profile and benchmark shell scripts.</P>
+<DT><A name=KILLREF></A><B class=COMMAND>kill</B> 
+<DD>
+<P>Forcibly terminate a process by sending it an appropriate <I class=FIRSTTERM>terminate</I> signal (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#KILLPROCESS">Example 17-6</A>).</P>
+<DIV class=EXAMPLE><A name=SELFDESTRUCT></A>
+<P><B>Example 15-27. A script that kills itself</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# self-destruct.sh
+
+kill $$  # Script kills its own process here.
+         # Recall that "$$" is the script's PID.
+
+echo "This line will not echo."
+# Instead, the shell sends a "Terminated" message to stdout.
+
+exit 0   # Normal exit? No!
+
+#  After this script terminates prematurely,
+#+ what exit status does it return?
+#
+# sh self-destruct.sh
+# echo $?
+# 143
+#
+# 143 = 128 + 15
+#             TERM signal</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=ZOMBIEREF></A></P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P><TT class=USERINPUT><B>kill -l</B></TT> lists all the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SIGNALD">signals</A> (as does the file <TT class=FILENAME>/usr/include/asm/signal.h</TT>). A <TT class=USERINPUT><B>kill -9</B></TT> is a <I class=FIRSTTERM>sure kill</I>, which will usually terminate a process that stubbornly refuses to die with a plain <B class=COMMAND>kill</B>. Sometimes, a <TT class=USERINPUT><B>kill -15</B></TT> works. A <I class=FIRSTTERM>zombie</I> process, that is, a child process that has terminated, but that the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FORKREF">parent process</A> has not (yet) killed, cannot be killed by a logged-on user -- you can't kill something that is already dead -- but <B class=COMMAND>init</B> will generally clean it up sooner or later.</P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=KILLALLREF></A><B class=COMMAND>killall</B> 
+<DD>
+<P>The <B class=COMMAND>killall</B> command kills a running process by <I class=FIRSTTERM>name</I>, rather than by <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PROCESSIDREF">process ID</A>. If there are multiple instances of a particular command running, then doing a <I class=FIRSTTERM>killall</I> on that command will terminate them <EM>all</EM>.</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>This refers to the <B class=COMMAND>killall</B> command in <TT class=FILENAME>/usr/bin</TT>, <EM>not</EM> the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#KILLALL2REF">killall script</A> in <TT class=FILENAME>/etc/rc.d/init.d</TT>.</P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=COMMANDREF></A><B class=COMMAND>command</B> 
+<DD>
+<P>The <B class=COMMAND>command</B> directive disables aliases and functions for the command immediately following it.</P>
+<P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>command ls</B></TT>
+              </PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>This is one of three shell directives that effect script command processing. The others are <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BLTREF">builtin</A> and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ENABLEREF">enable</A>.</P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=BLTREF></A><B class=COMMAND>builtin</B> 
+<DD>
+<P>Invoking <B class=COMMAND>builtin BUILTIN_COMMAND</B> runs the command <TT class=REPLACEABLE><I>BUILTIN_COMMAND</I></TT> as a shell <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BUILTINREF">builtin</A>, temporarily disabling both functions and external system commands with the same name.</P>
+<DT><A name=ENABLEREF></A><B class=COMMAND>enable</B> 
+<DD>
+<P>This either enables or disables a shell builtin command. As an example, <TT class=REPLACEABLE><I>enable -n kill</I></TT> disables the shell builtin <A href="http://tldp.org/LDP/abs/html/abs-guide.html#KILLREF">kill</A>, so that when Bash subsequently encounters <I class=FIRSTTERM>kill</I>, it invokes the external command <TT class=FILENAME>/bin/kill</TT>.</P>
+<P><A name=ENABLEREF1></A>The <TT class=OPTION>-a</TT> option to <I class=FIRSTTERM>enable</I> lists all the shell builtins, indicating whether or not they are enabled. The <TT class=OPTION>-f filename</TT> option lets <I class=FIRSTTERM>enable</I> load a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BUILTINREF">builtin</A> as a shared library (DLL) module from a properly compiled object file. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN9928" name=AEN9928><SPAN class=footnote>[68]</SPAN></A>. </P>
+<DT><A name=AUTOLOADREF></A><B class=COMMAND>autoload</B> 
+<DD>
+<P>This is a port to Bash of the <I class=FIRSTTERM>ksh</I> autoloader. With <B class=COMMAND>autoload</B> in place, a function with an <I class=FIRSTTERM>autoload</I> declaration will load from an external file at its first invocation. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN9949" name=AEN9949><SPAN class=footnote>[69]</SPAN></A> This saves system resources.</P>
+<P>Note that <I class=FIRSTTERM>autoload</I> is not a part of the core Bash installation. It needs to be loaded in with <TT class=REPLACEABLE><I>enable -f</I></TT> (see above).</P></DD></DL></DIV>
+<P><A name=JOBIDTABLE0></A></P>
+<DIV class=TABLE><A name=JOBIDTABLE></A>
+<P><B>Table 15-1. Job identifiers</B></P>
+<TABLE class=CALSTABLE border=1>
+<THEAD>
+<TR>
+<TH vAlign=top align=left>Notation</TH>
+<TH vAlign=top align=left>Meaning</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>%N</TT></TD>
+<TD vAlign=top align=left>Job number [N]</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>%S</TT></TD>
+<TD vAlign=top align=left>Invocation (command-line) of job begins with string <EM>S</EM></TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>%?S</TT></TD>
+<TD vAlign=top align=left>Invocation (command-line) of job contains within it string <EM>S</EM></TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>%%</TT></TD>
+<TD vAlign=top align=left><SPAN class=QUOTE>"current"</SPAN> job (last job stopped in foreground or started in background)</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>%+</TT></TD>
+<TD vAlign=top align=left><SPAN class=QUOTE>"current"</SPAN> job (last job stopped in foreground or started in background)</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>%-</TT></TD>
+<TD vAlign=top align=left>Last job</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>$!</TT></TD>
+<TD vAlign=top align=left>Last background process</TD></TR></TBODY></TABLE></DIV>

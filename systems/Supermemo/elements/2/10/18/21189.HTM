@@ -1,0 +1,38 @@
+--- 6.1 Set variables to tweak the build to the architecture 
+<P></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; LDFLAGS&nbsp;&nbsp;Generic $(LD) options</FONT></P>
+<P><FONT class=extract>&nbsp;Flags used for all invocations of the linker.<BR>&nbsp;Often specifying the emulation is sufficient.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#arch/s390/Makefile<BR>&nbsp;&nbsp;LDFLAGS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; := -m elf_s390<BR>&nbsp;Note: ldflags-y can be used to further customise<BR>&nbsp;the flags used. See chapter 3.7.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; LDFLAGS_MODULE&nbsp;Options for $(LD) when linking modules</FONT></P>
+<P><FONT class=extract>&nbsp;LDFLAGS_MODULE is used to set specific flags for $(LD) when<BR>&nbsp;linking the .ko files used for modules.<BR>&nbsp;Default is "-r", for relocatable output.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; LDFLAGS_vmlinux&nbsp;Options for $(LD) when linking vmlinux</FONT></P>
+<P><FONT class=extract>&nbsp;LDFLAGS_vmlinux is used to specify additional flags to pass to<BR>&nbsp;the linker when linking the final vmlinux image.<BR>&nbsp;LDFLAGS_vmlinux uses the LDFLAGS_$@ support.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#arch/x86/Makefile<BR>&nbsp;&nbsp;LDFLAGS_vmlinux := -e stext</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; OBJCOPYFLAGS&nbsp;objcopy flags</FONT></P>
+<P><FONT class=extract>&nbsp;When $(call if_changed,objcopy) is used to translate a .o file,<BR>&nbsp;the flags specified in OBJCOPYFLAGS will be used.<BR>&nbsp;$(call if_changed,objcopy) is often used to generate raw binaries on<BR>&nbsp;vmlinux.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#arch/s390/Makefile<BR>&nbsp;&nbsp;OBJCOPYFLAGS := -O binary</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;#arch/s390/boot/Makefile<BR>&nbsp;&nbsp;$(obj)/image: vmlinux FORCE<BR>&nbsp;&nbsp;&nbsp;$(call if_changed,objcopy)</FONT></P>
+<P><FONT class=extract>&nbsp;In this example, the binary $(obj)/image is a binary version of<BR>&nbsp;vmlinux. The usage of $(call if_changed,xxx) will be described later.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; KBUILD_AFLAGS&nbsp;&nbsp;$(AS) assembler flags</FONT></P>
+<P><FONT class=extract>&nbsp;Default value - see top level Makefile<BR>&nbsp;Append or modify as required per architecture.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#arch/sparc64/Makefile<BR>&nbsp;&nbsp;KBUILD_AFLAGS += -m64 -mcpu=ultrasparc</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; KBUILD_CFLAGS&nbsp;&nbsp;$(CC) compiler flags</FONT></P>
+<P><FONT class=extract>&nbsp;Default value - see top level Makefile<BR>&nbsp;Append or modify as required per architecture.</FONT></P>
+<P><FONT class=extract>&nbsp;Often, the KBUILD_CFLAGS variable depends on the configuration.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#arch/x86/boot/compressed/Makefile<BR>&nbsp;&nbsp;cflags-$(CONFIG_X86_32) := -march=i386<BR>&nbsp;&nbsp;cflags-$(CONFIG_X86_64) := -mcmodel=small<BR>&nbsp;&nbsp;KBUILD_CFLAGS += $(cflags-y)</FONT></P>
+<P><FONT class=extract>&nbsp;Many arch Makefiles dynamically run the target C compiler to<BR>&nbsp;probe supported options:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;#arch/x86/Makefile</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;...<BR>&nbsp;&nbsp;cflags-$(CONFIG_MPENTIUMII)&nbsp;&nbsp;&nbsp;&nbsp; += $(call cc-option,\<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-march=pentium2,-march=i686)<BR>&nbsp;&nbsp;...<BR>&nbsp;&nbsp;# Disable unit-at-a-time mode ...<BR>&nbsp;&nbsp;KBUILD_CFLAGS += $(call cc-option,-fno-unit-at-a-time)<BR>&nbsp;&nbsp;...</FONT></P>
+<P><BR><FONT class=extract>&nbsp;The first example utilises the trick that a config option expands<BR>&nbsp;to 'y' when selected.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; KBUILD_AFLAGS_KERNEL&nbsp;$(AS) options specific for built-in</FONT></P>
+<P><FONT class=extract>&nbsp;$(KBUILD_AFLAGS_KERNEL) contains extra C compiler flags used to compile<BR>&nbsp;resident kernel code.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; KBUILD_AFLAGS_MODULE&nbsp;&nbsp; Options for $(AS) when building modules</FONT></P>
+<P><FONT class=extract>&nbsp;$(KBUILD_AFLAGS_MODULE) is used to add arch specific options that<BR>&nbsp;are used for $(AS).<BR>&nbsp;From commandline AFLAGS_MODULE shall be used (see kbuild.txt).</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; KBUILD_CFLAGS_KERNEL&nbsp;$(CC) options specific for built-in</FONT></P>
+<P><FONT class=extract>&nbsp;$(KBUILD_CFLAGS_KERNEL) contains extra C compiler flags used to compile<BR>&nbsp;resident kernel code.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; KBUILD_CFLAGS_MODULE&nbsp;&nbsp; Options for $(CC) when building modules</FONT></P>
+<P><FONT class=extract>&nbsp;$(KBUILD_CFLAGS_MODULE) is used to add arch specific options that<BR>&nbsp;are used for $(CC).<BR>&nbsp;From commandline CFLAGS_MODULE shall be used (see kbuild.txt).</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; KBUILD_LDFLAGS_MODULE&nbsp;&nbsp; Options for $(LD) when linking modules</FONT></P>
+<P><FONT class=extract>&nbsp;$(KBUILD_LDFLAGS_MODULE) is used to add arch specific options<BR>&nbsp;used when linking modules. This is often a linker script.<BR>&nbsp;From commandline LDFLAGS_MODULE shall be used (see kbuild.txt).</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; KBUILD_ARFLAGS&nbsp;&nbsp; Options for $(AR) when creating archives</FONT></P>
+<P><FONT class=extract>&nbsp;$(KBUILD_ARFLAGS) set by the top level Makefile to "D" (deterministic<BR>&nbsp;mode) if this option is supported by $(AR).</FONT>

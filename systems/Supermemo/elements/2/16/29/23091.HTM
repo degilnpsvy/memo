@@ -1,0 +1,25 @@
+<H3 id=-100000 class=docSection1Title>Display Parameters</H3>
+<P class=docText><A name=iddle1813></A><A name=iddle4584></A><A name="configuring the"></A>Sometimes, configuring the properties associated with your display panel might be the only driver changes that you need to make to enable video on your device, so let's start learning about video drivers by looking at common display parameters. We will assume that the associated driver conforms to the frame buffer interface, and use the <SPAN class=docEmphasis>fbset</SPAN><A name="obtain display"></A> utility to obtain display characteristics:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; fbset</SPAN>
+mode "1024x768-60"
+    # D: 65.003 MHz, H: 48.365 kHz, V: 60.006 Hz
+    geometry 1024 768 1024 768 8
+    timings 15384 168 16 30 2 136 6
+    hsync high
+    vsync high
+    rgba 8/0,8/0,8/0,0/0
+endmode</PRE></DIV><BR>
+<P class=docText>The <TT>D:</TT><A name="in the"></A> value in the output stands for the <SPAN class=docEmphasis>dotclock</SPAN><A name="draws pixels"></A>, which is the speed at which the video hardware draws pixels on the display. The value of 65.003MHz in the preceding output means that it'll take (1/65.003*1000000) or about 15,384 picoseconds for the video controller to draw a single pixel. This duration is called the <SPAN class=docEmphasis>pixclock</SPAN><A name="first numeric"></A> and is shown as the first numeric parameter in the line starting with <TT>timings</TT><A name="resolutions are"></A>. The numbers against "geometry" announce that the visible and virtual resolutions are 1024x768 (SVGA) and that the bits required to store information pertaining to a pixel is 8.</P>
+<P class=docText>The <TT>H:</TT><A name="the number"></A> value specifies the horizontal scan rate, which is the number of horizontal display lines scanned by the video hardware in one second. This is the inverse of the pixclock times the X-resolution. The <TT>V:</TT><A name="This is"></A> value is the rate at which the entire display is refreshed. This is the inverse of the pixclock times the visible X-resolution times the visible Y-resolution, which is around 60Hz in this example. In other words, the LCD is refreshed 60 times in a second.</P>
+<P class=docText><A name="a horizontal"></A>Video controllers issue a horizontal sync (<TT>HSYNC</TT><A name="the end"></A>) pulse at the end of each line and a vertical sync (<TT>VSYNC</TT><A name="pulse after"></A>) pulse after each display frame. The durations of <TT>HSYNC</TT><A name=and></A> (in terms of pixels) and <TT>VSYNC</TT><A name="of pixel"></A> (in terms of pixel lines) are shown as the last two parameters in the line starting with "<TT>timings</TT>." The larger your display, the bigger the likely values of <TT>HSYNC</TT> and <TT>VSYNC</TT>. The four numbers before the <TT>HSYNC</TT> duration in the <TT>timings</TT><A name="horizontal front"></A> line announce the length of the right display margin (or horizontal front porch), left <A name=iddle2093></A><A name="vertical front"></A>margin (or horizontal back porch), lower margin (or vertical front porch), and upper margin (or vertical back porch), respectively. <SPAN class=docEmphasis>Documentation/fb/framebuffer.txt</SPAN> and the man page of <SPAN class=docEmphasis>fb.modes</SPAN> pictorially show these parameters.</P><A name=ch12note02></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="a given"></A>To tie these parameters together, let's calculate the pixclock value for a given refresh rate, which is 60.006Hz in our example:</P>
+<DIV class=docText><PRE>dotclock = (X-resolution + left margin + right margin
+           + HSYNC length) * (Y-resolution + upper margin
+           + lower margin + VSYNC length) * refresh rate
+         = (1024 + 168 + 16 + 136) * (768 + 30 + 2 + 6) * 60.006
+         = 65.003 MHz
+pixclock = 1/dotclock
+         = 15384 picoseconds (which matches with the fbset output
+                              above)</PRE></DIV></DIV>

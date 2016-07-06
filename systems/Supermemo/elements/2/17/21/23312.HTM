@@ -1,0 +1,121 @@
+<H3 id=title-IDAN20PC class=docSection1Title>16.2. Custom Linux for Your Board</H3>
+<P class=docText>When we ported U-Boot to a new hardware platform in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>, "Bootloaders," we found the configuration that most closely matched our new board and borrowed from that port. We use a similar technique to port Linux to our new board. We assume that the chosen CPU is already supported in the kernel. Porting to a new CPU is significantly more challenging and beyond the scope of this book.</P>
+<P class=docText>We have chosen to port Linux to a custom controller board based on the Freescale MPC5200 32-bit embedded PowerPC processor. Looking through the default configurations from a recent Linux release (as depicted in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec1.html#ch16list02">Listing 16-2</A>), we find one that contains the MPC5200 CPU. Because it appears that this is the only configuration that supports this processor, we use it as our baseline.</P>
+<P class=docText>The hardware platform that we use for this exercise was supplied courtesy of United Electronic Industries. The board is called the PowerDNA Controller. It has a simple block diagram, containing onboard Flash memory, dynamic RAM, a serial port, and a variety of I/O devices, mostly integrated into the MPC5200 processor. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16fig01">Figure 16-1</A> is the block diagram of the PowerDNA Controller.</P><A name=ch16fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 16-1. UEI PowerDNA Controller board</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/16elp01.jpg" width=500 height=333></P></CENTER>
+<P></P><BR><A name=ch16lev2sec2></A>
+<H4 id=title-IDAQ40PC class=docSection2Title>16.2.1. Prerequisites and Assumptions</H4>
+<P class=docText><A name=iddle1109></A><A name=iddle1584></A><A name=iddle2216></A><A name=iddle2242></A><A name=iddle2374></A>The Linux kernel makes some fundamental assumptions when it is passed control from a bootloader. Most important among them is that the bootloader must have initialized the DRAM controller. Linux does not participate in chip-level SDRAM controller setup. Linux assumes that system RAM is present and fully functional. The PowerDNA Controller we are targeting contains the U-Boot bootloader, which has initialized the CPU, DRAM, and other related hardware required for minimal system operation.</P>
+<P class=docText>The bootloader should also initialize the system memory map. This is usually done via a set of processor registers that define what chip select signals are active within a given memory address range. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch03.html#ch03">Chapter 3</A> in the Freescale MPC5200 User's Guide describes the registers used for this task.</P>
+<P class=docText>The bootloader might have additional hardware-related initialization tasks. On some boards, the kernel assumes that the serial port is configured. This makes it possible to display early kernel boot messages to the serial port, long before the kernel's own serial driver has been installed. Some architectures and hardware platforms contain functions such as <TT>*_serial_putc()</TT>, which can send strings to a serial port that has been preconfigured by the bootloader or by some simple early kernel setup code. You can find examples of this in the PowerPC architecture branch using grep and searching for <TT>CONFIG_SERIAL_TEXT_DEBUG</TT>.</P>
+<P class=docText>In summary, the fundamental prerequisite for porting Linux to our new board is that a bootloader has been ported and installed on our board, and any board-specific low-level hardware initialization has been completed. It is not necessary to initialize devices for which Linux has direct device driver support, such as Ethernet controllers or I2C controllers; the kernel handles these.</P>
+<P class=docText>It is a good idea to configure and build your Linux kernel for the board closest to your own. This provides you with a known good starting pointa Linux kernel source tree configured for your board that compiles without error. Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, "Kernel Initialization," the command to compile a Linux 2.6 kernel:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>make ARCH=ppc CROSS_COMPILE=ppc_82xx- uImage</SPAN></PRE></DIV><BR>
+<P class=docText>This command line results in a Linux bootable image compatible with the U-Boot bootloader. The <TT>uImage</TT> target specifies this.</P><A name=ch16lev2sec3></A>
+<H4 id=title-IDAIC1PC class=docSection2Title>16.2.2. Customizing Kernel Initialization</H4>
+<P class=docText><A name=iddle1261></A><A name=iddle1262></A><A name=iddle1578></A><A name=iddle1753></A><A name=iddle1860></A><A name=iddle1910></A><A name=iddle2210></A>Now that we have a baseline kernel source tree from which to start, let's determine where to begin customizing for our particular board. We discovered that for the PowerPC architecture, the board-specific files reside in a directory called <TT>.../arch/ppc/platforms</TT>. Of course, this is not strictly necessary, but if you ever intend to submit your patches to the Linux kernel development community for consideration, proper form and consistency matter!</P>
+<P class=docText>We find in the <TT>platforms</TT> directory a file called <TT>lite5200.c.</TT> It's a fairly simple file, containing two data structures and five functions. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list03">Listing 16-3</A> presents the functions from this file.</P><A name=ch16list03></A>
+<H5 id=title-IDATF1PC class=docExampleTitle>Listing 16-3. Functions from 5200 Platform File</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>lite5200_show_cpuinfo()  /* Prints user specified text string */
+lite5200_map_irq()       /* Sets h/w specific INT logic routing */
+lite5200_setup_cpu()     /* CPU specific initialization */
+lite5200_setup_arch()    /* Arch. specific initialization */
+platform_init()          /* Machine or board specific init */</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Let's look at how these functions are used. We briefly examined the low-level kernel initialization in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>. Here we look at the details for a particular architecture. Details differ between architectures, but when you can navigate one, the others will be easier to learn.</P>
+<P class=docText>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, we saw the early flow of control on power-up. The bootloader passed control to the kernel's bootstrap loader, which then passed control to the Linux kernel via the kernel's <TT>head.o</TT> module. Here the platform-specific initialization begins. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list04">Listing 16-4</A> reproduces the pertinent lines from <TT>.../arch/ppc/kernel/head.S.</TT></P><A name=ch16list04></A>
+<H5 id=title-IDAFH1PC class=docExampleTitle>Listing 16-4. Calling Early Machine Initialization</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>      ...
+/*
+ * Do early bootinfo parsing, platform-specific initialization,
+ * and set up the MMU.
+ */
+      mr    r3,r31
+      mr    r4,r30
+      mr    r5,r29
+      mr    r6,r28
+      mr    r7,r27
+      bl    machine_init
+      bl    MMU_init
+      ...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2058></A>Here you can see the assembly language call to <TT>machine_init</TT>. Of particular significance is the setup of the registers <TT>r3</TT> through <TT>r7</TT>. These registers are expected to contain well-known values, which you will see momentarily. They were stored away very early in the boot sequence to the PowerPC general-purpose registers <TT>r27</TT> tHRough <TT>r31</TT>. Here they are reloaded from these stored values.</P>
+<P class=docText>The <TT>machine_init()</TT> function is defined in a C file called <TT>setup.c</TT>, in the same architecture-specific kernel directory: <TT>.../arch/ppc/kernel/setup.c</TT>. The start of this routine is reproduced here in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list05">Listing 16-5</A>.</P><A name=ch16list05></A>
+<H5 id=title-IDABJ1PC class=docExampleTitle>Listing 16-5. Function <TT>machine_init()</TT> in <TT>setup.c</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>void __init
+machine_init(unsigned long r3, unsigned long r4, unsigned long r5,
+            unsigned long r6, unsigned long r7)
+{
+#ifdef CONFIG_CMDLINE
+       strlcpy(cmd_line, CONFIG_CMDLINE, sizeof(cmd_line));
+#endif /* CONFIG_CMDLINE */
+
+
+#ifdef CONFIG_6xx
+       ppc_md.power_save = ppc6xx_idle;
+#endif
+#ifdef CONFIG_POWER4
+       ppc_md.power_save = power4_idle;
+#endif
+
+
+
+      platform_init(r3, r4, r5, r6, r7);
+
+      if (ppc_md.progress)
+             ppc_md.progress("id mach(): done", 0x200);
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>There is some very useful knowledge in this simple function. First, notice that the parameters to <TT>machine_init()</TT> represent the PowerPC general-purpose registers <TT>r3</TT> through <TT>r7</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16fn2">[2]</A></SUP> You saw that they were initialized just before the machine <A name=iddle1311></A><A name=iddle1579></A><A name=iddle1746></A><A name=iddle2211></A><A name=iddle2443></A>language call to <TT>machine_init</TT>. As you can see from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list05">Listing 16-5</A>, these register values are passed unmodified to <TT>platform_init()</TT>. We need to modify this function for our platform. (We have more to say about that in a moment.)</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn2>[2]</A></SUP> By convention, parameters in C are passed in these PowerPC registers.</P></BLOCKQUOTE>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list05">Listing 16-5</A> also contains some machine-specific calls for power-management functions. If your kernel is configured for PowerPC 6xx support (<TT>CONFIG_6xx</TT> defined in your <TT>.config</TT> file), a pointer to a machine-specific power-management function (<TT>ppc6xx_idle</TT>) is stored in a structure. Similarly, if your kernel is configured for a PowerPC G5 core (<TT>CONFIG_POWER4</TT>), a pointer to its machine-specific power-management routine is stored in the same structure member. This structure is described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16lev2sec7">Section 16.3.3</A>, "Machine-Dependent Calls."</P><A name=ch16lev2sec4></A>
+<H4 id=title-IDAZM1PC class=docSection2Title>16.2.3. Static Kernel Command Line</H4>
+<P class=docText>One of the more interesting operations in the <TT>machine_init()</TT> function reproduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list05">Listing 16-5</A> is to store the <SPAN class=docEmphasis>default</SPAN> kernel command line. This operation is enabled if <TT>CONFIG_CMDLINE</TT> is enabled in your kernel configuration. On some platforms, the bootloader does not supply the kernel command line. In these cases, the kernel command line can be statically compiled into the kernel. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16fig02">Figure 16-2</A> illustrates the configuration options for this.</P><A name=ch16fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 16-2. Default kernel command line</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/16elp02_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/16elp02.jpg" width=500 height=290>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1846></A><A name=iddle1864></A><A name=iddle2078></A>Enable "Default bootloader kernel arguments" in the configuration in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16fig02">Figure 16-2</A> and edit the "Initial kernel command string" as shown. This results in a set of entries in the <TT>.config</TT> file, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list06">Listing 16-6</A>.</P><A name=ch16list06></A>
+<H5 id=title-IDACQ1PC class=docExampleTitle>Listing 16-6. Configuration for Default Kernel Command Line</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+CONFIG_CMDLINE_BOOL=y
+CONFIG_CMDLINE="console=ttyS0 root=/dev/ram0 rw"
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The ellipses in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list06">Listing 16-6</A> indicate that we have taken only a small snippet of the <TT>.config</TT> file. When these configuration symbols are processed by the kernel build system, they become entries in the <TT>.../include/linux/autoconf.h</TT> file, as detailed in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list07">Listing 16-7</A>.</P><A name=ch16list07></A>
+<H5 id=title-IDAHR1PC class=docExampleTitle>Listing 16-7. File <TT>autoconf.h</TT> Entries for Default Kernel Command Line</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+  #define CONFIG_CMDLINE_BOOL 1
+  #define CONFIG_CMDLINE "console=ttyS0 root=/dev/ram0 rw"
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Now referring back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list05">Listing 16-5</A>, we have the following line:</P>
+<DIV class=docText><PRE>strlcpy(cmd_line, CONFIG_CMDLINE, sizeof(cmd_line));</PRE></DIV><BR>
+<P class=docText>You can see that this kernel-based string-copy function copies the string defined by <TT>CONFIG_CMDLINE</TT> into a global kernel variable called <TT>cmd_line</TT>. This is important because many functions and device drivers might need to examine the kernel command line early in the boot sequence. The global variable <TT>cmd_line</TT> is hidden away at the start of the <TT>.data</TT> section, defined in the assembler file <TT>.../arch/ppc/kernel/head.S.</TT></P>
+<P class=docText>A subtle detail is worth mentioning here. Looking back at <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list04">Listing 16-4</A>, we see that the <TT>machine_init</TT> assembly language call is made <SPAN class=docEmphasis>before</SPAN> the call to <TT>MMU_init</TT>. That means that any code we are able to run from <TT>machine_init</TT> is executed in a context with limited support for accessing memory. Many of today's processors that contain an MMU cannot access any memory without some initial mapping via <A name=iddle1583></A><A name=iddle1630></A><A name=iddle2215></A>hardware registers in the processor.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16fn3">[3]</A></SUP> Typically, a small amount of memory is made available at boot time to accommodate loading and decompressing the kernel and a ramdisk image. Trying to access code or data beyond these early limits will fail. Each architecture and platform might have different early limits for accessing memory. Values on the order of 8 to 16MB are not untypical. We must remember that any code we execute from <TT>machine_init</TT>, including our platform initialization, takes place in this context. If you encounter data access errors (PowerPC DSI exception<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16fn4">[4]</A></SUP>) while debugging your new kernel port, you should immediately suspect that you have not properly mapped the memory region your code is trying to access.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn3>[3]</A></SUP> The AMCC PPC405 is a perfect example of this. The interested reader is encouraged to examine the BAT registers in this processor.</P></BLOCKQUOTE>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn4>[4]</A></SUP> Refer to the Programming Environments Manual referenced at the end of this chapter for details of the PowerPC DSI exception.</P></BLOCKQUOTE>

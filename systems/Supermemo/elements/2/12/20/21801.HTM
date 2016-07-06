@@ -1,0 +1,124 @@
+# Documentation/driver-mode/porting.txt
+<P></P>
+<P>Porting Drivers to the New Driver Model</P>
+<P></P>
+<P>Patrick Mochel</P>
+<P>7 January 2003</P>
+<P><BR>Overview</P>
+<P>Please refer to Documentation/driver-model/*.txt for definitions of<BR>various driver types and concepts. </P>
+<P>Most of the work of porting devices drivers to the new model happens<BR>at the bus driver layer. This was intentional, to minimize the<BR>negative effect on kernel drivers, and to allow a gradual transition<BR>of bus drivers.</P>
+<P>In a nutshell, the driver model consists of a set of objects that can<BR>be embedded in larger, bus-specific objects. Fields in these generic<BR>objects can replace fields in the bus-specific objects. </P>
+<P>The generic objects must be registered with the driver model core. By<BR>doing so, they will exported via the sysfs filesystem. sysfs can be<BR>mounted by doing </P>
+<P>&nbsp;# mount -t sysfs sysfs /sys</P>
+<P>&nbsp;</P>
+<P>The Process</P>
+<P>Step 0: Read include/linux/device.h for object and function definitions. </P>
+<P>Step 1: Registering the bus driver. </P>
+<P><BR>- Define a struct bus_type for the bus driver.</P>
+<P>struct bus_type pci_bus_type = {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = "pci",<BR>};</P>
+<P><BR>- Register the bus type.<BR>&nbsp; This should be done in the initialization function for the bus type,<BR>&nbsp; which is usually the module_init(), or equivalent, function. </P>
+<P>static int __init pci_driver_init(void)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return bus_register(&amp;pci_bus_type);<BR>}</P>
+<P>subsys_initcall(pci_driver_init);</P>
+<P><BR>&nbsp; The bus type may be unregistered (if the bus driver may be compiled<BR>&nbsp; as a module) by doing:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; bus_unregister(&amp;pci_bus_type);</P>
+<P><BR>- Export the bus type for others to use. </P>
+<P>&nbsp; Other code may wish to reference the bus type, so declare it in a <BR>&nbsp; shared header file and export the symbol.</P>
+<P>From include/linux/pci.h:</P>
+<P>extern struct bus_type pci_bus_type;</P>
+<P><BR>From file the above code appears in:</P>
+<P>EXPORT_SYMBOL(pci_bus_type);</P>
+<P>&nbsp;</P>
+<P>- This will cause the bus to show up in /sys/bus/pci/ with two<BR>&nbsp; subdirectories: 'devices' and 'drivers'.</P>
+<P># tree -d /sys/bus/pci/<BR>/sys/bus/pci/<BR>|-- devices<BR>`-- drivers</P>
+<P>&nbsp;</P>
+<P>Step 2: Registering Devices. </P>
+<P>struct device represents a single device. It mainly contains metadata<BR>describing the relationship the device has to other entities. </P>
+<P><BR>- Embed a struct device in the bus-specific device type. </P>
+<P><BR>struct pci_dev {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ...<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct&nbsp; device&nbsp; dev;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* Generic device interface */<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ...<BR>};</P>
+<P>&nbsp; It is recommended that the generic device not be the first item in <BR>&nbsp; the struct to discourage programmers from doing mindless casts<BR>&nbsp; between the object types. Instead macros, or inline functions,<BR>&nbsp; should be created to convert from the generic object type.</P>
+<P><BR>#define to_pci_dev(n) container_of(n, struct pci_dev, dev)</P>
+<P>or </P>
+<P>static inline struct pci_dev * to_pci_dev(struct kobject * kobj)<BR>{<BR>&nbsp;return container_of(n, struct pci_dev, dev);<BR>}</P>
+<P>&nbsp; This allows the compiler to verify type-safety of the operations <BR>&nbsp; that are performed (which is Good).</P>
+<P><BR>- Initialize the device on registration.</P>
+<P>&nbsp; When devices are discovered or registered with the bus type, the <BR>&nbsp; bus driver should initialize the generic device. The most important<BR>&nbsp; things to initialize are the bus_id, parent, and bus fields.</P>
+<P>&nbsp; The bus_id is an ASCII string that contains the device's address on<BR>&nbsp; the bus. The format of this string is bus-specific. This is<BR>&nbsp; necessary for representing devices in sysfs. </P>
+<P>&nbsp; parent is the physical parent of the device. It is important that<BR>&nbsp; the bus driver sets this field correctly. </P>
+<P>&nbsp; The driver model maintains an ordered list of devices that it uses<BR>&nbsp; for power management. This list must be in order to guarantee that<BR>&nbsp; devices are shutdown before their physical parents, and vice versa.<BR>&nbsp; The order of this list is determined by the parent of registered<BR>&nbsp; devices.</P>
+<P>&nbsp; Also, the location of the device's sysfs directory depends on a<BR>&nbsp; device's parent. sysfs exports a directory structure that mirrors <BR>&nbsp; the device hierarchy. Accurately setting the parent guarantees that<BR>&nbsp; sysfs will accurately represent the hierarchy.</P>
+<P>&nbsp; The device's bus field is a pointer to the bus type the device<BR>&nbsp; belongs to. This should be set to the bus_type that was declared<BR>&nbsp; and initialized before. </P>
+<P>&nbsp; Optionally, the bus driver may set the device's name and release<BR>&nbsp; fields.</P>
+<P>&nbsp; The name field is an ASCII string describing the device, like</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; "ATI Technologies Inc Radeon QD"</P>
+<P>&nbsp; The release field is a callback that the driver model core calls <BR>&nbsp; when the device has been removed, and all references to it have <BR>&nbsp; been released. More on this in a moment.</P>
+<P><BR>- Register the device. </P>
+<P>&nbsp; Once the generic device has been initialized, it can be registered<BR>&nbsp; with the driver model core by doing:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; device_register(&amp;dev-&gt;dev);</P>
+<P>&nbsp; It can later be unregistered by doing: </P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; device_unregister(&amp;dev-&gt;dev);</P>
+<P>&nbsp; This should happen on buses that support hotpluggable devices. <BR>&nbsp; If a bus driver unregisters a device, it should not immediately free<BR>&nbsp; it. It should instead wait for the driver model core to call the <BR>&nbsp; device's release method, then free the bus-specific object. <BR>&nbsp; (There may be other code that is currently referencing the device<BR>&nbsp; structure, and it would be rude to free the device while that is <BR>&nbsp; happening).</P>
+<P><BR>&nbsp; When the device is registered, a directory in sysfs is created. <BR>&nbsp; The PCI tree in sysfs looks like: </P>
+<P>/sys/devices/pci0/<BR>|-- 00:00.0<BR>|-- 00:01.0<BR>|&nbsp;&nbsp; `-- 01:00.0<BR>|-- 00:02.0<BR>|&nbsp;&nbsp; `-- 02:1f.0<BR>|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `-- 03:00.0<BR>|-- 00:1e.0<BR>|&nbsp;&nbsp; `-- 04:04.0<BR>|-- 00:1f.0<BR>|-- 00:1f.1<BR>|&nbsp;&nbsp; |-- ide0<BR>|&nbsp;&nbsp; |&nbsp;&nbsp; |-- 0.0<BR>|&nbsp;&nbsp; |&nbsp;&nbsp; `-- 0.1<BR>|&nbsp;&nbsp; `-- ide1<BR>|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `-- 1.0<BR>|-- 00:1f.2<BR>|-- 00:1f.3<BR>`-- 00:1f.5</P>
+<P>&nbsp; Also, symlinks are created in the bus's 'devices' directory<BR>&nbsp; that point to the device's directory in the physical hierarchy. </P>
+<P>/sys/bus/pci/devices/<BR>|-- 00:00.0 -&gt; ../../../devices/pci0/00:00.0<BR>|-- 00:01.0 -&gt; ../../../devices/pci0/00:01.0<BR>|-- 00:02.0 -&gt; ../../../devices/pci0/00:02.0<BR>|-- 00:1e.0 -&gt; ../../../devices/pci0/00:1e.0<BR>|-- 00:1f.0 -&gt; ../../../devices/pci0/00:1f.0<BR>|-- 00:1f.1 -&gt; ../../../devices/pci0/00:1f.1<BR>|-- 00:1f.2 -&gt; ../../../devices/pci0/00:1f.2<BR>|-- 00:1f.3 -&gt; ../../../devices/pci0/00:1f.3<BR>|-- 00:1f.5 -&gt; ../../../devices/pci0/00:1f.5<BR>|-- 01:00.0 -&gt; ../../../devices/pci0/00:01.0/01:00.0<BR>|-- 02:1f.0 -&gt; ../../../devices/pci0/00:02.0/02:1f.0<BR>|-- 03:00.0 -&gt; ../../../devices/pci0/00:02.0/02:1f.0/03:00.0<BR>`-- 04:04.0 -&gt; ../../../devices/pci0/00:1e.0/04:04.0</P>
+<P>&nbsp;</P>
+<P>Step 3: Registering Drivers.</P>
+<P>struct device_driver is a simple driver structure that contains a set<BR>of operations that the driver model core may call. </P>
+<P><BR>- Embed a struct device_driver in the bus-specific driver. </P>
+<P>&nbsp; Just like with devices, do something like:</P>
+<P>struct pci_driver {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ...<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct device_driver&nbsp;&nbsp;&nbsp; driver;<BR>};</P>
+<P><BR>- Initialize the generic driver structure. </P>
+<P>&nbsp; When the driver registers with the bus (e.g. doing pci_register_driver()),<BR>&nbsp; initialize the necessary fields of the driver: the name and bus<BR>&nbsp; fields. </P>
+<P><BR>- Register the driver.</P>
+<P>&nbsp; After the generic driver has been initialized, call</P>
+<P>&nbsp;driver_register(&amp;drv-&gt;driver);</P>
+<P>&nbsp; to register the driver with the core.</P>
+<P>&nbsp; When the driver is unregistered from the bus, unregister it from the<BR>&nbsp; core by doing:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; driver_unregister(&amp;drv-&gt;driver);</P>
+<P>&nbsp; Note that this will block until all references to the driver have<BR>&nbsp; gone away. Normally, there will not be any.</P>
+<P><BR>- Sysfs representation.</P>
+<P>&nbsp; Drivers are exported via sysfs in their bus's 'driver's directory. <BR>&nbsp; For example:</P>
+<P>/sys/bus/pci/drivers/<BR>|-- 3c59x<BR>|-- Ensoniq AudioPCI<BR>|-- agpgart-amdk7<BR>|-- e100<BR>`-- serial</P>
+<P><BR>Step 4: Define Generic Methods for Drivers.</P>
+<P>struct device_driver defines a set of operations that the driver model<BR>core calls. Most of these operations are probably similar to<BR>operations the bus already defines for drivers, but taking different<BR>parameters. </P>
+<P>It would be difficult and tedious to force every driver on a bus to<BR>simultaneously convert their drivers to generic format. Instead, the<BR>bus driver should define single instances of the generic methods that<BR>forward call to the bus-specific drivers. For instance: </P>
+<P><BR>static int pci_device_remove(struct device * dev)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct pci_dev * pci_dev = to_pci_dev(dev);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct pci_driver * drv = pci_dev-&gt;driver;</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (drv) {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (drv-&gt;remove)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; drv-&gt;remove(pci_dev);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; pci_dev-&gt;driver = NULL;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return 0;<BR>}</P>
+<P><BR>The generic driver should be initialized with these methods before it<BR>is registered. </P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* initialize common driver fields */<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; drv-&gt;driver.name = drv-&gt;name;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; drv-&gt;driver.bus = &amp;pci_bus_type;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; drv-&gt;driver.probe = pci_device_probe;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; drv-&gt;driver.resume = pci_device_resume;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; drv-&gt;driver.suspend = pci_device_suspend;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; drv-&gt;driver.remove = pci_device_remove;</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* register with core */<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; driver_register(&amp;drv-&gt;driver);</P>
+<P><BR>Ideally, the bus should only initialize the fields if they are not<BR>already set. This allows the drivers to implement their own generic<BR>methods. </P>
+<P><BR>Step 5: Support generic driver binding. </P>
+<P>The model assumes that a device or driver can be dynamically<BR>registered with the bus at any time. When registration happens,<BR>devices must be bound to a driver, or drivers must be bound to all<BR>devices that it supports. </P>
+<P>A driver typically contains a list of device IDs that it supports. The<BR>bus driver compares these IDs to the IDs of devices registered with it. <BR>The format of the device IDs, and the semantics for comparing them are<BR>bus-specific, so the generic model does attempt to generalize them. </P>
+<P>Instead, a bus may supply a method in struct bus_type that does the<BR>comparison: </P>
+<P>&nbsp; int (*match)(struct device * dev, struct device_driver * drv);</P>
+<P>match should return '1' if the driver supports the device, and '0'<BR>otherwise. </P>
+<P>When a device is registered, the bus's list of drivers is iterated<BR>over. bus-&gt;match() is called for each one until a match is found. </P>
+<P>When a driver is registered, the bus's list of devices is iterated<BR>over. bus-&gt;match() is called for each device that is not already<BR>claimed by a driver. </P>
+<P>When a device is successfully bound to a driver, device-&gt;driver is<BR>set, the device is added to a per-driver list of devices, and a<BR>symlink is created in the driver's sysfs directory that points to the<BR>device's physical directory:</P>
+<P>/sys/bus/pci/drivers/<BR>|-- 3c59x<BR>|&nbsp;&nbsp; `-- 00:0b.0 -&gt; ../../../../devices/pci0/00:0b.0<BR>|-- Ensoniq AudioPCI<BR>|-- agpgart-amdk7<BR>|&nbsp;&nbsp; `-- 00:00.0 -&gt; ../../../../devices/pci0/00:00.0<BR>|-- e100<BR>|&nbsp;&nbsp; `-- 00:0c.0 -&gt; ../../../../devices/pci0/00:0c.0<BR>`-- serial</P>
+<P><BR>This driver binding should replace the existing driver binding<BR>mechanism the bus currently uses. </P>
+<P><BR>Step 6: Supply a hotplug callback.</P>
+<P>Whenever a device is registered with the driver model core, the<BR>userspace program /sbin/hotplug is called to notify userspace. <BR>Users can define actions to perform when a device is inserted or<BR>removed. </P>
+<P>The driver model core passes several arguments to userspace via<BR>environment variables, including</P>
+<P>- ACTION: set to 'add' or 'remove'<BR>- DEVPATH: set to the device's physical path in sysfs. </P>
+<P>A bus driver may also supply additional parameters for userspace to<BR>consume. To do this, a bus must implement the 'hotplug' method in<BR>struct bus_type:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; int (*hotplug) (struct device *dev, char **envp, <BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int num_envp, char *buffer, int buffer_size);</P>
+<P>This is called immediately before /sbin/hotplug is executed. </P>
+<P><BR>Step 7: Cleaning up the bus driver.</P>
+<P>The generic bus, device, and driver structures provide several fields<BR>that can replace those defined privately to the bus driver. </P>
+<P>- Device list.</P>
+<P>struct bus_type contains a list of all devices registered with the bus<BR>type. This includes all devices on all instances of that bus type.<BR>An internal list that the bus uses may be removed, in favor of using<BR>this one.</P>
+<P>The core provides an iterator to access these devices. </P>
+<P>int bus_for_each_dev(struct bus_type * bus, struct device * start, <BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; void * data, int (*fn)(struct device *, void *));</P>
+<P><BR>- Driver list.</P>
+<P>struct bus_type also contains a list of all drivers registered with<BR>it. An internal list of drivers that the bus driver maintains may <BR>be removed in favor of using the generic one. </P>
+<P>The drivers may be iterated over, like devices: </P>
+<P>int bus_for_each_drv(struct bus_type * bus, struct device_driver * start,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; void * data, int (*fn)(struct device_driver *, void *));</P>
+<P><BR>Please see drivers/base/bus.c for more information.</P>
+<P><BR>- rwsem </P>
+<P>struct bus_type contains an rwsem that protects all core accesses to<BR>the device and driver lists. This can be used by the bus driver<BR>internally, and should be used when accessing the device or driver<BR>lists the bus maintains. </P>
+<P><BR>- Device and driver fields. </P>
+<P>Some of the fields in struct device and struct device_driver duplicate<BR>fields in the bus-specific representations of these objects. Feel free<BR>to remove the bus-specific ones and favor the generic ones. Note<BR>though, that this will likely mean fixing up all the drivers that<BR>reference the bus-specific fields (though those should all be 1-line<BR>changes).</P>
+<P>&nbsp;

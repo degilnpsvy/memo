@@ -1,0 +1,73 @@
+<PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; WORD-WRAP: break-word; WHITE-SPACE: pre-wrap; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">; DOS: Creating and Writing to files
+; Author: InternetNightmare 
+; 2005-11-01
+; http://asm.inightmare.org/
+;
+
+org 100h
+
+mov ah, 9
+mov dx, htext
+int 21h            ; print hello message
+
+call create_file
+call write_to_file
+
+
+exit:
+mov ah, 0x4c
+int 21h            ; exit
+
+
+create_file:
+mov ah, 3Ch
+mov cx, 0          ; attributes
+mov dx, filename
+int 21h            ; create our file
+
+jc print_error
+
+ret                ; return
+
+
+write_to_file:
+
+mov ah, 0x3D       ; File Open func
+mov dx, filename   ; file we want to open
+xor al, 2         ; no access modes
+
+int 21h            ; Open!
+
+jc print_error     ; carry flag is set if file doesn't exist
+                   ; if file was opened ax contains file handle
+
+
+mov bx, ax         ; save file handle to bx (write func needs file handle in bx)
+mov ah, 0x40       ; Write to file func
+
+mov dx, data_to_write ; speaks for itself
+
+mov cx, 78         ; Bytes to write (yes my text takes 78 bytes)
+int 21h            ; Write to file
+
+jc print_error     ; If writing to file failed, Carry Flag is set
+
+
+mov ah, 0x3E ; close our file, bx still has file handle
+int 21h
+
+jmp exit
+
+print_error:
+mov ah, 9
+mov dx, errtext
+int 21h
+
+jmp exit
+
+
+filename db "newf.txt",0
+htext db "Creating and writing to file", 10, "$"
+errtext db "Error", 10, "$"
+
+data_to_write db "This file was produced by InternetNightmare's little program ;)", 13, 10, "Have fun!"</PRE>

@@ -1,0 +1,137 @@
+<DIV class=abstract>Using ptrace allows you to set up system call interception and modification at the user level. </DIV>
+<DIV class=content>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x16d4e890.0x16e438d8></A>Reading System Call Parameters</DIV>
+<P>By calling ptrace with PTRACE_PEEKUSER as the first argument, we can examine the contents of the USER area where register contents and other information is stored. The kernel stores the contents of registers in this area for the parent process to examine through ptrace.</P>
+<P>Let's show this with an example:</P><PRE class=programlisting>#include &lt;sys/ptrace.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;linux/user.h&gt;
+#include &lt;sys/syscall.h&gt;   /* For SYS_write etc */
+int main()
+{   pid_t child;
+    long orig_eax, eax;
+    long params[3];
+    int status;
+    int insyscall = 0;
+    child = fork();
+    if(child == 0) {
+        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        execl("/bin/ls", "ls", NULL);
+    }
+    else {
+       while(1) {
+          wait(&amp;status);
+          if(WIFEXITED(status))
+              break;
+          orig_eax = ptrace(PTRACE_PEEKUSER,
+                     child, 4 * ORIG_EAX, NULL);
+          if(orig_eax == SYS_write) {
+             if(insyscall == 0) {
+                /* Syscall entry */
+                insyscall = 1;
+                params[0] = ptrace(PTRACE_PEEKUSER,
+                                   child, 4 * EBX,
+                                   NULL);
+                params[1] = ptrace(PTRACE_PEEKUSER,
+                                   child, 4 * ECX,
+                                   NULL);
+                params[2] = ptrace(PTRACE_PEEKUSER,
+                                   child, 4 * EDX,
+                                   NULL);
+                printf("Write called with "
+                       "%ld, %ld, %ld\n",
+                       params[0], params[1],
+                       params[2]);
+                }
+          else { /* Syscall exit */
+                eax = ptrace(PTRACE_PEEKUSER,
+                             child, 4 * EAX, NULL);
+                    printf("Write returned "
+                           "with %ld\n", eax);
+                    insyscall = 0;
+                }
+            }
+            ptrace(PTRACE_SYSCALL,
+                   child, NULL, NULL);
+        }
+    }
+    return 0;
+}
+</PRE>
+<P>This program should print an output similar to the following: </P><PRE class=programlisting>ppadala@linux:~/ptrace &gt; ls
+a.out        dummy.s      ptrace.txt
+libgpm.html  registers.c  syscallparams.c
+dummy        ptrace.html  simple.c
+ppadala@linux:~/ptrace &gt; ./a.out
+Write called with 1, 1075154944, 48
+a.out        dummy.s      ptrace.txt
+Write returned with 48
+Write called with 1, 1075154944, 59
+libgpm.html  registers.c  syscallparams.c
+Write returned with 59
+Write called with 1, 1075154944, 30
+dummy        ptrace.html  simple.c
+Write returned with 30
+</PRE>Here we are tracing the write system calls, and <B>ls</B> makes three write system calls. The call to ptrace, with a first argument of PTRACE_SYSCALL, makes the kernel stop the child process whenever a system call entry or exit is made. It's equivalent to doing a PTRACE_CONT and stopping at the next system call entry/exit. 
+<P></P>
+<P>In the previous example, we used PTRACE_PEEKUSER to look into the arguments of the write system call. When a system call returns, the return value is placed in %eax, and it can be read as shown in that example.</P>
+<P>The status variable in the wait call is used to check whether the child has exited. This is the typical way to check whether the child has been stopped by ptrace or was able to exit. For more details on macros like WIFEXITED, see the wait(2) man page.</P></DIV>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x16d4e890.0x16e43c48></A>Reading Register Values</DIV>
+<P>If you want to read register values at the time of a syscall entry or exit, the procedure shown above can be cumbersome. Calling ptrace with a first argument of PTRACE_GETREGS will place all the registers in a single call.</P>
+<P>The code to fetch register values looks like this:</P><PRE class=programlisting>#include &lt;sys/ptrace.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;linux/user.h&gt;
+#include &lt;sys/syscall.h&gt;
+int main()
+{   pid_t child;
+    long orig_eax, eax;
+    long params[3];
+    int status;
+    int insyscall = 0;
+    struct user_regs_struct regs;
+    child = fork();
+    if(child == 0) {
+        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        execl("/bin/ls", "ls", NULL);
+    }
+    else {
+       while(1) {
+          wait(&amp;status);
+          if(WIFEXITED(status))
+              break;
+          orig_eax = ptrace(PTRACE_PEEKUSER,
+                            child, 4 * ORIG_EAX,
+                            NULL);
+          if(orig_eax == SYS_write) {
+              if(insyscall == 0) {
+                 /* Syscall entry */
+                 insyscall = 1;
+                 ptrace(PTRACE_GETREGS, child,
+                        NULL, &amp;regs);
+                 printf("Write called with "
+                        "%ld, %ld, %ld\n",
+                        regs.ebx, regs.ecx,
+                        regs.edx);
+             }
+             else { /* Syscall exit */
+                 eax = ptrace(PTRACE_PEEKUSER,
+                              child, 4 * EAX,
+                              NULL);
+                 printf("Write returned "
+                        "with %ld\n", eax);
+                 insyscall = 0;
+             }
+          }
+          ptrace(PTRACE_SYSCALL, child,
+                 NULL, NULL);
+       }
+   }
+   return 0;
+}
+</PRE>
+<P>This code is similar to the previous example except for the call to ptrace with PTRACE_GETREGS. Here we have made use of the user_regs_struct defined in &lt;linux/user.h&gt; to read the register values. </P></DIV></DIV>

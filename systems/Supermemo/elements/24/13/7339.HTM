@@ -1,0 +1,77 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">8.7.&nbsp;</SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">I can't understand how to use&nbsp;select&nbsp;system call!</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">An answer from Patrick Mochel:</SPAN></P>
+<TABLE class=MsoNormalTable style="BACKGROUND: #e0e0e0; WIDTH: 100%; mso-cellspacing: 1.5pt" cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes; mso-yfti-lastrow: yes">
+<TD style="BORDER-RIGHT: #ffffff; PADDING-RIGHT: 0.75pt; BORDER-TOP: #ffffff; PADDING-LEFT: 0.75pt; PADDING-BOTTOM: 0.75pt; BORDER-LEFT: #ffffff; PADDING-TOP: 0.75pt; BORDER-BOTTOM: #ffffff; BACKGROUND-COLOR: transparent">
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">When you call sys_open, you get back a file descriptor, which is simply an</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">index into a table of all the open file descriptors that your process has.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">stdin, stdout, and stderr are always 0, 1, and 2, respectively, because</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">that is the order in which they are always open for your process from there.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Also, notice that the first file descriptor that you open yourself (w/o first</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">closing any of those magic three descriptors) is always 3, and they increment</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">from there.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Understanding the index scheme will explain what select does. When you</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">call select, you are saying that you are waiting certain file descriptors</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">to read from, certain ones to write from, and certain ones to watch from</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">exceptions from. Your process can have up to 1024 file descriptors open,</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">so an fd_set is just a bit mask describing which file descriptors are valid</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">for each operation. Make sense?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Since each fd that you have open is just an index, and it only needs to be</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">on or off for each fd_set, you need only 1024 bits for an fd_set structure.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">1024 / 32 = 32 longs needed to represent the structure.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Now, for the loose example.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Suppose you want to read from a file descriptor (w/o timeout).</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">- Allocate the equivalent to an fd_set.<SPAN style="mso-spacerun: yes">&nbsp; </SPAN></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">.data</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">my_fds: times 32 dd 0</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">- open the file descriptor that you want to read from.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">- set that bit in the fd_set structure.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>First, you need to figure out which of the 32 dwords the bit is in.<SPAN style="mso-spacerun: yes">&nbsp; </SPAN></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>Then, use bts to set the bit in that dword. bts will do a modulo 32</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>when setting the bit. That's why you need to first figure out which</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>dword to start with.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>mov edx, 0</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>mov ebx, 32</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>div ebx</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>lea ebx, my_fds</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>bts ebx[eax * 4], edx</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">- repeat the last step for any file descriptors you want to read from.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">- repeat the entire exercise for either of the other two fd_sets if you want action from them.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">That leaves two other parts of the equation - the n paramter and the timeout</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">parameter. I'll leave the timeout parameter as an exercise for the reader</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">(yes, I'm lazy), but I'll briefly talk about the n parameter.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">It is the value of the largest file descriptor you are selecting from (from</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">any of the fd_sets), plus one. Why plus one? Well, because it's easy to</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">determine a mask from that value. Suppose that there is data available on</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">x file descriptors, but the highest one you care about is (n - 1). Since</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">an fd_set is just a bitmask, the kernel needs some efficient way for</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">determining whether to return or not from select. So, it masks off the bits</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">that you care about, checks if anything is available from the bits that are</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">still set, and returns if there is (pause as I rummage through kernel source).</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Well, it's not as easy as I fantasized it would be. To see how the kernel</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">determines that mask, look in fs/select.c in the kernel source tree.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Anyway, you need to know that number, and the easiest way to do it is to save</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">the value of the last file descriptor open somewhere so you don't lose it.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Ok, that's what I know. A warning about the code above (as always) is that</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">it is not tested. I think it should work, but if it doesn't let me know.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">But, if it starts a global nuclear meltdown, don't call me. ;-)</SPAN></P></TD></TR></TBODY></TABLE>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">That's all for now, folks</SPAN></I><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">.</SPAN>

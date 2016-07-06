@@ -1,0 +1,92 @@
+<H4 class=subsection>5.5.3 Modifiers for <CODE>printf</CODE> Formats</H4><A name=index-printf-statement_002c-modifiers></A><A name=index-modifiers_002c-in-format-specifiers></A>
+<P>A format specification can also include <EM>modifiers</EM> that can control how much of the item&#8217;s value is printed, as well as how much space it gets. The modifiers come between the &#8216;<SAMP>%</SAMP>&#8217; and the format-control letter. We will use the bullet symbol &#8220;&#8226;&#8221; in the following examples to represent spaces in the output. Here are the possible modifiers, in the order in which they may appear: </P>
+<DL compact>
+<DD><A name=index-differences-in-awk-and-gawk_002c-print_002fprintf-statements></A><A name=index-printf-statement_002c-positional-specifiers></A><A name=index-positional-specifiers_002c-printf-statement></A></DD>
+<DT><CODE><VAR>N</VAR>$</CODE></DT>
+<DD>
+<P>An integer constant followed by a &#8216;<SAMP>$</SAMP>&#8217; is a <EM>positional specifier</EM>. Normally, format specifications are applied to arguments in the order given in the format string. With a positional specifier, the format specification is applied to a specific argument, instead of what would be the next argument in the list. Positional specifiers begin counting with one. Thus: </P>
+<DIV class=example><PRE class=example>printf "%s %s\n", "don't", "panic"
+printf "%2$s %1$s\n", "panic", "don't"
+</PRE></DIV>
+<P>prints the famous friendly message twice. </P>
+<P>At first glance, this feature doesn&#8217;t seem to be of much use. It is in fact a <CODE>gawk</CODE> extension, intended for use in translating messages at runtime. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Printf-Ordering">Printf Ordering</A>, which describes how and why to use positional specifiers. For now, we will not use them. </P></DD>
+<DT><CODE>-</CODE></DT>
+<DD>
+<P>The minus sign, used before the width modifier (see later on in this list), says to left-justify the argument within its specified width. Normally, the argument is printed right-justified in the specified width. Thus: </P>
+<DIV class=example><PRE class=example>printf "%-4s", "foo"
+</PRE></DIV>
+<P>prints &#8216;<SAMP>foo&#8226;</SAMP>&#8217;. </P></DD>
+<DT><CODE><VAR>space</VAR></CODE></DT>
+<DD>
+<P>For numeric conversions, prefix positive values with a space and negative values with a minus sign. </P></DD>
+<DT><CODE>+</CODE></DT>
+<DD>
+<P>The plus sign, used before the width modifier (see later on in this list), says to always supply a sign for numeric conversions, even if the data to format is positive. The &#8216;<SAMP>+</SAMP>&#8217; overrides the space modifier. </P></DD>
+<DT><CODE>#</CODE></DT>
+<DD>
+<P>Use an &#8220;alternate form&#8221; for certain control letters. For &#8216;<SAMP>%o</SAMP>&#8217;, supply a leading zero. For &#8216;<SAMP>%x</SAMP>&#8217; and &#8216;<SAMP>%X</SAMP>&#8217;, supply a leading &#8216;<SAMP>0x</SAMP>&#8217; or &#8216;<SAMP>0X</SAMP>&#8217; for a nonzero result. For &#8216;<SAMP>%e</SAMP>&#8217;, &#8216;<SAMP>%E</SAMP>&#8217;, &#8216;<SAMP>%f</SAMP>&#8217;, and &#8216;<SAMP>%F</SAMP>&#8217;, the result always contains a decimal point. For &#8216;<SAMP>%g</SAMP>&#8217; and &#8216;<SAMP>%G</SAMP>&#8217;, trailing zeros are not removed from the result. </P></DD>
+<DT><CODE>0</CODE></DT>
+<DD>
+<P>A leading &#8216;<SAMP>0</SAMP>&#8217; (zero) acts as a flag that indicates that output should be padded with zeros instead of spaces. This applies only to the numeric output formats. This flag only has an effect when the field width is wider than the value to print. </P></DD>
+<DT><CODE>'</CODE></DT>
+<DD>
+<P>A single quote or apostrophe character is a POSIX extension to ISO C. It indicates that the integer part of a floating point value, or the entire part of an integer decimal value, should have a thousands-separator character in it. This only works in locales that support such characters. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>cat thousands.awk</EM></KBD>          <I>Show source program</I>
+-| BEGIN { printf "%'d\n", 1234567 }
+$ <KBD><EM>LC_ALL=C gawk -f thousands.awk</EM></KBD>
+-| 1234567                   <I>Results in "C" locale</I>
+$ <KBD><EM>LC_ALL=en_US.UTF-8 gawk -f thousands.awk</EM></KBD>
+-| 1,234,567                 <I>Results in US English UTF locale</I>
+</PRE></DIV>
+<P>For more information about locales and internationalization issues, see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Locales">Locales</A>. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> The &#8216;<SAMP>'</SAMP>&#8217; flag is a nice feature, but its use complicates things: it becomes difficult to use it in command-line programs. For information on appropriate quoting tricks, see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Quoting">Quoting</A>. </P></BLOCKQUOTE></DD>
+<DT><CODE><VAR>width</VAR></CODE></DT>
+<DD>
+<P>This is a number specifying the desired minimum width of a field. Inserting any number between the &#8216;<SAMP>%</SAMP>&#8217; sign and the format-control character forces the field to expand to this width. The default way to do this is to pad with spaces on the left. For example: </P>
+<DIV class=example><PRE class=example>printf "%4s", "foo"
+</PRE></DIV>
+<P>prints &#8216;<SAMP>&#8226;foo</SAMP>&#8217;. </P>
+<P>The value of <VAR>width</VAR> is a minimum width, not a maximum. If the item value requires more than <VAR>width</VAR> characters, it can be as wide as necessary. Thus, the following: </P>
+<DIV class=example><PRE class=example>printf "%4s", "foobar"
+</PRE></DIV>
+<P>prints &#8216;<SAMP>foobar</SAMP>&#8217;. </P>
+<P>Preceding the <VAR>width</VAR> with a minus sign causes the output to be padded with spaces on the right, instead of on the left. </P></DD>
+<DT><CODE>.<VAR>prec</VAR></CODE></DT>
+<DD>
+<P>A period followed by an integer constant specifies the precision to use when printing. The meaning of the precision varies by control letter: </P>
+<DL compact>
+<DT><CODE>%d</CODE>, <CODE>%i</CODE>, <CODE>%o</CODE>, <CODE>%u</CODE>, <CODE>%x</CODE>, <CODE>%X</CODE></DT>
+<DD>
+<P>Minimum number of digits to print. </P></DD>
+<DT><CODE>%e</CODE>, <CODE>%E</CODE>, <CODE>%f</CODE>, <CODE>%F</CODE></DT>
+<DD>
+<P>Number of digits to the right of the decimal point. </P></DD>
+<DT><CODE>%g</CODE>, <CODE>%G</CODE></DT>
+<DD>
+<P>Maximum number of significant digits. </P></DD>
+<DT><CODE>%s</CODE></DT>
+<DD>
+<P>Maximum number of characters from the string that should print. </P></DD></DL>
+<P>Thus, the following: </P>
+<DIV class=example><PRE class=example>printf "%.4s", "foobar"
+</PRE></DIV>
+<P>prints &#8216;<SAMP>foob</SAMP>&#8217;. </P></DD></DL>
+<P>The C library <CODE>printf</CODE>&#8217;s dynamic <VAR>width</VAR> and <VAR>prec</VAR> capability (for example, <CODE>"%*.*s"</CODE>) is supported. Instead of supplying explicit <VAR>width</VAR> and/or <VAR>prec</VAR> values in the format string, they are passed in the argument list. For example: </P>
+<DIV class=example><PRE class=example>w = 5
+p = 3
+s = "abcdefg"
+printf "%*.*s\n", w, p, s
+</PRE></DIV>
+<P>is exactly equivalent to: </P>
+<DIV class=example><PRE class=example>s = "abcdefg"
+printf "%5.3s\n", s
+</PRE></DIV>
+<P>Both programs output &#8216;<SAMP>&#8226;&#8226;abc<!-- /@w --></SAMP>&#8217;. Earlier versions of <CODE>awk</CODE> did not support this capability. If you must use such a version, you may simulate this feature by using concatenation to build up the format string, like so: </P>
+<DIV class=example><PRE class=example>w = 5
+p = 3
+s = "abcdefg"
+printf "%" w "." p "s\n", s
+</PRE></DIV>
+<P>This is not particularly easy to read but it does work. </P><A name=index-troubleshooting_002c-fatal-errors_002c-printf-format-strings></A><A name=index-POSIX-awk_002c-printf-format-strings-and></A>
+<P>C programmers may be used to supplying additional &#8216;<SAMP>l</SAMP>&#8217;, &#8216;<SAMP>L</SAMP>&#8217;, and &#8216;<SAMP>h</SAMP>&#8217; modifiers in <CODE>printf</CODE> format strings. These are not valid in <CODE>awk</CODE>. Most <CODE>awk</CODE> implementations silently ignore them. If <SAMP>--lint</SAMP> is provided on the command line (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>), <CODE>gawk</CODE> warns about their use. If <SAMP>--posix</SAMP> is supplied, their use is a fatal error.

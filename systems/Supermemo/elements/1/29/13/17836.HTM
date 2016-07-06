@@ -1,0 +1,46 @@
+<H3 class=section>8.5 Multidimensional Arrays</H3>
+<TABLE class=menu border=0 cellSpacing=0>
+<TBODY>
+<TR>
+<TD vAlign=top align=left>&#8226; <A accessKey=1 href="http://www.gnu.org/software/gawk/manual/gawk.html#Multiscanning">Multiscanning</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Scanning multidimensional arrays. </TD></TR></TBODY></TABLE><A name=index-subscripts-in-arrays_002c-multidimensional></A><A name=index-arrays_002c-multidimensional></A>
+<P>A multidimensional array is an array in which an element is identified by a sequence of indices instead of a single index. For example, a two-dimensional array requires two indices. The usual way (in most languages, including <CODE>awk</CODE>) to refer to an element of a two-dimensional array named <CODE>grid</CODE> is with <CODE>grid[<VAR>x</VAR>,<VAR>y</VAR>]</CODE>. </P><A name=index-SUBSEP-variable_002c-and-multidimensional-arrays></A>
+<P>Multidimensional arrays are supported in <CODE>awk</CODE> through concatenation of indices into one string. <CODE>awk</CODE> converts the indices into strings (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Conversion">Conversion</A>) and concatenates them together, with a separator between them. This creates a single string that describes the values of the separate indices. The combined string is used as a single index into an ordinary, one-dimensional array. The separator used is the value of the built-in variable <CODE>SUBSEP</CODE>. </P>
+<P>For example, suppose we evaluate the expression &#8216;<SAMP>foo[5,12] = "value"</SAMP>&#8217; when the value of <CODE>SUBSEP</CODE> is <CODE>"@"</CODE>. The numbers 5 and 12 are converted to strings and concatenated with an &#8216;<SAMP>@</SAMP>&#8217; between them, yielding <CODE>"5@12"</CODE>; thus, the array element <CODE>foo["5@12"]</CODE> is set to <CODE>"value"</CODE>. </P>
+<P>Once the element&#8217;s value is stored, <CODE>awk</CODE> has no record of whether it was stored with a single index or a sequence of indices. The two expressions &#8216;<SAMP>foo[5,12]</SAMP>&#8217; and &#8216;<SAMP>foo[5&nbsp;SUBSEP&nbsp;12]</SAMP>&#8217;<!-- /@w --> are always equivalent. </P>
+<P>The default value of <CODE>SUBSEP</CODE> is the string <CODE>"\034"</CODE>, which contains a nonprinting character that is unlikely to appear in an <CODE>awk</CODE> program or in most input data. The usefulness of choosing an unlikely character comes from the fact that index values that contain a string matching <CODE>SUBSEP</CODE> can lead to combined strings that are ambiguous. Suppose that <CODE>SUBSEP</CODE> is <CODE>"@"</CODE>; then &#8216;<SAMP>foo["a@b",&nbsp;"c"]</SAMP>&#8217;<!-- /@w --> and &#8216;<SAMP>foo["a",&nbsp;"b@c"]</SAMP>&#8217;<!-- /@w --> are indistinguishable because both are actually stored as &#8216;<SAMP>foo["a@b@c"]</SAMP>&#8217;. </P><A name=index-in-operator_002c-index-existence-in-multidimensional-arrays></A>
+<P>To test whether a particular index sequence exists in a multidimensional array, use the same operator (<CODE>in</CODE>) that is used for single dimensional arrays. Write the whole sequence of indices in parentheses, separated by commas, as the left operand: </P>
+<DIV class=example><PRE class=example>(<VAR>subscript1</VAR>, <VAR>subscript2</VAR>, &#8230;) in <VAR>array</VAR>
+</PRE></DIV>
+<P>The following example treats its input as a two-dimensional array of fields; it rotates this array 90 degrees clockwise and prints the result. It assumes that all lines have the same number of elements: </P>
+<DIV class=example><PRE class=example>{
+     if (max_nf &lt; NF)
+          max_nf = NF
+     max_nr = NR
+     for (x = 1; x &lt;= NF; x++)
+          vector[x, NR] = $x
+}
+
+END {
+     for (x = 1; x &lt;= max_nf; x++) {
+          for (y = max_nr; y &gt;= 1; --y)
+               printf("%s ", vector[x, y])
+          printf("\n")
+     }
+}
+</PRE></DIV>
+<P>When given the input: </P>
+<DIV class=example><PRE class=example>1 2 3 4 5 6
+2 3 4 5 6 1
+3 4 5 6 1 2
+4 5 6 1 2 3
+</PRE></DIV>
+<P>the program produces the following output: </P>
+<DIV class=example><PRE class=example>4 3 2 1
+5 4 3 2
+6 5 4 3
+1 6 5 4
+2 1 6 5
+3 2 1 6
+</PRE></DIV>

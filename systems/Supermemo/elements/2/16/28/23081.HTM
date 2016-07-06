@@ -1,0 +1,107 @@
+<H3 id=-100000 class=docSection1Title>Driver Data Structures</H3>
+<P class=docText><A name="When you"></A>When you write a USB client driver, you have to work with several data structures. Let's look at the important ones.</P><A name=ch11lev2sec5></A>
+<H4 id=title-ID0EBRPM class=docSection2Title>The <TT>usb_device</TT> Structure</H4>
+<P class=docText><A name=iddle4423></A><A name=iddle4430></A><A name=iddle4475></A><A name="driver subsystem"></A>Each device driver subsystem relies on a special-purpose data structure to internally represent a device. The <TT>usb_device</TT><A name="is to"></A> structure is to the USB subsystem, what <TT>pci_dev</TT> is to the PCI layer, and what <TT>net_device</TT> is to the network driver layer. <TT>usb_device</TT> is defined in <SPAN class=docEmphasis>include/linux/usb.h</SPAN> as follows:</P>
+<DIV class=docText><PRE>struct usb_device {
+  /* ... */
+  enum usb_device_state state; /* Configured, Not Attached, etc */
+  enum usb_device_speed speed; /* High/full/low (or error) */
+  /* ... */
+  struct usb_device *parent;   /* Our hub, unless we're the root */
+  /* ... */
+  struct usb_device_descriptor descriptor; /* Descriptor */
+  struct usb_host_config *config;          /* All of the configs */
+  struct usb_host_config *actconfig;       /* The active config */
+  /* ... */
+  int maxchild;                                 /* No: of ports if hub */
+  struct usb_device *children[USB_MAXCHILDREN]; /* Child devices */
+  /* ... */
+};</PRE></DIV><BR>
+<P class=docText><A name=iddle4406></A><A name=iddle4407></A><A name=iddle4422></A><A name=iddle4447></A><A name=iddle4531></A><A name="driver for"></A>We use this structure when we develop an example driver for a USB telemetry card later.</P><A name=ch11lev2sec6></A>
+<H4 id=title-ID0EYUPM class=docSection2Title>USB Request Blocks</H4>
+<P class=docText><SPAN class=docEmphasis>USB Request Block</SPAN><A name="USB data"></A> (URB) is the centerpiece of the USB data transfer mechanism. A URB is to the USB stack, what an <TT>sk_buff</TT> (discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15">Chapter 15</A>, "Network Interface Cards") is to the networking stack.</P>
+<P class=docText><A name=from></A>Let's take a peek inside a URB. The following definition is from <SPAN class=docEmphasis>include/linux/usb.h</SPAN><A name="device drivers"></A>, omitting fields not of particular interest to device drivers:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>struct urb
+{
+  struct kref kref;              /* Reference count of the URB */
+  /* ... */
+  struct usb_device *dev;        /* (in) pointer to associated
+                                     device */
+  unsigned int pipe;             /* (in) pipe information */
+  int status;                    /* (return) non-ISO status */
+  unsigned int transfer_flags;   /* (in) URB_SHORT_NOT_OK | ...*/
+  void *transfer_buffer;         /* (in) associated data buffer */
+  dma_addr_t transfer_dma;       /* (in) dma addr for
+                                     transfer_buffer */
+  int transfer_buffer_length;    /* (in) data buffer length */
+  /* ... */
+  unsigned char *setup_packet;   /* (in) setup packet */
+  /* ... */
+  int interval;                  /* (modify) transfer interval
+                                    (INT/ISO) */
+  /* ... */
+  void *context;                 /* (in) context for completion */
+  usb_complete_t complete;       /* (in) completion routine */
+  /* ... */
+};
+
+					  </PRE></DIV><BR>
+<P class=docText><A name=iddle3606></A><A name=iddle4172></A><A name=iddle4455></A><A name=iddle4481></A><A name=iddle4483></A><A name=iddle4486></A><A name=iddle4512></A><A name="a URB"></A>There are three steps to using a URB: create, populate, and submit. To create a URB, use <TT>usb_alloc_urb()</TT><A name="and zeros"></A>. This function allocates and zeros-out URB memory, initializes a kobject associated with the URB, and initializes a spinlock to protect the URB.</P>
+<P class=docText><A name="a URB"></A>To populate a URB, use the following helper routines offered by the USB core:</P>
+<DIV class=docText><PRE>void usb_fill_[control|int|bulk]_urb(
+       struct urb *urb,              /* URB pointer */
+       struct usb_device *usb_dev,   /* USB device structure */
+       unsigned int pipe,            /* Pipe encoding */
+       unsigned char *setup_packet,  /* For Control URBs only! */
+       void *transfer_buffer,        /* Buffer for I/O */
+       int buffer_length,            /* I/O buffer length */
+       usb_complete_t completion_fn, /* Callback routine */
+       void *context,                /* For use by completion_fn */
+       int interval);                /* For Interrupt URBs only! */</PRE></DIV><BR>
+<P class=docText><A name="The semantics"></A>The semantics of the previous routines will get clearer when we develop the example driver later on. These helper routines are available to control, interrupt, and bulk URBs but not to isochronous ones.</P>
+<P class=docText><A name="a URB"></A>To submit a URB for data transfer, use <TT>usb_submit_urb()</TT><A name="submission is"></A>. URB submission is asynchronous. The <TT>usb_fill_[control|int|bulk]_urb()</TT><A name="function as"></A> functions listed previously take the address of a callback function as argument. The callback routine executes after the URB submission completes and accomplishes things such as checking submission status and freeing the data-transfer buffer.</P>
+<P class=docText><A name="wrapper interfaces"></A>The USB core also offers wrapper interfaces that provide a fa&#231;ade of synchronous URB submission:</P>
+<DIV class=docText><PRE>int usb_[control|interrupt|bulk]_msg(struct usb_device *usb_dev,
+                                     unsigned int pipe, ...);</PRE></DIV><BR>
+<P class=docText><A name=iddle1344></A><A name=iddle3570></A><A name=iddle4420></A><A name=iddle4453></A><A name=iddle4459></A><A name=iddle4491></A><A name=iddle4522></A><TT>usb_bulk_msg ()</TT><A name="operation completes"></A>, for example, builds a bulk URB, submits it, and blocks until the operation completes. You don't have to supply a callback function because a generic completion routine serves that purpose. You don't need to explicitly create and populate the URB either, because <TT>usb_bulk_msg()</TT><A name="We will"></A> does that for you at no additional cost. We will use this interface in our example driver.</P>
+<P class=docText><TT>usb_free_urb()</TT> is used to free a reference to a completed URB, whereas <TT>usb_unlink_urb()</TT> cancels a pending URB operation.</P>
+<P class=docText>As mentioned in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04lev2sec6">Sysfs, Kobjects, and Device Classes</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="to it"></A>, "Laying the Groundwork," a URB contains a kref object to track references to it. <TT>usb_submit_urb()</TT><A name="count using"></A> increments the reference count using <TT>kref_get()</TT>. <TT>usb_free_urb()</TT><A name="reference count"></A> decrements the reference count using <TT>kref_put()</TT><A name="and performs"></A> and performs the free operation only if there are no remaining references.</P>
+<P class=docText><A name="is associated"></A>A URB is associated with an abstraction called a <SPAN class=docEmphasis>pipe</SPAN><A name="we discuss"></A>, which we discuss next.</P><A name=ch11lev2sec7></A>
+<H4 id=title-ID0E32PM class=docSection2Title>Pipes</H4>
+<P class=docText><A name="of the"></A>A pipe is an integer encoding of a combination of the following:</P>
+<UL>
+<LI>
+<P class=docList>The endpoint address</P></LI>
+<LI>
+<P class=docList>The direction of data transfer (<TT>IN</TT> or <TT>OUT</TT>)</P></LI>
+<LI>
+<P class=docList><A name="or isochronous"></A>The type of data transfer (control, interrupt, bulk, or isochronous)</P></LI></UL>
+<P class=docText><A name="data transfer"></A>A pipe is the address element of each USB data transfer and is an important field in the URB structure. To help populate this field, the USB core provides the following helper macros:</P>
+<DIV class=docText><PRE>usb_[rcv|snd][ctrl|int|bulk|isoc]pipe(struct usb_device *usb_dev,
+                                      __u8 endpointAddress);</PRE></DIV><BR>
+<P class=docText>where <TT>usb_dev</TT> is a pointer to the associated <TT>usb_device</TT> structure, and <TT>endpointAddress</TT><A name="To create"></A> is the assigned endpoint address between 1 and 127. To create a bulk pipe in the <TT>OUT</TT> direction, for example, call <TT>usb_sndbulkpipe()</TT>. For a control pipe in the <TT>IN</TT> direction, invoke <TT>usb_rcvctrlpipe()</TT>.</P>
+<P class=docText><A name="of the"></A>While referring to a URB, it's often qualified by the transfer type of the associated pipe. If a URB is attached to a bulk pipe, for example, it's called a <SPAN class=docEmphasis>bulk URB</SPAN>.</P><A name=ch11lev2sec8></A>
+<H4 id=title-ID0E44PM class=docSection2Title>Descriptor Structures</H4>
+<P class=docText><A name=iddle1755></A><A name=iddle4419></A><A name=iddle4462></A><A name=iddle4472></A><A name=iddle4479></A><A name=iddle4500></A><A name="defines a"></A>The USB specification defines a series of <SPAN class=docEmphasis>descriptors</SPAN><A name="information about"></A> to hold information about a device. The Linux-USB core defines data structures corresponding to each descriptor. Descriptors are of four types:</P>
+<UL>
+<LI>
+<P class=docList><SPAN class=docEmphasis><A name="Device descriptors"></A>Device descriptors</SPAN><A name="information such"></A> contain general information such as the product ID and vendor ID of the device. <TT>usb_device_descriptor</TT><A name="the structure"></A> is the structure corresponding to device descriptors.</P></LI>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Configuration descriptors</SPAN><A name="and self"></A> are used to describe different configuration modes such as bus-powered and self-powered operation. <TT>usb_config_descriptor</TT><A name="with configuration"></A> is the data structure associated with configuration descriptors.</P></LI>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Interface descriptors</SPAN> allow USB devices to support multiple functions. <TT>usb_interface_descriptor</TT> defines interface descriptors.</P></LI>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Endpoint descriptors</SPAN> carry information associated with the final endpoints of a device. <TT>usb_endpoint_descriptor</TT> is the structure in question.</P></LI></UL>
+<P class=docText>These descriptor formats are defined in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09.html#ch09">Chapter 9</A><A name=in></A> of the USB specification, whereas the matching structures are defined in <SPAN class=docEmphasis>include/linux/usb/ch9.h.</SPAN> <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec3.html#ch11fig04">Listing 11.1</A><A name="and prints"></A> shows the hierarchical topology of the descriptors and prints all endpoint addresses associated with a USB device. To this end, it traverses the tree consisting of the four types of descriptors described previously. The following is the output generated by <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec3.html#ch11fig04">Listing 11.1</A> for a USB CD drive:</P>
+<DIV class=docText><PRE>Endpoint Address = 1
+Endpoint Address = 82
+Endpoint Address = 83</PRE></DIV><BR>
+<P class=docText>The first address belongs to a bulk <TT>IN</TT> endpoint, the second address is owned by a bulk <TT>OUT</TT> endpoint, and the third addresses an interrupt <TT>IN</TT> endpoint.</P>
+<P class=docText><A name=as></A>There are more data structures associated with USB client drivers, such as <TT>usb_device_id</TT>, <TT>usb_driver</TT>, and <TT>usb_class_driver</TT><A name="them when"></A>. We will meet them when we do hands-on development in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11lev1sec5">Device Example: Telemetry Card</A>."</P>
+<P class=docText></P><A name=ch11fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="All USB"></A>Listing 11.1. Print All USB Endpoint Addresses on a Device</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZy5wX2xjc2kwMXQvNDFoZmlnaWFm.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzRmMWhpZ2Y-.jpg" width=500 height=567></CENTER>

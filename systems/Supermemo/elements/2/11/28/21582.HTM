@@ -1,0 +1,55 @@
+<H1 class=SECT1><A name=SYSSCRIPTS></A>17.1. Analyzing a System Script</H1>
+<P><A name=KILLALL2REF></A></P>
+<P>Using our knowledge of administrative commands, let us examine a system script. One of the shortest and simplest to understand scripts is <SPAN class=QUOTE>"killall,"</SPAN> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN17079" name=AEN17079><SPAN class=footnote>[97]</SPAN></A> used to suspend running processes at system shutdown.</P>
+<DIV class=EXAMPLE><A name=EX55></A>
+<P><B>Example 17-12. <I class=FIRSTTERM>killall</I>, from <TT class=FILENAME>/etc/rc.d/init.d</TT></B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/sh
+
+# --&gt; Comments added by the author of this document marked by "# --&gt;".
+
+# --&gt; This is part of the 'rc' script package
+# --&gt; by Miquel van Smoorenburg, &lt;miquels@drinkel.nl.mugnet.org&gt;.
+
+# --&gt; This particular script seems to be Red Hat / FC specific
+# --&gt; (may not be present in other distributions).
+
+#  Bring down all unneeded services that are still running
+#+ (there shouldn't be any, so this is just a sanity check)
+
+for i in /var/lock/subsys/*; do
+        # --&gt; Standard for/in loop, but since "do" is on same line,
+        # --&gt; it is necessary to add ";".
+        # Check if the script is there.
+        [ ! -f $i ] &amp;&amp; continue
+        # --&gt; This is a clever use of an "and list", equivalent to:
+        # --&gt; if [ ! -f "$i" ]; then continue
+
+        # Get the subsystem name.
+        subsys=${i#/var/lock/subsys/}
+        # --&gt; Match variable name, which, in this case, is the file name.
+        # --&gt; This is the exact equivalent of subsys=`basename $i`.
+	
+        # --&gt;  It gets it from the lock file name
+        # --&gt;+ (if there is a lock file,
+        # --&gt;+ that's proof the process has been running).
+        # --&gt;  See the "lockfile" entry, above.
+
+
+        # Bring the subsystem down.
+        if [ -f /etc/rc.d/init.d/$subsys.init ]; then
+           /etc/rc.d/init.d/$subsys.init stop
+        else
+           /etc/rc.d/init.d/$subsys stop
+        # --&gt;  Suspend running jobs and daemons.
+        # --&gt;  Note that "stop" is a positional parameter,
+        # --&gt;+ not a shell builtin.
+        fi
+done</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>That wasn't so bad. Aside from a little fancy footwork with variable matching, there is no new material there.</P>
+<DIV class=FORMALPARA>
+<P><B>Exercise 1. </B>In <TT class=FILENAME>/etc/rc.d/init.d</TT>, analyze the <B class=COMMAND>halt</B> script. It is a bit longer than <B class=COMMAND>killall</B>, but similar in concept. Make a copy of this script somewhere in your home directory and experiment with it (do <EM>not</EM> run it as <I class=FIRSTTERM>root</I>). Do a simulated run with the <TT class=OPTION>-vn</TT> flags (<TT class=USERINPUT><B>sh -vn scriptname</B></TT>). Add extensive comments. Change the commands to <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ECHOREF">echos</A>.</P></DIV>
+<DIV class=FORMALPARA>
+<P><B>Exercise 2. </B>Look at some of the more complex scripts in <TT class=FILENAME>/etc/rc.d/init.d</TT>. Try to understand at least portions of them. Follow the above procedure to analyze them. For some additional insight, you might also examine the file <TT class=FILENAME>sysvinitfiles</TT> in <TT class=FILENAME>/usr/share/doc/initscripts-?.??</TT>, which is part of the <SPAN class=QUOTE>"initscripts"</SPAN> documentation.</P></DIV>

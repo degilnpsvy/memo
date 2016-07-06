@@ -1,0 +1,71 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>16.4.10.2 Variable Access and Update by Cookie</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>scalar cookie</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>is an opaque handle that provides access to a global variable or array. It is an optimization that avoids looking up variables in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>&#8217;s symbol table every time access is needed. This was discussed earlier, in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#General-Data-Types">General Data Types</A>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The following functions let you work with scalar cookies.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>awk_bool_t sym_lookup_scalar(awk_scalar_t cookie,</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;awk_valtype_t wanted,</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;awk_value_t *result);</CODE></DT>
+<DD>
+<P>Retrieve the current value of a scalar cookie. Once you have obtained a scalar_cookie using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>sym_lookup()</CODE>, you can use this function to get its value more efficiently. Return false if the value cannot be retrieved.</P></DD>
+<DT><CODE>awk_bool_t sym_update_scalar(awk_scalar_t cookie, awk_value_t *value);</CODE></DT>
+<DD>
+<P>Update the value associated with a scalar cookie. Return false if the new value is not one of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AWK_STRING</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AWK_NUMBER</CODE>. Here too, the built-in variables may not be updated.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">It is not obvious at first glance how to work with scalar cookies or what their<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>raison d&#8217;&#234;tre</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>really is. In theory, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>sym_lookup()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>sym_update()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>routines are all you really need to work with variables. For example, you might have code that looks up the value of a variable, evaluates a condition, and then possibly changes the value of the variable based on the result of that evaluation, like so:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/*  do_magic --- do something really great */
+
+static awk_value_t *
+do_magic(int nargs, awk_value_t *result)
+{
+    awk_value_t value;
+
+    if (   sym_lookup("MAGIC_VAR", AWK_NUMBER, &amp; value)
+        &amp;&amp; some_condition(value.num_value)) {
+            value.num_value += 42;
+            sym_update("MAGIC_VAR", &amp; value);
+    }
+
+    return make_number(0.0, result);
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This code looks (and is) simple and straightforward. So what&#8217;s the problem?</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Consider what happens if<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE>-level code associated with your extension calls the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>magic()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function (implemented in C by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>do_magic()</CODE>), once per record, while processing hundreds of thousands or millions of records. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>MAGIC_VAR</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>variable is looked up in the symbol table once or twice per function call!</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The symbol table lookup is really pure overhead; it is considerably more efficient to get a cookie that represents the variable, and use that to get the variable&#8217;s value and update it as needed.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT100" name=DOCF100><SUP>100</SUP></A></P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Thus, the way to use cookies is as follows. First, install your extension&#8217;s variable in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>&#8217;s symbol table using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>sym_update()</CODE>, as usual. Then get a scalar cookie for the variable using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>sym_lookup()</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>static awk_scalar_t magic_var_cookie;    /* cookie for MAGIC_VAR */
+
+static void
+my_extension_init()
+{
+    awk_value_t value;
+
+    /* install initial value */
+    sym_update("MAGIC_VAR", make_number(42.0, &amp; value));
+
+    /* get cookie */
+    sym_lookup("MAGIC_VAR", AWK_SCALAR, &amp; value);
+
+    /* save the cookie */
+    magic_var_cookie = value.scalar_cookie;
+    &#8230;
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Next, use the routines in this section for retrieving and updating the value through the cookie. Thus,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>do_magic()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>now becomes something like this:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/*  do_magic --- do something really great */
+
+static awk_value_t *
+do_magic(int nargs, awk_value_t *result)
+{
+    awk_value_t value;
+
+    if (   sym_lookup_scalar(magic_var_cookie, AWK_NUMBER, &amp; value)
+        &amp;&amp; some_condition(value.num_value)) {
+            value.num_value += 42;
+            sym_update_scalar(magic_var_cookie, &amp; value);
+    }
+    &#8230;
+
+    return make_number(0.0, result);
+}
+</PRE></DIV>
+<BLOCKQUOTE style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<P><B>NOTE:</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>The previous code omitted error checking for presentation purposes. Your extension code should be more robust and carefully check the return values from the API functions.</P></BLOCKQUOTE>

@@ -1,0 +1,49 @@
+<H3 class=section>3.7 How <CODE>make</CODE> Reads a Makefile</H3>
+<P><A name=index-reading-makefiles-101></A><A name=index-makefile_002c-parsing-102></A><FONT class=extract>GNU <CODE>make</CODE> does its work in two distinct phases. During the first phase it reads all the makefiles, included makefiles, etc. and internalizes all the variables and their values, implicit and explicit rules, and constructs a dependency graph of all the targets and their prerequisites. During the second phase, <CODE>make</CODE> uses these internal structures to determine what targets will need to be rebuilt and to invoke the rules necessary to do so.</FONT> 
+<P><FONT class=extract>It's important to understand this two-phase approach because it has a direct impact on how variable and function expansion happens; this is often a source of some confusion when writing makefiles. Here we will present a summary of the phases in which expansion happens for different constructs within the makefile. We say that expansion is <DFN>immediate</DFN> if it happens during the first phase: in this case <CODE>make</CODE> will expand any variables or functions in that section of a construct as the makefile is parsed. We say that expansion is <DFN>deferred</DFN> if expansion is not performed immediately. Expansion of a deferred construct is not performed until either the construct appears later in an immediate context, or until the second phase. </FONT>
+<P>You may not be familiar with some of these constructs yet. You can reference this section as you become familiar with them, in later chapters. 
+<H4 class=subheading><FONT class=extract>Variable Assignment</FONT></H4>
+<P><A name=index-g_t_002b_003d_002c-expansion-103></A><A name=index-g_t_003d_002c-expansion-104></A><A name=index-g_t_003f_003d_002c-expansion-105></A><A name=index-g_t_002b_003d_002c-expansion-106></A><A name=index-g_t_0021_003d_002c-expansion-107></A><A name=index-define_002c-expansion-108></A><FONT class=extract>Variable definitions are parsed as follows: </FONT><PRE class=example><FONT class=extract>     <VAR>immediate</VAR> = <VAR>deferred</VAR>
+     <VAR>immediate</VAR> ?= <VAR>deferred</VAR>
+     <VAR>immediate</VAR> := <VAR>immediate</VAR>
+     <VAR>immediate</VAR> ::= <VAR>immediate</VAR>
+     <VAR>immediate</VAR> += <VAR>deferred</VAR> or <VAR>immediate</VAR>
+     <VAR>immediate</VAR> != <VAR>immediate</VAR>
+     
+     define <VAR>immediate</VAR>
+       <VAR>deferred</VAR>
+     endef
+     
+     define <VAR>immediate</VAR> =
+       <VAR>deferred</VAR>
+     endef
+     
+     define <VAR>immediate</VAR> ?=
+       <VAR>deferred</VAR>
+     endef
+     
+     define <VAR>immediate</VAR> :=
+       <VAR>immediate</VAR>
+     endef
+     
+     define <VAR>immediate</VAR> ::=
+       <VAR>immediate</VAR>
+     endef
+     
+     define <VAR>immediate</VAR> +=
+       <VAR>deferred</VAR> or <VAR>immediate</VAR>
+     endef
+     
+     define <VAR>immediate</VAR> !=
+       <VAR>immediate</VAR>
+     endef
+</FONT></PRE>
+<P><FONT class=extract>For the append operator, &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217;, the right-hand side is considered immediate if the variable was previously set as a simple variable (&#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217;), and deferred otherwise. </FONT>
+<P><FONT class=extract>For the shell assignment operator, &#8216;<SAMP><SPAN class=samp>!=</SPAN></SAMP>&#8217;, the right-hand side is evaluated immediately and handed to the shell. The result is stored in the variable named on the left, and that variable becomes a simple variable (and will thus be re-evaluated on each reference). </FONT>
+<H4 class=subheading><FONT class=extract>Conditional Directives</FONT></H4>
+<P><A name=index-ifdef_002c-expansion-109></A><A name=index-ifeq_002c-expansion-110></A><A name=index-ifndef_002c-expansion-111></A><A name=index-ifneq_002c-expansion-112></A><FONT class=extract>Conditional directives are parsed immediately. This means, for example, that automatic variables cannot be used in conditional directives, as automatic variables are not set until the recipe for that rule is invoked. If you need to use automatic variables in a conditional directive you <EM>must</EM> move the condition into the recipe and use shell conditional syntax instead. </FONT>
+<H4 class=subheading><FONT class=extract>Rule Definition</FONT></H4>
+<P><A name=index-target_002c-expansion-113></A><A name=index-prerequisite_002c-expansion-114></A><A name=index-implicit-rule_002c-expansion-115></A><A name=index-pattern-rule_002c-expansion-116></A><A name=index-explicit-rule_002c-expansion-117></A><FONT class=extract>A rule is always expanded the same way, regardless of the form: </FONT><PRE class=example><FONT class=extract>     <VAR>immediate</VAR> : <VAR>immediate</VAR> ; <VAR>deferred</VAR>
+     	<VAR>deferred</VAR>
+</FONT></PRE>
+<P><FONT class=extract>That is, the target and prerequisite sections are expanded immediately, and the recipe used to construct the target is always deferred. This general rule is true for explicit rules, pattern rules, suffix rules, static pattern rules, and simple prerequisite definitions.</FONT>

@@ -1,0 +1,263 @@
+<H3 id=-100000 class=docSection1Title>Line Disciplines</H3>
+<P class=docText><A name="Line disciplines"></A>Line disciplines provide an elegant mechanism that lets you use the same serial driver to run different technologies. The low-level physical driver and the tty driver handle the transfer of data to and from the hardware, while line disciplines are responsible for processing the data and transferring it between kernel space and user space.</P>
+<P class=docText><A name="subsystem supports"></A>The serial subsystem supports 17 standard line disciplines. The default line discipline that gets attached when you open a serial port is <TT>N_TTY</TT><A name="implements terminal"></A>, which implements terminal I/O processing. <TT>N_TTY</TT> is responsible for "cooking" characters received from <A name=iddle1276></A><A name=iddle1290></A><A name=iddle2075></A><A name=iddle2113></A><A name=iddle2331></A><A name=iddle2747></A><A name=iddle3595></A><A name=iddle3628></A><A name=iddle3954></A><A name=iddle3971></A><A name=iddle4023></A><A name=iddle4283></A><A name="to newline"></A>the keyboard. Depending on user request, it maps the control character to newline, converts lowercase to uppercase, expands tabs, and echoes characters to the associated VT. <TT>N_TTY</TT> also supports a <SPAN class=docEmphasis>raw</SPAN><A name="all the"></A> mode used by editors, which leaves all the preceding processing to user applications. See <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07fig03">Figure 7.3</A><A name="is connected"></A> in the next chapter, "Input Drivers," to learn how the keyboard subsystem is connected to <TT>N_TTY</TT><A name="the end"></A>. The example tty drivers listed at the end of the previous section, "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec3.html#ch06lev1sec3">TTY Drivers</A>," use <TT>N_TTY</TT> by default.</P>
+<P class=docText><A name="transport protocols"></A>Line disciplines also implement network interfaces over serial transport protocols. For example, line disciplines that are part of the <SPAN class=docEmphasis>Point-to-Point Protocol</SPAN> (<TT>N_PPP</TT><A name=the></A>) and the <SPAN class=docEmphasis>Serial Line Internet Protocol</SPAN> (<TT>N_SLIP</TT><A name="data on"></A>) subsystems, frame packets, allocate and populate associated networking data structures, and pass the data on to the corresponding network protocol stack. Other line disciplines handle <SPAN class=docEmphasis><A name="Infrared Data"></A>Infrared Data</SPAN> (<TT>N_IRDA</TT>) and the <SPAN class=docEmphasis><A name="Control Interface"></A>Bluetooth Host Control Interface</SPAN> (<TT>N_HCI</TT>).</P><A name=ch06lev2sec3></A>
+<H4 id=title-ID0EIAPM class=docSection2Title>Device Example: Touch Controller</H4>
+<P class=docText><A name="a look"></A>Let's take a look at the internals of a line discipline by implementing a simple line discipline for a serial touch-screen controller. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06fig06">Figure 6.6</A><A name="embedded laptop"></A> shows how the touch controller is connected on an embedded laptop derivative. The <SPAN class=docEmphasis>Finite State Machine</SPAN><A name="a candidate"></A> (FSM) of the touch controller is a candidate for being implemented as a line discipline because it can leverage the facilities and interfaces offered by the serial layer.</P><A name=ch06fig06></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 6.6. Connection diagram of a touch controller on a PC-derivative.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzZoaWc2c2M-.jpg" width=250 height=298></P></CENTER>
+<P></P><BR><A name=ch06lev3sec1></A>
+<H5 id=title-ID0ETBPM class=docSection3Title>Open and Close</H5>
+<P class=docText><A name=iddle2750></A><A name=iddle3957></A><A name=iddle4286></A><A name=iddle4328></A>To create a line discipline, define a <TT>struct tty_ldisc</TT><A name="the kernel"></A> and register a prescribed set of entry points with the kernel. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06ex02">Listing 6.2</A><A name="both these"></A> contains a code snippet that performs both these operations for the example touch controller.</P><A name=ch06ex02></A>
+<H5 id=title-ID0ERDPM class=docExampleTitle>Listing 6.2. Line Discipline Operations</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>struct tty_ldisc n_touch_ldisc = {
+  TTY_LDISC_MAGIC,         /* Magic */
+  "n_tch",                 /* Name of the line discipline */
+  N_TCH,                   /* Line discipline ID number */
+  n_touch_open,            /* Open the line discipline */
+  n_touch_close,           /* Close the line discipline */
+  n_touch_flush_buffer,    /* Flush the line discipline's read
+                              buffer */
+  n_touch_chars_in_buffer, /* Get the number of processed characters in
+                              the line discipline's read buffer */
+  n_touch_read,            /* Called when data is requested
+                              from user space */
+  n_touch_write,           /* Write method */
+  n_touch_ioctl,           /* I/O Control commands */
+  NULL,                    /* We don't have a set_termios
+                              routine */
+  n_touch_poll,            /* Poll */
+  n_touch_receive_buf,     /* Called by the low-level driver
+                              to pass data to user space*/
+  n_touch_receive_room,    /* Returns the room left in the line
+                              discipline's read buffer */
+  n_touch_write_wakeup     /* Called when the low-level device
+                              driver is ready to transmit more
+                              data */
+};
+
+/* ... */
+
+if ((err = tty_register_ldisc(N_TCH, &amp;n_touch_ldisc))) {
+  return err;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2751></A><A name=iddle3171></A><A name=iddle3173></A><A name=iddle3174></A><A name=iddle3176></A><A name=iddle3177></A><A name=iddle3178></A><A name=iddle3331></A><A name=iddle3958></A><A name=iddle4287></A>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06ex02">Listing 6.2</A>, <TT>n_tch</TT> is the name of the line discipline, and <TT>N_TCH</TT><A name="specify the"></A> is the line discipline identifier number. You have to specify the value of <TT>N_TCH</TT> in <SPAN class=docEmphasis>include/linux/tty.h</SPAN><A name="header file"></A>, the header file that contains all line discipline definitions. Line disciplines active on your system can be found in <SPAN class=docEmphasis>/proc/tty/ldiscs</SPAN>.</P>
+<P class=docText><A name="flip buffer"></A>Line disciplines gather data from their half of the tty flip buffer, process it, and copy the resulting data to a local <SPAN class=docEmphasis>read</SPAN><A name=For></A> buffer. For <TT>N_TCH</TT>, <TT>n_touch_receive_room()</TT><A name="memory left"></A> returns the memory left in the read buffer, while <TT>n_touch_chars_in_buffer()</TT><A name="the number"></A> returns the number of processed characters in the read buffer that are ready to be delivered to user space. <TT>n_touch_write()</TT> and <TT>n_touch_write_wakeup()</TT> do nothing because <TT>N_TCH</TT> is a read-only device. <TT>n_touch_open()</TT><A name="discipline data"></A> takes care of allocating memory for the main line discipline data structures, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06ex03">Listing 6.3</A>.</P><A name=ch06ex03></A>
+<H5 id=title-ID0EKIPM class=docExampleTitle>Listing 6.3. Opening the Line Discipline</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Private structure used to implement the Finite State Machine
+(FSM) for the touch controller. The controller and the processor
+communicate using a specific protocol that the FSM implements */
+struct n_touch {
+  int current_state;       /* Finite State Machine */
+  spinlock_t touch_lock;   /* Spinlock */
+  struct tty_struct *tty;  /* Associated tty */
+  /* Statistics and other housekeeping */
+  /* ... */
+} *n_tch;
+
+
+/* Device open() */
+static int
+n_touch_open(struct tty_struct *tty)
+{
+  /* Allocate memory for n_tch */
+  if (!(n_tch = kmalloc(sizeof(struct n_touch), GFP_KERNEL))) {
+    return -ENOMEM;
+  }
+  memset(n_tch, 0, sizeof(struct n_touch));
+
+  tty-&gt;disc_data = n_tch; /* Other entry points now
+                             have direct access to n_tch */
+  /* Allocate the line discipline's local read buffer
+     used for copying data out of the tty flip buffer */
+  tty-&gt;read_buf = kmalloc(BUFFER_SIZE, GFP_KERNEL);
+  if (!tty-&gt;read_buf) return -ENOMEM;
+
+  /* Clear the read buffer */
+  memset(tty-&gt;read_buf, 0, BUFFER_SIZE);
+
+  /* Initialize lock */
+  spin_lock_init(&amp;ntch-&gt;touch_lock);
+
+  /* Initialize other necessary tty fields.
+     See <SPAN class=docEmphasis>drivers/char/n_tty.c</SPAN> for an example */
+  /* ... */
+
+  return 0;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2753></A><A name=iddle3175></A><A name=iddle3745></A><A name=iddle3754></A><A name=iddle3960></A><A name=iddle4288></A>You might want to set <TT>N_TCH</TT><A name=than></A> as the default line discipline (rather than <TT>N_TTY</TT><A name="See the"></A>) when-ever the serial port connected to the touch controller is opened. See the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06lev3sec6">Changing Line Disciplines</A><A name="disciplines from"></A>" to see how to change line disciplines from user space.</P><A name=ch06lev3sec2></A>
+<H5 id=title-ID0EDLPM class=docSection3Title>Read Path</H5>
+<P class=docText><A name="two threads"></A>For interrupt-driven devices, the read data path usually consists of two threads working in tandem:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="top thread"></A>A top thread originating from the user process requesting the read</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="collects data"></A>A bottom thread springing from the interrupt service routine that collects data from the device</P></DIV></LI></OL></DIV>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06fig07">Figure 6.7</A><A name="shows these"></A> shows these threads associated with the read data flow. The interrupt handler queues the <TT>receive_buf()</TT> method (<TT>n_touch_receive_buf()</TT><A name="as a"></A> in our example) as a task. You can override this behavior by setting the <TT>tty-&gt;low_latency</TT> flag.</P><A name=ch06fig07></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="Line discipline"></A>Figure 6.7. Line discipline read path.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC83aGlnNmNzZ2ku.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzdoaWc2c2M-.jpg" width=500 height=343>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="specific protocol"></A>The touch controller and the processor communicate using a specific protocol described in the controller's data sheet. The driver implements this communication protocol using an FSM as indicated earlier. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06ex04">Listing 6.4</A><A name="of the"></A> encodes this FSM as part of the <TT>receive_buf()</TT> entry point, <TT>n_touch_receive_buf()</TT>.</P>
+<P class=docText></P><A name=ch06ex04></A>
+<H5 id=title-ID0ETNPM class=docExampleTitle>Listing 6.4. The <SPAN class=docEmphStrong><TT>n_touch_receive_buf()</TT></SPAN> Method</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>static void
+n_touch_receive_buf(struct tty_struct *tty,
+                    const unsigned char *cp, char *fp, int count)
+{
+
+  /* Work on the data in the line discipline's half of
+     the flip buffer pointed to by cp */
+  /* ... */
+
+  /* Implement the Finite State Machine to interpret commands/data
+     arriving from the touch controller and put the processed data
+     into the local read buffer */
+....................................................................................
+  <SPAN class=docEmphStrong>/* Datasheet-dependent Code Region */</SPAN>
+  switch (tty-&gt;disc_data-&gt;current_state) {
+    case RESET:
+      /* Issue a reset command to the controller */
+      tty-&gt;driver-&gt;write(tty, 0, mode_stream_command,
+                         sizeof(mode_stream_command));
+      tty-&gt;disc_data-&gt;current_state = STREAM_DATA;
+      /* ... */
+      break;
+    case STREAM_DATA:
+      /* ... */
+      break;
+    case PARSING:
+      /* ... */
+      tty-&gt;disc_data-&gt;current_state = PARSED;
+      break;
+    case PARSED:
+      /* ... */
+    }
+....................................................................................
+
+  if (tty-&gt;disc_data-&gt;current_state == PARSED) {
+    /* If you have a parsed packet, copy the collected coordinate
+       and direction information into the local read buffer */
+    spin_lock_irqsave(&amp;tty-&gt;disc_data-&gt;touch_lock, flags);
+    for (i=0; i &lt; PACKET_SIZE; i++) {
+      tty-&gt;disc_data-&gt;read_buf[tty-&gt;disc_data-&gt;read_head] =
+                           tty-&gt;disc_data-&gt;current_pkt[i];
+      tty-&gt;disc_data-&gt;read_head =
+                 (tty-&gt;disc_data-&gt;read_head + 1) &amp; (BUFFER_SIZE - 1);
+      tty-&gt;disc_data-&gt;read_cnt++;
+    }
+    spin_lock_irqrestore(&amp;tty-&gt;disc_data-&gt;touch_lock, flags);
+
+    <SPAN class=docEmphStrong>/* ... */ /* See Listing 6.5 */</SPAN>
+
+  }
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><TT>n_touch_receive_buf()</TT><A name="a series"></A> processes the data arriving from the serial driver. It exchanges a series of commands and responses with the touch controller and puts the received coordinate and direction (press/release) information into the line discipline's read buffer. Accesses to the read buffer have to be serialized using a spinlock because it's used by both <TT>ldisc.receive_buf()</TT> and <TT>ldisc.read()</TT> threads shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06fig07">Figure 6.7</A> (<TT>n_touch_receive_buf()</TT> and <TT>n_touch_read()</TT><A name=in></A>, respectively, in our example). As you can see in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06ex04">Listing 6.4</A>, <TT>n_touch_receive_buf()</TT><A name="calling the"></A> dispatches commands to the touch controller by directly calling the <TT>write()</TT><A name="point of"></A> entry point of the serial driver.</P>
+<P class=docText><TT>n_touch_receive_buf()</TT> needs to do a couple more things:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The top <TT>read()</TT> thread in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06fig07">Figure 6.7</A> puts the calling process to sleep if no data is available. So, <TT>n_touch_receive_buf()</TT><A name="the data"></A> has to wake up that thread and let it read the data that was just processed.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="If the"></A>If the line discipline is running out of read buffer space, <TT>n_touch_receive_buf()</TT><A name="request the"></A> has to request the serial driver to throttle data arriving from the device. <TT>ldisc.read()</TT><A name="responsible for"></A> is responsible for requesting the corresponding unthrottling when it ferries the data to user space and frees memory in the read buffer. The serial driver uses software or hardware flow control mechanisms to achieve the throttling and unthrottling.</P></DIV></LI></OL></DIV>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06ex05">Listing 6.5</A> performs these two operations.</P><A name=ch06ex05></A>
+<H5 id=title-ID0EUQPM class=docExampleTitle>Listing 6.5. Waking Up the Read Thread and Throttling the Serial Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>/* n_touch_receive_buf() continued.. */
+
+/* Wake up any threads waiting for data */
+if (waitqueue_active(&amp;tty-&gt;read_wait) &amp;&amp;
+    (tty-&gt;read_cnt &gt;= tty-&gt;minimum_to_wake))
+  wake_up_interruptible(&amp;tty-&gt;read_wait);
+}
+/* If we are running out of buffer space, request the
+   serial driver to throttle incoming data */
+if (n_touch_receive_room(tty) &lt; TOUCH_THROTTLE_THRESHOLD) {
+  tty-&gt;driver.throttle(tty);
+}
+/* ... */</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2724></A><A name=iddle2725></A><A name=iddle2755></A><A name=iddle3962></A><A name=iddle4289></A><A name=iddle4660></A>A wait queue (<TT>tty-&gt;read_wait</TT>) is used to synchronize between the <TT>ldisc.read()</TT> and <TT>ldisc.receive_buf()</TT> threads. <TT>ldisc.read()</TT><A name="it does"></A> adds the calling process to the wait queue when it does not find data to read, while <TT>ldisc.receive_buf()</TT> wakes the <TT>ldisc.read()</TT><A name="available to"></A> thread when there is data available to be read. So, <TT>n_touch_read()</TT> does the following:</P>
+<UL>
+<LI>
+<P class=docList><A name="the calling"></A>If there is no data to be read yet, put the calling process to sleep on the <TT>read_wait</TT> queue. The process gets woken by <TT>n_touch_receive_buf()</TT> when data arrives.</P></LI>
+<LI>
+<P class=docList><A name="the local"></A>If data is available, collect it from the local read buffer (<TT>tty-&gt;read_buf[tty-&gt;read_tail]</TT>) and dispatch it to user space.</P></LI>
+<LI>
+<P class=docList><A name="if enough"></A>If the serial driver has been throttled and if enough space is available in the read buffer after this read, ask the serial driver to unthrottle.</P></LI></UL>
+<P class=docText><A name="line disciplines"></A>Networking line disciplines usually allocate an <TT>sk_buff</TT> (the basic Linux networking data structure discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15">Chapter 15</A>, "Network Interface Cards") and use this as the read buffer. They don't have a <TT>read()</TT> method, because the corresponding <TT>receive_buf()</TT> copies received data into the allocated <TT>sk_buff</TT> and directly passes it to the associated protocol stack.</P><A name=ch06lev3sec3></A>
+<H5 id=title-ID0EUUPM class=docSection3Title>Write Path</H5>
+<P class=docText>A line discipline's <TT>write()</TT><A name="passing the"></A> entry point performs any post processing that is required before passing the data down to the low-level driver.</P>
+<P class=docText><A name="If the"></A>If the underlying driver is not able to accept all the data that the line discipline offers, the line discipline puts the requesting thread to sleep. The driver's interrupt handler wakes the line discipline when it is ready to receive more data. To do this, the driver calls the <TT>write_wakeup()</TT><A name="by the"></A> method registered by the line discipline. The associated synchronization is done using a wait queue (<TT>tty-&gt;write_wait</TT><A name="the operation"></A>), and the operation is similar to that of the <TT>read_wait</TT> queue described in the previous section.</P>
+<P class=docText>Many networking line disciplines have no <TT>write()</TT><A name="the serial"></A> methods. The protocol implementation directly transmits the frames down to the serial device driver. However, these line disciplines usually still have a <TT>write_wakeup()</TT><A name="the serial"></A> entry point to respond to the serial driver's request for more transmit data.</P>
+<P class=docText><A name=iddle2089></A><A name=iddle2090></A><A name=iddle2243></A><A name=iddle2452></A><A name=iddle2748></A><A name=iddle2749></A><A name=iddle3955></A><A name=iddle3956></A><A name=iddle3987></A><A name=iddle4284></A><A name=iddle4285></A><TT>N_TCH</TT> does not need a <TT>write()</TT><A name="saw in"></A> method either, because the touch controller is a read-only device. As you saw in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06ex04">Listing 6.4</A><A name="talk to"></A>, routines in the receive path directly talk to the low-level UART driver when they need to send command frames to the controller.</P><A name=ch06lev3sec4></A>
+<H5 id=title-ID0EKZPM class=docSection3Title>I/O Control</H5>
+<P class=docText><A name="device via"></A>A user program can send commands to a device via <TT>ioctl()</TT><A name="discussed in"></A> calls, as discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A><A name="three classes"></A>, "Character Drivers." When an application opens a serial device, it can usually issue three classes of ioctls to it:</P>
+<UL>
+<LI>
+<P class=docList><A name="Commands supported"></A>Commands supported by the serial device driver, such as <TT>TIOCMSET</TT><A name="modem information"></A> that sets modem information</P></LI>
+<LI>
+<P class=docList><A name="supported by"></A>Commands supported by the tty driver, such as <TT>TIOCSETD</TT> that changes the attached line discipline</P></LI>
+<LI>
+<P class=docList><A name="command to"></A>Commands supported by the attached line discipline, such as a command to reset the touch controller in the case of <TT>N_TCH</TT></P></LI></UL>
+<P class=docText>The <TT>ioctl()</TT> implementation for <TT>N_TCH</TT><A name="on the"></A> is largely standard. Supported commands depend on the protocol described in the touch controller's data sheet.</P><A name=ch06lev3sec5></A>
+<H5 id=title-ID0E21PM class=docSection3Title>More Operations</H5>
+<P class=docText>Another line discipline operation is <TT>flush_buffer()</TT><A name="the read"></A>, which is used to flush any data pending in the read buffer. <TT>flush_buffer()</TT><A name="discipline is"></A> is also called when a line discipline is closed. It wakes up any read threads that are waiting for more data as follows:</P>
+<DIV class=docText><PRE>if (tty-&gt;link-&gt;packet){
+  wake_up_interruptible(&amp;tty-&gt;disc_data-&gt;read_wait);
+}</PRE></DIV><BR>
+<P class=docText>Yet another entry point (not supported by <TT>N_TCH</TT>) is <TT>set_termios()</TT>. The <TT>N_TTY</TT> line discipline supports the <TT>set_termios()</TT><A name="line discipline"></A> interface, which is used to set options specific to line discipline data processing. For example, you may use <TT>set_termios()</TT><A name="put the"></A> to put the line discipline in raw mode or "cooked" mode. Some options specific to the touch controller (such as changing the baud rate, parity, and number of stop bits) are implemented by the <TT>set_termios()</TT> method of the underlying device driver.</P>
+<P class=docText><A name=iddle1416></A><A name=iddle1534></A><A name=iddle2745></A><A name=iddle2746></A><A name=iddle2754></A><A name=iddle3952></A><A name=iddle3953></A><A name=iddle3961></A><A name=iddle4282></A><A name=iddle4338></A>The remaining entry points such as <TT>poll()</TT> are fairly standard, and you can return to <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A> in case you need assistance.</P>
+<P class=docText><A name="kernel or"></A>You may compile your line discipline as part of the kernel or dynamically load it as a module. If you choose to compile it as a module, you must, of course, also provide functions to be called during module initialization and exit. The former is usually the same as the <TT>init()</TT><A name="The latter"></A> method. The latter needs to clean up private data structures and unregister the line discipline. Unregistering the discipline is a one-liner:</P>
+<DIV class=docText><PRE>tty_unregister_ldisc(N_TCH);</PRE></DIV><BR>
+<P class=docText><A name="way to"></A>An easier way to drive a serial touch controller is by leveraging the services offered by the kernel's <SPAN class=docEmphasis>input</SPAN><A name="and the"></A> subsystem and the built-in <SPAN class=docEmphasis>serport</SPAN> line discipline. We look at that technique in the next chapter.</P><A name=ch06lev3sec6></A>
+<H5 id=title-ID0EMAAO class=docSection3Title>Changing Line Disciplines</H5>
+<P class=docText><TT>N_TCH</TT><A name="space program"></A> gets bound to the low-level serial driver when a user space program opens the serial port connected to the touch controller. But sometimes, a user-space application might want to attach a different line discipline to the device. For instance, you might want to write a program that dumps raw data received from the touch controller without processing it. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec4.html#ch06ex06">Listing 6.6</A><A name="changes the"></A> opens the touch controller and changes the line discipline to <TT>N_TTY</TT> to dump the data that is coming in.</P><A name=ch06ex06></A>
+<H5 id=title-ID0ECBAO class=docExampleTitle>Listing 6.6. Changing a Line Discipline from User Space</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>fd = open("/dev/ttySX", O_RDONLY | O_NOCTTY);
+
+/* At this point, N_TCH is attached to <SPAN class=docEmphasis>/dev/ttySX</SPAN>, the serial port used
+   by the touch controller. Switch to N_TTY */
+ldisc = N_TTY;
+ioctl(fd, TIOCSETD, &amp;ldisc);
+
+/* Set termios to raw mode and dump the data coming in */
+/* ... */</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The <TT>TIOCSETD ioctl()</TT><A name="requested line"></A> closes the current line discipline and opens the newly requested line discipline.

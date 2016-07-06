@@ -1,0 +1,78 @@
+<H5 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.57.22.1 PowerPC HTM Low Level Built-in Functions</H5>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The following low level built-in functions are available with<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-mhtm</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-mcpu=CPU</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>where CPU is `power8' or later. They all generate the machine instruction that is part of the name.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The HTM built-ins return true or false depending on their success and their arguments match exactly the type and order of the associated hardware instruction's operands. Refer to the ISA manual for a description of each instruction's operands.</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     unsigned int __builtin_tbegin (unsigned int)
+     unsigned int __builtin_tend (unsigned int)
+     
+     unsigned int __builtin_tabort (unsigned int)
+     unsigned int __builtin_tabortdc (unsigned int, unsigned int, unsigned int)
+     unsigned int __builtin_tabortdci (unsigned int, unsigned int, int)
+     unsigned int __builtin_tabortwc (unsigned int, unsigned int, unsigned int)
+     unsigned int __builtin_tabortwci (unsigned int, unsigned int, int)
+     
+     unsigned int __builtin_tcheck (unsigned int)
+     unsigned int __builtin_treclaim (unsigned int)
+     unsigned int __builtin_trechkpt (void)
+     unsigned int __builtin_tsr (unsigned int)
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">In addition to the above HTM built-ins, we have added built-ins for some common extended mnemonics of the HTM instructions:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     unsigned int __builtin_tendall (void)
+     unsigned int __builtin_tresume (void)
+     unsigned int __builtin_tsuspend (void)
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The following set of built-in functions are available to gain access to the HTM specific special purpose registers.</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     unsigned long __builtin_get_texasr (void)
+     unsigned long __builtin_get_texasru (void)
+     unsigned long __builtin_get_tfhar (void)
+     unsigned long __builtin_get_tfiar (void)
+     
+     void __builtin_set_texasr (unsigned long);
+     void __builtin_set_texasru (unsigned long);
+     void __builtin_set_tfhar (unsigned long);
+     void __builtin_set_tfiar (unsigned long);
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Example usage of these low level built-in functions may look like:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     #include &lt;htmintrin.h&gt;
+     
+     int num_retries = 10;
+     
+     while (1)
+       {
+         if (__builtin_tbegin (0))
+           {
+             /* Transaction State Initiated.  */
+             if (is_locked (lock))
+               __builtin_tabort (0);
+             ... transaction code...
+             __builtin_tend (0);
+             break;
+           }
+         else
+           {
+             /* Transaction State Failed.  Use locks if the transaction
+                failure is "persistent" or we've tried too many times.  */
+             if (num_retries-- &lt;= 0
+                 || _TEXASRU_FAILURE_PERSISTENT (__builtin_get_texasru ()))
+               {
+                 acquire_lock (lock);
+                 ... non transactional fallback path...
+                 release_lock (lock);
+                 break;
+               }
+           }
+       }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">One final built-in function has been added that returns the value of the 2-bit Transaction State field of the Machine Status Register (MSR) as stored in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>CR0</CODE>.</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     unsigned long __builtin_ttest (void)
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This built-in can be used to determine the current transaction state using the following code example:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     #include &lt;htmintrin.h&gt;
+     
+     unsigned char tx_state = _HTM_STATE (__builtin_ttest ());
+     
+     if (tx_state == _HTM_TRANSACTIONAL)
+       {
+         /* Code to use in transactional state.  */
+       }
+     else if (tx_state == _HTM_NONTRANSACTIONAL)
+       {
+         /* Code to use in non-transactional state.  */
+       }
+     else if (tx_state == _HTM_SUSPENDED)
+       {
+         /* Code to use in transaction suspended state.  */
+       }</PRE>

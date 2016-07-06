@@ -1,0 +1,36 @@
+# Documentation/scheduler/sched-bwc.txt&nbsp;&nbsp; 
+<P></P>
+<P>CFS Bandwidth Control<BR>=====================</P>
+<P></P>
+<P>[ This document only discusses CPU bandwidth control for SCHED_NORMAL.<BR>&nbsp; The SCHED_RT case is covered in Documentation/scheduler/sched-rt-group.txt ]</P>
+<P>CFS bandwidth control is a CONFIG_FAIR_GROUP_SCHED extension which allows the<BR>specification of the maximum CPU bandwidth available to a group or hierarchy.</P>
+<P>The bandwidth allowed for a group is specified using a quota and period. Within<BR>each given "period" (microseconds), a group is allowed to consume only up to<BR>"quota" microseconds of CPU time.&nbsp; When the CPU bandwidth consumption of a<BR>group exceeds this limit (for that period), the tasks belonging to its<BR>hierarchy will be throttled and are not allowed to run again until the next<BR>period.</P>
+<P>A group's unused runtime is globally tracked, being refreshed with quota units<BR>above at each period boundary.&nbsp; As threads consume this bandwidth it is<BR>transferred to cpu-local "silos" on a demand basis.&nbsp; The amount transferred<BR>within each of these updates is tunable and described as the "slice".</P>
+<P>Management<BR>----------<BR>Quota and period are managed within the cpu subsystem via cgroupfs.</P>
+<P>cpu.cfs_quota_us: the total available run-time within a period (in microseconds)<BR>cpu.cfs_period_us: the length of a period (in microseconds)<BR>cpu.stat: exports throttling statistics [explained further below]</P>
+<P>The default values are:<BR>&nbsp;cpu.cfs_period_us=100ms<BR>&nbsp;cpu.cfs_quota=-1</P>
+<P>A value of -1 for cpu.cfs_quota_us indicates that the group does not have any<BR>bandwidth restriction in place, such a group is described as an unconstrained<BR>bandwidth group.&nbsp; This represents the traditional work-conserving behavior for<BR>CFS.</P>
+<P>Writing any (valid) positive value(s) will enact the specified bandwidth limit.<BR>The minimum quota allowed for the quota or period is 1ms.&nbsp; There is also an<BR>upper bound on the period length of 1s.&nbsp; Additional restrictions exist when<BR>bandwidth limits are used in a hierarchical fashion, these are explained in<BR>more detail below.</P>
+<P>Writing any negative value to cpu.cfs_quota_us will remove the bandwidth limit<BR>and return the group to an unconstrained state once more.</P>
+<P>Any updates to a group's bandwidth specification will result in it becoming<BR>unthrottled if it is in a constrained state.</P>
+<P>System wide settings<BR>--------------------<BR>For efficiency run-time is transferred between the global pool and CPU local<BR>"silos" in a batch fashion.&nbsp; This greatly reduces global accounting pressure<BR>on large systems.&nbsp; The amount transferred each time such an update is required<BR>is described as the "slice".</P>
+<P>This is tunable via procfs:<BR>&nbsp;/proc/sys/kernel/sched_cfs_bandwidth_slice_us (default=5ms)</P>
+<P>Larger slice values will reduce transfer overheads, while smaller values allow<BR>for more fine-grained consumption.</P>
+<P>Statistics<BR>----------<BR>A group's bandwidth statistics are exported via 3 fields in cpu.stat.</P>
+<P>cpu.stat:<BR>- nr_periods: Number of enforcement intervals that have elapsed.<BR>- nr_throttled: Number of times the group has been throttled/limited.<BR>- throttled_time: The total time duration (in nanoseconds) for which entities<BR>&nbsp; of the group have been throttled.</P>
+<P>This interface is read-only.</P>
+<P>Hierarchical considerations<BR>---------------------------<BR>The interface enforces that an individual entity's bandwidth is always<BR>attainable, that is: max(c_i) &lt;= C. However, over-subscription in the<BR>aggregate case is explicitly allowed to enable work-conserving semantics<BR>within a hierarchy.<BR>&nbsp; e.g. \Sum (c_i) may exceed C<BR>[ Where C is the parent's bandwidth, and c_i its children ]</P>
+<P><BR>There are two ways in which a group may become throttled:<BR>&nbsp;a. it fully consumes its own quota within a period<BR>&nbsp;b. a parent's quota is fully consumed within its period</P>
+<P>In case b) above, even though the child may have runtime remaining it will not<BR>be allowed to until the parent's runtime is refreshed.</P>
+<P>Examples<BR>--------<BR>1. Limit a group to 1 CPU worth of runtime.</P>
+<P>&nbsp;If period is 250ms and quota is also 250ms, the group will get<BR>&nbsp;1 CPU worth of runtime every 250ms.</P>
+<P>&nbsp;# echo 250000 &gt; cpu.cfs_quota_us /* quota = 250ms */<BR>&nbsp;# echo 250000 &gt; cpu.cfs_period_us /* period = 250ms */</P>
+<P>2. Limit a group to 2 CPUs worth of runtime on a multi-CPU machine.</P>
+<P>&nbsp;With 500ms period and 1000ms quota, the group can get 2 CPUs worth of<BR>&nbsp;runtime every 500ms.</P>
+<P>&nbsp;# echo 1000000 &gt; cpu.cfs_quota_us /* quota = 1000ms */<BR>&nbsp;# echo 500000 &gt; cpu.cfs_period_us /* period = 500ms */</P>
+<P>&nbsp;The larger period here allows for increased burst capacity.</P>
+<P>3. Limit a group to 20% of 1 CPU.</P>
+<P>&nbsp;With 50ms period, 10ms quota will be equivalent to 20% of 1 CPU.</P>
+<P>&nbsp;# echo 10000 &gt; cpu.cfs_quota_us /* quota = 10ms */<BR>&nbsp;# echo 50000 &gt; cpu.cfs_period_us /* period = 50ms */</P>
+<P>&nbsp;By using a small period here we are ensuring a consistent latency<BR>&nbsp;response at the expense of burst capacity.</P>
+<P>&nbsp;

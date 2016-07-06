@@ -1,0 +1,109 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>10.3.&nbsp;MIPS Subprograms</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s02.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;10.&nbsp;Subprogram Calls and the Stack</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s04.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="10.3.&nbsp;MIPS Subprograms" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286962325></A>10.3.&nbsp;MIPS Subprograms</H2></DIV></DIV></DIV>
+<P>Most modern CPU architectures provide specific instructions to support jumping to and returning from subprograms.</P>
+<DIV class=section title="10.3.1.&nbsp;JAL and JR">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286962331></A>10.3.1.&nbsp;JAL and JR</H3></DIV></DIV></DIV>
+<P>MAL provides two basic instructions for ordinary subprogram calls:</P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist type=disc>
+<LI class=listitem>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>jal</EM></SPAN><A class=indexterm name=id286962342></A><SPAN class=Apple-converted-space>&nbsp;</SPAN>instruction (jump and link), performs an unconditional jump to the address provided, and saves the address of the next instruction in the $ra (return address) register, thus linking the subprogram to the origin of the call. Note that by ``next instruction'', we mean the instruction at the next address after jal, not the instruction that gets executed after jal. We want to be able to continue with the code sequence that contains the jal instruction exactly where it left off.</LI>
+<LI class=listitem>The jr (jump register) instruction jumps to the address contained in a register. This instruction is not used<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>exclusively</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>for returning from subprograms, but the instruction:<PRE class=programlisting>		jr      $ra
+		</PRE>complements the jal instruction, so this is the most typical use.</LI></UL></DIV>
+<P>The basic structure of a subprogram call looks something like this:</P><PRE class=programlisting>		    .text
+	    main:   
+	    
+		    jal     subprog
+		    
+		    # End of main
+		    jr      $ra
+		    
+		    # Beginning of subprogram
+	    subprog:
+		    
+		    # End of subprogram
+		    jr      $ra
+	    </PRE>
+<P>As discussed in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title="5.3.&nbsp;The MIPS Register Files" href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s03.html">Section&nbsp;5.3, &#8220;The MIPS Register Files&#8221;</A>, MAL programmers adhere to a convention for use of registers.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title="Table&nbsp;5.3.&nbsp;MIPS Registers" href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s03.html#mips_regs_convention">Table&nbsp;5.3, &#8220;MIPS Registers&#8221;</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>shows the conventional use for all registers in the CPU and the floating point coprocessor.</P>
+<P>With respect to subprograms, the following conventions must be followed:</P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist type=disc>
+<LI class=listitem>Registers $a0 through $a3 are used for the first four arguments to the subprogram. If more than four arguments are required, it is up to the programmer to decide how to pass them, and it must be clearly documented in the block comment above the subprogram. The convention for additional arguments is to pass them on the stack, which is discussed in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title="10.4.&nbsp;Memory Segments" href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s04.html">Section&nbsp;10.4, &#8220;Memory Segments&#8221;</A>.</LI>
+<LI class=listitem>Register $v0 is used for a return value of up to 32 bits. If between 33 and 64 bits of information must be returned, then $v1 must be used as well. If more than 64 bits are returned, it is up to the programmer to decide how to return them, and it must be clearly documented in the block comment above the subprogram.</LI></UL></DIV>
+<P>Suppose we have a subprogram that computes the area of a rectangle. The Java method might be called as follows:</P><PRE class=programlisting>	    int     yard_size, length, width;
+	    
+	    // Some other code
+	    
+	    // Compute area of yard
+	    yard_size = area(length, width);
+	    
+	    // More code
+	    </PRE>
+<P>If this code were compiled to MAL, the compiler output might look like this:</P><PRE class=programlisting>		    .data
+	    yard_size:  .word   0
+	    length:     .word   0
+	    width:      .word   0
+	    
+		    .text
+	    # Some other code
+	    
+	    # Compute area of yard
+		    lw      $a0, length     # Pass length argument
+		    lw      $a1, width      # Pass width argument
+		    jal     area
+		    sw      $v0, yard_size  # Store return value
+	    
+	    # more code
+	    </PRE>
+<P>If passing floating point values, we use the floating point registers as arguments and return values. Register $f12 should be used for the first argument, $f13 for the second (or $f14 if the first argument was a double). Register $f0 should be used for the return value.</P><PRE class=programlisting>		    .data
+	    yard_size:  .double 0.0
+	    length:     .double 0.0
+	    width:      .double 0.0
+	    
+		    .text
+	    # Some other code
+	    
+	    # Compute area of yard
+		    l.d     $f12, length    # Pass length argument
+		    l.d     $f14, width     # Pass width argument
+		    jal     area
+		    s.d     $f0, yard_size  # Store return value
+	    
+	    # more code
+	    </PRE>
+<P>Note that some registers must be preserved by subprograms. For example, a program can assume that $s0 or $f20 will have the same value after a subprogram call (including a syscall) that it had before. Hence, if a subprogram alters the value of either $s0 or $f20, the original value must be restored before the subprogram returns. We cannot assume the same about temporary registers such as $t0. They may have different values after a jal or syscall than they had before it.</P></DIV>
+<DIV class=section title=10.3.2.&nbsp;syscall>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286962396></A>10.3.2.&nbsp;syscall</H3></DIV></DIV></DIV>
+<P></P></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s02.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s04.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">10.2.&nbsp;Modular Design&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;10.4.&nbsp;Memory Segments</TD></TR></TBODY></TABLE></DIV>

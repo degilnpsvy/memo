@@ -1,0 +1,250 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>10.5.&nbsp;Using the Stack with Subprograms</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s04.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;10.&nbsp;Subprogram Calls and the Stack</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s06.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="10.5.&nbsp;Using the Stack with Subprograms" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286962531></A>10.5.&nbsp;Using the Stack with Subprograms</H2></DIV></DIV></DIV>
+<P>Since the JAL instruction always stores the return address in the same place (the $ra register), what happens when a subprogram calls another subprogram (a nest subprogram call)? Using just jal and jr, the second subprogram call would overwrite the return address of the first in $ra, making it impossible to return to the site of the first call.</P>
+<P>Since the main program in MAL is a subprogram called by the operating system, this is an issue for any program that has even a single subprogram.</P>
+<P>The solution is to save return addresses on the stack. Many architectures have subprogram call instructions that do this automatically. In MAL, we only have jal, and we must manually move the return address from the $ra register to the stack. In MAL, the stack grows toward lower addresses, so we decrement the stack pointer with a push and increment it with a pop. Also, the stack pointer points to the next open spot at the top of the stack, not the last item pushed. Hence, we store before decrementing for a push, retrieve after incrementing for a pop.</P><PRE class=programlisting>	# Main program
+		.text
+	main:
+		# Save return address on stack
+		addi    $sp, $sp, -4
+		sw      $ra, ($sp)
+		
+		jal     area
+
+		# Restore return address
+		lw      $ra, ($sp)
+		addi    $sp, $sp, 4
+	
+	# Subprogram
+		.text
+	area:
+		# Save return address on stack
+		addi    $sp, $sp, -4
+		sw      $ra, ($sp)
+		
+		# Compute area
+		
+		# Restore return address
+		lw      $ra, ($sp)
+		addi    $sp, $sp, 4
+		jr      $ra
+	</PRE><PRE class=screen>		Address     Content
+	$sp --&gt; FFE0        Return address from area back to main
+		FFE4        Return address from main back to operating system
+	</PRE>
+<P>Storing return addresses on the stack in this way leaves a trail leading all the way back to the main program, and even the operating system which called the main program. This is the same principle<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=ulink href="http://en.wikipedia.org/wiki/Hansel_and_Gretel" target=_top>Hansel and Gretel</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>used to find their way home from the woods. Unfortunately for them, their stack implementation was poor (the design was sound), and they suffered stack corruption, making it impossible to return home safely.</P>
+<P>A leaf subprogram is one that does not call any other subprograms. It is called a leaf because it is at the end of a branch in the tree representing the program structure. Leaf subprograms do not need to save the return address on the stack, since there are no jal instructions to overwrite the $ra register. Eliminating this unnecessary push and pop can improve program speed, especially for small leaf subprograms that are called many times.</P>
+<P>Since the push and pop operations are so common, use of macros is recommended to shorten the program and avoid typos:</P><PRE class=programlisting>		# Push contents of a register
+		.macro  pushw($register)
+		addi    $sp, $sp, -4
+		sw      $register, ($sp)
+		.end_macro
+		
+		# Pop to a register
+		.macro  popw($register)
+		lw      $register, ($sp)
+		addi    $sp, $sp, 4
+		.end_macro
+	
+		.text
+	main:
+		# Save registers modified here
+		pushw($ra)
+	
+		jal     subprog
+		
+		# Restore registers modified here
+		popw($ra)
+		jr      $ra
+	</PRE>
+<P>In MAL, registers other than the temporary registers must be restored to their original values by subprograms that modify them. For example, if your main program has a value stored in $s0 or $f20, and calls a subprogram, both $s0 and $f20 must have the same value after the subprogram returns. If the subprogram alters the contents of these registers, then it must restore them to avoid corrupting data in the main program. The same rule applies to all subprograms, including the main program.</P>
+<P>The system stack provides a convenient way to achieve this:</P><PRE class=programlisting>	subprog:
+		pushw($ra)
+		pushw($s0)
+		pushw($a0)
+		
+		# Modifies $a0 and $s0
+		li      $s0, 5
+		mul     $a0, $a0, $s0
+		
+		# More code
+		
+		popw($a0)
+		popw($s0)
+		popw($ra)
+		jr      $ra
+	</PRE>
+<P>Stack contents while running subprog:</P><PRE class=screen>		Address Content
+	$sp --&gt; F014    Saved value of $a0
+		F018    Saved value of $s0
+		F01C    Return address from subprog back to main
+		F020    Return address from main back to operating system
+	</PRE>
+<P>You can assume when calling subprograms (including syscalls) written by someone else that they will preserve all non-temporary registers. You cannot assume that they will preserve temporary registers.</P><PRE class=programlisting>		li      $t0, 5
+		print_int_var(num)      # Might modify any temp registers!
+		addi    $t0, $t0, 1     # Unknown results!
+	</PRE>
+<P>Since memory access is expensive, subprograms should save and restore<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>only</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>the non-temporary registers whose contents they alter.</P>
+<P>To pass an argument on the stack, we simply push it before jal in the caller, and pop it inside the subprogram. We generally only use this method for passing arguments after exhausting the argument registers.</P><PRE class=programlisting>		lw      $a0, arg1
+		lw      $a1, arg2
+		lw      $a2, arg3
+		lw      $a3, arg4
+		lw      $t0, arg5
+		pushw($t0)
+		lw      $t0, arg6
+		pushw($t0)
+		jal     subprog
+		...
+		
+	subprog:
+		popw($t0)   # Get arg6 from stack
+		popw($t1)   # Get arg5 from stack
+		
+		# Save registers altered by this subprogram
+		pushw($ra)
+		...
+		
+		popw($ra)
+		jr      $ra
+	</PRE>
+<P>A complete example program:</P><PRE class=programlisting>#########################################################################
+#   Description:
+#       Print squares of numbers from 1 to 10.
+#########################################################################
+
+#########################################################################
+#   Modification history:
+#   Date        Name        Modification
+#   11-1-2010   J Bacon     Created.
+#########################################################################
+
+		    .data
+# Global constants
+SYS_PRINT_INT       = 1
+SYS_PRINT_CHAR      = 11
+ISO_LF              = 10
+
+#########################################################################
+#   Macro definitions and includes
+#########################################################################
+
+	# Push contents of a register
+	.macro  push($register)
+	sw      $register, ($sp)
+	addi    $sp, $sp, -4
+	.end_macro
+	
+	# Pop to a register
+	.macro  pop($register)
+	addi    $sp, $sp, 4
+	lw      $register, ($sp)
+	.end_macro
+
+
+######################################################################### 
+#   Description:
+#       Compute the square of a number n.
+#
+#   Arguments:
+#       $a0 = n
+#
+#   Returns:
+#       $v0 = n^2
+#
+#########################################################################
+
+#########################################################################
+#   Modification history:
+#   Date        Name        Modification
+#   11-1-2010   J Bacon     Created.
+#########################################################################
+
+# Procedure body
+	.text
+square:
+	# No registers modified except return value, so no push/pop.
+	
+	# Return n^2
+	mul     $v0, $a0, $a0
+	
+	# Return to caller
+	jr      $ra
+
+
+#########################################################################
+#   Main program
+#########################################################################
+
+	.data
+	.align 2
+n:      .word   0
+
+# Main body
+	.text
+main:
+	# Save registers modified here
+	push($ra)
+	push($a0)
+	push($v0)
+
+	# Print squares of numbers from 1 to 10
+	li      $a0, 1
+	sw      $a0, n
+	
+next_square:
+	# Compute square of $a0
+	lw      $a0, n              # Pass n to square
+	jal     square
+	
+	# Print result
+	move    $a0, $v0            # Pass square return value to syscall
+	li      $v0, SYS_PRINT_INT
+	syscall
+	li      $a0, ISO_LF
+	li      $v0, SYS_PRINT_CHAR
+	syscall
+	
+	# Increment n (in a cohesive manner)
+	lw      $a0, n
+	addi    $a0, $a0, 1
+	sw      $a0, n
+	
+	# Repeat while n &lt;= 10
+	ble     $a0, 10, next_square
+	
+	# Restore registers modified here
+	pop($v0)
+	pop($a0)
+	pop($ra)
+	
+	# Return to system
+	jr      $ra
+
+</PRE></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s04.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s06.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">10.4.&nbsp;Memory Segments&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;10.6.&nbsp;Value and Reference Arguments</TD></TR></TBODY></TABLE></DIV>

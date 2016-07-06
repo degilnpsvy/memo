@@ -1,0 +1,56 @@
+# Documentation/crypto/spi-intro.txt
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Scatterlist Cryptographic API<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <BR>INTRODUCTION </P>
+<P></P>
+<P>The Scatterlist Crypto API takes page vectors (scatterlists) as<BR>arguments, and works directly on pages.&nbsp; In some cases (e.g. ECB<BR>mode ciphers), this will allow for pages to be encrypted in-place<BR>with no copying.</P>
+<P>One of the initial goals of this design was to readily support IPsec,<BR>so that processing can be applied to paged skb's without the need<BR>for linearization.</P>
+<P><BR>DETAILS</P>
+<P>At the lowest level are algorithms, which register dynamically with the<BR>API.</P>
+<P>'Transforms' are user-instantiated objects, which maintain state, handle all<BR>of the implementation logic (e.g. manipulating page vectors) and provide an <BR>abstraction to the underlying algorithms.&nbsp; However, at the user <BR>level they are very simple.</P>
+<P>Conceptually, the API layering looks like this:</P>
+<P>&nbsp; [transform api]&nbsp; (user interface)<BR>&nbsp; [transform ops]&nbsp; (per-type logic glue e.g. cipher.c, compress.c)<BR>&nbsp; [algorithm api]&nbsp; (for registering algorithms)<BR>&nbsp; <BR>The idea is to make the user interface and algorithm registration API<BR>very simple, while hiding the core logic from both.&nbsp; Many good ideas<BR>from existing APIs such as Cryptoapi and Nettle have been adapted for this.</P>
+<P>The API currently supports five main types of transforms: AEAD (Authenticated<BR>Encryption with Associated Data), Block Ciphers, Ciphers, Compressors and<BR>Hashes.</P>
+<P>Please note that Block Ciphers is somewhat of a misnomer.&nbsp; It is in fact<BR>meant to support all ciphers including stream ciphers.&nbsp; The difference<BR>between Block Ciphers and Ciphers is that the latter operates on exactly<BR>one block while the former can operate on an arbitrary amount of data,<BR>subject to block size requirements (i.e., non-stream ciphers can only<BR>process multiples of blocks).</P>
+<P>Support for hardware crypto devices via an asynchronous interface is<BR>under development.</P>
+<P>Here's an example of how to use the API:</P>
+<P>&nbsp;#include &lt;linux/crypto.h&gt;<BR>&nbsp;#include &lt;linux/err.h&gt;<BR>&nbsp;#include &lt;linux/scatterlist.h&gt;<BR>&nbsp;<BR>&nbsp;struct scatterlist sg[2];<BR>&nbsp;char result[128];<BR>&nbsp;struct crypto_hash *tfm;<BR>&nbsp;struct hash_desc desc;<BR>&nbsp;<BR>&nbsp;tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);<BR>&nbsp;if (IS_ERR(tfm))<BR>&nbsp;&nbsp;fail();<BR>&nbsp;&nbsp;<BR>&nbsp;/* ... set up the scatterlists ... */</P>
+<P>&nbsp;desc.tfm = tfm;<BR>&nbsp;desc.flags = 0;<BR>&nbsp;<BR>&nbsp;if (crypto_hash_digest(&amp;desc, sg, 2, result))<BR>&nbsp;&nbsp;fail();<BR>&nbsp;<BR>&nbsp;crypto_free_hash(tfm);</P>
+<P>&nbsp;&nbsp;&nbsp; <BR>Many real examples are available in the regression test module (tcrypt.c).</P>
+<P><BR>DEVELOPER NOTES</P>
+<P>Transforms may only be allocated in user context, and cryptographic<BR>methods may only be called from softirq and user contexts.&nbsp; For<BR>transforms with a setkey method it too should only be called from<BR>user context.</P>
+<P>When using the API for ciphers, performance will be optimal if each<BR>scatterlist contains data which is a multiple of the cipher's block<BR>size (typically 8 bytes).&nbsp; This prevents having to do any copying<BR>across non-aligned page fragment boundaries.</P>
+<P><BR>ADDING NEW ALGORITHMS</P>
+<P>When submitting a new algorithm for inclusion, a mandatory requirement<BR>is that at least a few test vectors from known sources (preferably<BR>standards) be included.</P>
+<P>Converting existing well known code is preferred, as it is more likely<BR>to have been reviewed and widely tested.&nbsp; If submitting code from LGPL<BR>sources, please consider changing the license to GPL (see section 3 of<BR>the LGPL).</P>
+<P>Algorithms submitted must also be generally patent-free (e.g. IDEA<BR>will not be included in the mainline until around 2011), and be based<BR>on a recognized standard and/or have been subjected to appropriate<BR>peer review.</P>
+<P>Also check for any RFCs which may relate to the use of specific algorithms,<BR>as well as general application notes such as RFC2451 ("The ESP CBC-Mode<BR>Cipher Algorithms").</P>
+<P>It's a good idea to avoid using lots of macros and use inlined functions<BR>instead, as gcc does a good job with inlining, while excessive use of<BR>macros can cause compilation problems on some platforms.</P>
+<P>Also check the TODO list at the web site listed below to see what people<BR>might already be working on.</P>
+<P><BR>BUGS</P>
+<P>Send bug reports to:<BR><A href="mailto:linux-crypto@vger.kernel.org">linux-crypto@vger.kernel.org</A><BR>Cc: Herbert Xu &lt;<A href="mailto:herbert@gondor.apana.org.au">herbert@gondor.apana.org.au</A>&gt;,<BR>&nbsp;&nbsp;&nbsp; David S. Miller &lt;<A href="mailto:davem@redhat.com">davem@redhat.com</A>&gt;</P>
+<P><BR>FURTHER INFORMATION</P>
+<P>For further patches and various updates, including the current TODO<BR>list, see:<BR><A href="http://gondor.apana.org.au/~herbert/crypto/">http://gondor.apana.org.au/~herbert/crypto/</A></P>
+<P><BR>AUTHORS</P>
+<P>James Morris<BR>David S. Miller<BR>Herbert Xu</P>
+<P><BR>CREDITS</P>
+<P>The following people provided invaluable feedback during the development<BR>of the API:</P>
+<P>&nbsp; Alexey Kuznetzov<BR>&nbsp; Rusty Russell<BR>&nbsp; Herbert Valerio Riedel<BR>&nbsp; Jeff Garzik<BR>&nbsp; Michael Richardson<BR>&nbsp; Andrew Morton<BR>&nbsp; Ingo Oeser<BR>&nbsp; Christoph Hellwig</P>
+<P>Portions of this API were derived from the following projects:<BR>&nbsp; <BR>&nbsp; Kerneli Cryptoapi (<A href="http://www.kerneli.org/">http://www.kerneli.org/</A>)<BR>&nbsp;&nbsp;&nbsp; Alexander Kjeldaas<BR>&nbsp;&nbsp;&nbsp; Herbert Valerio Riedel<BR>&nbsp;&nbsp;&nbsp; Kyle McMartin<BR>&nbsp;&nbsp;&nbsp; Jean-Luc Cooke<BR>&nbsp;&nbsp;&nbsp; David Bryson<BR>&nbsp;&nbsp;&nbsp; Clemens Fruhwirth<BR>&nbsp;&nbsp;&nbsp; Tobias Ringstrom<BR>&nbsp;&nbsp;&nbsp; Harald Welte</P>
+<P>and;<BR>&nbsp; <BR>&nbsp; Nettle (<A href="http://www.lysator.liu.se/~nisse/nettle/">http://www.lysator.liu.se/~nisse/nettle/</A>)<BR>&nbsp;&nbsp;&nbsp; Niels M&#246;ller</P>
+<P>Original developers of the crypto algorithms:</P>
+<P>&nbsp; Dana L. How (DES)<BR>&nbsp; Andrew Tridgell and Steve French (MD4)<BR>&nbsp; Colin Plumb (MD5)<BR>&nbsp; Steve Reid (SHA1)<BR>&nbsp; Jean-Luc Cooke (SHA256, SHA384, SHA512)<BR>&nbsp; Kazunori Miyazawa / USAGI (HMAC)<BR>&nbsp; Matthew Skala (Twofish)<BR>&nbsp; Dag Arne Osvik (Serpent)<BR>&nbsp; Brian Gladman (AES)<BR>&nbsp; Kartikey Mahendra Bhatt (CAST6)<BR>&nbsp; Jon Oberheide (ARC4)<BR>&nbsp; Jouni Malinen (Michael MIC)<BR>&nbsp; NTT(Nippon Telegraph and Telephone Corporation) (Camellia)</P>
+<P>SHA1 algorithm contributors:<BR>&nbsp; Jean-Francois Dive<BR>&nbsp; <BR>DES algorithm contributors:<BR>&nbsp; Raimar Falke<BR>&nbsp; Gisle S&#230;lensminde<BR>&nbsp; Niels M&#246;ller</P>
+<P>Blowfish algorithm contributors:<BR>&nbsp; Herbert Valerio Riedel<BR>&nbsp; Kyle McMartin</P>
+<P>Twofish algorithm contributors:<BR>&nbsp; Werner Koch<BR>&nbsp; Marc Mutz</P>
+<P>SHA256/384/512 algorithm contributors:<BR>&nbsp; Andrew McDonald<BR>&nbsp; Kyle McMartin<BR>&nbsp; Herbert Valerio Riedel<BR>&nbsp; <BR>AES algorithm contributors:<BR>&nbsp; Alexander Kjeldaas<BR>&nbsp; Herbert Valerio Riedel<BR>&nbsp; Kyle McMartin<BR>&nbsp; Adam J. Richter<BR>&nbsp; Fruhwirth Clemens (i586)<BR>&nbsp; Linus Torvalds (i586)</P>
+<P>CAST5 algorithm contributors:<BR>&nbsp; Kartikey Mahendra Bhatt (original developers unknown, FSF copyright).</P>
+<P>TEA/XTEA algorithm contributors:<BR>&nbsp; Aaron Grothe<BR>&nbsp; Michael Ringe</P>
+<P>Khazad algorithm contributors:<BR>&nbsp; Aaron Grothe</P>
+<P>Whirlpool algorithm contributors:<BR>&nbsp; Aaron Grothe<BR>&nbsp; Jean-Luc Cooke</P>
+<P>Anubis algorithm contributors:<BR>&nbsp; Aaron Grothe</P>
+<P>Tiger algorithm contributors:<BR>&nbsp; Aaron Grothe</P>
+<P>VIA PadLock contributors:<BR>&nbsp; Michal Ludvig</P>
+<P>Camellia algorithm contributors:<BR>&nbsp; NTT(Nippon Telegraph and Telephone Corporation) (Camellia)</P>
+<P>Generic scatterwalk code by Adam J. Richter &lt;<A href="mailto:adam@yggdrasil.com">adam@yggdrasil.com</A>&gt;</P>
+<P>Please send any credits updates or corrections to:<BR>Herbert Xu &lt;<A href="mailto:herbert@gondor.apana.org.au">herbert@gondor.apana.org.au</A>&gt;</P>
+<P>&nbsp;

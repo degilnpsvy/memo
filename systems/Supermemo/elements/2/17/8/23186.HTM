@@ -1,0 +1,38 @@
+<H3 id=-100000 class=docSection1Title>Consistent Checksums</H3>
+<P class=docText><A name="Because of"></A>Because of legal issues latent in distributing the kernel, companies often ship kernel modifications to customers in the form of a source patch generated against an agreed-upon base. Customers, in turn, integrate the patch into an in-house code repository and build the software locally.</P>
+<P class=docText><A name="checksum of"></A>Comparing the MD5 checksum of your binary images with that of your customer's is a guard against patching errors, but the values may not match as-is because the kernel and module images often contain information specific to the build environment. <A name=iddle1339></A><A name=iddle3264></A><A name=iddle4629></A><A name="such data"></A>To force identical MD5 sums, exclude such data while generating kernel and module images at either end. Here are some typical scenarios that inject environmental data into the object image:</P>
+<UL>
+<LI>
+<P class=docList><A name="toss a"></A>Some driver methods toss a call to <TT>BUG()</TT> to announce conditions that are never supposed to occur. <TT>BUG()</TT><A name="of the"></A> spits out, among other things, the offending filename and line number. The pathname of the file depends on the location of your build sandbox. It gets imprinted in the produced image and contributes to MD5 variance. For example, look at <TT>nfs_unlock_request()</TT> in <SPAN class=docEmphasis>fs/nfs/pagelist.c</SPAN>:</P>
+<DIV class=docText><PRE>  void
+  nfs_unlock_request(struct nfs_page *req)
+  {
+    if (!NFS_WBACK_BUSY(req)) {
+      printk(KERN_ERR "NFS: Invalid unlock attempted\n");
+      <SPAN class=docEmphStrong>BUG();</SPAN>
+    }
+    /* ... */
+  }</PRE></DIV>
+<P class=docList><TT>BUG()</TT> is defined in <SPAN class=docEmphasis>include/asm-your-arch/bug.h:</SPAN></P>
+<DIV class=docText><PRE>#define BUG() do {\
+__asm__ __volatile__ ("ud2\n"\
+                      ...
+                      : : "I" (<SPAN class=docEmphStrong>__LINE__</SPAN>), "I"(<SPAN class=docEmphStrong>__FILE__</SPAN>))</PRE></DIV>
+<P class=docList>You can compile <TT>BUG()</TT> away by disabling <TT>CONFIG_BUG</TT><A name="may get"></A> during kernel configuration. Or you may get rid of the line number and filename information emitted by <TT>BUG()</TT> by switching off <TT>CONFIG_DEBUG_BUGVERBOSE</TT>.</P></LI>
+<LI>
+<P class=docList>The wd33c93 driver (<SPAN class=docEmphasis>drivers/scsi/wd33c93.c</SPAN><A name="will find"></A>) announces the time of compilation during initialization. You will find this snippet if you go to the end of the initialization routine, <TT>wd33c93_init()</TT>:</P>
+<DIV class=docText><PRE>  void
+  wd33c93_init(struct Scsi_Host *instance,
+               const wd33c93_regs regs, dma_setup_t setup,
+               dma_stop_t stop, int clock_freq)
+  {
+    /* ... */
+    printk("    Version %s - %s, Compiled %s at %s\n",
+    WD33C93_VERSION, WD33C93_DATE, <SPAN class=docEmphStrong>__DATE__, __TIME__</SPAN>);
+  }</PRE></DIV>
+<P class=docList><A name=iddle1340></A><A name=iddle1566></A><A name=iddle1748></A><A name=iddle2886></A><A name=iddle3895></A><A name="embedded inside"></A>The build timestamp thus gets embedded inside the image, causing the MD5 checksum to depend on it.</P></LI>
+<LI>
+<P class=docList>The <TT>CONFIG_IKCONFIG_PROC</TT><A name="kernel image"></A> configuration option, if enabled, introduces the configuration timestamp in the kernel image. This information is available as part of <SPAN class=docEmphasis>/proc/config.gz</SPAN> at runtime.</P></LI>
+<LI>
+<P class=docList>Utilities living inside the <SPAN class=docEmphasis>scripts/</SPAN><A name="to MD"></A> directory in the kernel tree also contribute to MD5 variance by injecting the output of programs such as hostname, date, whoami and domainname, into kernel header files such as <SPAN class=docEmphasis>include/linux/ -compile.h</SPAN>.</P></LI></UL>
+<P class=docText><A name="Hunt down"></A>Hunt down and mask out such direct and indirect references to environmental information to generate identical checksums at both ends. Of course, you need not bother about kernel modules that aren't relevant. Envelope your code modifications within a change marker such as <TT>CONFIG_MYPROJECT_SAME_MD5</TT><A name="a kernel"></A> and create a kernel configuration switch to turn consistent MD5 generation on or off. When you finish, run md5sum on the stripped vmlinux image.

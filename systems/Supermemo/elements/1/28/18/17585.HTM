@@ -1,0 +1,38 @@
+<TABLE width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top>
+<H2><SPAN class=refentrytitle>Cross-compiling the GLib package</SPAN></H2>
+<P>Cross-compiling the GLib Package &#8212; How to cross-compile GLib </P></TD>
+<TD class=gallery_image vAlign=top align=right></TD></TR></TBODY></TABLE>
+<DIV class=refsect1><A name=cross></A>
+<H2>Building the Library for a different architecture</H2>
+<P>Cross-compilation is the process of compiling a program or library on a different architecture or operating system then it will be run upon. GLib is slightly more difficult to cross-compile than many packages because much of GLib is about hiding differences between different systems. </P>
+<P>These notes cover things specific to cross-compiling GLib; for general information about cross-compilation, see the <SPAN class=application>autoconf</SPAN> info pages. </P>
+<P>GLib tries to detect as much information as possible about the target system by compiling and linking programs without actually running anything; however, some information GLib needs is not available this way. This information needs to be provided to the configure script via a "cache file" or by setting the cache variables in your environment. </P>
+<P>As an example of using a cache file, to cross compile for the "MingW32" Win32 runtime environment on a Linux system, create a file 'win32.cache' with the following contents: </P><PRE class=programlisting> 
+glib_cv_long_long_format=I64
+glib_cv_stack_grows=no
+      </PRE>
+<P>Then execute the following commands: </P><PRE class=programlisting>PATH=/path/to/mingw32-compiler/bin:$PATH
+chmod a-w win32.cache   # prevent configure from changing it
+./configure --cache-file=win32.cache --host=mingw32
+      </PRE>
+<P>The complete list of cache file variables follows. Most of these won't need to be set in most cases. </P></DIV>
+<DIV class=refsect1><A name=cache-file-variables></A>
+<H2>Cache file variables</H2>
+<P><B>glib_cv_long_long_format=[ll/q/I64].&nbsp;</B> Format used by <CODE class=function>printf()</CODE> and <CODE class=function>scanf()</CODE> for 64 bit integers. "ll" is the C99 standard, and what is used by the 'trio' library that GLib builds if your <CODE class=function>printf()</CODE> is insufficiently capable. Doesn't need to be set if you are compiling using trio. </P>
+<P><B>glib_cv_stack_grows=[yes/no].&nbsp;</B> Whether the stack grows up or down. Most places will want "no", A few architectures, such as PA-RISC need "yes". </P>
+<P><B>glib_cv_working_bcopy=[yes/no].&nbsp;</B> Whether your <CODE class=function>bcopy()</CODE> can handle overlapping copies. Only needs to be set if you don't have <CODE class=function>memmove()</CODE>. (Very unlikely) </P>
+<P><B>glib_cv_sane_realloc=[yes/no].&nbsp;</B> Whether your <CODE class=function>realloc()</CODE> conforms to ANSI C and can handle <CODE class=literal>NULL</CODE> as the first argument. Defaults to "yes" and probably doesn't need to be set. </P>
+<P><B>glib_cv_have_strlcpy=[yes/no].&nbsp;</B> Whether you have <CODE class=function>strlcpy()</CODE> that matches OpenBSD. Defaults to "no", which is safe, since GLib uses a built-in version in that case. </P>
+<P><B>glib_cv_have_qsort_r=[yes/no].&nbsp;</B> Whether you have <CODE class=function>qsort_r()</CODE> that matches BSD. Defaults to "no", which is safe, since GLib uses a built-in version in that case. </P>
+<P><B>glib_cv_va_val_copy=[yes/no].&nbsp;</B> Whether <SPAN class=type>va_list</SPAN> can be copied as a pointer. If set to "no", then <CODE class=function>memcopy()</CODE> will be used. Only matters if you don't have <CODE class=function>va_copy()</CODE> or <CODE class=function>__va_copy()</CODE>. (So, doesn't matter for GCC.) Defaults to "yes" which is slightly more common than "no". </P>
+<P><B>glib_cv_rtldglobal_broken=[yes/no].&nbsp;</B> Whether you have a bug found in OSF/1 v5.0. Defaults to "no". </P>
+<P><B>glib_cv_uscore=[yes/no].&nbsp;</B> Whether an underscore needs to be prepended to symbols when looking them up via <CODE class=function>dlsym()</CODE>. Only needs to be set if your system uses <CODE class=function>dlopen()</CODE>/<CODE class=function>dlsym()</CODE>. </P>
+<P><B>ac_cv_func_posix_getpwuid_r=[yes/no].&nbsp;</B> Whether you have a getpwuid_r function (in your C library, not your thread library) that conforms to the POSIX spec. (Takes a 'struct passwd **' as the final argument) </P>
+<P><B>ac_cv_func_nonposix_getpwuid_r=[yes/no].&nbsp;</B> Whether you have some variant of <CODE class=function>getpwuid_r()</CODE> that doesn't conform to to the POSIX spec, but GLib might be able to use (or might segfault.) Only needs to be set if <CODE class=literal>ac_cv_func_posix_getpwuid_r</CODE> is not set. It's safest to set this to "no". </P>
+<P><B>ac_cv_func_posix_getgrgid_r=[yes/no].&nbsp;</B> Whether you have a getgrgid_r function that conforms to the POSIX spec. </P>
+<P><B>glib_cv_use_pid_surrogate=[yes/no].&nbsp;</B> Whether to use a <CODE class=function>setpriority()</CODE> on the PID of the thread as a method for setting the priority of threads. This only needs to be set when using POSIX threads. </P>
+<P><B>ac_cv_func_printf_unix98=[yes/no].&nbsp;</B> Whether your <CODE class=function>printf()</CODE> family supports Unix98 style <CODE class=literal>%N$</CODE> positional parameters. Defaults to "no". </P>
+<P><B>ac_cv_func_vsnprintf_c99=[yes/no].&nbsp;</B> Whether you have a <CODE class=function>vsnprintf()</CODE> with C99 semantics. (C99 semantics means returning the number of bytes that would have been written had the output buffer had enough space.) Defaults to "no". </P></DIV>

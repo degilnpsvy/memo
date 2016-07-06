@@ -1,0 +1,58 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>16.6.3 Integrating The Extensions</H4><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-gawk_002c-interpreter_002c-adding-code-to></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Now that the code is written, it must be possible to add it at runtime to the running<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>interpreter. First, the code must be compiled. Assuming that the functions are in a file named<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>filefuncs.c</SAMP>, and<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>idir</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is the location of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>gawkapi.h</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>header file, the following steps<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT105" name=DOCF105><SUP>105</SUP></A><SPAN class=Apple-converted-space>&nbsp;</SPAN>create a GNU/Linux shared library:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">gcc -fPIC -shared -DHAVE_CONFIG_H -c -O -g -I<VAR>idir</VAR> filefuncs.c</KBD>
+$ <KBD style="FONT-STYLE: oblique">gcc -o filefuncs.so -shared filefuncs.o</KBD>
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Once the library exists, it is loaded by using the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>@load</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>keyword.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example># file testff.awk
+@load "filefuncs"
+
+BEGIN {
+    "pwd" | getline curdir  # save current directory
+    close("pwd")
+
+    chdir("/tmp")
+    system("pwd")   # test it
+    chdir(curdir)   # go back
+
+    print "Info for testff.awk"
+    ret = stat("testff.awk", data)
+    print "ret =", ret
+    for (i in data)
+        printf "data[\"%s\"] = %s\n", i, data[i]
+    print "testff.awk modified:",
+        strftime("%m %d %y %H:%M:%S", data["mtime"])
+
+    print "\nInfo for JUNK"
+    ret = stat("JUNK", data)
+    print "ret =", ret
+    for (i in data)
+        printf "data[\"%s\"] = %s\n", i, data[i]
+    print "JUNK modified:", strftime("%m %d %y %H:%M:%S", data["mtime"])
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AWKLIBPATH</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>environment variable tells<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>where to find shared libraries (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Finding-Extensions">Finding Extensions</A>). We set it to the current directory and run the program:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">AWKLIBPATH=$PWD gawk -f testff.awk</KBD>
+-| /tmp
+-| Info for testff.awk
+-| ret = 0
+-| data["blksize"] = 4096
+-| data["mtime"] = 1350838628
+-| data["mode"] = 33204
+-| data["type"] = file
+-| data["dev"] = 2053
+-| data["gid"] = 1000
+-| data["ino"] = 1719496
+-| data["ctime"] = 1350838628
+-| data["blocks"] = 8
+-| data["nlink"] = 1
+-| data["name"] = testff.awk
+-| data["atime"] = 1350838632
+-| data["pmode"] = -rw-rw-r--
+-| data["size"] = 662
+-| data["uid"] = 1000
+-| testff.awk modified: 10 21 12 18:57:08
+-| 
+-| Info for JUNK
+-| ret = -1
+-| JUNK modified: 01 01 70 02:00:00</PRE></DIV>

@@ -1,0 +1,267 @@
+<H1 align=center><FONT size=+2><B>QEMU, a Fast and Portable Dynamic Translator</B></FONT></H1>
+<P align=center><STRONG>Fabrice Bellard</STRONG></P>
+<P></P>
+<H1><A name=SECTION00010000000000000000>Abstract</A></H1>
+<P>We present the internals of QEMU, a fast machine emulator using an original portable dynamic translator. It emulates several CPUs (x86, PowerPC, ARM and Sparc) on several hosts (x86, PowerPC, ARM, Sparc, Alpha and MIPS). QEMU supports full system emulation in which a complete and unmodified operating system is run in a virtual machine and Linux user mode emulation where a Linux process compiled for one target CPU can be run on another CPU.</P>
+<P></P>
+<H1><A name=SECTION00020000000000000000>1 Introduction</A></H1>
+<P>QEMU is a machine emulator: it can run an unmodified<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>target</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>operating system (such as Windows or Linux) and all its applications in a virtual machine. QEMU itself runs on several host operating systems such as Linux, Windows and Mac OS X. The host and target CPUs can be different.</P>
+<P>The primary usage of QEMU is to run one operating system on another, such as Windows on Linux or Linux on Windows. Another usage is debugging because the virtual machine can be easily stopped, and its state can be inspected, saved and restored. Moreover, specific embedded devices can be simulated by adding new machine descriptions and new emulated devices.</P>
+<P>QEMU also integrates a Linux specific user mode emulator. It is a subset of the machine emulator which runs Linux processes for one target CPU on another CPU. It is mainly used to test the result of cross compilers or to test the CPU emulator without having to start a complete virtual machine.</P>
+<P>QEMU is made of several subsystems:</P>
+<UL>
+<LI>CPU emulator (currently x86<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#foot133" name=tex2html1><SUP>1</SUP></A>, PowerPC, ARM and Sparc) 
+<LI>Emulated devices (e.g. VGA display, 16450 serial port, PS/2 mouse and keyboard, IDE hard disk, NE2000 network card, ...) 
+<LI>Generic devices (e.g. block devices, character devices, network devices) used to connect the emulated devices to the corresponding host devices 
+<LI>Machine descriptions (e.g. PC, PowerMac, Sun4m) instantiating the emulated devices 
+<LI>Debugger 
+<LI>User interface</LI></UL>
+<P>This article examines the implementation of the dynamic translator used by QEMU. The dynamic translator performs a runtime conversion of the target CPU instructions into the host instruction set. The resulting binary code is stored in a translation cache so that it can be reused. The advantage compared to an interpreter is that the target instructions are fetched and decoded only once.</P>
+<P>Usually dynamic translators are difficult to port from one host to another because the whole code generator must be rewritten. It represents about the same amount of work as adding a new target to a C compiler. QEMU is much simpler because it just concatenates pieces of machine code generated<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>off line</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>by the GNU C Compiler [<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#gcc">5</A>].</P>
+<P>A CPU emulator also faces other more classical but difficult [<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#bintrans">2</A>] problems:</P>
+<P></P>
+<UL>
+<LI>Management of the translated code cache 
+<P></P>
+<LI>Register allocation 
+<P></P>
+<LI>Condition code optimizations 
+<P></P>
+<LI>Direct block chaining 
+<P></P>
+<LI>Memory management 
+<P></P>
+<LI>Self-modifying code support 
+<P></P>
+<LI>Exception support 
+<P></P>
+<LI>Hardware interrupts 
+<P></P>
+<LI>User mode emulation 
+<P></P></LI></UL>
+<P></P>
+<H1><A name=SECTION00030000000000000000>2 Portable dynamic translation</A></H1>
+<P></P>
+<H2><A name=SECTION00031000000000000000>2.1 Description</A></H2>
+<P>The first step is to split each target CPU instruction into fewer simpler instructions called<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>micro operations</I>. Each micro operation is implemented by a small piece of C code. This small C source code is compiled by GCC to an object file. The micro operations are chosen so that their number is much smaller (typically a few hundreds) than all the combinations of instructions and operands of the target CPU. The translation from target CPU instructions to micro operations is done entirely with hand coded code. The source code is optimized for readability and compactness because the speed of this stage is less critical than in an interpreter.</P>
+<P>A compile time tool called<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dyngen</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>uses the object file containing the micro operations as input to generate a dynamic code generator. This dynamic code generator is invoked at runtime to generate a complete host function which concatenates several micro operations.</P>
+<P>The process is similar to [<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#threaded_code">1</A>], but more work is done at compile time to get better performance. In particular, a key idea is that in QEMU constant parameters can be given to micro operations. For that purpose, dummy code relocations are generated with GCC for each constant parameter. This enables the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dyngen</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>tool to locate the relocations and generate the appropriate C code to resolve them when building the dynamic code. Relocations are also supported to enable references to static data and to other functions in the micro operations.</P>
+<P></P>
+<H2><A name=SECTION00032000000000000000>2.2 Example</A></H2>
+<P>Consider the case where we must translate the following PowerPC instruction to x86 code:</P>
+<P></P><PRE>addi r1,r1,-16   # r1 = r1 - 16
+</PRE>
+<P>The following micro operations are generated by the PowerPC code translator:</P>
+<P></P><PRE>movl_T0_r1          # T0 = r1
+addl_T0_im -16      # T0 = T0 - 16
+movl_r1_T0          # r1 = T0
+</PRE>
+<P>The number of micro operations is minimized without impacting the quality of the generated code much. For example, instead of generating every possible move between every 32 PowerPC registers, we just generate moves to and from a few temporary registers. These registers<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>T0</TT>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>T1</TT>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>T2</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>are typically stored in host registers by using the GCC static register variable extension.</P>
+<P>The micro operation<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>movl_T0_r1</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>is typically coded as:</P>
+<P></P><PRE>void op_movl_T0_r1(void)
+{
+    T0 = env-&gt;regs[1];
+}
+</PRE><TT>env</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a structure containing the target CPU state. The 32 PowerPC registers are stored in the array<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>env-&gt;regs[32]</TT>. 
+<P><TT>addl_T0_im</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>is more interesting because it uses a<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>constant parameter</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>whose value is determined at runtime:</P>
+<P></P><PRE>extern int __op_param1;
+void op_addl_T0_im(void)
+{
+    T0 = T0 + ((long)(&amp;__op_param1));
+}
+</PRE>
+<P>The code generator generated by<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dyngen</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>takes a micro operation stream pointed by<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>opc_ptr</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and outputs the host code at position<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>gen_code_ptr</TT>. Micro operation parameters are pointed by<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>opparam_ptr</TT>:</P>
+<P></P><PRE>[...]
+for(;;) {
+  switch(*opc_ptr++) {
+  [...]
+  case INDEX_op_movl_T0_r1: 
+  {
+    extern void op_movl_T0_r1();
+    memcpy(gen_code_ptr, 
+      (char *)&amp;op_movl_T0_r1+0, 
+      3);
+    gen_code_ptr += 3;
+    break;
+  }
+  case INDEX_op_addl_T0_im: 
+  {
+    long param1;
+    extern void op_addl_T0_im();
+    memcpy(gen_code_ptr, 
+      (char *)&amp;op_addl_T0_im+0, 
+      6);
+    param1 = *opparam_ptr++;
+    *(uint32_t *)(gen_code_ptr + 2) = 
+      param1;
+    gen_code_ptr += 6;
+    break;
+  }
+  [...]
+  }
+}
+[...]
+}
+</PRE>
+<P>For most micro operations such as<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>movl_T0_r1</TT>, the host code generated by GCC is just copied. When constant parameters are used,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dyngen</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>uses the fact that relocations to<TT>__op_param1</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>are generated by GCC to patch the generated code with the runtime parameter (here it is called<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>param1</TT>).</P>
+<P>When the code generator is run, the following host code is output:</P>
+<P></P><PRE># movl_T0_r1
+# ebx = env-&gt;regs[1]
+mov    0x4(%ebp),%ebx   
+# addl_T0_im -16
+# ebx = ebx - 16
+add    $0xfffffff0,%ebx
+# movl_r1_T0
+# env-&gt;regs[1] = ebx
+mov    %ebx,0x4(%ebp)   
+</PRE>
+<P>On x86,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>T0</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>is mapped to the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>ebx</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>register and the CPU state context to the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>ebp</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>register.</P>
+<P><A name=dyngen_implementation></A></P>
+<H2><A name=SECTION00033000000000000000>2.3 Dyngen implementation</A></H2>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dyngen</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>tool is the key of the QEMU translation process. The following tasks are carried out when running it on an object file containing micro operations:</P>
+<P></P>
+<UL>
+<LI>The object file is parsed to get its symbol table, its relocations entries and its code section. This pass depends on the host object file format (<TT>dyngen</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>supports ELF (Linux), PE-COFF (Windows) and MACH-O (Mac OS X)). 
+<LI>The micro operations are located in the code section using the symbol table. A host specific method is executed to get the start and the end of the copied code. Typically, the function prologue and epilogue are skipped. 
+<LI>The relocations of each micro operations are examined to get the number of constant parameters. The constant parameter relocations are detected by the fact they use the specific symbol name<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>__op_paramN</TT>. 
+<LI>A memory copy in C is generated to copy the micro operation code. The relocations of the code of each micro operation are used to patch the copied code so that it is properly relocated. The relocation patches are host specific. 
+<LI>For some hosts such as ARM, constants must be stored near the generated code because they are accessed with PC relative loads with a small displacement. A host specific pass is done to relocate these constants in the generated code.</LI></UL>
+<P>When compiling the micro operation code, a set of GCC flags is used to manipulate the generation of function prologue and epilogue code into a form that is easy to parse. A dummy assembly macro forces GCC to always terminate the function corresponding to each micro operation with a single return instruction. Code concatenation would not work if several return instructions were generated in a single micro operation.</P>
+<P></P>
+<H1><A name=SECTION00040000000000000000>3 Implementation details</A></H1>
+<P></P>
+<H2><A name=SECTION00041000000000000000>3.1 Translated Blocks and Translation Cache</A></H2>
+<P>When QEMU first encounters a piece of target code, it translates it to host code up to the next jump or instruction modifying the<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>static CPU state</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>in a way that cannot be deduced at translation time. We call these basic blocks Translated Blocks (TBs).</P>
+<P>A 16 MByte cache holds the most recently used TBs. For simplicity, it is completely flushed when it is full.</P>
+<P>The static CPU state is defined as the part of the CPU state that is considered as known at translation time when entering the TB. For example, the program counter (PC) is known at translation time on all targets. On x86, the static CPU state includes more data to be able to generate better code. It is important for example to know if the CPU is in protected or real mode, in user or kernel mode, or if the default operand size is 16 or 32 bits.</P>
+<P></P>
+<H2><A name=SECTION00042000000000000000>3.2 Register allocation</A></H2>
+<P>QEMU uses a fixed register allocation. This means that each target CPU register is mapped to a fixed host register or memory address. On most hosts, we simply map all the target registers to memory and only store a few temporary variables in host registers. The allocation of the temporary variables is hard coded in each target CPU description. The advantage of this method is simplicity and portability.</P>
+<P>The future versions of QEMU will use a dynamic temporary register allocator to eliminate some unnecessary moves in the case where the target registers are directly stored in host registers.</P>
+<P></P>
+<H2><A name=SECTION00043000000000000000>3.3 Condition code optimizations</A></H2>
+<P>Good CPU condition code emulation (<TT>eflags</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>register on x86) is a critical point to get good performances. QEMU uses lazy condition code evaluation: instead of computing the condition codes after each x86 instruction, it just stores one operand (called<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_SRC</TT>), the result (called<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_DST</TT>) and the type of operation (called<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_OP</TT>). For a 32 bit addition such as<SPAN class=Apple-converted-space>&nbsp;</SPAN><IMG border=0 alt=$R=A+B$ align=middle src="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/img1.png" width=82 height=29>, we have:</P><PRE>CC_SRC=A
+CC_DST=R
+CC_OP=CC_OP_ADDL
+</PRE>Knowing that we had a 32 bit addition from the constant stored in<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_OP</TT>, we can recover<SPAN class=Apple-converted-space>&nbsp;</SPAN><IMG border=0 alt=$A$ align=bottom src="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/img2.png" width=16 height=14>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><IMG border=0 alt=$B$ align=bottom src="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/img3.png" width=17 height=14><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><IMG border=0 alt=$R$ align=bottom src="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/img4.png" width=16 height=15><SPAN class=Apple-converted-space>&nbsp;</SPAN>from<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_SRC</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_DST</TT>. Then all the corresponding condition codes such as zero result (<TT>ZF</TT>), non-positive result (<TT>SF</TT>), carry (<TT>CF</TT>) or overflow (<TT>OF</TT>) can be recovered if they are needed by the next instructions. 
+<P>The condition code evaluation is further optimized at translation time by using the fact that the code of a complete TB is generated at a time. A backward pass is done on the generated code to see if<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_OP</TT>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_SRC</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CC_DST</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>are not used by the following code. At the end of TB we consider that these variables are used. Then we delete the assignments whose value is not used in the following code.</P>
+<P></P>
+<H2><A name=SECTION00044000000000000000>3.4 Direct block chaining</A></H2>
+<P>After each TB is executed, QEMU uses the simulated Program Counter (PC) and the other information of the static CPU state to find the next TB using a hash table. If the next TB has not been already translated, then a new translation is launched. Otherwise, a jump to the next TB is done.</P>
+<P>In order to accelerate the most common case where the new simulated PC is known (for example after a conditional jump), QEMU can patch a TB so that it jumps directly to the next one.</P>
+<P>The most portable code uses an indirect jump. On some hosts (such as x86 or PowerPC), a branch instruction is directly patched so that the block chaining has no overhead.</P>
+<P></P>
+<H2><A name=SECTION00045000000000000000>3.5 Memory management</A></H2>
+<P>For system emulation, QEMU uses the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>mmap()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>system call to emulate the target MMU. It works as long as the emulated OS does not use an area reserved by the host OS.<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#foot87" name=tex2html2><SUP>2</SUP></A></P>
+<P>In order to be able to launch any OS, QEMU also supports a<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>software MMU</I>. In that mode, the MMU virtual to physical address translation is done at every memory access. QEMU uses an address translation cache to speed up the translation.</P>
+<P>To avoid flushing the translated code each time the MMU mappings change, QEMU uses a physically indexed translation cache. It means that each TB is indexed with its physical address.</P>
+<P>When MMU mappings change, the chaining of the TBs is reset (i.e. a TB can no longer jump directly to another one) because the physical address of the jump targets may change.</P>
+<P></P>
+<H2><A name=SECTION00046000000000000000>3.6 Self-modifying code and translated code invalidation</A></H2>
+<P>On most CPUs, self-modifying code is easy to handle because a specific code cache invalidation instruction is executed to signal that code has been modified. It suffices to invalidate the corresponding translated code.</P>
+<P>However on CPUs such as the x86, where no instruction cache invalidation is signaled by the application when code is modified, self-modifying code is a special challenge .<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#foot90" name=tex2html3><SUP>3</SUP></A></P>
+<P>When translated code is generated for a TB, the corresponding host page is write protected if it is not already read-only. If a write access is made to the page, then QEMU invalidates all the translated code in it and re-enables write accesses to it.</P>
+<P>Correct translated code invalidation is done efficiently by maintaining a linked list of every translated block contained in a given page. Other linked lists are also maintained to undo direct block chaining.</P>
+<P>When using a software MMU, the code invalidation is more efficient: if a given code page is invalidated too often because of write accesses, then a bitmap representing all the code inside the page is built. Every store into that page checks the bitmap to see if the code really needs to be invalidated. It avoids invalidating the code when only data is modified in the page.</P>
+<P></P>
+<H2><A name=SECTION00047000000000000000>3.7 Exception support</A></H2>
+<P><TT>longjmp()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>is used to jump to the exception handling code when an exception such as division by zero is encountered. When not using the software MMU, host signal handlers are used to catch the invalid memory accesses.</P>
+<P>QEMU supports precise exceptions in the sense that it is always able to retrieve the exact target CPU state at the time the exception occurred.<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#foot134" name=tex2html4><SUP>4</SUP></A><SPAN class=Apple-converted-space>&nbsp;</SPAN>Nothing has to be done for most of the target CPU state because it is explicitly stored and modified by the translated code. The target CPU state<SPAN class=Apple-converted-space>&nbsp;</SPAN><IMG border=0 alt=$S$ align=bottom src="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/img5.png" width=15 height=15><SPAN class=Apple-converted-space>&nbsp;</SPAN>which is not explicitly stored (for example the current Program Counter) is retrieved by re-translating the TB where the exception occurred in a mode where<SPAN class=Apple-converted-space>&nbsp;</SPAN><IMG border=0 alt=$S$ align=bottom src="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/img5.png" width=15 height=15><SPAN class=Apple-converted-space>&nbsp;</SPAN>is recorded before each translated target instruction. The host program counter where the exception was raised is used to find the corresponding target instruction and the state<SPAN class=Apple-converted-space>&nbsp;</SPAN><IMG border=0 alt=$S$ align=bottom src="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/img5.png" width=15 height=15>.</P>
+<P></P>
+<H2><A name=SECTION00048000000000000000>3.8 Hardware interrupts</A></H2>
+<P>In order to be faster, QEMU does not check at every TB if an hardware interrupt is pending. Instead, the user must asynchronously call a specific function to tell that an interrupt is pending. This function resets the chaining of the currently executing TB. It ensures that the execution will return soon in the main loop of the CPU emulator. Then the main loop tests if an interrupt is pending and handles it.</P>
+<P></P>
+<H2><A name=SECTION00049000000000000000>3.9 User mode emulation</A></H2>
+<P>QEMU supports user mode emulation in order to run a Linux process compiled for one target CPU on another CPU.</P>
+<P>At the CPU level, user mode emulation is just a subset of the full system emulation. No MMU simulation is done because QEMU supposes the user memory mappings are handled by the host OS. QEMU includes a generic Linux system call converter to handle endianness issues and 32/64 bit conversions. Because QEMU supports exceptions, it emulates the target signals exactly. Each target thread is run in one host thread<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#foot96" name=tex2html5><SUP>5</SUP></A>.</P>
+<P></P>
+<H1><A name=SECTION00050000000000000000>4 Porting work</A></H1>
+<P>In order to port QEMU to a new host CPU, the following must be done:</P>
+<P></P>
+<UL>
+<LI><TT>dyngen</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>must be ported (see section<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#dyngen_implementation">2.2</A>). 
+<P></P>
+<LI>The temporary variables used by the micro operations may be mapped to host specific registers in order to optimize performance. 
+<P></P>
+<LI>Most host CPUs need specific instructions in order to maintain coherency between the instruction cache and the memory. 
+<P></P>
+<LI>If direct block chaining is implemented with patched branch instructions, some specific assembly macros must be provided. 
+<P></P></LI></UL>
+<P>The overall porting complexity of QEMU is estimated to be the same as the one of a dynamic linker.</P>
+<P></P>
+<H1><A name=SECTION00060000000000000000>5 Performance</A></H1>
+<P>In order to measure the overhead due to emulation, we compared the performance of the BYTEmark benchmark for Linux [<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#bytemark">7</A>] on a x86 host in native mode, and then under the x86 target user mode emulation.</P>
+<P>User mode QEMU (version 0.4.2) was measured to be about 4 times slower than native code on integer code. On floating point code, it is 10 times slower. This can be understood as a result of the lack of the x86 FPU stack pointer in the static CPU state. In full system emulation, the cost of the software MMU induces a slowdown of a factor of 2.</P>
+<P>In full system emulation, QEMU is approximately 30 times faster than Bochs [<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#bochs">4</A>].</P>
+<P>User mode QEMU is 1.2 times faster than<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>valgrind -skin=none</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>version 1.9.6 [<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#valgrind">6</A>], a hand coded x86 to x86 dynamic translator normally used to debug programs. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>-skin=none</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>option ensures that Valgrind does not generate debug code.</P>
+<P></P>
+<H1><A name=SECTION00070000000000000000>6 Conclusion and Future Work</A></H1>
+<P>QEMU has reached the point where it is usable in everyday work, in particular for the emulation of commercial x86 OSes such as Windows. The PowerPC target is close to launch Mac OS X and the Sparc one begins to launch Linux. No other dynamic translator to date has supported so many targets on so many hosts, mainly because the porting complexity was underestimated. The QEMU approach seems a good compromise between performance and complexity.</P>
+<P>The following points still need to be addressed in the future:</P>
+<UL>
+<LI>Porting: QEMU is well supported on PowerPC and x86 hosts. The other ports on Sparc, Alpha, ARM and MIPS need to be polished. QEMU also depends very much on the exact GCC version used to compile the micro operations definitions. 
+<P></P>
+<LI>Full system emulation: ARM and MIPS targets need to be added. 
+<P></P>
+<LI>Performance: the software MMU performance can be increased. Some critical micro operations can also be hand coded in assembler without much modifications in the current translation framework. The CPU main loop can also be hand coded in assembler. 
+<P></P>
+<LI>Virtualization: when the host and target are the same, it is possible to run most of the code as is. The simplest implementation is to emulate the target kernel code as usual but to run the target user code as is. 
+<P></P>
+<LI>Debugging: cache simulation and cycle counters could be added to make a debugger as in SIMICS [<A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#simics">3</A>].</LI></UL>
+<P></P>
+<H1><A name=SECTION00080000000000000000>7 Availability</A></H1>QEMU is available at 
+<DIV align=center><TT>http://bellard.org/qemu</TT></DIV>
+<P></P>
+<H2><A name=SECTION00090000000000000000>Bibliography</A></H2>
+<DL compact>
+<DD>
+<P></P>
+<P></P>
+<DT><A name=threaded_code>1</A> 
+<DD>Ian Piumarta, Fabio Riccardi, Optimizing direct threaded code by selective inlining, Proceedings of the 1998 ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI). 
+<P></P>
+<P></P>
+<DT><A name=bintrans>2</A> 
+<DD>Mark Probst, Fast Machine-Adaptable Dynamic binary Translation, Workshop on Binary Translation 2001. 
+<P></P>
+<P></P>
+<DT><A name=simics>3</A> 
+<DD>Peter S. Magnusson et al., SimICS/sun4m: A Virtual Workstation, Usenix Annual Technical Conference, June 15-18, 1998. 
+<P></P>
+<P></P>
+<DT><A name=bochs>4</A> 
+<DD>Kevin Lawton et al., the Bochs IA-32 Emulator Project,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>http://bochs.sourceforge.net</TT>. 
+<P></P>
+<P></P>
+<DT><A name=gcc>5</A> 
+<DD>The Free Software Foundation, the GNU Compiler Collection,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>http://gcc.gnu.org</TT>. 
+<P></P>
+<P></P>
+<DT><A name=valgrind>6</A> 
+<DD>Julian Seward et al., Valgrind, an open-source memory debugger for x86-GNU/Linux,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>http://valgrind.kde.org/</TT>. 
+<P></P>
+<P></P>
+<DT><A name=bytemark>7</A> 
+<DD>The BYTEmark benchmark program, BYTE Magazine, Linux version available at<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR><TT>http://www.tux.org/~mayer/linux/bmark.html</TT>. 
+<P></P></DD></DL>
+<P></P>
+<P></P>
+<H1><A name=SECTION000100000000000000000>About this document ...</A></H1><FONT size=-1></FONT><STRONG><FONT size=+2><B>QEMU, a Fast and Portable Dynamic Translator</B></FONT></STRONG> 
+<P>This document was generated using the<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.latex2html.org/"><STRONG>LaTeX</STRONG>2<TT>HTML</TT></A><SPAN class=Apple-converted-space>&nbsp;</SPAN>translator Version 2002 (1.62)</P>
+<P>Copyright &#169; 1993, 1994, 1995, 1996,<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://cbl.leeds.ac.uk/nikos/personal.html">Nikos Drakos</A>, Computer Based Learning Unit, University of Leeds.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR>Copyright &#169; 1997, 1998, 1999,<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.maths.mq.edu.au/~ross/">Ross Moore</A>, Mathematics Department, Macquarie University, Sydney.</P>
+<P>The command line arguments were:<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR><STRONG>latex2html</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>-split 0 -show_section_numbers -local_icons -dir qemu /tmp/qemu.tex</TT></P>
+<P>The translation was initiated by Fabrice Bellard on 2005-02-25<BR></P>
+<HR>
+
+<H4>Footnotes</H4>
+<DL>
+<DT><A name=foot133>... x86</A><A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#tex2html1"><SUP>1</SUP></A> 
+<DD><EM>x86</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>CPUs refer to processors compatible with the Intel 80386 processor. 
+<DT><A name=foot87>... OS.</A><A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#tex2html2"><SUP>2</SUP></A> 
+<DD>This mode is now deprecated because it needs a patched target OS and because the target OS can access to the host QEMU address space. 
+<DT><A name=foot90>... .</A><A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#tex2html3"><SUP>3</SUP></A> 
+<DD>For simplicity, QEMU will in fact implement this behavior of ignoring the code cache invalidation instructions for all supported CPUs. 
+<DT><A name=foot134>... occurred.</A><A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#tex2html4"><SUP>4</SUP></A> 
+<DD>In the x86 case, the virtual CPU cannot retrieve the exact<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>eflags</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>register because in some cases it is not computed because of condition code optimizations. This is not a major concern because the emulated code can still be restarted at the same point in any cases. 
+<DT><A name=foot96>... thread</A><A href="https://www.usenix.org/legacy/publications/library/proceedings/usenix05/tech/freenix/full_papers/bellard/bellard_html/index.html#tex2html5"><SUP>5</SUP></A> 
+<DD>At the time of writing, QEMU's support for threading is considered to be immature due to locking issues within its CPU core emulation.</DD></DL>

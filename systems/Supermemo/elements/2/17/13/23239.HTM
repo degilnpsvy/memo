@@ -1,0 +1,155 @@
+<H3 id=title-IDAIH1PF class=docSection1Title>6.1. Root File System</H3>
+<P class=docText>In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, "Kernel Initialization," we examined the Linux kernel's behavior during the initialization process. We made several references to mounting a <SPAN class=docEmphasis>root file system</SPAN>. Linux, like many other advanced operating systems, requires a root file system to realize the benefits of its services. Although it is certainly possible to use Linux in an environment without a file system, it makes little sense because most of the features and value of Linux would be lost. It would be similar to putting your entire system application into an overbloated device driver or kernel thread.</P>
+<P class=docText>The root file system refers to the file system mounted at the base of the file system hierarchy, designated simply as <TT>/</TT>. As you will discover in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, "File Systems," even a small embedded Linux system typically mounts several file systems on different locations in the file system hierarchy. The <TT>proc</TT> file system, introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, is an example. It is a special-purpose file system mounted at <TT>/proc</TT> under the root file system. The root file system is simply the first file system mounted at the base of the file system hierarchy.</P>
+<P class=docText>As you will shortly see, the root file system has special requirements for a Linux system. Linux expects the root file system to contain programs and utilities to boot a system, initialize services such as networking and a system console, load device drivers, and mount additional file systems.</P><A name=ch06lev2sec1></A>
+<H4 id=title-IDA2Q1PF class=docSection2Title>6.1.1. FHS: File System Hierarchy Standard</H4>
+<P class=docText><A name=iddle1436></A><A name=iddle1484></A><A name=iddle1488></A><A name=iddle2381></A><A name=iddle2387></A><A name=iddle2490></A><A name=iddle2492></A><A name=iddle2533></A>Several kernel developers authored a standard governing the organization and layout of a UNIX file system. The File System Hierarchy Standard (FHS) establishes a minimum baseline of compatibility between Linux distributions and application programs. You'll find a reference to this standard in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec7.html#ch06lev2sec18">Section 6.7.1</A> "Suggestions for Additional Reading" at the end of this chapter. You are encouraged to review the FHS standard for a better background on the layout and rationale of UNIX file system organization.</P>
+<P class=docText>Many Linux distributions have directory layouts closely matching that described in the FHS standard. The standard exists to provide one element of a common base between different UNIX and Linux distributions. The FHS standard allows your application software (and developers) to predict where certain system elements, including files and directories, can be found on the file system.</P><A name=ch06lev2sec2></A>
+<H4 id=title-IDAKU1PF class=docSection2Title>6.1.2. File System Layout</H4>
+<P class=docText>Where space is a concern, many embedded systems developers create a very small root file system on a bootable device (such as Flash memory) and later mount a larger file system from another device, perhaps a hard disk or network NFS server. In fact, it is not uncommon to mount a larger root file system right on top of the original small one. You'll see an example of that when we examine the <SPAN class=docEmphasis>initial ramdisk</SPAN> (<TT>initrd</TT>) later in this chapter.</P>
+<P class=docText>A simple Linux root file system might contain the following top-level directory entries:</P>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=none frame=void>
+<COLGROUP align=left>
+<COL width=100></COLGROUP>
+<THEAD></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|--bin</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|--dev</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|--etc</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|--lib</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|--sbin</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|--usr</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|--var</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>|--tmp</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle1004></A><A name=iddle1060></A><A name=iddle1321></A><A name=iddle1412></A><A name=iddle1485></A><A name=iddle1519></A><A name=iddle1817></A><A name=iddle2086></A><A name=iddle2382></A><A name=iddle2394></A><A name=iddle2491></A><A name=iddle2529></A><A name=iddle2572></A><A name=iddle2612></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06table01">Table 6-1</A> details the most common contents of each of these root directory entries.</P><A name=ch06table01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 6-1. Top-Level Directories</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=100>
+<COL width=490></COLGROUP>
+<THEAD>
+<TR>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Directory</P></TH>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Contents</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>bin</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Binary executables, usable by all users on the system<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06fn1">[1]</A></SUP> </P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>dev</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Device nodes (see <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08.html#ch08">Chapter 8</A>, "Device Driver Basics")</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>etc</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Local system-configuration files</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>lib</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>System libraries, such as the standard C library and many others</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>sbin</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Binary executables usually reserved for superuser accounts on the system</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>usr</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>A secondary file system hierarchy for application programs, usually read-only</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>var</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Contains variable files, such as system logs and temporary configuration files</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>tmp</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Temporary files</P></TD></TR></TBODY></TABLE></P><BR>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn1>[1]</A></SUP> Often embedded systems do not have user accounts other than a single root user.</P></BLOCKQUOTE>
+<P class=docText>The very top of the Linux file system hierarchy is referenced by the forward slash character (<TT>/</TT>) by itself. For example, to list the contents of the root directory, one would type this:</P>
+<DIV class=docText><PRE>$ ls /</PRE></DIV><BR>
+<P class=docText>This produces a listing similar to the following:</P>
+<DIV class=docText><PRE>root@coyote:/# ls /
+bin dev etc home lib mnt opt proc root sbin tmp usr var
+root@coyote:/#</PRE></DIV><BR>
+<P class=docText>This directory listing contains directory entries for additional functionality, including <TT>/mnt</TT> and <TT>/proc</TT>. Notice that we reference these directory entries preceded by the forward slash, indicating that the path to these top-level directories starts from the root directory.</P><A name=ch06lev2sec3></A>
+<H4 id=title-IDA5B2PF class=docSection2Title>6.1.3. Minimal File System</H4>
+<P class=docText>To illustrate the requirements of the root file system, we have created a minimal root file system. This example was produced on the ADI Engineering Coyote Reference <A name=iddle1166></A><A name=iddle1976></A>board using an XScale processor. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06list1">Listing 6-1</A> is the output from the <TT>TRee</TT> command on this minimal root file system.</P><A name=ch06list1></A>
+<H5 id=title-IDAMD2PF class=docExampleTitle>Listing 6-1. Contents of Minimal Root File System</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>.
+|-- bin
+|
+|   |-- busybox
+|
+|   '-- sh -&gt; busybox
+|-- dev
+|
+|   '-- console
+|-- etc
+|
+|   '-- init.d
+|
+|       '-- rcS
+'-- lib
+    |-- ld-2.3.2.so
+    |-- ld-linux.so.2 -&gt; ld-2.3.2.so
+    |-- libc-2.3.2.so
+    '-- libc.so.6 -&gt; libc-2.3.2.so
+
+5 directories, 8 files</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This root configuration makes use of <TT>busybox</TT>, a popular and aptly named toolkit for embedded systems. In short, <TT>busybox</TT> is a stand-alone binary that provides support for many common Linux command line utilities. <TT>busybox</TT> is so pertinent for embedded systems that we devote <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch11.html#ch11">Chapter 11</A>, "BusyBox," to this flexible utility.</P>
+<P class=docText>Notice in our example minimum file system in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06list1">Listing 6-1</A> that there are only eight files in five directories. This tiny root file system boots and provides the user with a fully functional command prompt on the serial console. Any commands that have been enabled in <TT>busybox</TT><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06fn02">[2]</A></SUP> are available to the user.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn02>[2]</A></SUP> BusyBox commands are covered in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch11.html#ch11">Chapter 11</A>.</P></BLOCKQUOTE>
+<P class=docText>Starting from /<TT>bin</TT>, we have the <TT>busybox</TT> executable and a soft link called <TT>sh</TT> pointing back to <TT>busybox</TT>. You will see shortly why this is necessary. The file in <TT>/dev</TT> is a <SPAN class=docEmphasis>device node</SPAN><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06fn03">[3]</A></SUP> required to open a console device for input and output. Although it is not strictly necessary, the <TT>rcS</TT> file in the <TT>/etc/init.d</TT> directory is the default initialization script processed by <TT>busybox</TT> on startup. Including <TT>rcS</TT> silences the warning message issued by <TT>busybox</TT> if <TT>rcS</TT> is missing.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn03>[3]</A></SUP> Device nodes are explained in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08.html#ch08">Chapter 8</A>.</P></BLOCKQUOTE>
+<P class=docText><A name=iddle1354></A><A name=iddle1483></A><A name=iddle2380></A><A name=iddle2451></A><A name=iddle2489></A>The final directory entry and set of files required are the two libraries, GLIBC (<TT>libc-2.3.2.so</TT>) and the Linux dynamic loader (<TT>ld-2.3.2.so</TT>). GLIBC contains the standard C library functions, such as <TT>printf()</TT> and many others that most application programs depend on. The Linux dynamic loader is responsible for loading the binary executable into memory and performing the dynamic linking required by the application's reference to shared library functions. Two additional soft links are included, <TT>ld-linux.so.2</TT> pointing back to <TT>ld-2.3.2.so</TT> and <TT>libc.so.6</TT> referencing <TT>libc-2.3.2.so</TT>. These links provide version immunity and backward compatibility for the libraries themselves, and are found on all Linux systems.</P>
+<P class=docText>This simple root file system produces a fully functional system. On the ARM/XScale board on which this was tested, the size of this small root file system was about 1.7MB. It is interesting to note that more than 80 percent of that size is contained within the C library itself. If you need to reduce its size for your embedded system, you might want to investigate the Library Optimizer Tool at <A class=docLink href="http://libraryopt.sourceforge.net/" target=_blank>http://libraryopt.sourceforge.net/</A>.</P><A name=ch06lev2sec4></A>
+<H4 id=title-IDA2I2PF class=docSection2Title>6.1.4. The Root FS Challenge</H4>
+<P class=docText>The challenge of a root file system for an embedded device is simple to explain. It is not so simple to overcome. Unless you are lucky enough to be developing an embedded system with a reasonably large hard drive or large Flash storage on board, you might find it difficult to fit your applications and utilities onto a single Flash memory device. Although costs continue to come down for Flash storage, there will always be competitive pressure to reduce costs and speed time to market. One of the single largest reasons Linux continues to grow in popularity as an embedded OS is the huge and growing body of Linux application software.</P>
+<P class=docText>Trimming a root file system to fit into a given storage space requirement can be daunting. Many packages and subsystems consist of dozens or even hundreds of files. In addition to the application itself, many packages include configuration files, libraries, configuration utilities, icons, documentation files, locale files related to internationalization, database files, and more. The Apache web server from the Apache Software Foundation is an example of a popular application often found in embedded systems. The base Apache package from one popular embedded Linux distribution contains 254 different files. Furthermore, they aren't all simply copied <A name=iddle1160></A><A name=iddle1480></A><A name=iddle1481></A><A name=iddle2356></A><A name=iddle2376></A><A name=iddle2377></A><A name=iddle2388></A><A name=iddle2486></A><A name=iddle2487></A>into a single directory on your file system. They need to be populated in several different locations on the file system for the Apache application to function without modification.</P>
+<P class=docText>These concepts are some of the fundamental aspects of <SPAN class=docEmphasis>distribution engineering,</SPAN> and they can be quite tedious. Linux distribution companies such as Red Hat (in the desktop and enterprise market segments) and Monta Vista Software (in the embedded market segment) spend considerable engineering resources on just this: packaging a collection of programs, libraries, tools, utilities, and applications that together make up a Linux distribution. By necessity, building a root file system employs elements of distribution engineering on a smaller scale.</P><A name=ch06lev2sec5></A>
+<H4 id=title-IDAMM2PF class=docSection2Title>6.1.5. Trial-and-Error Method</H4>
+<P class=docText>Until recently, the only way to populate the contents of your root file system was to use the trial-and-error method. Perhaps the process can be automated by creating a set of scripts for this purpose, but the knowledge of which files are required for a given functionality still had to come from the developer. Tools such as Red Hat Package Manager (<TT>rpm</TT>) can be used to install packages on your root file system. <TT>rpm</TT> has reasonable dependency resolution within given packages, but it is complex and involves a steep learning curve. Furthermore, using <TT>rpm</TT> does not lend itself easily to building small root file systems because it has limited capability to strip unnecessary files from the installation, such as documentation and unused utilities in a given package.</P><A name=ch06lev2sec6></A>
+<H4 id=title-IDA5M2PF class=docSection2Title>6.1.6. Automated File System Build Tools</H4>
+<P class=docText>The leading vendors of embedded Linux distributions ship very capable tools designed to automate the task of building root file systems in Flash or other devices. These tools are usually graphical in nature, enabling the developer to select files by application or functionality. They have features to strip unnecessary files such as documentation and other unneeded files from a package, and many have the capability to select at the individual file level. These tools can produce a variety of file system formats for later installation on your choice of device. Contact your favorite embedded Linux distribution vendor for details on these powerful tools.

@@ -1,0 +1,33 @@
+Adding and Deleting Remote Branches 
+<P></P>
+<P><FONT class=extract>Any new development you create on branches in your local clone are not visible in the parent repository until you make a direct request to propagate it there. Similarly, a branch deletion in your repository remains a local change and is not removed from the parent repository until you request it to be removed from the remote as well.</FONT> </P>
+<P>In Chapter 7, you learned how to add new branches to and delete existing ones from your repository using the git branch command. But git branch operates only on a local repository. </P>
+<P>To perform similar branch add and delete operations on a remote repository, you need to specify different forms of refspecs in a git push command. Recall that the syntax of a refspec is: </P>
+<P>[+]source:destination </P>
+<P>Pushes that use a refspec with just a source ref (i.e., with no destination ref) create a new branch in the remote repository: </P>
+<P>$ cd ~/public_html </P>
+<P>$ git checkout -b foo </P>
+<P>Switched to a new branch "foo" </P>
+<P>$ git push origin foo </P>
+<P>Total 0 (delta 0), reused 0 (delta 0) </P>
+<P>To /tmp/Depot/public_html </P>
+<P>* [new branch] foo -&gt; foo </P>
+<P>A push that names only a source is just a shorthand for using the same name for both the source and destination ref name. A push that names both a source and a destination ref that are different can be used to create a new destination named branch or extend an existing destination remote branch with the content from the local source branch. </P>
+<P>That is, git push origin mystuff:dev will push the local branch mystuff to the upstream repository and either create or extend a branch named dev. Thus, due to a series of default behaviors, the following commands have the same effect: </P>
+<P>$ git push upstream new_dev </P>
+<P>$ git push upstream new_dev:new_dev </P>
+<P>$ git push upstream new_dev:refs/heads/new_dev </P>
+<P>Pushes that use a refspec with just a destination ref (i.e., no source ref) cause the destination ref to be deleted from the remote repository. To denote the ref as the destination, the colon separator must be specified: </P>
+<P>$ git push origin :foo </P>
+<P>To /tmp/Depot/public_html </P>
+<P>- [deleted] foo </P>
+<P>If that :branch form causes you heartache, you can use a syntactically equivalent form: </P>
+<P>$ git push origin --delete foo </P>
+<P>So what about renaming a remote branch? Unfortunately, there is not a simple solution. The short answer is create a new upstream branch with the new name and then delete the old branch. That&#8217;s easy enough to do using the git push commands as shown previously. </P>
+<P># Create new name at exiting old commit </P>
+<P>$ git branch new origin/old </P>
+<P>$ git push origin new </P>
+<P># Remove the old name </P>
+<P>$ git push origin :old </P>
+<P>But that&#8217;s the easy and obvious part. Now what are the distributed implications? Do you know who has a clone of the upstream repository that was just modified out from underneath them? If you do, they could all just fetch and remote prune to get their repositories updated. But if you don&#8217;t, then all those other clones will suddenly have dangling tracking branches. And there&#8217;s no real way to get them renamed in a distributed way. </P>
+<P>Bottom line here: this is just a variant on the &#8220;Be careful how you rewrite history&#8221; theme.

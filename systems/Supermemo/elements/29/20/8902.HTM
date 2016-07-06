@@ -1,0 +1,30 @@
+<H4 class=subsection style="FONT-SIZE: medium; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">2.7.2 Writing symbols</H4>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">Writing of a symbol table is automatic when a BFD open for writing is closed. The application attaches a vector of pointers to pointers to symbols to the BFD being written, and fills in the symbol count. The close and cleanup code reads through the table provided and performs all the necessary operations. The BFD output code must always be provided with an &#8220;owned&#8221; symbol: one which has come from another BFD, or one which has been created using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>bfd_make_empty_symbol</CODE>. Here is an example showing the creation of a symbol table with only one element:</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">            #include "sysdep.h"
+            #include "bfd.h"
+            int main (void)
+            {
+              bfd *abfd;
+              asymbol *ptrs[2];
+              asymbol *new;
+     
+              abfd = bfd_openw ("foo","a.out-sunos-big");
+              bfd_set_format (abfd, bfd_object);
+              new = bfd_make_empty_symbol (abfd);
+              new-&gt;name = "dummy_symbol";
+              new-&gt;section = bfd_make_section_old_way (abfd, ".text");
+              new-&gt;flags = BSF_GLOBAL;
+              new-&gt;value = 0x12345;
+     
+              ptrs[0] = new;
+              ptrs[1] = 0;
+     
+              bfd_set_symtab (abfd, ptrs, 1);
+              bfd_close (abfd);
+              return 0;
+            }
+     
+            ./makesym
+            nm foo
+            00012345 A dummy_symbol
+</PRE>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">Many formats cannot represent arbitrary symbol information; for instance, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>a.out</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>object format does not allow an arbitrary number of sections. A symbol pointing to a section which is not one of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.text</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.data</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.bss</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>cannot be described.

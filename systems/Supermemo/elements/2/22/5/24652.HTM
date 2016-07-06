@@ -1,0 +1,17 @@
+Embedding kobjects 
+<P></P>
+<P>It is rare for kernel code to create a standalone kobject, with one major<BR>exception explained below.&nbsp; Instead, kobjects are used to control access to<BR>a larger, domain-specific object.&nbsp; To this end, kobjects will be found<BR>embedded in other structures.&nbsp; If you are used to thinking of things in<BR>object-oriented terms, kobjects can be seen as a top-level, abstract class<BR>from which other classes are derived.&nbsp; A kobject implements a set of<BR>capabilities which are not particularly useful by themselves, but which are<BR>nice to have in other objects.&nbsp; The C language does not allow for the<BR>direct expression of inheritance, so other techniques - such as structure<BR>embedding - must be used.</P>
+<P>(As an aside, for those familiar with the kernel linked list implementation,<BR>this is analogous as to how "list_head" structs are rarely useful on<BR>their own, but are invariably found embedded in the larger objects of<BR>interest.)</P>
+<P>So, for example, the UIO code in drivers/uio/uio.c has a structure that<BR>defines the memory region associated with a uio device:</P>
+<P>&nbsp;&nbsp;&nbsp; struct uio_map {<BR>&nbsp;struct kobject kobj;<BR>&nbsp;struct uio_mem *mem;<BR>&nbsp;&nbsp;&nbsp; };</P>
+<P>If you have a struct uio_map structure, finding its embedded kobject is<BR>just a matter of using the kobj member.&nbsp; Code that works with kobjects will<BR>often have the opposite problem, however: given a struct kobject pointer,<BR>what is the pointer to the containing structure?&nbsp; You must avoid tricks<BR>(such as assuming that the kobject is at the beginning of the structure)<BR>and, instead, use the container_of() macro, found in &lt;linux/kernel.h&gt;:</P>
+<P>&nbsp;&nbsp;&nbsp; container_of(pointer, type, member)</P>
+<P>where:</P>
+<P>&nbsp; * "pointer" is the pointer to the embedded kobject,<BR>&nbsp; * "type" is the type of the containing structure, and<BR>&nbsp; * "member" is the name of the structure field to which "pointer" points.</P>
+<P>The return value from container_of() is a pointer to the corresponding<BR>container type. So, for example, a pointer "kp" to a struct kobject<BR>embedded *within* a struct uio_map could be converted to a pointer to the<BR>*containing* uio_map structure with:</P>
+<P>&nbsp;&nbsp;&nbsp; struct uio_map *u_map = container_of(kp, struct uio_map, kobj);</P>
+<P>For convenience, programmers often define a simple macro for "back-casting"<BR>kobject pointers to the containing type.&nbsp; Exactly this happens in the<BR>earlier drivers/uio/uio.c, as you can see here:</P>
+<P>&nbsp;&nbsp;&nbsp; struct uio_map {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct kobject kobj;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct uio_mem *mem;<BR>&nbsp;&nbsp;&nbsp; };</P>
+<P>&nbsp;&nbsp;&nbsp; #define to_map(map) container_of(map, struct uio_map, kobj)</P>
+<P>where the macro argument "map" is a pointer to the struct kobject in<BR>question.&nbsp; That macro is subsequently invoked with:</P>
+<P>&nbsp;&nbsp;&nbsp; struct uio_map *map = to_map(kobj);

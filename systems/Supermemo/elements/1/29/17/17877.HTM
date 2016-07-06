@@ -1,0 +1,171 @@
+<H3 class=section>10.4 Processing Command-Line Options</H3><A name=index-libraries-of-awk-functions_002c-command_002dline-options></A><A name=index-functions_002c-library_002c-command_002dline-options></A><A name=index-command_002dline-options_002c-processing></A><A name=index-options_002c-command_002dline_002c-processing></A><A name=index-functions_002c-library_002c-C-library></A><A name=index-arguments_002c-processing></A>
+<P>Most utilities on POSIX compatible systems take options on the command line that can be used to change the way a program behaves. <CODE>awk</CODE> is an example of such a program (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). Often, options take <EM>arguments</EM>; i.e., data that the program needs to correctly obey the command-line option. For example, <CODE>awk</CODE>&#8217;s <SAMP>-F</SAMP> option requires a string to use as the field separator. The first occurrence on the command line of either <SAMP>--</SAMP> or a string that does not begin with &#8216;<SAMP>-</SAMP>&#8217; ends the options. </P><A name=index-getopt_0028_0029-function-_0028C-library_0029></A>
+<P>Modern Unix systems provide a C function named <CODE>getopt()</CODE> for processing command-line arguments. The programmer provides a string describing the one-letter options. If an option requires an argument, it is followed in the string with a colon. <CODE>getopt()</CODE> is also passed the count and values of the command-line arguments and is called in a loop. <CODE>getopt()</CODE> processes the command-line arguments for option letters. Each time around the loop, it returns a single character representing the next option letter that it finds, or &#8216;<SAMP>?</SAMP>&#8217; if it finds an invalid option. When it returns -1, there are no options left on the command line. </P>
+<P>When using <CODE>getopt()</CODE>, options that do not take arguments can be grouped together. Furthermore, options that take arguments require that the argument be present. The argument can immediately follow the option letter, or it can be a separate command-line argument. </P>
+<P>Given a hypothetical program that takes three command-line options, <SAMP>-a</SAMP>, <SAMP>-b</SAMP>, and <SAMP>-c</SAMP>, where <SAMP>-b</SAMP> requires an argument, all of the following are valid ways of invoking the program: </P>
+<DIV class=example><PRE class=example>prog -a -b foo -c data1 data2 data3
+prog -ac -bfoo -- data1 data2 data3
+prog -acbfoo data1 data2 data3
+</PRE></DIV>
+<P>Notice that when the argument is grouped with its option, the rest of the argument is considered to be the option&#8217;s argument. In this example, <SAMP>-acbfoo</SAMP> indicates that all of the <SAMP>-a</SAMP>, <SAMP>-b</SAMP>, and <SAMP>-c</SAMP> options were supplied, and that &#8216;<SAMP>foo</SAMP>&#8217; is the argument to the <SAMP>-b</SAMP> option. </P>
+<P><CODE>getopt()</CODE> provides four external variables that the programmer can use: </P>
+<DL compact>
+<DT><CODE>optind</CODE></DT>
+<DD>
+<P>The index in the argument value array (<CODE>argv</CODE>) where the first nonoption command-line argument can be found. </P></DD>
+<DT><CODE>optarg</CODE></DT>
+<DD>
+<P>The string value of the argument to an option. </P></DD>
+<DT><CODE>opterr</CODE></DT>
+<DD>
+<P>Usually <CODE>getopt()</CODE> prints an error message when it finds an invalid option. Setting <CODE>opterr</CODE> to zero disables this feature. (An application might want to print its own error message.) </P></DD>
+<DT><CODE>optopt</CODE></DT>
+<DD>
+<P>The letter representing the command-line option. </P></DD></DL>
+<P>The following C fragment shows how <CODE>getopt()</CODE> might process command-line arguments for <CODE>awk</CODE>: </P>
+<DIV class=example><PRE class=example>int
+main(int argc, char *argv[])
+{
+    &#8230;
+    /* print our own message */
+    opterr = 0;
+    while ((c = getopt(argc, argv, "v:f:F:W:")) != -1) {
+        switch (c) {
+        case 'f':    /* file */
+            &#8230;
+            break;
+        case 'F':    /* field separator */
+            &#8230;
+            break;
+        case 'v':    /* variable assignment */
+            &#8230;
+            break;
+        case 'W':    /* extension */
+            &#8230;
+            break;
+        case '?':
+        default:
+            usage();
+            break;
+        }
+    }
+    &#8230;
+}
+</PRE></DIV>
+<P>As a side point, <CODE>gawk</CODE> actually uses the GNU <CODE>getopt_long()</CODE> function to process both normal and GNU-style long options (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). </P>
+<P>The abstraction provided by <CODE>getopt()</CODE> is very useful and is quite handy in <CODE>awk</CODE> programs as well. Following is an <CODE>awk</CODE> version of <CODE>getopt()</CODE>. This function highlights one of the greatest weaknesses in <CODE>awk</CODE>, which is that it is very poor at manipulating single characters. Repeated calls to <CODE>substr()</CODE> are necessary for accessing individual characters (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>).<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT68" name=DOCF68><SUP>68</SUP></A> </P>
+<P>The discussion that follows walks through the code a bit at a time: </P><A name=index-getopt_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example># getopt.awk --- Do C library getopt(3) function in awk
+
+# External variables:
+#    Optind -- index in ARGV of first nonoption argument
+#    Optarg -- string value of argument to current option
+#    Opterr -- if nonzero, print our own diagnostic
+#    Optopt -- current option letter
+
+# Returns:
+#    -1     at end of options
+#    "?"    for unrecognized option
+#    &lt;c&gt;    a character representing the current option
+
+# Private Data:
+#    _opti  -- index in multiflag option, e.g., -abc
+</PRE></DIV>
+<P>The function starts out with comments presenting a list of the global variables it uses, what the return values are, what they mean, and any global variables that are &#8220;private&#8221; to this library function. Such documentation is essential for any program, and particularly for library functions. </P>
+<P>The <CODE>getopt()</CODE> function first checks that it was indeed called with a string of options (the <CODE>options</CODE> parameter). If <CODE>options</CODE> has a zero length, <CODE>getopt()</CODE> immediately returns -1: </P><A name=index-getopt_0028_0029-user_002ddefined-function-1></A>
+<DIV class=example><PRE class=example>function getopt(argc, argv, options,    thisopt, i)
+{
+    if (length(options) == 0)    # no options given
+        return -1
+
+</PRE><PRE class=example>    if (argv[Optind] == "--") {  # all done
+        Optind++
+        _opti = 0
+        return -1
+</PRE><PRE class=example>    } else if (argv[Optind] !~ /^-[^:[:space:]]/) {
+        _opti = 0
+        return -1
+    }
+</PRE></DIV>
+<P>The next thing to check for is the end of the options. A <SAMP>--</SAMP> ends the command-line options, as does any command-line argument that does not begin with a &#8216;<SAMP>-</SAMP>&#8217;. <CODE>Optind</CODE> is used to step through the array of command-line arguments; it retains its value across calls to <CODE>getopt()</CODE>, because it is a global variable. </P>
+<P>The regular expression that is used, <CODE><SPAN class=nolinebreak>/^-[^:[:space:]/</SPAN><!-- /@w --></CODE>, checks for a &#8216;<SAMP>-</SAMP>&#8217; followed by anything that is not whitespace and not a colon. If the current command-line argument does not match this pattern, it is not an option, and it ends option processing. Continuing on: </P>
+<DIV class=example><PRE class=example>    if (_opti == 0)
+        _opti = 2
+    thisopt = substr(argv[Optind], _opti, 1)
+    Optopt = thisopt
+    i = index(options, thisopt)
+    if (i == 0) {
+        if (Opterr)
+            printf("%c -- invalid option\n",
+                                  thisopt) &gt; "/dev/stderr"
+        if (_opti &gt;= length(argv[Optind])) {
+            Optind++
+            _opti = 0
+        } else
+            _opti++
+        return "?"
+    }
+</PRE></DIV>
+<P>The <CODE>_opti</CODE> variable tracks the position in the current command-line argument (<CODE>argv[Optind]</CODE>). If multiple options are grouped together with one &#8216;<SAMP>-</SAMP>&#8217; (e.g., <SAMP>-abx</SAMP>), it is necessary to return them to the user one at a time. </P>
+<P>If <CODE>_opti</CODE> is equal to zero, it is set to two, which is the index in the string of the next character to look at (we skip the &#8216;<SAMP>-</SAMP>&#8217;, which is at position one). The variable <CODE>thisopt</CODE> holds the character, obtained with <CODE>substr()</CODE>. It is saved in <CODE>Optopt</CODE> for the main program to use. </P>
+<P>If <CODE>thisopt</CODE> is not in the <CODE>options</CODE> string, then it is an invalid option. If <CODE>Opterr</CODE> is nonzero, <CODE>getopt()</CODE> prints an error message on the standard error that is similar to the message from the C version of <CODE>getopt()</CODE>. </P>
+<P>Because the option is invalid, it is necessary to skip it and move on to the next option character. If <CODE>_opti</CODE> is greater than or equal to the length of the current command-line argument, it is necessary to move on to the next argument, so <CODE>Optind</CODE> is incremented and <CODE>_opti</CODE> is reset to zero. Otherwise, <CODE>Optind</CODE> is left alone and <CODE>_opti</CODE> is merely incremented. </P>
+<P>In any case, because the option is invalid, <CODE>getopt()</CODE> returns <CODE>"?"</CODE>. The main program can examine <CODE>Optopt</CODE> if it needs to know what the invalid option letter actually is. Continuing on: </P>
+<DIV class=example><PRE class=example>    if (substr(options, i + 1, 1) == ":") {
+        # get option argument
+        if (length(substr(argv[Optind], _opti + 1)) &gt; 0)
+            Optarg = substr(argv[Optind], _opti + 1)
+        else
+            Optarg = argv[++Optind]
+        _opti = 0
+    } else
+        Optarg = ""
+</PRE></DIV>
+<P>If the option requires an argument, the option letter is followed by a colon in the <CODE>options</CODE> string. If there are remaining characters in the current command-line argument (<CODE>argv[Optind]</CODE>), then the rest of that string is assigned to <CODE>Optarg</CODE>. Otherwise, the next command-line argument is used (&#8216;<SAMP>-xFOO</SAMP>&#8217; versus &#8216;<SAMP><SPAN class=nolinebreak>-x</SPAN>&nbsp;FOO<!-- /@w --></SAMP>&#8217;). In either case, <CODE>_opti</CODE> is reset to zero, because there are no more characters left to examine in the current command-line argument. Continuing: </P>
+<DIV class=example><PRE class=example>    if (_opti == 0 || _opti &gt;= length(argv[Optind])) {
+        Optind++
+        _opti = 0
+    } else
+        _opti++
+    return thisopt
+}
+</PRE></DIV>
+<P>Finally, if <CODE>_opti</CODE> is either zero or greater than the length of the current command-line argument, it means this element in <CODE>argv</CODE> is through being processed, so <CODE>Optind</CODE> is incremented to point to the next element in <CODE>argv</CODE>. If neither condition is true, then only <CODE>_opti</CODE> is incremented, so that the next option letter can be processed on the next call to <CODE>getopt()</CODE>. </P>
+<P>The <CODE>BEGIN</CODE> rule initializes both <CODE>Opterr</CODE> and <CODE>Optind</CODE> to one. <CODE>Opterr</CODE> is set to one, since the default behavior is for <CODE>getopt()</CODE> to print a diagnostic message upon seeing an invalid option. <CODE>Optind</CODE> is set to one, since there&#8217;s no reason to look at the program name, which is in <CODE>ARGV[0]</CODE>: </P>
+<DIV class=example><PRE class=example>BEGIN {
+    Opterr = 1    # default is to diagnose
+    Optind = 1    # skip ARGV[0]
+
+    # test program
+    if (_getopt_test) {
+        while ((_go_c = getopt(ARGC, ARGV, "ab:cd")) != -1)
+            printf("c = &lt;%c&gt;, optarg = &lt;%s&gt;\n",
+                                       _go_c, Optarg)
+        printf("non-option arguments:\n")
+        for (; Optind &lt; ARGC; Optind++)
+            printf("\tARGV[%d] = &lt;%s&gt;\n",
+                                    Optind, ARGV[Optind])
+    }
+}
+</PRE></DIV>
+<P>The rest of the <CODE>BEGIN</CODE> rule is a simple test program. Here is the result of two sample runs of the test program: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk -f getopt.awk -v _getopt_test=1 -- -a -cbARG bax -x</EM></KBD>
+-| c = &lt;a&gt;, optarg = &lt;&gt;
+-| c = &lt;c&gt;, optarg = &lt;&gt;
+-| c = &lt;b&gt;, optarg = &lt;ARG&gt;
+-| non-option arguments:
+-|         ARGV[3] = &lt;bax&gt;
+-|         ARGV[4] = &lt;-x&gt;
+
+$ <KBD><EM>awk -f getopt.awk -v _getopt_test=1 -- -a -x -- xyz abc</EM></KBD>
+-| c = &lt;a&gt;, optarg = &lt;&gt;
+error&#8594; x -- invalid option
+-| c = &lt;?&gt;, optarg = &lt;&gt;
+-| non-option arguments:
+-|         ARGV[4] = &lt;xyz&gt;
+-|         ARGV[5] = &lt;abc&gt;
+</PRE></DIV>
+<P>In both runs, the first <SAMP>--</SAMP> terminates the arguments to <CODE>awk</CODE>, so that it does not try to interpret the <SAMP>-a</SAMP>, etc., as its own options. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> After <CODE>getopt()</CODE> is through, it is the responsibility of the user level code to clear out all the elements of <CODE>ARGV</CODE> from 1 to <CODE>Optind</CODE>, so that <CODE>awk</CODE> does not try to process the command-line options as file names. </P></BLOCKQUOTE>
+<P>Several of the sample programs presented in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Sample-Programs">Sample Programs</A>, use <CODE>getopt()</CODE> to process their arguments.

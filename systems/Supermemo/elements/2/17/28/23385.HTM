@@ -1,0 +1,88 @@
+# Documentation/crypto/asymmetric-keys.txt
+<P></P>
+<P>&nbsp;&nbsp;=============================================<BR>&nbsp;&nbsp;ASYMMETRIC / PUBLIC-KEY CRYPTOGRAPHY KEY TYPE<BR>&nbsp;&nbsp;=============================================</P>
+<P></P>
+<P>Contents:</P>
+<P>&nbsp; - Overview.<BR>&nbsp; - Key identification.<BR>&nbsp; - Accessing asymmetric keys.<BR>&nbsp;&nbsp;&nbsp; - Signature verification.<BR>&nbsp; - Asymmetric key subtypes.<BR>&nbsp; - Instantiation data parsers.</P>
+<P><BR>========<BR>OVERVIEW<BR>========</P>
+<P>The "asymmetric" key type is designed to be a container for the keys used in<BR>public-key cryptography, without imposing any particular restrictions on the<BR>form or mechanism of the cryptography or form of the key.</P>
+<P>The asymmetric key is given a subtype that defines what sort of data is<BR>associated with the key and provides operations to describe and destroy it.<BR>However, no requirement is made that the key data actually be stored in the<BR>key.</P>
+<P>A completely in-kernel key retention and operation subtype can be defined, but<BR>it would also be possible to provide access to cryptographic hardware (such as<BR>a TPM) that might be used to both retain the relevant key and perform<BR>operations using that key.&nbsp; In such a case, the asymmetric key would then<BR>merely be an interface to the TPM driver.</P>
+<P>Also provided is the concept of a data parser.&nbsp; Data parsers are responsible<BR>for extracting information from the blobs of data passed to the instantiation<BR>function.&nbsp; The first data parser that recognises the blob gets to set the<BR>subtype of the key and define the operations that can be done on that key.</P>
+<P>A data parser may interpret the data blob as containing the bits representing a<BR>key, or it may interpret it as a reference to a key held somewhere else in the<BR>system (for example, a TPM).</P>
+<P><BR>==================<BR>KEY IDENTIFICATION<BR>==================</P>
+<P>If a key is added with an empty name, the instantiation data parsers are given<BR>the opportunity to pre-parse a key and to determine the description the key<BR>should be given from the content of the key.</P>
+<P>This can then be used to refer to the key, either by complete match or by<BR>partial match.&nbsp; The key type may also use other criteria to refer to a key.</P>
+<P>The asymmetric key type's match function can then perform a wider range of<BR>comparisons than just the straightforward comparison of the description with<BR>the criterion string:</P>
+<P>&nbsp;(1) If the criterion string is of the form "id:&lt;hexdigits&gt;" then the match<BR>&nbsp;&nbsp;&nbsp;&nbsp; function will examine a key's fingerprint to see if the hex digits given<BR>&nbsp;&nbsp;&nbsp;&nbsp; after the "id:" match the tail.&nbsp; For instance:</P>
+<P>&nbsp;keyctl search @s asymmetric id:5acc2142</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; will match a key with fingerprint:</P>
+<P>&nbsp;1A00 2040 7601 7889 DE11&nbsp; 882C 3823 04AD 5ACC 2142</P>
+<P>&nbsp;(2) If the criterion string is of the form "&lt;subtype&gt;:&lt;hexdigits&gt;" then the<BR>&nbsp;&nbsp;&nbsp;&nbsp; match will match the ID as in (1), but with the added restriction that<BR>&nbsp;&nbsp;&nbsp;&nbsp; only keys of the specified subtype (e.g. tpm) will be matched.&nbsp; For<BR>&nbsp;&nbsp;&nbsp;&nbsp; instance:</P>
+<P>&nbsp;keyctl search @s asymmetric tpm:5acc2142</P>
+<P>Looking in /proc/keys, the last 8 hex digits of the key fingerprint are<BR>displayed, along with the subtype:</P>
+<P>&nbsp;1a39e171 I-----&nbsp;&nbsp;&nbsp;&nbsp; 1 perm 3f010000&nbsp;&nbsp;&nbsp;&nbsp; 0&nbsp;&nbsp;&nbsp;&nbsp; 0 asymmetri modsign.0: DSA 5acc2142 []</P>
+<P><BR>=========================<BR>ACCESSING ASYMMETRIC KEYS<BR>=========================</P>
+<P>For general access to asymmetric keys from within the kernel, the following<BR>inclusion is required:</P>
+<P>&nbsp;#include &lt;crypto/public_key.h&gt;</P>
+<P>This gives access to functions for dealing with asymmetric / public keys.<BR>Three enums are defined there for representing public-key cryptography<BR>algorithms:</P>
+<P>&nbsp;enum pkey_algo</P>
+<P>digest algorithms used by those:</P>
+<P>&nbsp;enum pkey_hash_algo</P>
+<P>and key identifier representations:</P>
+<P>&nbsp;enum pkey_id_type</P>
+<P>Note that the key type representation types are required because key<BR>identifiers from different standards aren't necessarily compatible.&nbsp; For<BR>instance, PGP generates key identifiers by hashing the key data plus some<BR>PGP-specific metadata, whereas X.509 has arbitrary certificate identifiers.</P>
+<P>The operations defined upon a key are:</P>
+<P>&nbsp;(1) Signature verification.</P>
+<P>Other operations are possible (such as encryption) with the same key data<BR>required for verification, but not currently supported, and others<BR>(eg. decryption and signature generation) require extra key data.</P>
+<P><BR>SIGNATURE VERIFICATION<BR>----------------------</P>
+<P>An operation is provided to perform cryptographic signature verification, using<BR>an asymmetric key to provide or to provide access to the public key.</P>
+<P>&nbsp;int verify_signature(const struct key *key,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; const struct public_key_signature *sig);</P>
+<P>The caller must have already obtained the key from some source and can then use<BR>it to check the signature.&nbsp; The caller must have parsed the signature and<BR>transferred the relevant bits to the structure pointed to by sig.</P>
+<P>&nbsp;struct public_key_signature {<BR>&nbsp;&nbsp;u8 *digest;<BR>&nbsp;&nbsp;u8 digest_size;<BR>&nbsp;&nbsp;enum pkey_hash_algo pkey_hash_algo : 8;<BR>&nbsp;&nbsp;u8 nr_mpi;<BR>&nbsp;&nbsp;union {<BR>&nbsp;&nbsp;&nbsp;MPI mpi[2];<BR>&nbsp;&nbsp;&nbsp;...<BR>&nbsp;&nbsp;};<BR>&nbsp;};</P>
+<P>The algorithm used must be noted in sig-&gt;pkey_hash_algo, and all the MPIs that<BR>make up the actual signature must be stored in sig-&gt;mpi[] and the count of MPIs<BR>placed in sig-&gt;nr_mpi.</P>
+<P>In addition, the data must have been digested by the caller and the resulting<BR>hash must be pointed to by sig-&gt;digest and the size of the hash be placed in<BR>sig-&gt;digest_size.</P>
+<P>The function will return 0 upon success or -EKEYREJECTED if the signature<BR>doesn't match.</P>
+<P>The function may also return -ENOTSUPP if an unsupported public-key algorithm<BR>or public-key/hash algorithm combination is specified or the key doesn't<BR>support the operation; -EBADMSG or -ERANGE if some of the parameters have weird<BR>data; or -ENOMEM if an allocation can't be performed.&nbsp; -EINVAL can be returned<BR>if the key argument is the wrong type or is incompletely set up.</P>
+<P><BR>=======================<BR>ASYMMETRIC KEY SUBTYPES<BR>=======================</P>
+<P>Asymmetric keys have a subtype that defines the set of operations that can be<BR>performed on that key and that determines what data is attached as the key<BR>payload.&nbsp; The payload format is entirely at the whim of the subtype.</P>
+<P>The subtype is selected by the key data parser and the parser must initialise<BR>the data required for it.&nbsp; The asymmetric key retains a reference on the<BR>subtype module.</P>
+<P>The subtype definition structure can be found in:</P>
+<P>&nbsp;#include &lt;keys/asymmetric-subtype.h&gt;</P>
+<P>and looks like the following:</P>
+<P>&nbsp;struct asymmetric_key_subtype {<BR>&nbsp;&nbsp;struct module&nbsp;&nbsp;*owner;<BR>&nbsp;&nbsp;const char&nbsp;&nbsp;*name;</P>
+<P>&nbsp;&nbsp;void (*describe)(const struct key *key, struct seq_file *m);<BR>&nbsp;&nbsp;void (*destroy)(void *payload);<BR>&nbsp;&nbsp;int (*verify_signature)(const struct key *key,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const struct public_key_signature *sig);<BR>&nbsp;};</P>
+<P>Asymmetric keys point to this with their type_data[0] member.</P>
+<P>The owner and name fields should be set to the owning module and the name of<BR>the subtype.&nbsp; Currently, the name is only used for print statements.</P>
+<P>There are a number of operations defined by the subtype:</P>
+<P>&nbsp;(1) describe().</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Mandatory.&nbsp; This allows the subtype to display something in /proc/keys<BR>&nbsp;&nbsp;&nbsp;&nbsp; against the key.&nbsp; For instance the name of the public key algorithm type<BR>&nbsp;&nbsp;&nbsp;&nbsp; could be displayed.&nbsp; The key type will display the tail of the key<BR>&nbsp;&nbsp;&nbsp;&nbsp; identity string after this.</P>
+<P>&nbsp;(2) destroy().</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Mandatory.&nbsp; This should free the memory associated with the key.&nbsp; The<BR>&nbsp;&nbsp;&nbsp;&nbsp; asymmetric key will look after freeing the fingerprint and releasing the<BR>&nbsp;&nbsp;&nbsp;&nbsp; reference on the subtype module.</P>
+<P>&nbsp;(3) verify_signature().</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Optional.&nbsp; These are the entry points for the key usage operations.<BR>&nbsp;&nbsp;&nbsp;&nbsp; Currently there is only the one defined.&nbsp; If not set, the caller will be<BR>&nbsp;&nbsp;&nbsp;&nbsp; given -ENOTSUPP.&nbsp; The subtype may do anything it likes to implement an<BR>&nbsp;&nbsp;&nbsp;&nbsp; operation, including offloading to hardware.</P>
+<P><BR>==========================<BR>INSTANTIATION DATA PARSERS<BR>==========================</P>
+<P>The asymmetric key type doesn't generally want to store or to deal with a raw<BR>blob of data that holds the key data.&nbsp; It would have to parse it and error<BR>check it each time it wanted to use it.&nbsp; Further, the contents of the blob may<BR>have various checks that can be performed on it (eg. self-signatures, validity<BR>dates) and may contain useful data about the key (identifiers, capabilities).</P>
+<P>Also, the blob may represent a pointer to some hardware containing the key<BR>rather than the key itself.</P>
+<P>Examples of blob formats for which parsers could be implemented include:</P>
+<P>&nbsp;- OpenPGP packet stream [RFC 4880].<BR>&nbsp;- X.509 ASN.1 stream.<BR>&nbsp;- Pointer to TPM key.<BR>&nbsp;- Pointer to UEFI key.</P>
+<P>During key instantiation each parser in the list is tried until one doesn't<BR>return -EBADMSG.</P>
+<P>The parser definition structure can be found in:</P>
+<P>&nbsp;#include &lt;keys/asymmetric-parser.h&gt;</P>
+<P>and looks like the following:</P>
+<P>&nbsp;struct asymmetric_key_parser {<BR>&nbsp;&nbsp;struct module&nbsp;*owner;<BR>&nbsp;&nbsp;const char&nbsp;*name;</P>
+<P>&nbsp;&nbsp;int (*parse)(struct key_preparsed_payload *prep);<BR>&nbsp;};</P>
+<P>The owner and name fields should be set to the owning module and the name of<BR>the parser.</P>
+<P>There is currently only a single operation defined by the parser, and it is<BR>mandatory:</P>
+<P>&nbsp;(1) parse().</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; This is called to preparse the key from the key creation and update paths.<BR>&nbsp;&nbsp;&nbsp;&nbsp; In particular, it is called during the key creation _before_ a key is<BR>&nbsp;&nbsp;&nbsp;&nbsp; allocated, and as such, is permitted to provide the key's description in<BR>&nbsp;&nbsp;&nbsp;&nbsp; the case that the caller declines to do so.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; The caller passes a pointer to the following struct with all of the fields<BR>&nbsp;&nbsp;&nbsp;&nbsp; cleared, except for data, datalen and quotalen [see<BR>&nbsp;&nbsp;&nbsp;&nbsp; Documentation/security/keys.txt].</P>
+<P>&nbsp;struct key_preparsed_payload {<BR>&nbsp;&nbsp;char&nbsp;&nbsp;*description;<BR>&nbsp;&nbsp;void&nbsp;&nbsp;*type_data[2];<BR>&nbsp;&nbsp;void&nbsp;&nbsp;*payload;<BR>&nbsp;&nbsp;const void&nbsp;*data;<BR>&nbsp;&nbsp;size_t&nbsp;&nbsp;datalen;<BR>&nbsp;&nbsp;size_t&nbsp;&nbsp;quotalen;<BR>&nbsp;};</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; The instantiation data is in a blob pointed to by data and is datalen in<BR>&nbsp;&nbsp;&nbsp;&nbsp; size.&nbsp; The parse() function is not permitted to change these two values at<BR>&nbsp;&nbsp;&nbsp;&nbsp; all, and shouldn't change any of the other values _unless_ they are<BR>&nbsp;&nbsp;&nbsp;&nbsp; recognise the blob format and will not return -EBADMSG to indicate it is<BR>&nbsp;&nbsp;&nbsp;&nbsp; not theirs.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; If the parser is happy with the blob, it should propose a description for<BR>&nbsp;&nbsp;&nbsp;&nbsp; the key and attach it to -&gt;description, -&gt;type_data[0] should be set to<BR>&nbsp;&nbsp;&nbsp;&nbsp; point to the subtype to be used, -&gt;payload should be set to point to the<BR>&nbsp;&nbsp;&nbsp;&nbsp; initialised data for that subtype, -&gt;type_data[1] should point to a hex<BR>&nbsp;&nbsp;&nbsp;&nbsp; fingerprint and quotalen should be updated to indicate how much quota this<BR>&nbsp;&nbsp;&nbsp;&nbsp; key should account for.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; When clearing up, the data attached to -&gt;type_data[1] and -&gt;description<BR>&nbsp;&nbsp;&nbsp;&nbsp; will be kfree()'d and the data attached to -&gt;payload will be passed to the<BR>&nbsp;&nbsp;&nbsp;&nbsp; subtype's -&gt;destroy() method to be disposed of.&nbsp; A module reference for<BR>&nbsp;&nbsp;&nbsp;&nbsp; the subtype pointed to by -&gt;type_data[0] will be put.</P>
+<P><BR>&nbsp;&nbsp;&nbsp;&nbsp; If the data format is not recognised, -EBADMSG should be returned.&nbsp; If it<BR>&nbsp;&nbsp;&nbsp;&nbsp; is recognised, but the key cannot for some reason be set up, some other<BR>&nbsp;&nbsp;&nbsp;&nbsp; negative error code should be returned.&nbsp; On success, 0 should be returned.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; The key's fingerprint string may be partially matched upon.&nbsp; For a<BR>&nbsp;&nbsp;&nbsp;&nbsp; public-key algorithm such as RSA and DSA this will likely be a printable<BR>&nbsp;&nbsp;&nbsp;&nbsp; hex version of the key's fingerprint.</P>
+<P>Functions are provided to register and unregister parsers:</P>
+<P>&nbsp;int register_asymmetric_key_parser(struct asymmetric_key_parser *parser);<BR>&nbsp;void unregister_asymmetric_key_parser(struct asymmetric_key_parser *subtype);</P>
+<P>Parsers may not have the same name.&nbsp; The names are otherwise only used for<BR>displaying in debugging messages.

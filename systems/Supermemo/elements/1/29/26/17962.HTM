@@ -1,0 +1,67 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>16.4.1 Introduction</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Access to facilities within<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>are made available by calling through function pointers passed into your extension.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">API function pointers are provided for the following kinds of operations:</P>
+<UL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<LI>Registrations functions. You may register:
+<UL style="LIST-STYLE-TYPE: none" class=no-bullet>
+<LI>- extension functions,</LI>
+<LI>- exit callbacks,</LI>
+<LI>- a version string,</LI>
+<LI>- input parsers,</LI>
+<LI>- output wrappers,</LI>
+<LI>- and two-way processors.</LI></UL>
+<P>All of these are discussed in detail, later in this chapter.</P></LI>
+<LI>Printing fatal, warning, and &#8220;lint&#8221; warning messages.</LI>
+<LI>Updating<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ERRNO</CODE>, or unsetting it.</LI>
+<LI>Accessing parameters, including converting an undefined parameter into an array.</LI>
+<LI>Symbol table access: retrieving a global variable, creating one, or changing one.</LI>
+<LI>Allocating, reallocating, and releasing memory.</LI>
+<LI>Creating and releasing cached values; this provides an efficient way to use values for multiple variables and can be a big performance win.</LI>
+<LI>Manipulating arrays:
+<UL style="LIST-STYLE-TYPE: none" class=no-bullet>
+<LI>- Retrieving, adding, deleting, and modifying elements</LI>
+<LI>- Getting the count of elements in an array</LI>
+<LI>- Creating a new array</LI>
+<LI>- Clearing an array</LI>
+<LI>- Flattening an array for easy C style looping over all its indices and elements</LI></UL></LI></UL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Some points about using the API:</P>
+<UL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<LI>The following types and/or macros and/or functions are referenced in<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>gawkapi.h</SAMP>. For correct use, you must therefore include the corresponding standard header file<EM>before</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>including<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>gawkapi.h</SAMP>:
+<TABLE>
+<THEAD>
+<TR>
+<TH>C Entity</TH>
+<TH>Header File</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD><CODE>EOF</CODE></TD>
+<TD><CODE>&lt;stdio.h&gt;</CODE></TD></TR>
+<TR>
+<TD><CODE>FILE</CODE></TD>
+<TD><CODE>&lt;stdio.h&gt;</CODE></TD></TR>
+<TR>
+<TD><CODE>NULL</CODE></TD>
+<TD><CODE>&lt;stddef.h&gt;</CODE></TD></TR>
+<TR>
+<TD><CODE>memcpy()</CODE></TD>
+<TD><CODE>&lt;string.h&gt;</CODE></TD></TR>
+<TR>
+<TD><CODE>memset()</CODE></TD>
+<TD><CODE>&lt;string.h&gt;</CODE></TD></TR>
+<TR>
+<TD><CODE>size_t</CODE></TD>
+<TD><CODE>&lt;sys/types.h&gt;</CODE></TD></TR>
+<TR>
+<TD><CODE>struct stat</CODE></TD>
+<TD><CODE>&lt;sys/stat.h&gt;</CODE></TD></TR></TBODY></TABLE>
+<P>Due to portability concerns, especially to systems that are not fully standards-compliant, it is your responsibility to include the correct files in the correct way. This requirement is necessary in order to keep<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>gawkapi.h</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>clean, instead of becoming a portability hodge-podge as can be seen in some parts of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>source code.</P>
+<P>To pass reasonable integer values for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ERRNO</CODE>, you will also need to include<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>&lt;errno.h&gt;</CODE>.</P></LI>
+<LI>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>gawkapi.h</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>file may be included more than once without ill effect. Doing so, however, is poor coding practice.</LI>
+<LI>Although the API only uses ISO C 90 features, there is an exception; the &#8220;constructor&#8221; functions use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>inline</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>keyword. If your compiler does not support this keyword, you should either place &#8216;<SAMP>-Dinline=''</SAMP>&#8217; on your command line, or use the GNU Autotools and include a<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>config.h</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>file in your extensions.</LI>
+<LI>All pointers filled in by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>are to memory managed by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and should be treated by the extension as read-only. Memory for<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>all</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>strings passed into<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>from the extension<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>must</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>come from calling the API-provided function pointers<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_malloc()</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_calloc()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_realloc()</CODE>, and is managed by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>from then on.</LI>
+<LI>The API defines several simple<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>struct</CODE>s that map values as seen from<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE>. A value can be a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>double</CODE>, a string, or an array (as in multidimensional arrays, or when creating a new array). String values maintain both pointer and length since embedded<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>NUL</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>characters are allowed.
+<BLOCKQUOTE>
+<P><B>NOTE:</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>By intent, strings are maintained using the current multibyte encoding (as defined by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>LC_<VAR>xxx</VAR></CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>environment variables) and not using wide characters. This matches how<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>stores strings internally and also how characters are likely to be input and output from files.</P></BLOCKQUOTE></LI>
+<LI>When retrieving a value (such as a parameter or that of a global variable or array element), the extension requests a specific type (number, string, scalars, value cookie, array, or &#8220;undefined&#8221;). When the request is &#8220;undefined,&#8221; the returned value will have the real underlying type.
+<P>However, if the request and actual type don&#8217;t match, the access function returns &#8220;false&#8221; and fills in the type of the actual value that is there, so that the extension can, e.g., print an error message (such as &#8220;scalar passed where array expected&#8221;).</P></LI></UL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">While you may call the API functions by using the function pointers directly, the interface is not so pretty. To make extension code look more like regular code, the<SAMP>gawkapi.h</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>header file defines several macros that you should use in your code. This section presents the macros as if they were functions.

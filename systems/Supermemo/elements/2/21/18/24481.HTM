@@ -1,0 +1,93 @@
+<P class=docText>To illustrate the usage of softirqs and tasklets, assume that the roller wheel in the previous example has inherent hardware problems due to the presence of moving parts (say, the wheel gets stuck occasionally) resulting in the generation of out-of-spec waveforms. A stuck wheel can continuously generate spurious interrupts and potentially freeze the system. To get around this problem, capture the wave stream, run some analysis on it, and dynamically switch from interrupt mode to a polled mode if the wheel looks stuck, and vice versa if it's unstuck. Capture the wave stream from the interrupt handler and perform the analysis from a bottom half. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex02">Listing 4.2</A> implements this using softirqs, and <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex03">Listing 4.3</A> uses tasklets. Both are simplified variants of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex01">Listing 4.1</A>. This reduces the handler to two functions: <TT>roller_capture()</TT><A name="GPIO Port"></A> that obtains a wave snippet from GPIO Port D, and <TT>roller_analyze()</TT><A name="and switches"></A> that runs an algorithmic analysis on the wave and switches to polled mode if required.</P><A name=ch04ex02></A>
+<H5 id=title-ID0EWSPM class=docExampleTitle>Listing 4.2. Using Softirqs to Offload Work from Interrupt Handlers</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>void __init
+roller_init()
+{
+  /* ... */
+
+  /* Open the softirq. Add an entry for ROLLER_SOFT_IRQ in
+     the enum list in <SPAN class=docEmphasis>include/linux/interrupt.h</SPAN> */
+  open_softirq(ROLLER_SOFT_IRQ, roller_analyze, NULL);
+}
+
+
+/* The bottom half */
+void
+roller_analyze()
+{
+  /* Analyze the waveforms and switch to polled mode if required */
+}
+/* The interrupt handler */
+static irqreturn_t
+roller_interrupt(int irq, void *dev_id)
+{
+  /* Capture the wave stream */
+  roller_capture();
+
+  /* Mark softirq as pending */
+  raise_softirq(ROLLER_SOFT_IRQ);
+
+  return IRQ_HANDLED;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2439></A><A name=iddle3711></A><A name=iddle3837></A><A name="define a"></A>To define a softirq, you have to statically add an entry to <SPAN class=docEmphasis>include/linux/interrupt.h.</SPAN> You can't define one dynamically. <TT>raise_softirq()</TT><A name="execute it"></A> announces that the corresponding softirq is pending execution. The kernel will execute it at the next available opportunity. This can be during exit from an interrupt handler or via the <SPAN class=docEmphasis>ksoftirqd</SPAN><A name="kernel thread"></A> kernel thread.</P><A name=ch04ex03></A>
+<H5 id=title-ID0EWUPM class=docExampleTitle>Listing 4.3. Using Tasklets to Offload Work from Interrupt Handlers</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>struct roller_device_struct { /* Device-specific structure */
+  /* ... */
+  struct tasklet_struct tsklt;
+  /* ... */
+}
+
+void __init roller_init()
+{
+  struct roller_device_struct *dev_struct;
+  /* ... */
+
+  /* Initialize tasklet */
+  tasklet_init(&amp;dev_struct-&gt;tsklt, roller_analyze, dev);
+}
+
+
+/* The bottom half */
+void
+roller_analyze()
+{
+/* Analyze the waveforms and switch to
+   polled mode if required */
+}
+/* The interrupt handler */
+static irqreturn_t
+roller_interrupt(int irq, void *dev_id)
+{
+  struct roller_device_struct *dev_struct;
+
+  /* Capture the wave stream */
+  roller_capture();
+
+  /* Mark tasklet as pending */
+  tasklet_schedule(&amp;dev_struct-&gt;tsklt);
+
+  return IRQ_HANDLED;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle4217></A><A name=iddle4219></A><A name=iddle4221></A><A name=iddle4223></A><A name=iddle4225></A><TT>tasklet_init()</TT><A name="a tasklet"></A> dynamically initializes a tasklet. The function does not allocate memory for a <TT>tasklet_struct</TT><A name="you have"></A>, rather you have to pass the address of an allocated one. <TT>tasklet_schedule()</TT><A name="the kernel"></A> announces that the corresponding tasklet is pending execution. Like for interrupts, the kernel offers a bunch of functions to control the execution state of tasklets on systems having multiple processors:</P>
+<UL>
+<LI>
+<P class=docList><TT>tasklet_enable()</TT> enables tasklets.</P>
+<LI>
+<P class=docList><TT>tasklet_disable()</TT><A name="any currently"></A> disables tasklets and waits until any currently executing tasklet instance has exited.</P>
+<LI>
+<P class=docList><TT>tasklet_disable_nosync()</TT> has semantics similar to <TT>disable_irq_nosync()</TT><A name="the tasklet"></A>. The function does not wait for active instances of the tasklet to finish execution.</P></LI></UL>
+<P class=docText><A name="interrupt handlers"></A>You have seen the differences between interrupt handlers and bottom halves, but there are a few similarities, too. Interrupt handlers and tasklets are both not reentrant. And neither of them can go to sleep. Also, interrupt handlers, tasklets, and softirqs cannot be preempted.

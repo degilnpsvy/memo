@@ -1,0 +1,52 @@
+<DIV class=navheader>
+<TABLE summary="Navigation header" width="100%">
+<TBODY>
+<TR>
+<TH colSpan=3 align=middle><SPAN class=phrase>synchronize_sched_expedited</SPAN></TH></TR>
+<TR>
+<TD width="20%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-cond-synchronize-rcu.html">Prev</A>&nbsp;</TD>
+<TH width="60%" align=middle>Kernel utility functions</TH>
+<TD width="20%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-rcu-barrier-bh.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=refentry><A name=API-synchronize-sched-expedited></A>
+<DIV class=titlepage></DIV>
+<DIV class=refnamediv>
+<H2>Name</H2>
+<P>synchronize_sched_expedited &#8212; Brute-force RCU-sched grace period </P></DIV>
+<DIV class=refsynopsisdiv>
+<H2>Synopsis</H2>
+<DIV class=funcsynopsis>
+<TABLE style="cellspacing: 0; cellpadding: 0" class=funcprototype-table border=0 summary="Function synopsis">
+<TBODY>
+<TR>
+<TD><CODE class=funcdef>void <B class=fsfunc>synchronize_sched_expedited </B>(</CODE></TD>
+<TD><VAR class=pdparam>void</VAR><CODE>)</CODE>;</TD></TR></TBODY></TABLE>
+<DIV class=funcprototype-spacer>&nbsp;</DIV></DIV></DIV>
+<DIV class=refsect1><A name=idp43209724></A>
+<H2>Arguments</H2>
+<DIV class=variablelist>
+<DL class=variablelist>
+<DT><SPAN class=term><EM class=parameter><CODE>void</CODE></EM></SPAN> 
+<DD>
+<P>no arguments </P></DD></DL></DIV></DIV>
+<DIV class=refsect1><A name=idp43211332></A>
+<H2>Description</H2>
+<P></P>
+<P>Wait for an RCU-sched grace period to elapse, but use a <SPAN class=quote>&#8220;<SPAN class=quote>big hammer</SPAN>&#8221;</SPAN> approach to force the grace period to end quickly. This consumes significant time on all CPUs and is unfriendly to real-time workloads, so is thus not recommended for any sort of common-case code. In fact, if you are using <CODE class=function>synchronize_sched_expedited</CODE> in a loop, please restructure your code to batch your updates, and then use a single <CODE class=function>synchronize_sched</CODE> instead. </P>
+<P>This implementation can be thought of as an application of ticket locking to RCU, with sync_sched_expedited_started and sync_sched_expedited_done taking on the roles of the halves of the ticket-lock word. Each task atomically increments sync_sched_expedited_started upon entry, snapshotting the old value, then attempts to stop all the CPUs. If this succeeds, then each CPU will have executed a context switch, resulting in an RCU-sched grace period. We are then done, so we use <CODE class=function>atomic_cmpxchg</CODE> to update sync_sched_expedited_done to match our snapshot -- but only if someone else has not already advanced past our snapshot. </P>
+<P>On the other hand, if <CODE class=function>try_stop_cpus</CODE> fails, we check the value of sync_sched_expedited_done. If it has advanced past our initial snapshot, then someone else must have forced a grace period some time after we took our snapshot. In this case, our work is done for us, and we can simply return. Otherwise, we try again, but keep our initial snapshot for purposes of checking for someone doing our work for us. </P>
+<P>If we fail too many times in a row, we fall back to <CODE class=function>synchronize_sched</CODE>. </P></DIV></DIV>
+<DIV class=navfooter>
+<HR>
+
+<TABLE summary="Navigation footer" width="100%">
+<TBODY>
+<TR>
+<TD width="40%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-cond-synchronize-rcu.html">Prev</A>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=u href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/ch01s09.html">Up</A></TD>
+<TD width="40%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-rcu-barrier-bh.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top width="40%" align=left><SPAN class=phrase>cond_synchronize_rcu</SPAN>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=h href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/index.html">Home</A></TD>
+<TD vAlign=top width="40%" align=right>&nbsp;<SPAN class=phrase>rcu_barrier_bh</SPAN></TD></TR></TBODY></TABLE></DIV>

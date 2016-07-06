@@ -1,0 +1,129 @@
+<H4 id=title-ID0EBPOM class=docSection2Title>Creating a Kernel Thread</H4>
+<P class=docText><A name="help of"></A>Let's learn about kernel threads with the help of an example. While developing the example thread, you will also learn about kernel concepts such as process states, wait queues, and user mode helpers. When you are comfortable with kernel threads, you can use them as a test vehicle for carrying out various experiments within the kernel.</P>
+<P class=docText><A name="asynchronously invoke"></A>Assume that you would like the kernel to asynchronously invoke a user mode program to send you an email or pager alert, whenever it senses that the health of certain key kernel data structures is deteriorating. (For instance, free space in network receive buffers has dipped below a low watermark.)</P>
+<P class=docText><A name=iddle1342></A><A name=iddle2599></A><A name=iddle2603></A><A name=iddle2627></A><A name=iddle2631></A><A name=iddle2699></A><A name=iddle3676></A><A name=iddle4034></A><A name=iddle4081></A><A name=iddle4184></A><A name="is a"></A>This is a candidate for being implemented as a kernel thread for the following reasons:</P>
+<UL>
+<LI>
+<P class=docList>It's a background task because it has to wait for asynchronous events.</P>
+<LI>
+<P class=docList><A name="detection of"></A>It needs access to kernel data structures because the actual detection of events is done by other parts of the kernel.</P>
+<LI>
+<P class=docList><A name="It has"></A>It has to invoke a user mode helper program, which is a time-consuming operation.</P></LI></UL><A name=ch03sb02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle><FONT class=extract>Built-In Kernel Threads</FONT></H2>
+<P class=docText><A name="the kernel"></A><FONT class=extract>To see the kernel threads (also called <SPAN class=docEmphasis>kernel processes</SPAN></FONT><A name="on your"></A><FONT class=extract>) running on your system, run the <TT>ps</TT> command. Names of kernel threads are surrounded by square brackets:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract><SPAN class=docEmphStrong>bash&gt; ps -ef</SPAN>
+UID        PID  PPID  C STIME TTY         TIME CMD
+root         1     0  0 22:36 ?       00:00:00 init [3]
+root         2     0  0 22:36 ?       00:00:00 [kthreadd]
+root         3     2  0 22:36 ?       00:00:00 [ksoftirqd/0]
+root         4     2  0 22:36 ?       00:00:00 [events/0]
+root        38     2  0 22:36 ?       00:00:00 [pdflush]
+root        39     2  0 22:36 ?       00:00:00 [pdflush]
+root        29     2  0 22:36 ?       00:00:00 [khubd]
+root       695     2  0 22:36 ?       00:00:00 [kjournald]
+...
+root      3914     2  0 22:37 ?       00:00:00 [nfsd]
+root      3915     2  0 22:37 ?       00:00:00 [nfsd]
+...
+root      4015  3364  0 22:55 tty3    00:00:00 -bash
+root      4066  4015  0 22:59 tty3    00:00:00 ps -ef</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>The <SPAN class=docEmphasis>[ksoftirqd/0]</SPAN> kernel thread is an aid to implement <SPAN class=docEmphasis>softirqs.</SPAN></FONT><A name="of portions"></A><FONT class=extract> Softirqs are raised by interrupt handlers to request "bottom half" processing of portions of the handler whose execution can be deferred. We take a detailed look at bottom halves and softirqs in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><A name="here is"></A><FONT class=extract>, "Laying the Groundwork," but the basic idea here is to allow as little code as possible to be present inside interrupt handlers. Having small interrupt handlers reduces interrupt-off times in the system, resulting in lower latencies. <SPAN class=docEmphasis>Ksoftirqd</SPAN></FONT><A name="softirqs neither"></A><FONT class=extract>'s job is to ensure that a high load of softirqs neither starves the softirqs nor overwhelms the system. On <SPAN class=docEmphasis>Symmetric Multi Processing</SPAN></FONT><A name="run on"></A><FONT class=extract> (SMP) machines where multiple thread instances can run on different processors in parallel, one instance of ksoftirqd is created per CPU to improve throughput (<SPAN class=docEmphasis>ksoftirqd/n</SPAN>, where <SPAN class=docEmphasis>n</SPAN> is the CPU number).</FONT></P>
+<P class=docText><FONT class=extract>The <SPAN class=docEmphasis>events/n</SPAN> threads (where <SPAN class=docEmphasis>n</SPAN> is the CPU number) help implement <SPAN class=docEmphasis>work queues</SPAN></FONT><A name="the kernel"></A><FONT class=extract>, which are another way of deferring work in the kernel. Parts of the kernel that desire deferred execution of work can either create their own work queue or make use of the default <SPAN class=docEmphasis>events/n</SPAN></FONT><A name="Work queues"></A><FONT class=extract> worker thread. Work queues are also dissected in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><FONT class=extract>.</FONT></P>
+<P class=docText><FONT class=extract>The task of the <SPAN class=docEmphasis>pdflush</SPAN></FONT><A name="page cache"></A><FONT class=extract> kernel thread is to flush out dirty pages from the page cache. The page cache buffers accesses to the disk. To improve performance, actual writes to the disk are delayed until the pdflush daemon writes out dirtied data to disk. This is done if the available free memory dips below a threshold, or if the page has remained dirty for a sufficiently long time. In 2.4 kernels, these two tasks were respectively performed by separate kernel threads, <SPAN class=docEmphasis>bdflush</SPAN></FONT><A name=and></A><FONT class=extract> and <SPAN class=docEmphasis>kupdated.</SPAN></FONT><A name="have noticed"></A><FONT class=extract> You might have noticed two instances of pdflush in the ps output. A new instance is created if the kernel senses that existing instances have their hands full, servicing disk queues. This improves throughput, especially if your system has multiple disks and many of them are busy.</FONT></P>
+<P class=docText><A name="you saw"></A><FONT class=extract>As you saw in the preceding chapter, kjournald is the generic kernel journaling thread, which is used by filesystems such as EXT3.</FONT></P>
+<P class=docText><FONT class=extract>The Linux <SPAN class=docEmphasis>Network File System</SPAN></FONT><A name=named></A><FONT class=extract> (NFS) server is implemented using a set of kernel threads named <SPAN class=docEmphasis>nfsd</SPAN>.</FONT></P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle1207></A><A name=iddle1646></A><A name=iddle2028></A><A name=iddle2063></A><A name=iddle2523></A><A name=iddle2538></A><A name=iddle2592></A><A name=iddle2595></A><A name=iddle2600></A><A name=iddle2602></A><A name=iddle2604></A><A name=iddle2606></A><A name=iddle2619></A><A name=iddle2620></A><A name=iddle2623></A><A name=iddle2628></A><A name=iddle2630></A><A name=iddle2632></A><A name=iddle2634></A><A name=iddle2706></A><A name=iddle2709></A><A name=iddle3246></A><A name=iddle3262></A><A name=iddle3265></A><A name=iddle3552></A><A name=iddle3651></A><A name=iddle3701></A><A name=iddle4252></A><A name=iddle4647></A><A name="the processor"></A>Our example kernel thread relinquishes the processor until it gets woken up by parts of the kernel responsible for monitoring the data structures of interest. When awake, it invokes a user mode helper program and passes appropriate identity codes in its environment.</P>
+<P class=docText><FONT class=extract>To create a kernel thread, use <TT>kernel_thread()</TT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>ret = kernel_thread(mykthread, NULL,
+            CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD);</FONT></PRE></DIV><BR>
+<P class=docText><A name="the parent"></A><FONT class=extract>The flags specify the resources to be shared between the parent and child threads. <TT>CLONE_FILES</TT></FONT><A name="be shared"></A><FONT class=extract> specifies that open files are to be shared, and <TT>CLONE_SIGHAND</TT> requests that signal handlers be shared.</FONT></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01"><FONT class=extract>Listing 3.1</FONT></A><A name="as helpers"></A><FONT class=extract> shows the example implementation. Because kernel threads usually act as helpers to device drivers, they are created when the driver is initialized. In this case, however, the example thread can be created from any suitable place, for instance, <SPAN class=docEmphasis>init/main.c</SPAN>.</FONT></P>
+<P class=docText><A name="thread starts"></A><FONT class=extract>The thread starts by invoking <TT>daemonize()</TT></FONT><A name="calling thread"></A><FONT class=extract>, which performs initial housekeeping and changes the parent of the calling thread to a kernel thread called <SPAN class=docEmphasis>kthreadd.</SPAN></FONT><A name="Each Linux"></A><FONT class=extract> Each Linux thread has a single parent. If a parent process dies without waiting for its child </FONT><A name=iddle1093></A><A name=iddle3653></A><A name=iddle3999></A><A name=iddle4676></A><A name="child becomes"></A><FONT class=extract>to exit, the child becomes a <SPAN class=docEmphasis>zombie</SPAN></FONT><A name="and wastes"></A><FONT class=extract> process and wastes resources. Reparenting the child to kthreadd, avoids this and ensures proper cleanup when the thread exits.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03fn01">[1]</A></SUP></FONT></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch03fn01><FONT class=extract>[1]</FONT></A></SUP><FONT class=extract> In 2.6.21 and earlier kernels, <TT>daemonize()</TT></FONT><A name=calling></A><FONT class=extract> reparents the calling thread to the init task by calling <TT>reparent_to_init()</TT>.</FONT></P></BLOCKQUOTE>
+<P class=docText><FONT class=extract>Because <TT>daemonize()</TT> blocks all signals by default, use <TT>allow_signal()</TT></FONT><A name="thread desires"></A><FONT class=extract> to enable delivery if your thread desires to handle a particular signal. There are no signal handlers inside the kernel, so use <TT>signal_pending()</TT></FONT><A name="the code"></A><FONT class=extract> to check for signals and take appropriate action. For debugging purposes, the code in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01"><FONT class=extract>Listing 3.1</FONT></A><FONT class=extract> requests delivery of <TT>SIGKILL</TT> and dies if it's received.</FONT></P>
+<P class=docText><FONT class=extract><TT>kernel_thread()</TT> is depreciated in favor of the higher-level <SPAN class=docEmphasis>kthread</SPAN></FONT><A name="will look"></A><FONT class=extract> API, which is built over the former. We will look at kthreads later on.</FONT></P><A name=ch03ex01></A>
+<H5 id=title-ID0EBDPM class=docExampleTitle><FONT class=extract>Listing 3.1. Implementing a Kernel Thread</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>static DECLARE_WAIT_QUEUE_HEAD(myevent_waitqueue);
+rwlock_t myevent_lock;
+extern unsigned int myevent_id;  /* Holds the identity of the
+                                    troubled data structure.
+                                    Populated later on */
+static int mykthread(void *unused)
+{
+  unsigned int event_id = 0;
+  DECLARE_WAITQUEUE(wait, current);
+  /* Become a kernel thread without attached user resources */
+  daemonize("mykthread");
+
+  /* Request delivery of SIGKILL */
+  allow_signal(SIGKILL);
+
+  /* The thread sleeps on this wait queue until it's
+     woken up by parts of the kernel in charge of sensing
+     the health of data structures of interest */
+  add_wait_queue(&amp;myevent_waitqueue, &amp;wait);
+
+  for (;;) {
+    /* Relinquish the processor until the event occurs */
+    set_current_state(TASK_INTERRUPTIBLE);
+    schedule();  /* Allow other parts of the kernel to run */
+    /* Die if I receive SIGKILL */
+    if (signal_pending(current)) break;
+    /* Control gets here when the thread is woken up */
+    read_lock(&amp;myevent_lock);      /* Critical section starts */
+    if (myevent_id) { /* Guard against spurious wakeups */
+      event_id = myevent_id;
+      read_unlock(&amp;myevent_lock); /* Critical section ends */
+      /* Invoke the registered user mode helper and
+         pass the identity code in its environment */
+      run_umode_handler(event_id); /* Expanded later on */
+    } else {
+      read_unlock(&amp;myevent_lock);
+    }
+  }
+
+  set_current_state(TASK_RUNNING);
+  remove_wait_queue(&amp;myevent_waitqueue, &amp;wait);
+  return 0;
+}
+
+					  </FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name="of the"></A><FONT class=extract>If you compile and run this as part of the kernel, you can see the newly created thread, <SPAN class=docEmphasis>mykthread</SPAN></FONT><A name="the ps"></A><FONT class=extract>, in the ps output:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract><SPAN class=docEmphStrong>bash&gt; ps -ef</SPAN>
+    UID        PID  PPID C STIME TTY       TIME CMD
+    root         1     0 0 21:56 ?     00:00:00 init [3]
+    root         2     1 0 22:36 ?     00:00:00 [ksoftirqd/0]
+    ...
+    <SPAN class=docEmphStrong>root         111   1 0 21:56 ?     00:00:00 [mykthread]</SPAN>
+    ...</FONT></PRE></DIV><BR>
+<P class=docText><A name="snippet that"></A><FONT class=extract>Before we delve further into the thread implementation, let's write a code snippet that monitors the health of a data structure of interest and awakens mykthread if a problem condition is detected:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>/* Executed by parts of the kernel that own the
+   data structures whose health you want to monitor */
+/* ... */
+
+if (my_key_datastructure looks troubled) {
+  write_lock(&amp;myevent_lock);  /* Serialize */
+  /* Fill in the identity of the data structure */
+  myevent_id = datastructure_id;
+
+  write_unlock(&amp;myevent_lock);
+
+  /* Wake up mykthread */
+  wake_up_interruptible(&amp;myevent_waitqueue);
+}
+
+/* ... */</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle1049></A><A name=iddle1573></A><A name=iddle2607></A><A name=iddle2609></A><A name=iddle2635></A><A name=iddle2637></A><A name=iddle3167></A><A name=iddle3168></A><A name=iddle3652></A><A name=iddle3699></A><A name=iddle4148></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01"><FONT class=extract>Listing 3.1</FONT></A><A name="executes in"></A><FONT class=extract> executes in process context, whereas the preceding snippet runs from either process or interrupt context. Process and interrupt contexts communicate via kernel data structures. Our example uses <TT>myevent_id</TT> and <TT>myevent_waitqueue</TT> for this communication. <TT>myevent_id</TT></FONT><A name="identity of"></A><FONT class=extract> contains the identity of the data structure in trouble. Access to <TT>myevent_id</TT></FONT><A name="serialized using"></A><FONT class=extract> is serialized using locks.</FONT></P>
+<P class=docText><FONT class=extract>Note that kernel threads are preemptible only if <TT>CONFIG_PREEMPT</TT> is turned on at compile time. If <TT>CONFIG_PREEMPT</TT></FONT><A name="without the"></A><FONT class=extract> is off, or if you are still running a 2.4 kernel without the preemption patch, your thread will freeze the system if it does not go to sleep. If you comment out <TT>schedule()</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01"><FONT class=extract>Listing 3.1</FONT></A><FONT class=extract> and disable <TT>CONFIG_PREEMPT</TT></FONT><A name="will lock"></A><FONT class=extract> in your kernel configuration, your system will lock up.</FONT></P>
+<P class=docText><A name="kernel threads"></A>You will learn how to obtain soft real-time responses from kernel threads when we discuss scheduling policies in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A>, "Drivers in User Space."

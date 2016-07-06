@@ -1,0 +1,101 @@
+<H3 id=-100000 class=docSection1Title>Tracing</H3>
+<P class=docText><A name="Tracing provides"></A>Tracing provides insight into behavioral problems that manifest during interactions between different code modules. A common way to obtain execution traces is by using <TT>printk</TT>s. While <TT>printk</TT><A name="the most"></A> is perhaps the most heavily used method for kernel debugging (there are more than 62,000 <TT>printk()</TT><A name="it is"></A> statements in the 2.6.23 source tree), it is not sophisticated enough for high-volume tracing. <SPAN class=docEmphasis>Linux Trace Toolkit</SPAN><A name="tool that"></A> (LTT) is a powerful tool that lets you obtain complex system level traces with minimum overhead.</P><A name=ch21lev2sec18></A>
+<H4 id=title-ID0EQWAO class=docSection2Title>Linux Trace Toolkit</H4>
+<P class=docText><A name="and is"></A>LTT extracts execution traces that are useful for postmortem analysis and is valuable in situations where it may not be possible to use a debugger. Unlike OProfile, which collects data by sampling events at regular intervals, LTT provides exact traces of events as and when they occur.</P>
+<P class=docText>LTT consists of four components:</P>
+<UL>
+<LI>
+<P class=docList><A name="provides trace"></A>A core module that provides trace services to the rest of the kernel. The collected traces are copied to a kernel buffer.</P></LI>
+<LI>
+<P class=docList><A name="These are"></A>Code that makes use of the trace services. These are inserted at points where you want to capture trace dumps.</P></LI>
+<LI>
+<P class=docList><A name="trace information"></A>A trace daemon that pulls trace information from the kernel buffer to a permanent location in the filesystem.</P></LI>
+<LI>
+<P class=docList><A name=iddle2026></A><A name=iddle2870></A><A name=iddle4294></A><A name=iddle4295></A><A name=iddle4297></A>Utilities such as <SPAN class=docEmphasis>tracereader</SPAN> and <SPAN class=docEmphasis>tracevisualizer</SPAN><A name="into human"></A> that interpret raw trace data and convert it into human-readable form. If you are developing code for an embedded device having no GUI support, you can transparently run these tools on another machine.</P></LI></UL>
+<P class=docText>LTT is not part of the mainline kernel.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec5.html#ch21fn08">[8]</A></SUP><A name="trace utilities"></A> You may download LTT kernel patches, trace daemon, and user-space trace utilities from <A class=docLink href="http://www.opersys.com/LTT" target=_blank>www.opersys.com/LTT</A>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch21fn08>[8]</A></SUP><A name="LTT was"></A> LTT was included as a release candidate in the <SPAN class=docEmphasis>2.6.11-rc1-mm1</SPAN> patch, downloadable from <A class=docLink href="http://www.kernel.org/" target=_blank>www.kernel.org</A>.</P></BLOCKQUOTE>
+<P class=docText><A name="what LTT"></A>Let's find out what LTT offers with the help of a simple example. Assume that you are seeing data corruption when your application is reading from a device. You first want to figure out whether the device is sending bad data or whether a kernel layer is introducing the corruption. To do that, dump data packets and data structures at the device driver level. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec5.html#ch21ex07">Listing 21.7</A><A name="that you"></A> initializes the LTT events that you plan to generate.</P><A name=ch21ex07></A>
+<H5 id=title-ID0EA1AO class=docExampleTitle>Listing 21.7. Creating LTT Events</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>#include <LINUX trace.h="">
+
+int data_packet, driver_data; /* Trace events */
+
+/* Driver init */
+static int __init mydriver_init(void)
+{
+  /* ... */
+
+  /* Event to dump packets received from the device */
+  data_packet = trace_create_event("data_pkt",
+                                   NULL,
+                                   CUSTOM_EVENT_FORMAT_TYPE_HEX,
+                                   NULL);
+
+  /* Event to dump a driver structure */
+  driver_data = trace_create_event("dvr_data",
+                                   NULL,
+                                   CUSTOM_EVENT_FORMAT_TYPE_HEX,
+                                   NULL);
+
+  /* ... */
+
+}</LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1654></A><A name=iddle2873></A><A name=iddle4292></A><A name=iddle4300></A><A name="to dump"></A>Next, let's add trace hooks to dump received packets and data structures when the driver reads data from the device. This is done in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec5.html#ch21ex08">Listing 21.8</A> in the driver <TT>read()</TT> method.</P><A name=ch21ex08></A>
+<H5 id=title-ID0EE3AO class=docExampleTitle>Listing 21.8. Obtaining Trace Dumps</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>struct mydriver_data driver_data; /* Private device structure */
+
+/* Driver read() method */
+ssize_t
+mydriver_read(struct file *file, char *buf,
+              size_t count, loff_t *ppos)
+{
+  char *buffer;
+
+  /* Read numbytes bytes of data from the device into
+     buffer */
+  /* ... */
+
+  /* Dump data Packet. If you see the problem only
+     under certain conditions, say, when the packet length is
+     greater than a value, use that as a filter */
+  if (condition) {
+    /* See Listing 21.7 for the definition of data_packet*/
+    trace_raw_event(data_packet, numbytes, buffer);
+  }
+
+  /* Dump driver data structures */
+  if (some_other_condition) {
+    /* See Listing 21.7 for the definition of driver_data */
+    trace_raw_event(driver_data, sizeof(driver_data), &amp;driver_data);
+  }
+
+  /* ... */
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name="or as"></A>Compile and run this code as part of the kernel or as a module. Remember to turn on trace support in the kernel by setting <TT>CONFIG_TRACE</TT><A name="next step"></A> while configuring the kernel. The next step is to start the trace daemon:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; tracedaemon -ts60 /dev/tracer mylog.txt mylog.proc</SPAN></PRE></DIV><BR>
+<P class=docText><A name=iddle2800></A><A name=iddle2871></A><A name=iddle2872></A><A name=iddle2874></A><A name=iddle2875></A><A name=iddle3683></A><A name=iddle4167></A><A name=iddle4298></A><A name=iddle4299></A><SPAN class=docEmphasis>/dev/tracer</SPAN><A name="daemon to"></A> is the interface used by the trace daemon to access the trace buffer, <TT>-ts60</TT><A name="for "></A> asks the daemon to run for 60 seconds, <SPAN class=docEmphasis>mylog.txt</SPAN><A name="the generated"></A> is the file where you want to store the generated raw trace, and <SPAN class=docEmphasis>mylog.proc</SPAN><A name="system state"></A> is where you want to save the system state obtained from procfs. Later versions of LTT use a mechanism called <SPAN class=docEmphasis>relayfs</SPAN><A name="rather than"></A> rather than the <SPAN class=docEmphasis>/dev/tracer</SPAN><A name="efficiently transferring"></A> device for efficiently transferring data from the kernel trace buffer to user space.</P>
+<P class=docText><A name="reads data"></A>Run your application that reads data from the device:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ./application</SPAN>  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Trigger invocation of mydriver_read()</PRE></DIV><BR>
+<P class=docText><SPAN class=docEmphasis>mylog.txt</SPAN><A name="the requested"></A> should now contain the requested trace data. The generated raw trace can be analyzed using the <SPAN class=docEmphasis>tracevisualizer</SPAN> tool. Choose the <SPAN class=docEmphasis>Custom Events</SPAN> option and search for <TT>data_pkt</TT> and <TT>dvr_data</TT> events. The output looks like this:</P>
+<DIV class=docText><PRE>####################################################################
+Event      Time SECS    MICROSEC   PID     Length  Description
+####################################################################
+data_pkt   1,110,563,008,742,457    0       27      12 43 AB AC 00 01 0D 56
+data_pkt   1,110,563,008,743,151    0       27      01 D4 73 F1 0A CB DD 06
+dvr_data   1,110,563,008,743,684    0       25      0D EF 97 1A 3D 4C
+...</PRE></DIV><BR>
+<P class=docText><A name="instant when"></A>The last column holds the trace data. The timestamp shows the instant when the trace was collected. If the data looks corrupt, the device could be sending bad data. Otherwise, the problem must be in a higher kernel layer and can be further isolated by obtaining traces from a different point in the data-flow path.</P>
+<P class=docText><A name="LTT called"></A>The next generation of LTT called LTTng is available for download from <A class=docLink href="http://ltt.polymtl.ca/" target=_blank>http://ltt.polymtl.ca/</A>. This project also includes a post-trace analyzer called <SPAN class=docEmphasis>Linux Trace Toolkit Viewer</SPAN> (LTTV).</P>
+<P class=docText><A name="limited tracing"></A>If your need is only to perform limited tracing of a user application, you can use the <SPAN class=docEmphasis>strace</SPAN><A name=the></A> utility rather than LTT. Strace uses the <SPAN class=docEmphasis>ptrace</SPAN><A name="prints out"></A> support in the kernel to intercept system calls. It prints out a list of system calls made by your application, along with the corresponding arguments and return values.

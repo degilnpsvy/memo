@@ -1,0 +1,96 @@
+# Documentation/fb/fbcon.txt 
+<P></P>
+<P>The Framebuffer Console<BR>=======================</P>
+<P></P>
+<P>&nbsp;<FONT class=extract>The framebuffer console (fbcon), as its name implies, is a text<BR>console running on top of the framebuffer device.</FONT> It has the functionality of<BR>any standard text console driver, such as the VGA console, with the added<BR>features that can be attributed to the graphical nature of the framebuffer.</P>
+<P>&nbsp; In the x86 architecture, the framebuffer console is optional, and<BR>some even treat it as a toy. For other architectures, it is the only available<BR>display device, text or graphical.</P>
+<P>&nbsp; <FONT class=extract>What are the features of fbcon?&nbsp; The framebuffer console supports<BR>high resolutions, varying font types, display rotation, primitive multihead,<BR>etc. Theoretically, multi-colored fonts, blending, aliasing, and any feature<BR>made available by the underlying graphics card are also possible.</FONT></P>
+<P><FONT class=extract>A. Configuration</FONT></P>
+<P><FONT class=extract><FONT class=extract>&nbsp;The framebuffer console can be enabled by using your favorite kernel<BR>configuration tool.&nbsp; It is under Device Drivers-&gt;Graphics Support-&gt;Support for<BR>framebuffer devices-&gt;Framebuffer Console Support.</FONT> Select 'y' to compile<BR>support statically, or 'm' for module support.&nbsp; The module will be fbcon.</FONT></P>
+<P><FONT class=extract>&nbsp;In order for fbcon to activate, at least one framebuffer driver is<BR>required, so choose from any of the numerous drivers available. For x86<BR>systems, they almost universally have VGA cards, so vga16fb and vesafb will<BR>always be available. However, using a chipset-specific driver will give you<BR>more speed and features, such as the ability to change the video mode<BR>dynamically.</FONT></P>
+<P><FONT class=extract>&nbsp;To display the penguin logo, choose any logo available in Logo<BR>Configuration-&gt;Boot up logo.</FONT></P>
+<P><FONT class=extract>&nbsp;Also, you will need to select at least one compiled-in fonts, but if<BR>you don't do anything, the kernel configuration tool will select one for you,<BR>usually an 8x16 font.</FONT></P>
+<P><FONT class=extract>GOTCHA: A common bug report is enabling the framebuffer without enabling the<BR>framebuffer console.&nbsp; Depending on the driver, you may get a blanked or<BR>garbled display, but the system still boots to completion.&nbsp; If you are<BR>fortunate to have a driver that does not alter the graphics chip, then you<BR>will still get a VGA console.</FONT></P>
+<P><FONT class=extract>B. Loading</FONT></P>
+<P><FONT class=extract>Possible scenarios:</FONT></P>
+<P><FONT class=extract>1. Driver and fbcon are compiled statically</FONT></P>
+<P><FONT class=extract>&nbsp; Usually, fbcon will automatically take over your console. The notable<BR>&nbsp; exception is vesafb.&nbsp; It needs to be explicitly activated with the<BR>&nbsp; vga= boot option parameter.</FONT></P>
+<P><FONT class=extract>2. Driver is compiled statically, fbcon is compiled as a module</FONT></P>
+<P><FONT class=extract>&nbsp; Depending on the driver, you either get a standard console, or a<BR>&nbsp; garbled display, as mentioned above.&nbsp; To get a framebuffer console,<BR>&nbsp; do a 'modprobe fbcon'.</FONT></P>
+<P><FONT class=extract>3. Driver is compiled as a module, fbcon is compiled statically</FONT></P>
+<P><FONT class=extract>&nbsp; You get your standard console.&nbsp; Once the driver is loaded with<BR>&nbsp; 'modprobe xxxfb', fbcon automatically takes over the console with<BR>&nbsp; the possible exception of using the fbcon=map:n option. See below.</FONT></P>
+<P><FONT class=extract>4. Driver and fbcon are compiled as a module.</FONT></P>
+<P><FONT class=extract>&nbsp; You can load them in any order. Once both are loaded, fbcon will take<BR>&nbsp; over the console.</FONT></P>
+<P><FONT class=extract>C. Boot options</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The framebuffer console has several, largely unknown, boot options<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; that can change its behavior.</FONT></P>
+<P><FONT class=extract>1. fbcon=font:&lt;name&gt;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Select the initial font to use. The value 'name' can be any of the<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; compiled-in fonts: VGA8x16, 7x14, 10x18, VGA8x8, MINI4x6, RomanLarge,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; SUN8x16, SUN12x22, ProFont6x11, Acorn8x8, PEARL8x8.</FONT></P>
+<P><FONT class=extract>&nbsp;Note, not all drivers can handle font with widths not divisible by 8,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; such as vga16fb.</FONT></P>
+<P><FONT class=extract>2. fbcon=scrollback:&lt;value&gt;[k]</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The scrollback buffer is memory that is used to preserve display<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; contents that has already scrolled past your view.&nbsp; This is accessed<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; by using the Shift-PageUp key combination.&nbsp; The value 'value' is any<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; integer. It defaults to 32KB.&nbsp; The 'k' suffix is optional, and will<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; multiply the 'value' by 1024.</FONT></P>
+<P><FONT class=extract>3. fbcon=map:&lt;0123&gt;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; This is an interesting option. It tells which driver gets mapped to<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; which console. The value '0123' is a sequence that gets repeated until<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; the total length is 64 which is the number of consoles available. In<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; the above example, it is expanded to 012301230123... and the mapping<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; will be:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;tty | 1 2 3 4 5 6 7 8 9 ...<BR>&nbsp;&nbsp;fb&nbsp; | 0 1 2 3 0 1 2 3 0 ...</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;('cat /proc/fb' should tell you what the fb numbers are)</FONT></P>
+<P><FONT class=extract>&nbsp;One side effect that may be useful is using a map value that exceeds<BR>&nbsp;the number of loaded fb drivers. For example, if only one driver is<BR>&nbsp;available, fb0, adding fbcon=map:1 tells fbcon not to take over the<BR>&nbsp;console.</FONT></P>
+<P><FONT class=extract>&nbsp;Later on, when you want to map the console the to the framebuffer<BR>&nbsp;device, you can use the con2fbmap utility.</FONT></P>
+<P><FONT class=extract>4. fbcon=vc:&lt;n1&gt;-&lt;n2&gt;</FONT></P>
+<P><FONT class=extract>&nbsp;This option tells fbcon to take over only a range of consoles as<BR>&nbsp;specified by the values 'n1' and 'n2'. The rest of the consoles<BR>&nbsp;outside the given range will still be controlled by the standard<BR>&nbsp;console driver.</FONT></P>
+<P><FONT class=extract>&nbsp;NOTE: For x86 machines, the standard console is the VGA console which<BR>&nbsp;is typically located on the same video card.&nbsp; Thus, the consoles that<BR>&nbsp;are controlled by the VGA console will be garbled.</FONT></P>
+<P><FONT class=extract>4. fbcon=rotate:&lt;n&gt;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; This option changes the orientation angle of the console display. The<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; value 'n' accepts the following:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 - normal orientation (0 degree)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 - clockwise orientation (90 degrees)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 - upside down orientation (180 degrees)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3 - counterclockwise orientation (270 degrees)</FONT></P>
+<P><FONT class=extract>&nbsp;The angle can be changed anytime afterwards by 'echoing' the same<BR>&nbsp;numbers to any one of the 2 attributes found in<BR>&nbsp; /sys/class/graphics/fbcon</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;rotate&nbsp;&nbsp;&nbsp;&nbsp; - rotate the display of the active console<BR>&nbsp;&nbsp;rotate_all - rotate the display of all consoles</FONT></P>
+<P><FONT class=extract>&nbsp;Console rotation will only become available if Console Rotation<BR>&nbsp;Support is compiled in your kernel.</FONT></P>
+<P><FONT class=extract>&nbsp;NOTE: This is purely console rotation.&nbsp; Any other applications that<BR>&nbsp;use the framebuffer will remain at their 'normal'orientation.<BR>&nbsp;Actually, the underlying fb driver is totally ignorant of console<BR>&nbsp;rotation.</FONT></P>
+<P><FONT class=extract>C. Attaching, Detaching and Unloading</FONT></P>
+<P><FONT class=extract>Before going on on how to attach, detach and unload the framebuffer console, an<BR>illustration of the dependencies may help.</FONT></P>
+<P><FONT class=extract>The console layer, as with most subsystems, needs a driver that interfaces with<BR>the hardware. Thus, in a VGA console:</FONT></P>
+<P><FONT class=extract>console ---&gt; VGA driver ---&gt; hardware.</FONT></P>
+<P><FONT class=extract>Assuming the VGA driver can be unloaded, one must first unbind the VGA driver<BR>from the console layer before unloading the driver.&nbsp; The VGA driver cannot be<BR>unloaded if it is still bound to the console layer. (See<BR>Documentation/console/console.txt for more information).</FONT></P>
+<P><FONT class=extract>This is more complicated in the case of the framebuffer console (fbcon),<BR>because fbcon is an intermediate layer between the console and the drivers:</FONT></P>
+<P><FONT class=extract>console ---&gt; fbcon ---&gt; fbdev drivers ---&gt; hardware</FONT></P>
+<P><FONT class=extract>The fbdev drivers cannot be unloaded if it's bound to fbcon, and fbcon cannot<BR>be unloaded if it's bound to the console layer.</FONT></P>
+<P><FONT class=extract>So to unload the fbdev drivers, one must first unbind fbcon from the console,<BR>then unbind the fbdev drivers from fbcon.&nbsp; Fortunately, unbinding fbcon from<BR>the console layer will automatically unbind framebuffer drivers from<BR>fbcon. Thus, there is no need to explicitly unbind the fbdev drivers from<BR>fbcon.</FONT></P>
+<P><FONT class=extract>So, how do we unbind fbcon from the console? Part of the answer is in<BR>Documentation/console/console.txt. To summarize:</FONT></P>
+<P><FONT class=extract>Echo a value to the bind file that represents the framebuffer console<BR>driver. So assuming vtcon1 represents fbcon, then:</FONT></P>
+<P><FONT class=extract>echo 1 &gt; sys/class/vtconsole/vtcon1/bind - attach framebuffer console to<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; console layer<BR>echo 0 &gt; sys/class/vtconsole/vtcon1/bind - detach framebuffer console from<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; console layer</FONT></P>
+<P><FONT class=extract>If fbcon is detached from the console layer, your boot console driver (which is<BR>usually VGA text mode) will take over.&nbsp; A few drivers (rivafb and i810fb) will<BR>restore VGA text mode for you.&nbsp; With the rest, before detaching fbcon, you<BR>must take a few additional steps to make sure that your VGA text mode is<BR>restored properly. The following is one of the several methods that you can do:</FONT></P>
+<P><FONT class=extract>1. Download or install vbetool.&nbsp; This utility is included with most<BR>&nbsp;&nbsp; distributions nowadays, and is usually part of the suspend/resume tool.</FONT></P>
+<P><FONT class=extract>2. In your kernel configuration, ensure that CONFIG_FRAMEBUFFER_CONSOLE is set<BR>&nbsp;&nbsp; to 'y' or 'm'. Enable one or more of your favorite framebuffer drivers.</FONT></P>
+<P><FONT class=extract>3. Boot into text mode and as root run:</FONT></P>
+<P><FONT class=extract>&nbsp;vbetool vbestate save &gt; &lt;vga state file&gt;</FONT></P>
+<P><FONT class=extract>&nbsp;The above command saves the register contents of your graphics<BR>&nbsp;hardware to &lt;vga state file&gt;.&nbsp; You need to do this step only once as<BR>&nbsp;the state file can be reused.</FONT></P>
+<P><FONT class=extract>4. If fbcon is compiled as a module, load fbcon by doing:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; modprobe fbcon</FONT></P>
+<P><FONT class=extract>5. Now to detach fbcon:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vbetool vbestate restore &lt; &lt;vga state file&gt; &amp;&amp; \<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo 0 &gt; /sys/class/vtconsole/vtcon1/bind</FONT></P>
+<P><FONT class=extract>6. That's it, you're back to VGA mode. And if you compiled fbcon as a module,<BR>&nbsp;&nbsp; you can unload it by 'rmmod fbcon'</FONT></P>
+<P><FONT class=extract>7. To reattach fbcon:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo 1 &gt; /sys/class/vtconsole/vtcon1/bind</FONT></P>
+<P><FONT class=extract>8. Once fbcon is unbound, all drivers registered to the system will also<BR>become unbound.&nbsp; This means that fbcon and individual framebuffer drivers<BR>can be unloaded or reloaded at will. Reloading the drivers or fbcon will<BR>automatically bind the console, fbcon and the drivers together. Unloading<BR>all the drivers without unloading fbcon will make it impossible for the<BR>console to bind fbcon.</FONT></P>
+<P><FONT class=extract>Notes for vesafb users:<BR>=======================</FONT></P>
+<P><FONT class=extract>Unfortunately, if your bootline includes a vga=xxx parameter that sets the<BR>hardware in graphics mode, such as when loading vesafb, vgacon will not load.<BR>Instead, vgacon will replace the default boot console with dummycon, and you<BR>won't get any display after detaching fbcon. Your machine is still alive, so<BR>you can reattach vesafb. However, to reattach vesafb, you need to do one of<BR>the following:</FONT></P>
+<P><FONT class=extract>Variation 1:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; a. Before detaching fbcon, do</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vbetool vbemode save &gt; &lt;vesa state file&gt; # do once for each vesafb mode,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# the file can be reused</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; b. Detach fbcon as in step 5.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; c. Attach fbcon</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vbetool vbestate restore &lt; &lt;vesa state file&gt; &amp;&amp; \<BR>&nbsp;echo 1 &gt; /sys/class/vtconsole/vtcon1/bind</FONT></P>
+<P><FONT class=extract>Variation 2:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; a. Before detaching fbcon, do:<BR>&nbsp;echo &lt;ID&gt; &gt; /sys/class/tty/console/bind</FONT></P>
+<P><BR><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vbetool vbemode get</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; b. Take note of the mode number</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; b. Detach fbcon as in step 5.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; c. Attach fbcon:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vbetool vbemode set &lt;mode number&gt; &amp;&amp; \<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo 1 &gt; /sys/class/vtconsole/vtcon1/bind</FONT></P>
+<P><FONT class=extract>Samples:<BR>========</FONT></P>
+<P><FONT class=extract>Here are 2 sample bash scripts that you can use to bind or unbind the<BR>framebuffer console driver if you are in an X86 box:</FONT></P>
+<P><FONT class=extract>---------------------------------------------------------------------------<BR>#!/bin/bash<BR># Unbind fbcon</FONT></P>
+<P><FONT class=extract># Change this to where your actual vgastate file is located<BR># Or Use VGASTATE=$1 to indicate the state file at runtime<BR>VGASTATE=/tmp/vgastate</FONT></P>
+<P><FONT class=extract># path to vbetool<BR>VBETOOL=/usr/local/bin</FONT></P>
+<P><BR><FONT class=extract>for (( i = 0; i &lt; 16; i++))<BR>do<BR>&nbsp; if test -x /sys/class/vtconsole/vtcon$i; then<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if [ `cat /sys/class/vtconsole/vtcon$i/name | grep -c "frame buffer"` \<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 1 ]; then<BR>&nbsp;&nbsp;&nbsp;&nbsp; if test -x $VBETOOL/vbetool; then<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo Unbinding vtcon$i<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $VBETOOL/vbetool vbestate restore &lt; $VGASTATE<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo 0 &gt; /sys/class/vtconsole/vtcon$i/bind<BR>&nbsp;&nbsp;&nbsp;&nbsp; fi<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fi<BR>&nbsp; fi<BR>done</FONT></P>
+<P><FONT class=extract>---------------------------------------------------------------------------<BR>#!/bin/bash<BR># Bind fbcon</FONT></P>
+<P><FONT class=extract>for (( i = 0; i &lt; 16; i++))<BR>do<BR>&nbsp; if test -x /sys/class/vtconsole/vtcon$i; then<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if [ `cat /sys/class/vtconsole/vtcon$i/name | grep -c "frame buffer"` \<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 1 ]; then<BR>&nbsp;&nbsp; echo Unbinding vtcon$i<BR>&nbsp;&nbsp; echo 1 &gt; /sys/class/vtconsole/vtcon$i/bind<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; fi<BR>&nbsp; fi<BR>done<BR>---------------------------------------------------------------------------</FONT></P>
+<P>--<BR>Antonino Daplas &lt;<A href="mailto:adaplas@pol.net">adaplas@pol.net</A>&gt;

@@ -1,0 +1,168 @@
+<H3 id=-100000 class=docSection1Title>Map Drivers</H3>
+<P class=docText><A name=iddle2898></A><A name=iddle2961></A><A name=iddle3091></A><A name=iddle3092></A><A name=iddle3106></A><A name=iddle3117></A><A name=iddle3389></A><A name="To MTD"></A>To MTD-enable your device, your first task is to tell MTD how to access the flash device. For this, you have to map your flash memory range for CPU access and provide methods to operate on the flash. The next task is to inform MTD about the different storage partitions residing on your flash. Unlike hard disks on PC-compatible systems, flash-based storage does not contain a standard partition table on the media. Because of this, disk-partitioning tools such as <SPAN class=docEmphasis>fdisk</SPAN> and <SPAN class=docEmphasis>cfdisk</SPAN><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17fn02">[2]</A></SUP><A name="used to"></A> cannot be used to partition flash devices. Instead, partitioning information has to be implemented as part of kernel code.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17fn03">[3]</A></SUP><A name="tasks are"></A> These tasks are accomplished with the help of an MTD <SPAN class=docEmphasis>map driver</SPAN>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch17fn02>[2]</A></SUP> <SPAN class=docEmphasis>Fdisk</SPAN> and <SPAN class=docEmphasis>cfdisk</SPAN><A name="the first"></A> are used to manipulate the partition table residing in the first hard disk sector on PC systems.</P></BLOCKQUOTE>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch17fn03>[3]</A></SUP><A name="information to"></A> You may also pass partitioning information to MTD via the kernel command line argument <TT>mtdpart=</TT>, if you enable <TT>CONFIG_MTD_CMDLINE_PARTS</TT> during kernel configuration. Look at <SPAN class=docEmphasis>drivers/mtd/cmdlinepart.c</SPAN> for the usage syntax.</P></BLOCKQUOTE>
+<P class=docText><A name="an example"></A>To better understand the function of map drivers, let's look at an example.</P><A name=ch17lev2sec1></A>
+<H4 id=title-ID0EDTAO class=docSection2Title>Device Example: Handheld</H4>
+<P class=docText>Consider the Linux handheld shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17fig02">Figure 17.2</A><A name="is mapped"></A>. The flash has a size of 32MB and is mapped to <TT>0xC0000000</TT><A name="the kernel"></A> in the processor's address space. It contains three partitions, one each for the bootloader, the kernel, and the root filesystem. The bootloader partition starts from the top of the flash, the kernel partition begins at offset <TT>MY_KERNEL_START</TT><A name="filesystem starts"></A>, and the root filesystem starts at offset <TT>MY_FS_START</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17fn04">[4]</A></SUP><A name="and the"></A> The bootloader and the kernel reside on <SPAN class=docEmphasis>read-only</SPAN><A name="partitions to"></A> partitions to avoid unexpected damage, while the filesystem partition is flagged <SPAN class=docEmphasis>read-write</SPAN>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch17fn04>[4]</A></SUP><A name="have additional"></A> Some devices have additional partitions for bootloader parameters, extra filesystems, and recovery kernels.</P></BLOCKQUOTE><A name=ch17fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="Flash Memory"></A>Figure 17.2. Flash Memory on a sample Linux handheld.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZy5wX2xjc2kwMXQvMjdoZmlnaWFm.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzJmN2hpZ2Y-.jpg" width=500 height=185>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="the driver"></A>Let's first create the flash map and then proceed with the driver initialization. The map driver has to translate the flash layout shown in the figure to an <TT>mtd_partition</TT> structure. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17ex01">Listing 17.1</A> contains the <TT>mtd_partition</TT> definition corresponding to <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17fig02">Figure 17.2</A>. Note that the <TT>mask_flags</TT><A name="be masked"></A> field holds the permissions to be masked, so <TT>MTD_WRITEABLE</TT> implies a read-only partition.</P><A name=ch17ex01></A>
+<H5 id=title-ID0EUVAO class=docExampleTitle>Listing 17.1. Creating an MTD Partition Map</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#define FLASH_START          0x00000000
+#define MY_KERNEL_START      0x00080000 /* 512K for bootloader */
+#define MY_FS_START          0x00280000 /* 2MB for kernel */
+#define FLASH_END            0x02000000 /* 32MB */
+static struct mtd_partition pda_partitions[] = {
+  {
+    .name       = "pda_btldr",        /* This string is used by
+                                         <SPAN class=docEmphasis>/proc/mtd</SPAN> to identify
+                                         the bootloader partition */
+    .size:      = (MY_KERNEL_START-FLASH_START),
+    .offset     = FLASH_START,        /* Start from top of flash */
+    .mask_flags = MTD_WRITEABLE       /* Read-only partition */
+  },
+  {
+    .name       = "pda_krnl",         /* Kernel partition */
+    .size:      = (MY_FS_START-MY_KERNEL_START),
+    .offset     = MTDPART_OFS_APPEND, /* Start immediately after
+                                         the bootloader partition */
+    .mask_flags = MTD_WRITEABLE       /* Read-only partition */
+  },
+  {
+    .name:      = "pda_fs",           /* Filesystem partition */
+    .size:      = MTDPART_SIZ_FULL,   /* Use up the rest of the
+                                         flash */
+    .offset     = MTDPART_OFS_NEXTBLK,/* Align this partition with
+                                         the erase size */
+  }
+};
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17ex01">Listing 17.1</A> uses <TT>MTDPART_OFS_APPEND</TT><A name="start addresses"></A> to start a partition adjacent to the previous one. The start addresses of writeable partitions, however, need to be aligned with the erase/sector size of the flash chip. To achieve this, the filesystem partition uses <TT>MTD_OFS_NEXTBLK</TT> rather than <TT>MTD_OFS_APPEND</TT>.</P>
+<P class=docText><A name=iddle2900></A><A name=iddle3094></A><A name=iddle3774></A>Now that you have populated the <TT>mtd_partition</TT><A name="for the"></A> structure, let's proceed and complete a basic map driver for the example handheld. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17ex02">Listing 17.2</A><A name="platform driver"></A> registers the map driver with the MTD core. It's implemented as a platform driver, assuming that your architecture-specific code registers an associated platform device having the same name. Rewind to the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06lev2sec1">Device Example: Cell Phone</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="on platform"></A>, "Serial Drivers," for a discussion on platform devices and platform drivers. The <TT>platform_device</TT><A name="by the"></A> is defined by the associated architecture-specific code as follows:</P>
+<DIV class=docText><PRE>struct resource pda_flash_resource = { /* Used by Listing 17.3 */
+  .start = 0xC0000000,                 /* Physical start of the
+                                          flash in Figure 17.2 */
+  .end   = 0xC0000000+0x02000000-1,    /* Physical end of flash */
+  .flags = IORESOURCE_MEM,             /* Memory resource */
+};
+struct platform_device pda_platform_device = {
+  .name = "pda",                   /* Platform device name */
+  .id   = 0,                       /* Instance number */
+  /* ... */
+  .resource = &amp;pda_flash_resource, /* See above */
+};
+platform_device_register(&amp;pda_platform_device);</PRE></DIV><BR><A name=ch17ex02></A>
+<H5 id=title-ID0EZYAO class=docExampleTitle>Listing 17.2. Registering the Map Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>static struct platform_driver pda_map_driver = {
+  .driver = {
+    .name     =  "pda",         /* ID */
+   },
+  .probe      =  pda_mtd_probe, /* Probe */
+  .remove     =  NULL,          /* Release */
+  .suspend    =  NULL,          /* Power management */
+  .resume     =  NULL,          /* Power management */
+};
+
+/* Driver/module Initialization */
+static int __init pda_mtd_init(void)
+{
+  return platform_driver_register(&amp;pda_map_driver);
+}
+
+/* Module Exit */
+static int __init pda_mtd_exit(void)
+{
+  return platform_driver_uregister(&amp;pda_map_driver);
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2463></A><A name=iddle2895></A><A name=iddle3551></A><A name=iddle3805></A><A name="Because the"></A>Because the kernel finds that the name of the platform driver registered in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17ex02">Listing 17.2</A><A name="that of"></A> matches with that of an already-registered platform device, it invokes the probe method, <TT>pda_mtd_probe()</TT><A name=in></A>, shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17ex03">Listing 17.3</A>. This routine</P>
+<UL>
+<LI>
+<P class=docList>Reserves the flash memory address range using <TT>request_mem_region()</TT>, and obtains CPU access to that memory using <TT>ioremap_nocache()</TT>. You learned how to do this in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>, "Peripheral Component Interconnect."</P></LI>
+<LI>
+<P class=docList>Populates a <TT>map_info</TT><A name="size of"></A> structure (discussed next) with information such as the start address and size of flash memory. The information in this structure is used while performing the probing in the next step.</P></LI>
+<LI>
+<P class=docList><A name="suitable MTD"></A>Probes the flash via a suitable MTD chip driver (discussed in the next section). Only the chip driver knows how to query the chip and elicit the command-set required to access it. The chip layer tries different permutations of bus widths and interleaves while querying. In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17fig02">Figure 17.2</A><A name="the "></A>, two 16-bit flash banks are connected in parallel to fill the 32-bit processor bus width, so you have a two-way interleave.</P></LI>
+<LI>
+<P class=docList>Registers the <TT>mtd_partition</TT> structure that you populated earlier, with the MTD core.</P></LI></UL>
+<P class=docText>Before looking at <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17ex03">Listing 17.3</A>, let's meet the <TT>map_info</TT><A name="flash memory"></A> structure. It contains the address, size, and width of the flash memory and routines to access it:</P>
+<DIV class=docText><PRE>struct map_info {
+  char * name;               /* Name */
+  unsigned long size;        /* Flash size */
+  int bankwidth;             /* In bytes */
+  /* ... */
+  /* You need to implement custom routines for the following methods
+     only if you have special needs. Else populate them with built-
+     in methods using simple_map_init() as done in Listing 17.3 */
+  map_word (*read)(struct map_info *, unsigned long);
+  void     (*write)(struct map_info *, const map_word,
+                    unsigned long);
+  /* ... */
+};</PRE></DIV><BR>
+<P class=docText><A name=iddle2899></A><A name=iddle3093></A><A name=iddle4005></A><A name="revisit memory"></A>While we are in the topic of accessing flash chips, let's briefly revisit memory barriers that we discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="reordering that"></A>, "Laying the Groundwork." An instruction reordering that appears semantically unchanged to the compiler (or the processor) may not be so in reality, so the ordering of data operations on flash memory is best left alone. You don't want to, for example, end up erasing a flash sector after writing to it, instead of doing the reverse. Also, the same flash chips, and hence their device drivers, are used on diverse embedded processors having different instruction reordering algorithms. For these reasons, MTD drivers are notable users of hardware memory barriers. <TT>simple_map_write()</TT><A name="routine available"></A>, a generic routine available to map drivers for use as the <TT>write()</TT><A name="method in"></A> method in the <TT>map_info</TT><A name="inserts a"></A> structure previously listed, inserts a call to <TT>mb()</TT><A name="This ensures"></A> before returning. This ensures that the processor does not reorder flash reads or writes across the barrier.</P><A name=ch17ex03></A>
+<H5 id=title-ID0EI5AO class=docExampleTitle>Listing 17.3. Map Driver Probe Method</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX mtd="" mtd.h="">
+#include <LINUX mtd="" map.h="">
+#include <LINUX ioport.h="">
+
+static int
+pda_mtd_probe(struct platform_device *pdev)
+{
+  struct map_info *pda_map;
+  struct mtd_info *pda_mtd;
+  struct resource *res = pdev-&gt;resource;
+
+  /* Populate pda_map with information obtained
+     from the associated platform device */
+  pda_map-&gt;virt = ioremap_nocache(res-&gt;start,
+                                  (res-&gt;end &#37413;? res-&gt;start + 1));
+  pda_map-&gt;name = pdev-&gt;dev.bus_id;
+  pda_map-&gt;phys = res-&gt;start;
+  pda_map-&gt;size = res-&gt;end &#37413;? res-&gt;start + 1;
+  pda_map-&gt;bankwidth = 2;     /* Two 16-bit banks sitting
+                                 on a 32-bit bus */
+  simple_map_init(&amp;pda_map);  /* Fill in default access methods */
+
+  /* Probe via the CFI chip driver */
+  pda_mtd = do_map_probe("cfi_probe", &amp;pda_map);
+  /* Register the mtd_partition structure */
+  add_mtd_partitions(pda_mtd, pda_partitions, 3); /* Three Partitions */
+
+  /* ... */
+}
+
+					  </LINUX></LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1313></A><A name=iddle1408></A><A name=iddle1527></A><A name=iddle1528></A><A name=iddle3105></A><A name=iddle3296></A><A name=iddle3695></A><A name=iddle3757></A>Don't worry if the CFI probing done in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17ex03">Listing 17.3</A><A name="at NOR"></A> seems esoteric. It's discussed in the next section when we look at NOR chip drivers.</P>
+<P class=docText><A name="flash device"></A>MTD now knows how your flash device is organized and how to access it. When you boot the kernel with your map driver compiled in, user-space applications can respectively see your bootloader, kernel, and filesystem partitions as <SPAN class=docEmphasis>/dev/mtd/0</SPAN>, <SPAN class=docEmphasis>/dev/mtd/1</SPAN>, and <SPAN class=docEmphasis>/dev/mtd/2</SPAN><A name="you can"></A>. So, to test drive a new kernel image on the handheld, you can do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; dd if=zImage.new of=/dev/mtd/1</SPAN></PRE></DIV><BR><A name=ch17sb02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>Flash Partitioning from Bootloaders</H2>
+<P class=docText><A name="that holds"></A>The Redboot bootloader maintains a partition table that holds flash layout, so if you are using Redboot on your embedded device, you can configure your flash partitions in the bootloader instead of writing an MTD map driver. To ask MTD to parse flash mapping information from Redboot's partition table, turn on <TT>CONFIG_MTD_REDBOOT_PARTS</TT> during kernel configuration.</P></TD></TR></TBODY></TABLE>

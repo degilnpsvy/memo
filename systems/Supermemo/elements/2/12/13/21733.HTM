@@ -1,0 +1,108 @@
+<H1><A name=TABEXPANSION></A>Appendix J. An Introduction to Programmable Completion</H1>
+<P>The <I class=FIRSTTERM>programmable completion</I> feature in Bash permits typing a partial command, then pressing the <B class=KEYCAP>[Tab]</B> key to auto-complete the command sequence. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN24082" name=AEN24082><SPAN class=footnote>[149]</SPAN></A> If multiple completions are possible, then <B class=KEYCAP>[Tab]</B> lists them all. Let's see how it works.</P>
+<P>
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>xtra[Tab]</B></TT>
+<TT class=COMPUTEROUTPUT>xtraceroute       xtrapin           xtrapproto
+ xtraceroute.real  xtrapinfo         xtrapreset
+ xtrapchar         xtrapout          xtrapstats</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>xtrac[Tab]</B></TT>
+<TT class=COMPUTEROUTPUT>xtraceroute       xtraceroute.real</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>xtraceroute.r[Tab]</B></TT>
+<TT class=COMPUTEROUTPUT>xtraceroute.real</TT>
+      </PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Tab completion also works for variables and path names.</P>
+<P>
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>echo $BASH[Tab]</B></TT>
+<TT class=COMPUTEROUTPUT>$BASH                 $BASH_COMPLETION      $BASH_SUBSHELL
+ $BASH_ARGC            $BASH_COMPLETION_DIR  $BASH_VERSINFO
+ $BASH_ARGV            $BASH_LINENO          $BASH_VERSION
+ $BASH_COMMAND         $BASH_SOURCE</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>echo /usr/local/[Tab]</B></TT>
+<TT class=COMPUTEROUTPUT>bin/     etc/     include/ libexec/ sbin/    src/     
+ doc/     games/   lib/     man/     share/</TT>
+      </PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=COMPLETEREF></A></P>
+<P>The Bash <B class=COMMAND>complete</B> and <B class=COMMAND>compgen</B> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BUILTINREF">builtins</A> make it possible for <I class=FIRSTTERM>tab completion</I> to recognize partial <I class=FIRSTTERM>parameters</I> and <I class=FIRSTTERM>options</I> to commands. In a very simple case, we can use <B class=COMMAND>complete</B> from the command-line to specify a short list of acceptable parameters.</P>
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>touch sample_command</B></TT>
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>touch file1.txt file2.txt file2.doc file30.txt file4.zzz</B></TT>
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>chmod +x sample_command</B></TT>
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>complete -f -X '!*.txt' sample_command</B></TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>./sample[Tab][Tab]</B></TT>
+<TT class=COMPUTEROUTPUT>sample_command</TT>
+<TT class=COMPUTEROUTPUT>file1.txt   file2.txt   file30.txt</TT>
+  </PRE></FONT></TD></TR></TBODY></TABLE>
+<P>The <TT class=OPTION>-f</TT> option to <I class=FIRSTTERM>complete</I> specifies filenames, and <TT class=OPTION>-X</TT> the filter pattern.</P>
+<P><A name=COMPGENREF></A></P>
+<P>For anything more complex, we could write a script that specifies a list of acceptable command-line parameters. The <B class=COMMAND>compgen</B> builtin expands a list of <I class=FIRSTTERM>arguments</I> to <I class=FIRSTTERM>generate</I> completion matches. </P>
+<P>Let us take a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#USEGETOPT2">modified version</A> of the <EM>UseGetOpt.sh</EM> script as an example command. This script accepts a number of command-line parameters, preceded by either a single or double dash. And here is the corresponding <I class=FIRSTTERM>completion script</I>, by convention given a filename corresponding to its associated command.</P>
+<DIV class=EXAMPLE><A name=USEGETOPTEX></A>
+<P><B>Example J-1. Completion script for <I class=FIRSTTERM>UseGetOpt.sh</I></B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># file: UseGetOpt-2
+# UseGetOpt-2.sh parameter-completion
+
+_UseGetOpt-2 ()   #  By convention, the function name
+{                 #+ starts with an underscore.
+  local cur
+  # Pointer to current completion word.
+  # By convention, it's named "cur" but this isn't strictly necessary.
+
+  COMPREPLY=()   # Array variable storing the possible completions.
+  cur=${COMP_WORDS[COMP_CWORD]}
+
+  case "$cur" in
+    -*)
+    COMPREPLY=( $( compgen -W '-a -d -f -l -t -h --aoption --debug \
+                               --file --log --test --help --' -- $cur ) );;
+#   Generate the completion matches and load them into $COMPREPLY array.
+#   xx) May add more cases here.
+#   yy)
+#   zz)
+  esac
+
+  return 0
+}
+
+complete -F _UseGetOpt-2 -o filenames ./UseGetOpt-2.sh
+#        ^^ ^^^^^^^^^^^^  Invokes the function _UseGetOpt-2.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Now, let's try it.</P>
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>source UseGetOpt-2</B></TT>
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>./UseGetOpt-2.sh -[Tab]</B></TT>
+<TT class=COMPUTEROUTPUT>--         --aoption  --debug    --file     --help     --log     --test
+ -a         -d         -f         -h         -l         -t</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>./UseGetOpt-2.sh --[Tab]</B></TT>
+<TT class=COMPUTEROUTPUT>--         --aoption  --debug    --file     --help     --log     --test</TT>
+  </PRE></FONT></TD></TR></TBODY></TABLE>
+<P>We begin by <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SOURCEREF">sourcing</A> the <SPAN class=QUOTE>"completion script."</SPAN> This sets the command-line parameters. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN24160" name=AEN24160><SPAN class=footnote>[150]</SPAN></A> </P>
+<P>In the first instance, hitting <B class=KEYCAP>[Tab]</B> after a single dash, the output is all the possible parameters preceded by <EM>one or more</EM> dashes. Hitting <B class=KEYCAP>[Tab]</B> after <EM>two</EM> dashes gives the possible parameters preceded by <EM>two or more</EM> dashes.</P>
+<P>Now, just what is the point of having to jump through flaming hoops to enable command-line tab completion? <EM>It saves keystrokes.</EM> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN24173" name=AEN24173><SPAN class=footnote>[151]</SPAN></A> </P>
+<P>--</P>
+<P><EM>Resources:</EM></P>
+<P>Bash <A href="http://freshmeat.net/projects/bashcompletion" target=_top>programmable completion</A> project</P>
+<P>Mitch Frazier's <A href="http://www.linuxjournal.com/" target=_top><I class=CITETITLE>Linux Journal</I></A> article, <A href="http://www.linuxjournal.com/content/more-using-bash-complete-command" target=_top><EM>More on Using the Bash Complete Command</EM></A></P>
+<P>Steve's excellent two-part article, <SPAN class=QUOTE>"An Introduction to Bash Completion"</SPAN>: <A href="http://www.debian-administration.org/article/An_introduction_to_bash_completion_part_1" target=_top>Part 1</A> and <A href="http://www.debian-administration.org/article/An_introduction_to_bash_completion_part_2" target=_top>Part 2</A>

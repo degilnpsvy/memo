@@ -1,0 +1,32 @@
+<H4 class=subsection>10.2.3 Rounding Numbers</H4><A name=index-rounding-numbers></A><A name=index-numbers_002c-rounding></A><A name=index-libraries-of-awk-functions_002c-rounding-numbers></A><A name=index-functions_002c-library_002c-rounding-numbers></A><A name=index-print-statement_002c-sprintf_0028_0029-function-and></A><A name=index-printf-statement_002c-sprintf_0028_0029-function-and></A><A name=index-sprintf_0028_0029-function_002c-print_002fprintf-statements-and></A>
+<P>The way <CODE>printf</CODE> and <CODE>sprintf()</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Printf">Printf</A>) perform rounding often depends upon the system&#8217;s C <CODE>sprintf()</CODE> subroutine. On many machines, <CODE>sprintf()</CODE> rounding is <EM>unbiased</EM>, which means it doesn&#8217;t always round a trailing .5 up, contrary to naive expectations. In unbiased rounding, .5 rounds to even, rather than always up, so 1.5 rounds to 2 but 4.5 rounds to 4. This means that if you are using a format that does rounding (e.g., <CODE>"%.0f"</CODE>), you should check what your system does. The following function does traditional rounding; it might be useful if your <CODE>awk</CODE>&#8217;s <CODE>printf</CODE> does unbiased rounding: </P><A name=index-round_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example># round.awk --- do normal rounding
+
+function round(x,   ival, aval, fraction)
+{
+   ival = int(x)    # integer part, int() truncates
+
+   # see if fractional part
+   if (ival == x)   # no fraction
+      return ival   # ensure no decimals
+
+   if (x &lt; 0) {
+      aval = -x     # absolute value
+      ival = int(aval)
+      fraction = aval - ival
+      if (fraction &gt;= .5)
+         return int(x) - 1   # -2.5 --&gt; -3
+      else
+         return int(x)       # -2.3 --&gt; -2
+   } else {
+      fraction = x - ival
+      if (fraction &gt;= .5)
+         return ival + 1
+      else
+         return ival
+   }
+}
+
+# test harness
+# { print $0, round($0) }
+</PRE></DIV>

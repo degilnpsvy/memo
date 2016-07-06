@@ -1,0 +1,25 @@
+<H3 class=section>10.8 Implicit Rule Search Algorithm</H3>
+<P><A name=index-implicit-rule_002c-search-algorithm-1025></A><A name=index-search-algorithm_002c-implicit-rule-1026></A><FONT class=extract>Here is the procedure <CODE>make</CODE> uses for searching for an implicit rule for a target <VAR>t</VAR>. This procedure is followed for each double-colon rule with no recipe, for each target of ordinary rules none of which have a recipe, and for each prerequisite that is not the target of any rule. It is also followed recursively for prerequisites that come from implicit rules, in the search for a chain of rules.</FONT> 
+<P><FONT class=extract>Suffix rules are not mentioned in this algorithm because suffix rules are converted to equivalent pattern rules once the makefiles have been read in.</FONT> 
+<P><FONT class=extract>For an archive member target of the form &#8216;<SAMP><VAR>archive</VAR><SPAN class=samp>(</SPAN><VAR>member</VAR><SPAN class=samp>)</SPAN></SAMP>&#8217;, the following algorithm is run twice, first using the entire target name <VAR>t</VAR>, and second using &#8216;<SAMP><SPAN class=samp>(</SPAN><VAR>member</VAR><SPAN class=samp>)</SPAN></SAMP>&#8217; as the target <VAR>t</VAR> if the first run found no rule.</FONT> 
+<OL type=1>
+<LI><FONT class=extract>Split <VAR>t</VAR> into a directory part, called <VAR>d</VAR>, and the rest, called <VAR>n</VAR>. For example, if <VAR>t</VAR> is &#8216;<SAMP><SPAN class=samp>src/foo.o</SPAN></SAMP>&#8217;, then <VAR>d</VAR> is &#8216;<SAMP><SPAN class=samp>src/</SPAN></SAMP>&#8217; and <VAR>n</VAR> is &#8216;<SAMP><SPAN class=samp>foo.o</SPAN></SAMP>&#8217;. </FONT>
+<LI><FONT class=extract>Make a list of all the pattern rules one of whose targets matches <VAR>t</VAR> or <VAR>n</VAR>. If the target pattern contains a slash, it is matched against <VAR>t</VAR>; otherwise, against <VAR>n</VAR>. </FONT>
+<LI><FONT class=extract>If any rule in that list is <EM>not</EM> a match-anything rule, then remove all non-terminal match-anything rules from the list. </FONT>
+<LI><FONT class=extract>Remove from the list all rules with no recipe. </FONT>
+<LI><FONT class=extract>For each pattern rule in the list: </FONT>
+<OL type=a>
+<LI><FONT class=extract>Find the stem <VAR>s</VAR>, which is the nonempty part of <VAR>t</VAR> or <VAR>n</VAR> matched by the &#8216;<SAMP><SPAN class=samp>%</SPAN></SAMP>&#8217; in the target pattern. </FONT>
+<LI><FONT class=extract>Compute the prerequisite names by substituting <VAR>s</VAR> for &#8216;<SAMP><SPAN class=samp>%</SPAN></SAMP>&#8217;; if the target pattern does not contain a slash, append <VAR>d</VAR> to the front of each prerequisite name. </FONT>
+<LI><FONT class=extract>Test whether all the prerequisites exist or ought to exist. (If a file name is mentioned in the makefile as a target or as an explicit prerequisite, then we say it ought to exist.) </FONT>
+<P><FONT class=extract>If all prerequisites exist or ought to exist, or there are no prerequisites, then this rule applies. </FONT></P></LI></OL>
+<LI><FONT class=extract>If no pattern rule has been found so far, try harder. For each pattern rule in the list: </FONT>
+<OL type=a>
+<LI><FONT class=extract>If the rule is terminal, ignore it and go on to the next rule. </FONT>
+<LI><FONT class=extract>Compute the prerequisite names as before. </FONT>
+<LI><FONT class=extract>Test whether all the prerequisites exist or ought to exist. </FONT>
+<LI><FONT class=extract>For each prerequisite that does not exist, follow this algorithm recursively to see if the prerequisite can be made by an implicit rule. </FONT>
+<LI><FONT class=extract>If all prerequisites exist, ought to exist, or can be made by implicit rules, then this rule applies. </FONT></LI></OL>
+<LI><FONT class=extract>If no implicit rule applies, the rule for <CODE>.DEFAULT</CODE>, if any, applies. In that case, give <VAR>t</VAR> the same recipe that <CODE>.DEFAULT</CODE> has. Otherwise, there is no recipe for <VAR>t</VAR>. </FONT></LI></OL>
+<P>Once a rule that applies has been found, for each target pattern of the rule other than the one that matched <VAR>t</VAR> or <VAR>n</VAR>, the &#8216;<SAMP><SPAN class=samp>%</SPAN></SAMP>&#8217; in the pattern is replaced with <VAR>s</VAR> and the resultant file name is stored until the recipe to remake the target file <VAR>t</VAR> is executed. After the recipe is executed, each of these stored file names are entered into the data base and marked as having been updated and having the same update status as the file <VAR>t</VAR>. 
+<P>When the recipe of a pattern rule is executed for <VAR>t</VAR>, the automatic variables are set corresponding to the target and prerequisites. See <A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables">Automatic Variables</A>.

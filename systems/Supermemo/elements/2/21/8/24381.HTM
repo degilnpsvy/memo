@@ -1,0 +1,43 @@
+<P class=docText>Let's rewrite <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02">Listings 3.2</A> to <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04">3.4</A><A name="take advantage"></A> to take advantage of the work queue interface. This is done in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex05">Listing 3.5</A><A name="the wait"></A>. The entire kernel thread, as well as the spinlock and the wait queue, vanish inside the work queue interface. Even the call to <TT>create_singlethread_workqueue()</TT><A name="using the"></A> goes away if you are using the default kernel worker thread.</P><A name=ch03ex05></A>
+<H5 id=title-ID0EMRPM class=docExampleTitle>Listing 3.5. Using Work Queues to Defer Work</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX workqueue.h="">
+
+struct workqueue_struct *wq;
+
+/* Driver Initialization */
+static int __init
+mydrv_init(void)
+{
+  /* ... */
+  wq = create_singlethread_workqueue("mydrv");
+  return 0;
+}
+  /* Work Submission. The first argument is the work function, and
+     the second argument is the argument to the work function */
+  int
+  submit_work(void (*func)(void *data), void *data)
+  {
+    struct work_struct *hardwork;
+
+    hardwork = kmalloc(sizeof(struct work_struct), GFP_KERNEL);
+
+    /* Init the work structure */
+    INIT_WORK(hardwork, func, data);
+
+    /* Enqueue Work */
+    queue_work(wq, hardwork);
+    return 0;
+}
+
+					  </LINUX></PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch03note02></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name=iddle1794></A><A name=iddle2202></A><A name=iddle2573></A><A name=iddle3301></A><A name=iddle3304></A><A name=iddle3306></A><A name="errors unless"></A>If you are using work queues, you will get linker errors unless you declare your module as licensed under GPL. This is because the kernel exports these functions only to GPLed code. If you look at the kernel work queue implementation, you will see this restriction expressed in statements such as this:</P>
+<DIV class=docText><PRE>EXPORT_SYMBOL_GPL(queue_work);</PRE></DIV><BR>
+<P class=docText>To announce that your module is <SPAN class=docEmphasis>copyleft</SPAN>-ed under GPL, declare the following:</P>
+<DIV class=docText><PRE>MODULE_LICENSE("GPL");</PRE></DIV></DIV>

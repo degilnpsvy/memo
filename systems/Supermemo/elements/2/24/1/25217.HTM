@@ -1,0 +1,29 @@
+static DEFINE_SPINLOCK(kobj_ns_type_lock);<BR>static const struct kobj_ns_type_operations *kobj_ns_ops_tbl[KOBJ_NS_TYPES]; 
+<P></P>
+<P>int kobj_ns_type_register(const struct kobj_ns_type_operations *ops)<BR>{<BR>&nbsp;enum kobj_ns_type type = ops-&gt;type;<BR>&nbsp;int error;</P>
+<P>&nbsp;spin_lock(&amp;kobj_ns_type_lock);</P>
+<P>&nbsp;error = -EINVAL;<BR>&nbsp;if (type &gt;= KOBJ_NS_TYPES)<BR>&nbsp;&nbsp;goto out;</P>
+<P>&nbsp;error = -EINVAL;<BR>&nbsp;if (type &lt;= KOBJ_NS_TYPE_NONE)<BR>&nbsp;&nbsp;goto out;</P>
+<P>&nbsp;error = -EBUSY;<BR>&nbsp;if (kobj_ns_ops_tbl[type])<BR>&nbsp;&nbsp;goto out;</P>
+<P>&nbsp;error = 0;<BR>&nbsp;kobj_ns_ops_tbl[type] = ops;</P>
+<P>out:<BR>&nbsp;spin_unlock(&amp;kobj_ns_type_lock);<BR>&nbsp;return error;<BR>}</P>
+<P>int kobj_ns_type_registered(enum kobj_ns_type type)<BR>{<BR>&nbsp;int registered = 0;</P>
+<P>&nbsp;spin_lock(&amp;kobj_ns_type_lock);<BR>&nbsp;if ((type &gt; KOBJ_NS_TYPE_NONE) &amp;&amp; (type &lt; KOBJ_NS_TYPES))<BR>&nbsp;&nbsp;registered = kobj_ns_ops_tbl[type] != NULL;<BR>&nbsp;spin_unlock(&amp;kobj_ns_type_lock);</P>
+<P>&nbsp;return registered;<BR>}</P>
+<P>const struct kobj_ns_type_operations *kobj_child_ns_ops(struct kobject *parent)<BR>{<BR>&nbsp;const struct kobj_ns_type_operations *ops = NULL;</P>
+<P>&nbsp;if (parent &amp;&amp; parent-&gt;ktype &amp;&amp; parent-&gt;ktype-&gt;child_ns_type)<BR>&nbsp;&nbsp;ops = parent-&gt;ktype-&gt;child_ns_type(parent);</P>
+<P>&nbsp;return ops;<BR>}</P>
+<P>const struct kobj_ns_type_operations *kobj_ns_ops(struct kobject *kobj)<BR>{<BR>&nbsp;return kobj_child_ns_ops(kobj-&gt;parent);<BR>}</P>
+<P>bool kobj_ns_current_may_mount(enum kobj_ns_type type)<BR>{<BR>&nbsp;bool may_mount = true;</P>
+<P>&nbsp;spin_lock(&amp;kobj_ns_type_lock);<BR>&nbsp;if ((type &gt; KOBJ_NS_TYPE_NONE) &amp;&amp; (type &lt; KOBJ_NS_TYPES) &amp;&amp;<BR>&nbsp;&nbsp;&nbsp;&nbsp; kobj_ns_ops_tbl[type])<BR>&nbsp;&nbsp;may_mount = kobj_ns_ops_tbl[type]-&gt;current_may_mount();<BR>&nbsp;spin_unlock(&amp;kobj_ns_type_lock);</P>
+<P>&nbsp;return may_mount;<BR>}</P>
+<P>void *kobj_ns_grab_current(enum kobj_ns_type type)<BR>{<BR>&nbsp;void *ns = NULL;</P>
+<P>&nbsp;spin_lock(&amp;kobj_ns_type_lock);<BR>&nbsp;if ((type &gt; KOBJ_NS_TYPE_NONE) &amp;&amp; (type &lt; KOBJ_NS_TYPES) &amp;&amp;<BR>&nbsp;&nbsp;&nbsp;&nbsp; kobj_ns_ops_tbl[type])<BR>&nbsp;&nbsp;ns = kobj_ns_ops_tbl[type]-&gt;grab_current_ns();<BR>&nbsp;spin_unlock(&amp;kobj_ns_type_lock);</P>
+<P>&nbsp;return ns;<BR>}</P>
+<P>const void *kobj_ns_netlink(enum kobj_ns_type type, struct sock *sk)<BR>{<BR>&nbsp;const void *ns = NULL;</P>
+<P>&nbsp;spin_lock(&amp;kobj_ns_type_lock);<BR>&nbsp;if ((type &gt; KOBJ_NS_TYPE_NONE) &amp;&amp; (type &lt; KOBJ_NS_TYPES) &amp;&amp;<BR>&nbsp;&nbsp;&nbsp;&nbsp; kobj_ns_ops_tbl[type])<BR>&nbsp;&nbsp;ns = kobj_ns_ops_tbl[type]-&gt;netlink_ns(sk);<BR>&nbsp;spin_unlock(&amp;kobj_ns_type_lock);</P>
+<P>&nbsp;return ns;<BR>}</P>
+<P>const void *kobj_ns_initial(enum kobj_ns_type type)<BR>{<BR>&nbsp;const void *ns = NULL;</P>
+<P>&nbsp;spin_lock(&amp;kobj_ns_type_lock);<BR>&nbsp;if ((type &gt; KOBJ_NS_TYPE_NONE) &amp;&amp; (type &lt; KOBJ_NS_TYPES) &amp;&amp;<BR>&nbsp;&nbsp;&nbsp;&nbsp; kobj_ns_ops_tbl[type])<BR>&nbsp;&nbsp;ns = kobj_ns_ops_tbl[type]-&gt;initial_ns();<BR>&nbsp;spin_unlock(&amp;kobj_ns_type_lock);</P>
+<P>&nbsp;return ns;<BR>}</P>
+<P>void kobj_ns_drop(enum kobj_ns_type type, void *ns)<BR>{<BR>&nbsp;spin_lock(&amp;kobj_ns_type_lock);<BR>&nbsp;if ((type &gt; KOBJ_NS_TYPE_NONE) &amp;&amp; (type &lt; KOBJ_NS_TYPES) &amp;&amp;<BR>&nbsp;&nbsp;&nbsp;&nbsp; kobj_ns_ops_tbl[type] &amp;&amp; kobj_ns_ops_tbl[type]-&gt;drop_ns)<BR>&nbsp;&nbsp;kobj_ns_ops_tbl[type]-&gt;drop_ns(ns);<BR>&nbsp;spin_unlock(&amp;kobj_ns_type_lock);<BR>}

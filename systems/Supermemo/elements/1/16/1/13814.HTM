@@ -1,0 +1,135 @@
+<H2 class=chapter>7 Conditional Parts of Makefiles</H2>
+<P><A name=index-conditionals-559></A>A <DFN>conditional</DFN> directive causes part of a makefile to be obeyed or ignored depending on the values of variables. Conditionals can compare the value of one variable to another, or the value of a variable to a constant string. Conditionals control what <CODE>make</CODE> actually &#8220;sees&#8221; in the makefile, so they <EM>cannot</EM> be used to control recipes at the time of execution. 
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#Conditional-Example">Conditional Example</A>: Example of a conditional 
+<LI><A accessKey=2 href="https://www.gnu.org/software/make/manual/make.html#Conditional-Syntax">Conditional Syntax</A>: The syntax of conditionals. 
+<LI><A accessKey=3 href="https://www.gnu.org/software/make/manual/make.html#Testing-Flags">Testing Flags</A>: Conditionals that test flags. </LI></UL>
+<DIV class=node><A name=Conditional-Example></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Conditional-Syntax" rel=next>Conditional Syntax</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Conditionals" rel=previous>Conditionals</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Conditionals" rel=up>Conditionals</A> </DIV>
+<H3 class=section><FONT class=extract>7.1 Example of a Conditional</FONT></H3>
+<P><FONT class=extract>The following example of a conditional tells <CODE>make</CODE> to use one set of libraries if the <CODE>CC</CODE> variable is &#8216;<SAMP><SPAN class=samp>gcc</SPAN></SAMP>&#8217;, and a different set of libraries otherwise. It works by controlling which of two recipe lines will be used for the rule. The result is that &#8216;<SAMP><SPAN class=samp>CC=gcc</SPAN></SAMP>&#8217; as an argument to <CODE>make</CODE> changes not only which compiler is used but also which libraries are linked. </FONT><PRE class=example><FONT class=extract>     libs_for_gcc = -lgnu
+     normal_libs =
+     
+     foo: $(objects)
+     ifeq ($(CC),gcc)
+             $(CC) -o foo $(objects) $(libs_for_gcc)
+     else
+             $(CC) -o foo $(objects) $(normal_libs)
+     endif
+</FONT></PRE>
+<P><FONT class=extract>This conditional uses three directives: one <CODE>ifeq</CODE>, one <CODE>else</CODE> and one <CODE>endif</CODE>. </FONT>
+<P><FONT class=extract>The <CODE>ifeq</CODE> directive begins the conditional, and specifies the condition. It contains two arguments, separated by a comma and surrounded by parentheses. Variable substitution is performed on both arguments and then they are compared. The lines of the makefile following the <CODE>ifeq</CODE> are obeyed if the two arguments match; otherwise they are ignored. </FONT>
+<P><FONT class=extract>The <CODE>else</CODE> directive causes the following lines to be obeyed if the previous conditional failed. In the example above, this means that the second alternative linking command is used whenever the first alternative is not used. It is optional to have an <CODE>else</CODE> in a conditional. </FONT>
+<P><FONT class=extract>The <CODE>endif</CODE> directive ends the conditional. Every conditional must end with an <CODE>endif</CODE>. Unconditional makefile text follows. </FONT>
+<P><FONT class=extract>As this example illustrates, conditionals work at the textual level: the lines of the conditional are treated as part of the makefile, or ignored, according to the condition. This is why the larger syntactic units of the makefile, such as rules, may cross the beginning or the end of the conditional. </FONT>
+<P><FONT class=extract>When the variable <CODE>CC</CODE> has the value &#8216;<SAMP><SPAN class=samp>gcc</SPAN></SAMP>&#8217;, the above example has this effect: </FONT><PRE class=example><FONT class=extract>     foo: $(objects)
+             $(CC) -o foo $(objects) $(libs_for_gcc)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>When the variable <CODE>CC</CODE> has any other value, the effect is this: </FONT><PRE class=example><FONT class=extract>     foo: $(objects)
+             $(CC) -o foo $(objects) $(normal_libs)
+</FONT></PRE>
+<P><FONT class=extract>Equivalent results can be obtained in another way by conditionalizing a variable assignment and then using the variable unconditionally: </FONT><PRE class=example><FONT class=extract>     libs_for_gcc = -lgnu
+     normal_libs =
+     
+     ifeq ($(CC),gcc)
+       libs=$(libs_for_gcc)
+     else
+       libs=$(normal_libs)
+     endif
+     
+     foo: $(objects)
+             $(CC) -o foo $(objects) $(libs)</FONT>
+</PRE>
+<DIV class=node><A name=Conditional-Syntax></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Testing-Flags" rel=next>Testing Flags</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Conditional-Example" rel=previous>Conditional Example</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Conditionals" rel=up>Conditionals</A> </DIV>
+<H3 class=section><FONT class=extract>7.2 Syntax of Conditionals</FONT></H3>
+<P><A name=index-ifdef-560></A><A name=index-ifeq-561></A><A name=index-ifndef-562></A><A name=index-ifneq-563></A><A name=index-else-564></A><A name=index-endif-565></A><FONT class=extract>The syntax of a simple conditional with no <CODE>else</CODE> is as follows: </FONT><PRE class=example><FONT class=extract>     <VAR>conditional-directive</VAR>
+     <VAR>text-if-true</VAR>
+     endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>The <VAR>text-if-true</VAR> may be any lines of text, to be considered as part of the makefile if the condition is true. If the condition is false, no text is used instead. </FONT>
+<P><FONT class=extract>The syntax of a complex conditional is as follows: </FONT><PRE class=example><FONT class=extract>     <VAR>conditional-directive</VAR>
+     <VAR>text-if-true</VAR>
+     else
+     <VAR>text-if-false</VAR>
+     endif
+</FONT></PRE>
+<P><FONT class=extract>or: </FONT><PRE class=example><FONT class=extract>     <VAR>conditional-directive-one</VAR>
+     <VAR>text-if-one-is-true</VAR>
+     else <VAR>conditional-directive-two</VAR>
+     <VAR>text-if-two-is-true</VAR>
+     else
+     <VAR>text-if-one-and-two-are-false</VAR>
+     endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>There can be as many &#8220;<CODE>else</CODE> <VAR>conditional-directive</VAR>&#8221; clauses as necessary. Once a given condition is true, <VAR>text-if-true</VAR> is used and no other clause is used; if no condition is true then <VAR>text-if-false</VAR> is used. The <VAR>text-if-true</VAR> and <VAR>text-if-false</VAR> can be any number of lines of text. </FONT>
+<P><FONT class=extract>The syntax of the <VAR>conditional-directive</VAR> is the same whether the conditional is simple or complex; after an <CODE>else</CODE> or not. There are four different directives that test different conditions. Here is a table of them: </FONT>
+<DL>
+<DT><FONT class=extract><CODE>ifeq (</CODE><VAR>arg1</VAR><CODE>, </CODE><VAR>arg2</VAR><CODE>)</CODE> </FONT>
+<DT><FONT class=extract><CODE>ifeq '</CODE><VAR>arg1</VAR><CODE>' '</CODE><VAR>arg2</VAR><CODE>'</CODE> </FONT>
+<DT><FONT class=extract><CODE>ifeq "</CODE><VAR>arg1</VAR><CODE>" "</CODE><VAR>arg2</VAR><CODE>"</CODE> </FONT>
+<DT><FONT class=extract><CODE>ifeq "</CODE><VAR>arg1</VAR><CODE>" '</CODE><VAR>arg2</VAR><CODE>'</CODE> </FONT>
+<DT><FONT class=extract><CODE>ifeq '</CODE><VAR>arg1</VAR><CODE>' "</CODE><VAR>arg2</VAR><CODE>"</CODE> </FONT>
+<DD><FONT class=extract>Expand all variable references in <VAR>arg1</VAR> and <VAR>arg2</VAR> and compare them. If they are identical, the <VAR>text-if-true</VAR> is effective; otherwise, the <VAR>text-if-false</VAR>, if any, is effective. </FONT>
+<P><FONT class=extract>Often you want to test if a variable has a non-empty value. When the value results from complex expansions of variables and functions, expansions you would consider empty may actually contain whitespace characters and thus are not seen as empty. However, you can use the <CODE>strip</CODE> function (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Text-Functions"><FONT class=extract>Text Functions</FONT></A><FONT class=extract>) to avoid interpreting whitespace as a non-empty value. For example: </FONT><PRE class=example><FONT class=extract>          ifeq ($(strip $(foo)),)
+          <VAR>text-if-empty</VAR>
+          endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>will evaluate <VAR>text-if-empty</VAR> even if the expansion of <CODE>$(foo)</CODE> contains whitespace characters. <BR></FONT></P>
+<DT><FONT class=extract><CODE>ifneq (</CODE><VAR>arg1</VAR><CODE>, </CODE><VAR>arg2</VAR><CODE>)</CODE> </FONT>
+<DT><FONT class=extract><CODE>ifneq '</CODE><VAR>arg1</VAR><CODE>' '</CODE><VAR>arg2</VAR><CODE>'</CODE> </FONT>
+<DT><FONT class=extract><CODE>ifneq "</CODE><VAR>arg1</VAR><CODE>" "</CODE><VAR>arg2</VAR><CODE>"</CODE> </FONT>
+<DT><FONT class=extract><CODE>ifneq "</CODE><VAR>arg1</VAR><CODE>" '</CODE><VAR>arg2</VAR><CODE>'</CODE> </FONT>
+<DT><FONT class=extract><CODE>ifneq '</CODE><VAR>arg1</VAR><CODE>' "</CODE><VAR>arg2</VAR><CODE>"</CODE> </FONT>
+<DD><FONT class=extract>Expand all variable references in <VAR>arg1</VAR> and <VAR>arg2</VAR> and compare them. If they are different, the <VAR>text-if-true</VAR> is effective; otherwise, the <VAR>text-if-false</VAR>, if any, is effective. <BR></FONT>
+<DT><FONT class=extract><CODE>ifdef </CODE><VAR>variable-name</VAR> </FONT>
+<DD><FONT class=extract>The <CODE>ifdef</CODE> form takes the <EM>name</EM> of a variable as its argument, not a reference to a variable. The value of that variable has a non-empty value, the <VAR>text-if-true</VAR> is effective; otherwise, the <VAR>text-if-false</VAR>, if any, is effective. Variables that have never been defined have an empty value. The text <VAR>variable-name</VAR> is expanded, so it could be a variable or function that expands to the name of a variable. For example: </FONT><PRE class=example><FONT class=extract>          bar = true
+          foo = bar
+          ifdef $(foo)
+          frobozz = yes
+          endif
+</FONT></PRE>
+<P><FONT class=extract>The variable reference <CODE>$(foo)</CODE> is expanded, yielding <CODE>bar</CODE>, which is considered to be the name of a variable. The variable <CODE>bar</CODE> is not expanded, but its value is examined to determine if it is non-empty. </FONT>
+<P><FONT class=extract>Note that <CODE>ifdef</CODE> only tests whether a variable has a value. It does not expand the variable to see if that value is nonempty. Consequently, tests using <CODE>ifdef</CODE> return true for all definitions except those like <CODE>foo =</CODE>. To test for an empty value, use <CODE>ifeq&nbsp;($(foo),)</CODE><!-- /@w -->. For example, </FONT><PRE class=example><FONT class=extract>          bar =
+          foo = $(bar)
+          ifdef foo
+          frobozz = yes
+          else
+          frobozz = no
+          endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>sets &#8216;<SAMP><SPAN class=samp>frobozz</SPAN></SAMP>&#8217; to &#8216;<SAMP><SPAN class=samp>yes</SPAN></SAMP>&#8217;, while: </FONT><PRE class=example><FONT class=extract>          foo =
+          ifdef foo
+          frobozz = yes
+          else
+          frobozz = no
+          endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>sets &#8216;<SAMP><SPAN class=samp>frobozz</SPAN></SAMP>&#8217; to &#8216;<SAMP><SPAN class=samp>no</SPAN></SAMP>&#8217;. <BR></FONT></P>
+<DT><FONT class=extract><CODE>ifndef </CODE><VAR>variable-name</VAR> </FONT>
+<DD><FONT class=extract>If the variable <VAR>variable-name</VAR> has an empty value, the <VAR>text-if-true</VAR> is effective; otherwise, the <VAR>text-if-false</VAR>, if any, is effective. The rules for expansion and testing of <VAR>variable-name</VAR> are identical to the <CODE>ifdef</CODE> directive. </FONT></DD></DL>
+<P><FONT class=extract>Extra spaces are allowed and ignored at the beginning of the conditional directive line, but a tab is not allowed. (If the line begins with a tab, it will be considered part of a recipe for a rule.) Aside from this, extra spaces or tabs may be inserted with no effect anywhere except within the directive name or within an argument. A comment starting with &#8216;<SAMP><SPAN class=samp>#</SPAN></SAMP>&#8217; may appear at the end of the line. </FONT>
+<P><FONT class=extract>The other two directives that play a part in a conditional are <CODE>else</CODE> and <CODE>endif</CODE>. Each of these directives is written as one word, with no arguments. Extra spaces are allowed and ignored at the beginning of the line, and spaces or tabs at the end. A comment starting with &#8216;<SAMP><SPAN class=samp>#</SPAN></SAMP>&#8217; may appear at the end of the line. </FONT>
+<P><FONT class=extract>Conditionals affect which lines of the makefile <CODE>make</CODE> uses. If the condition is true, <CODE>make</CODE> reads the lines of the <VAR>text-if-true</VAR> as part of the makefile; if the condition is false, <CODE>make</CODE> ignores those lines completely. It follows that syntactic units of the makefile, such as rules, may safely be split across the beginning or the end of the conditional. </FONT>
+<P><FONT class=extract><CODE>make</CODE> evaluates conditionals when it reads a makefile. Consequently, you cannot use automatic variables in the tests of conditionals because they are not defined until recipes are run (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables"><FONT class=extract>Automatic Variables</FONT></A><FONT class=extract>). </FONT>
+<P><FONT class=extract>To prevent intolerable confusion, it is not permitted to start a conditional in one makefile and end it in another. However, you may write an <CODE>include</CODE> directive within a conditional, provided you do not attempt to terminate the conditional inside the included file. </FONT>
+<DIV class=node><A name=Testing-Flags></A>
+<P>
+<HR>
+Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Conditional-Syntax" rel=previous>Conditional Syntax</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Conditionals" rel=up>Conditionals</A> </DIV>
+<H3 class=section><FONT class=extract>7.3 Conditionals that Test Flags</FONT></H3>
+<P><FONT class=extract>You can write a conditional that tests <CODE>make</CODE> command flags such as &#8216;<SAMP><SPAN class=samp>-t</SPAN></SAMP>&#8217; by using the variable <CODE>MAKEFLAGS</CODE> together with the <CODE>findstring</CODE> function (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Text-Functions"><FONT class=extract>Functions for String Substitution and Analysis</FONT></A><FONT class=extract>). This is useful when <CODE>touch</CODE> is not enough to make a file appear up to date. </FONT>
+<P><FONT class=extract>The <CODE>findstring</CODE> function determines whether one string appears as a substring of another. If you want to test for the &#8216;<SAMP><SPAN class=samp>-t</SPAN></SAMP>&#8217; flag, use &#8216;<SAMP><SPAN class=samp>t</SPAN></SAMP>&#8217; as the first string and the value of <CODE>MAKEFLAGS</CODE> as the other. </FONT>
+<P><FONT class=extract>For example, here is how to arrange to use &#8216;<SAMP><SPAN class=samp>ranlib -t</SPAN></SAMP>&#8217; to finish marking an archive file up to date: </FONT><PRE class=example><FONT class=extract>     archive.a: ...
+     ifneq (,$(findstring t,$(MAKEFLAGS)))
+             +touch archive.a
+             +ranlib -t archive.a
+     else
+             ranlib archive.a
+     endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>The &#8216;<SAMP><SPAN class=samp>+</SPAN></SAMP>&#8217; prefix marks those recipe lines as &#8220;recursive&#8221; so that they will be executed despite use of the &#8216;<SAMP><SPAN class=samp>-t</SPAN></SAMP>&#8217; flag. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Recursion"><FONT class=extract>Recursive Use of <CODE>make</CODE></FONT></A><FONT class=extract>.</FONT>

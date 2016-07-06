@@ -1,0 +1,24 @@
+<H4 class=subsection>7.1.3 Specifying Record Ranges with Patterns</H4><A name=index-range-patterns></A><A name=index-patterns_002c-ranges-in></A><A name=index-lines_002c-matching-ranges-of></A><A name=index-_002c-_0028comma_0029_002c-in-range-patterns></A><A name=index-comma-_0028_002c_0029_002c-in-range-patterns></A>
+<P>A <EM>range pattern</EM> is made of two patterns separated by a comma, in the form &#8216;<SAMP><VAR>begpat</VAR>, <VAR>endpat</VAR></SAMP>&#8217;. It is used to match ranges of consecutive input records. The first pattern, <VAR>begpat</VAR>, controls where the range begins, while <VAR>endpat</VAR> controls where the pattern ends. For example, the following: </P>
+<DIV class=example><PRE class=example>awk '$1 == "on", $1 == "off"' myfile
+</PRE></DIV>
+<P>prints every record in <SAMP>myfile</SAMP> between &#8216;<SAMP>on</SAMP>&#8217;/&#8216;<SAMP>off</SAMP>&#8217; pairs, inclusive. </P>
+<P>A range pattern starts out by matching <VAR>begpat</VAR> against every input record. When a record matches <VAR>begpat</VAR>, the range pattern is <EM>turned on</EM> and the range pattern matches this record as well. As long as the range pattern stays turned on, it automatically matches every input record read. The range pattern also matches <VAR>endpat</VAR> against every input record; when this succeeds, the range pattern is turned off again for the following record. Then the range pattern goes back to checking <VAR>begpat</VAR> against each record. </P><A name=index-if-statement_002c-actions_002c-changing></A>
+<P>The record that turns on the range pattern and the one that turns it off both match the range pattern. If you don&#8217;t want to operate on these records, you can write <CODE>if</CODE> statements in the rule&#8217;s action to distinguish them from the records you are interested in. </P>
+<P>It is possible for a pattern to be turned on and off by the same record. If the record satisfies both conditions, then the action is executed for just that record. For example, suppose there is text between two identical markers (e.g., the &#8216;<SAMP>%</SAMP>&#8217; symbol), each on its own line, that should be ignored. A first attempt would be to combine a range pattern that describes the delimited text with the <CODE>next</CODE> statement (not discussed yet, see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Next-Statement">Next Statement</A>). This causes <CODE>awk</CODE> to skip any further processing of the current record and start over again with the next input record. Such a program looks like this: </P>
+<DIV class=example><PRE class=example>/^%$/,/^%$/    { next }
+               { print }
+</PRE></DIV><A name=index-lines_002c-skipping-between-markers></A>
+<P>This program fails because the range pattern is both turned on and turned off by the first line, which just has a &#8216;<SAMP>%</SAMP>&#8217; on it. To accomplish this task, write the program in the following manner, using a flag: </P><A name=index-_0021-_0028exclamation-point_0029_002c-_0021-operator-2></A>
+<DIV class=example><PRE class=example>/^%$/     { skip = ! skip; next }
+skip == 1 { next } # skip lines with `skip' set
+</PRE></DIV>
+<P>In a range pattern, the comma (&#8216;<SAMP>,</SAMP>&#8217;) has the lowest precedence of all the operators (i.e., it is evaluated last). Thus, the following program attempts to combine a range pattern with another, simpler test: </P>
+<DIV class=example><PRE class=example>echo Yes | awk '/1/,/2/ || /Yes/'
+</PRE></DIV>
+<P>The intent of this program is &#8216;<SAMP>(/1/,/2/) || /Yes/</SAMP>&#8217;. However, <CODE>awk</CODE> interprets this as &#8216;<SAMP>/1/, (/2/ || /Yes/)</SAMP>&#8217;. This cannot be changed or worked around; range patterns do not combine with other patterns: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo Yes | gawk '(/1/,/2/) || /Yes/'</EM></KBD>
+error&#8594; gawk: cmd. line:1: (/1/,/2/) || /Yes/
+error&#8594; gawk: cmd. line:1:           ^ syntax error
+</PRE></DIV><A name=index-range-patterns_002c-line-continuation-and></A>
+<P>As a minor point of interest, although it is poor style, POSIX allows you to put a newline after the comma in a range pattern. (d.c.)

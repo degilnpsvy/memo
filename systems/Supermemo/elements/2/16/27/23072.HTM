@@ -1,0 +1,120 @@
+<H3 id=-100000 class=docSection1Title>Addressing and Identification</H3>
+<P class=docText><A name="PCI devices"></A>PCI devices are addressed using <SPAN class=docEmphasis>bus</SPAN>, <SPAN class=docEmphasis>device</SPAN>, and <SPAN class=docEmphasis>function</SPAN><A name="are identified"></A> numbers, and they are identified via <SPAN class=docEmphasis>vendorIDs</SPAN>, <SPAN class=docEmphasis>deviceIDs</SPAN>, and <SPAN class=docEmphasis>class codes</SPAN><A name="these concepts"></A>. Let's learn these concepts with the help of the <SPAN class=docEmphasis>lspci</SPAN> utility that is part of the <SPAN class=docEmphasis>PCI Utilities</SPAN> package downloadable from <A class=docLink href="http://mj.ucw.cz/pciutils.shtml" target=_blank>http://mj.ucw.cz/pciutils.shtml</A>.</P>
+<P class=docText><A name="a Pentium"></A>Assume that you're using a Xircom Ethernet-Modem multifunction CardBus card on a Pentium-class laptop served by a Texas Instruments PCI4510 CardBus controller, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec1.html#ch10fig01">Figure 10.1</A>. Run lspci:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt;lspci</SPAN>
+00:00.0 Host bridge: Intel Corporation 82852/82855 GM/GME/PM/GMV Processor to I/O
+Controller (rev 02)
+...
+02:00.0 CardBus bridge: Texas Instruments PCI4510 PC card Cardbus Controller (rev 03)
+...
+03:00.0 Ethernet controller: Xircom Cardbus Ethernet 10/100 (rev 03)
+03:00.1 Serial controller: Xircom Cardbus Ethernet + 56k Modem (rev 03)
+
+					  </PRE></DIV><BR>
+<P class=docText>Consider the tuple <TT>(XX:YY.Z)</TT><A name="entry in"></A> at the beginning of each entry in the preceding output. <TT>XX</TT><A name="host up"></A> stands for the PCI bus number. A PCI domain can host up to <TT>256</TT><A name="is connected"></A> buses. In the laptop used previously, the CardBus bridge is connected to PCI bus <TT>2</TT>. This bridge sources another PCI bus numbered <TT>3</TT> that hosts the Xircom card.</P>
+<P class=docText><TT>YY</TT><A name="maximum of"></A> is the PCI device number. Each bus can connect to a maximum of 32 PCI devices. Each device can, in turn, implement up to eight functions represented by <TT>Z</TT><A name="can simultaneously"></A>. The Xircom card can simultaneously perform two functions. Thus, <TT>03:00.0</TT><A name="Ethernet function"></A> addresses the Ethernet function of the card, while <TT>03:00.1</TT><A name="corresponds to"></A> corresponds to its modem communication function. Issue <TT>lspci &#37413;&#25621;</TT><A name="a tree"></A> to elicit a tree-like layout of the PCI buses and devices on your system:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; lspci &#37413;&#25621;</SPAN>
+-[0000:00]-+-00.0
+           +-00.1
+           +-00.3
+           +-02.0
+           +-02.1
+           +-1d.0
+           +-1d.1
+           +-1d.2
+           +-1d.7
+           +-1e.0-[0000:02-05]--+-[0000:03]-+-00.0
+           |                    |           \-00.1
+           |                    \-[0000:02]-+-00.0
+           |                                +-00.1
+           |                                +-01.0
+           |                                \-02.0
+           +-1f.0</PRE></DIV><BR>
+<P class=docText><A name="you can"></A>As you can see from the preceding output (and in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec1.html#ch10fig01">Figure 10.1</A><A name="modem "></A>), to walk the PCI bus and reach the Xircom modem (<TT>03:00.01</TT>) or Ethernet controller (<TT>03:00.0</TT><A name="your PCI"></A>), you have to start from your PCI domain (labeled <TT>0000</TT> in the preceding output), traverse a PCI-to-PCI bridge <TT>(00:1e.0)</TT>, and then cross a PCI-to-CardBus host controller (<TT>02:0.0</TT>). The sysfs representation of the PCI subsystem mirrors this layout:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ls /sys/devices/pci0000:00/0000:00:1e.0/0000:02:00.0/0000:03:00.0/</SPAN>
+...
+net:eth2  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Ethernet
+...
+<SPAN class=docEmphStrong>bash&gt; ls /sys/devices/pci0000:00/0000:00:1e.0/0000:02:00.0/0000:03:00.1/</SPAN>
+...
+tty:ttyS1 <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Modem
+...</PRE></DIV><BR>
+<P class=docText><A name="that holds"></A>As you saw earlier, PCI devices possess a 256-byte memory region that holds configuration registers. This space is the key to identify the make and capabilities of PCI cards. Let's take a peek inside the configuration spaces of the CardBus controller and the Xircom dual-function card previously used. The Xircom card has two configuration spaces, one per supported function:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; lspci &#37413;&#25625;</SPAN>
+00:00.0 Host bridge: Intel Corporation 82852/82855 GM/GME/PM/GMV Processor to I/O
+Controller (rev 02)
+00: 86 80 80 35 06 01 90 20 02 00 00 06 00 00 80 00
+10: 08 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 14 10 5c 05
+30: 00 00 00 00 40 00 00 00 00 00 00 00 00 00 00 00
+...
+02:00.0 CardBus bridge: Texas Instruments PCI4510 PC card Cardbus Controller (rev 03)
+00: 4c 10 44 ac 07 00 10 02 03 00 07 06 20 a8 82 00
+10: 00 00 00 b0 a0 00 00 22 02 03 04 b0 00 00 00 f0
+20: 00 f0 ff f1 00 00 00 d2 00 f0 ff d3 00 30 00 00
+30: fc 30 00 00 00 34 00 00 fc 34 00 00 0b 01 00 05
+...
+03:00.0 Ethernet controller: Xircom Cardbus Ethernet 10/100 (rev 03)
+00: 5d 11 03 00 07 00 10 02 03 00 00 02 00 40 80 00
+10: 01 30 00 00 00 00 00 d2 00 08 00 d2 00 00 00 00
+20: 00 00 00 00 00 00 00 00 07 01 00 00 5d 11 81 11
+30: 00 00 00 00 dc 00 00 00 00 00 00 00 0b 01 14 28
+03:00.1 Serial controller: Xircom Cardbus Ethernet + 56k Modem (rev 03)
+00: 5d 11 03 01 03 00 10 02 03 02 00 07 00 00 80 00
+10: 81 30 00 00 00 10 00 d2 00 18 00 d2 00 00 00 00
+20: 00 00 00 00 00 00 00 00 07 02 00 00 5d 11 81 11
+30: 00 00 00 00 dc 00 00 00 00 00 00 00 0b 01 00 00
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="interpreting the"></A>PCI registers are little-endian, so factor that while interpreting the preceding output. You may also dump PCI configuration regions via sysfs. So, to look at the configuration space of the Ethernet function of the Xircom card, do this:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; od -x /sys/devices/pci0000:00/0000:00:1e.0/0000:02:00.0/0000:03:00.1/config</SPAN>
+0000000 115d 0003 0007 0210 0003 0200 4000 0080
+0000020 3001 0000 0000 d200 0800 d200 0000 0000
+0000040 0000 0000 0000 0000 0107 0000 115d 1181
+...
+
+					  </PRE></DIV><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec2.html#ch10tab02">Table 10.2</A><A name="first two"></A> explains some of the values shown in the preceding dump. The first two bytes contain the vendor ID, which identifies the company that manufactured the card. PCI vendor IDs are maintained and assigned globally. (Point your browser to <A class=docLink href="http://www.pcidatabase.com/" target=_blank>www.pcidatabase.com</A><A name="you can"></A> for a database.) As you can decipher from the preceding output, Intel, Texas Instruments, and Xircom (now acquired by Intel) own vendor IDs of <TT>0x8086</TT>, <TT>0x104C</TT>, and <TT>0x115D</TT><A name="two bytes"></A>, respectively. The next two bytes are specific to the functionality of the card and constitute its device ID. From the preceding output, the Ethernet functionality of the Xircom card owns a device ID of <TT>0x0003</TT><A name="while the"></A>, while the modem answers to a device ID of <TT>0x0103</TT><A name="additionally possess"></A>. PCI cards additionally possess subvendor and subdevice IDs (see words at offsets 44 and 46 in the preceding dump) to further pinpoint their identity.</P><A name=ch10tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><A name="PCI Configuration"></A>Table 10.2. PCI Configuration Space Semantics</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=200>
+<COL width=150>
+<COL width=200></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=bottom scope=col align=left>Configuration Space Offset</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=bottom scope=col align=left>Semantics</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=bottom scope=col align=left>Values from the Dump Output for the Xircom Card</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>0</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Vendor ID</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x115D</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>2</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Device ID</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x0003</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>10</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Class code</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x0200</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>16</TT> to <TT>39</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Base address register 0 (BAR 0) to BAR5</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x3001...0000</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>44</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Subvendor ID</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x115D</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>46</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Subdevice ID</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x1181</TT></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="that describes"></A>Ten bytes into the configuration space lies the code that describes the class of the device. PCI bridges have a class code starting with <TT>0x06</TT><A name="code beginning"></A>, network devices possess a class code beginning with <TT>0x02</TT>, and communication devices own a class code commencing with <TT>0x07</TT><A name="serial modem"></A>. Thus, in the preceding example, the CardBus bridge, the Ethernet card, and the serial modem own class codes of <TT>0x0607</TT>, <TT>0x0200</TT>, and <TT>0x0700</TT>, respectively. You can find class code definitions in <SPAN class=docEmphasis>include/linux/pci_ids.h</SPAN>.</P>
+<P class=docText><A name=iddle1019></A><A name=iddle1020></A><A name=iddle1584></A><A name=iddle3404></A><A name=iddle3405></A><A name=iddle3406></A><A name=iddle3451></A><A name=iddle3470></A><A name=iddle3472></A><A name=iddle3474></A><A name=iddle3493></A><A name=iddle3495></A><A name=iddle3497></A><A name=iddle3559></A><A name="class codes"></A>PCI drivers register the vendor IDs, device IDs, and class codes that they support with the PCI subsystem. Using this database, the PCI subsystem binds an inserted card to the appropriate device driver after gleaning its identity from its configuration space. We will see how this is done when we implement an example driver later.

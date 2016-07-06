@@ -1,0 +1,757 @@
+<H3 id=700181-945 class=docSection1Title>14.3. Debugging the Linux Kernel</H3>
+<P class=docText>One of the more common reasons you might find yourself stepping through kernel code is to modify or customize the platform-specific code for your custom board. Let's see how this might be done using the AMCC Yosemite board. We place a breakpoint at the platform-specific architecture setup function and then continue until that breakpoint is encountered. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1404">Listing 14-4</A> shows the sequence.</P><A name=ch1404></A>
+<H5 id=title-IDA2SYKH class=docExampleTitle>Listing 14-4. Debugging Architecture-Setup Code</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>b yosemite_setup_arch</SPAN>
+    Breakpoint 3 at 0xc021a488:
+        file arch/ppc/platforms/4xx/yosemite.c, line 308.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+Can't send signals to this remote system.  SIGILL not sent.
+
+Breakpoint 3, yosemite_setup_arch () at arch/ppc/platforms/4xx/yosemite.c:308
+308
+                 yosemite_set_emacdata();
+(gdb) <SPAN class=docEmphStrong>l</SPAN>
+303     }
+304
+305     static void __init
+306     yosemite_setup_arch(void)
+307     {
+308              yosemite_set_emacdata();
+309
+310              ibm440gx_get_clocks(&amp;clocks, YOSEMITE_SYSCLK, 6 * 1843200);
+311              ocp_sys_info.opb_bus_freq = clocks.opb;
+312 
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>When the breakpoint at <TT>yosemite_setup_arch()</TT> is encountered, control passes to <TT>gdb</TT> at line 308 of <TT>yosemite.c</TT>. The <TT>list</TT> (<TT>l</TT>) command displays the source listing centered on the breakpoint at line 308. The warning message displayed by <TT>gdb</TT> after the <TT>continue</TT> (<TT>c</TT>) command can be safely ignored. It is part of <TT>gdb</TT>'s way of testing the capabilities of the remote system. It first sends a remote <TT>continue_with_signal</TT> command to the target. The KGDB implementation for this target board does not support this command; therefore, it is <TT>NAK</TT>'d by the target. <A name=iddle1136></A><A name=iddle1235></A><A name=iddle1255></A><A name=iddle1299></A><A name=iddle1405></A><A name=iddle1744></A><A name=iddle1868></A><A name=iddle2367></A><A name=iddle2368></A><TT>gdb</TT> responds by displaying this informational message and issuing the standard remote <TT>continue</TT> command instead.</P><A name=ch14lev2sec4></A>
+<H4 id=title-IDA0XYKH class=docSection2Title>14.3.1. gdb Remote Serial Protocol</H4>
+<P class=docText><TT>gdb</TT> includes a debug switch that enables us to observe the remote protocol being used between <TT>gdb</TT> on your development host and the target. This can be very useful for understanding the underlying protocol, as well as troubleshooting targets that exhibit unusual or errant behavior. To enable this debug mode, issue the following command:</P>
+<DIV class=docText><PRE>(gdb) <SPAN class=docEmphStrong>set debug remote 1</SPAN></PRE></DIV><BR>
+<P class=docText>With remote debugging enabled, it is instructive to observe the <TT>continue</TT> command in action and the steps taken by <TT>gdb</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14list05">Listing 14-5</A> illustrates the use of the <TT>continue</TT> command with remote debugging enabled.</P><A name=ch14list05></A>
+<H5 id=title-IDAJZYKH class=docExampleTitle>Listing 14-5. <TT>continue</TT> Remote Protocol Example</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+Sending packet: $mc0000000,4#80...Ack
+Packet received: c022d200
+Sending packet: $Mc0000000,4:7d821008#68...Ack
+Packet received: OK
+Sending packet: $mc0016de8,4#f8...Ack
+Packet received: 38600001
+Sending packet: $Mc0016de8,4:7d821008#e0...Ack
+Packet received: OK
+Sending packet: $mc005bd5c,4#23...Ack
+Packet received: 38600001
+Sending packet: $Mc005bd5c,4:7d821008#0b...Ack
+Packet received: OK
+Sending packet: $mc021a488,4#c8...Ack
+Packet received: 4bfffbad
+Sending packet: $Mc021a488,4:7d821008#b0...Ack
+Packet received: OK
+Sending packet: $c#63...Ack
+    &lt;&lt;&lt; program running, gdb waiting for event</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Although it might look daunting at first, what is happening here is easily understood. In summary, <TT>gdb</TT> is restoring all its breakpoints on the target. Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch1403">Listing 14-3</A> that we entered two breakpoints, one at <TT>panic()</TT> and one at <TT>sys_sync()</TT>. Later in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1404">Listing 14-4</A>, we added a third breakpoint at <TT>yosemite_setup_arch()</TT>. Thus, there are three active user-specified breakpoints. These can be displayed by issuing the <TT>gdb info breakpoints</TT> command. As usual, we use the abbreviated version.</P>
+<DIV class=docText><PRE><A name=PLID3></A><DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#PLID3">[View full width]</A></DIV>(gdb) <SPAN class=docEmphStrong>i b</SPAN>
+Num Type           Disp Enb Address    What
+1   breakpoint     keep y   0xc0016de8 in panic at kernel/panic.c:74
+2   breakpoint     keep y   0xc005bd5c in sys_sync at fs/buffer.c:296
+3   breakpoint     keep y   0xc021a488 in yosemite_setup_arch at arch/ppc/platforms/4xx
+<IMG  src="" border=0 alt="" width=14 align=left height=9>/yosemite.c:308
+        breakpoint already hit 1 time
+(gdb)</PRE></DIV><BR>
+<P class=docText>Now compare the previous breakpoint addresses with the addresses in the <TT>gdb</TT> remote <TT>$m</TT> packet in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14list05">Listing 14-5</A>. The <TT>$m</TT> packet is a "read target memory" command, and the <TT>$M</TT> packet is a "write target memory" command. Once for each breakpoint, the address of the breakpoint is read from target memory, stored away locally on the host by <TT>gdb</TT> (so it can be restored later), and replaced with the PowerPC <TT>TRap</TT> instruction <TT>twge r2, r2</TT> (<TT>0x7d821008</TT>), which results in control passing back to the debugger. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14fig04">Figure 14-4</A> illustrates this action.</P><A name=ch14fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 14-4. <TT>gdb</TT> inserting target memory breakpoints</H5>
+<P class=docText><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/14elp04.jpg" width=500 height=335></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1013></A><A name=iddle2007></A>You might have noticed that <TT>gdb</TT> is updating four breakpoints, whereas we entered only three. The first one at target memory location <TT>0xc000_0000</TT> is put there by <TT>gdb</TT> automatically upon startup. This location is the base address of the linked kernel image from the ELF fileessentially, <TT>_start</TT>. It is equivalent to a breakpoint at <TT>main()</TT> for user space debugging and is done by <TT>gdb</TT> automatically. The other three breakpoints are the ones we entered earlier.</P>
+<P class=docText>The same thing happens in reverse when an event occurs that returns control to <TT>gdb</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1406">Listing 14-6</A> details the action when our breakpoint at <TT>yosemite_setup_arch()</TT> is encountered.</P><A name=ch1406></A>
+<H5 id=title-IDAZ4YKH class=docExampleTitle>Listing 14-6. Remote Protocol: Breakpoint Hit</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>Packet received: T0440:c021a488;01:c020ff90;
+Sending packet: $mc0000000,4#80...Ack  &lt;&lt;&lt; Read memory @c0000000
+Packet received: 7d821008
+Sending packet: $Mc0000000,4:c022d200#87...Ack  &lt;&lt;&lt; Write memory
+Packet received: OK
+Sending packet: $mc0016de8,4#f8...Ack
+Packet received: 7d821008
+Sending packet: $Mc0016de8,4:38600001#a4...Ack
+Packet received: OK
+Sending packet: $mc005bd5c,4#23...Ack
+Packet received: 7d821008
+Sending packet: $Mc005bd5c,4:38600001#cf...Ack
+Packet received: OK
+Sending packet: $mc021a488,4#c8...Ack
+Packet received: 7d821008
+Sending packet: $Mc021a488,4:4bfffbad#d1...Ack
+Packet received: OK
+
+Sending packet: $mc021a484,c#f3...Ack
+Packet received: 900100244bfffbad3fa0c022
+Breakpoint 3, yosemite_setup_arch () at arch/ppc/platforms/4xx/yosemite.c:308
+308              yosemite_set_emacdata();
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The <TT>$T</TT> packet is a <TT>gdb</TT> Stop Reply packet. It is sent by the target to <TT>gdb</TT> when a breakpoint is encountered. In our example, the <TT>$T</TT> packet returned the value of the program counter and register <TT>r1</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14fn4">[4]</A></SUP> The rest of the activity is the reverse of that <A name=iddle1297></A><A name=iddle1529></A><A name=iddle1652></A><A name=iddle1742></A><A name=iddle1821></A><A name=iddle1990></A><A name=iddle2170></A><A name=iddle2171></A>in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14list05">Listing 14-5</A>. The PowerPC trap breakpoint instructions are removed, and <TT>gdb</TT> restores the original instructions to their respective memory locations.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn4>[4]</A></SUP> As pointed out earlier, the <TT>gdb</TT> remote protocol is detailed in the <TT>gdb</TT> manual cited at the end of this chapter in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec6.html#ch14lev2sec16">Section 14.6.1</A>, "Suggestions for Additional Reading."</P></BLOCKQUOTE><A name=ch14lev2sec5></A>
+<H4 id=title-IDAJDZKH class=docSection2Title>14.3.2. Debugging Optimized Kernel Code</H4>
+<P class=docText>At the start of this chapter, we said that one of the challenges identified in debugging kernel code results from compiler optimization. We noted that the Linux kernel is compiled by default with optimization level <TT>-O2</TT>. In the examples up to this point, we used <TT>-O1</TT> optimization to simplify the debugging task. Here we illustrate one of the many ways optimization can complicate debugging.</P>
+<P class=docText>The related Internet mail lists are strewn with questions related to what appear to be broken tools. Sometimes the poster reports that his debugger is single-stepping backward or that his line numbers do not line up with his source code. Here we present an example to illustrate the complexities that optimizing compilers bring to source-level debugging. In this example, the line numbers that <TT>gdb</TT> reports when a breakpoint is hit do not match up with the line numbers in our source file due to <SPAN class=docEmphasis>function inlining</SPAN>.</P>
+<P class=docText>For this demonstration, we use the same debug code snippet as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1404">Listing 14-4</A>. However, for this example, we have compiled the kernel with the compiler optimization flag <TT>-O2</TT>. This is the default for the Linux kernel. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1407">Listing 14-7</A> shows the results of this debugging session.</P><A name=ch1407></A>
+<H5 id=title-IDAXEZKH class=docExampleTitle>Listing 14-7. Optimized Architecture-Setup Code</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ppc_44x-gdb --silent vmlinux</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote /dev/ttyS0</SPAN>
+Remote debugging using /dev/ttyS0
+breakinst () at arch/ppc/kernel/ppc-stub.c:825
+825     }
+(gdb) <SPAN class=docEmphStrong>b panic</SPAN>
+Breakpoint 1 at 0xc0016b18: file kernel/panic.c, line 74.
+(gdb) <SPAN class=docEmphStrong>b sys_sync</SPAN>
+Breakpoint 2 at 0xc005a8c8: file fs/buffer.c, line 296.
+(gdb) <SPAN class=docEmphStrong>b yosemite_setup_arch</SPAN>
+Breakpoint 3 at 0xc020f438: file arch/ppc/platforms/4xx/yosemite.c, line 116.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+
+Breakpoint 3, yosemite_setup_arch ()
+    at arch/ppc/platforms/4xx/yosemite.c:116
+
+116             def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 0);
+(gdb) <SPAN class=docEmphStrong>l</SPAN>
+111             struct ocp_def *def;
+112             struct ocp_func_emac_data *emacdata;
+113
+114             /* Set mac_addr and phy mode for each EMAC */
+115
+116             def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 0);
+117             emacdata = def-&gt;additions;
+118             memcpy(emacdata-&gt;mac_addr, __res.bi_enetaddr, 6);
+119             emacdata-&gt;phy_mode = PHY_MODE_RMII;
+120
+(gdb) <SPAN class=docEmphStrong>p yosemite_setup_arch</SPAN>
+$1 = {void (void)} 0xc020f41c &lt;yosemite_setup_arch&gt;</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Referring back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1404">Listing 14-4</A>, notice that the function <TT>yosemite_setup_arch()</TT> actually falls on line 306 of the file <TT>yosemite.c</TT>. Compare that with <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1407">Listing 14-7</A>. We hit the breakpoint, but <TT>gdb</TT> reports the breakpoint at file <TT>yosemite.c</TT> line 116. It appears at first glance to be a mismatch of line numbers between the debugger and the corresponding source code. Is this a <TT>gdb</TT> bug? First let's confirm what the compiler produced for debug information. Using the <TT>readelf</TT><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14fn5">[5]</A></SUP> tool described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13.html#ch13">Chapter 13</A>, "Development Tools," we can examine the debug information for this function produced by the compiler.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn5>[5]</A></SUP> Remember to use your cross-version of readelffor example, ppc_44x-readelf for the PowerPC 44x architecture.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ppc_44x-readelf --debug-dump=info vmlinux | grep -u6 \
+  yosemite_setup_arch | tail -n 7</SPAN>
+    DW_AT_name        : (indirect string, offset: 0x9c04): yosemite_setup_arch
+    DW_AT_decl_file   : 1
+    DW_AT_decl_line   : 307
+    DW_AT_prototyped  : 1
+    DW_AT_low_pc      : 0xc020f41c
+    DW_AT_high_pc     : 0xc020f794
+    DW_AT_frame_base  : 1 byte block: 51       (DW_OP_reg1)</PRE></DIV><BR>
+<P class=docText>We don't have to be experts at reading DWARF2 debug records<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14fn6">[6]</A></SUP> to recognize that the function in question is reported at line 307 in our source file. We can confirm this using the <TT>addr2line</TT> utility, also introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13.html#ch13">Chapter 13</A>. Using the address derived from <TT>gdb</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1407">Listing 14-7</A>:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn6>[6]</A></SUP> A reference for the Dwarf debug specification appears at the end of this chapter in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec6.html#ch14lev2sec16">Section 14.6.1</A>, "Suggestions for Additional Reading."</P></BLOCKQUOTE>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ppc_44x-addr2line -e vmlinux 0xc020f41c</SPAN>
+
+arch/ppc/platforms/4xx/yosemite.c:307</PRE></DIV><BR>
+<P class=docText><A name=iddle1885></A>At this point, <TT>gdb</TT> is reporting our breakpoint at line 116 of the <TT>yosemite.c</TT> file. To understand what is happening, we need to look at the assembler output of the function as reported by <TT>gdb</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1408">Listing 14-8</A> is the output from <TT>gdb</TT> after issuing the <TT>disassemble</TT> command on the <TT>yosemite_setup_arch()</TT> function.</P><A name=ch1408></A>
+<H5 id=title-IDAQKZKH class=docExampleTitle>Listing 14-8. Disassemble Function <TT>yosemite_setup_arch</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>disassemble yosemite_setup_arch</SPAN>
+0xc020f41c &lt;yosemite_setup_arch+0&gt;:     mflr    r0
+0xc020f420 &lt;yosemite_setup_arch+4&gt;:     stwu    r1,-48(r1)
+0xc020f424 &lt;yosemite_setup_arch+8&gt;:     li      r4,512
+0xc020f428 &lt;yosemite_setup_arch+12&gt;:    li      r5,0
+0xc020f42c &lt;yosemite_setup_arch+16&gt;:    li      r3,4116
+0xc020f430 &lt;yosemite_setup_arch+20&gt;:    stmw    r25,20(r1)
+0xc020f434 &lt;yosemite_setup_arch+24&gt;:    stw     r0,52(r1)
+0xc020f438 &lt;yosemite_setup_arch+28&gt;:    bl      0xc000d344
+&lt;ocp_get_one_device&gt;
+0xc020f43c &lt;yosemite_setup_arch+32&gt;:    lwz     r31,32(r3)
+0xc020f440 &lt;yosemite_setup_arch+36&gt;:    lis     r4,-16350
+0xc020f444 &lt;yosemite_setup_arch+40&gt;:    li      r28,2
+0xc020f448 &lt;yosemite_setup_arch+44&gt;:    addi    r4,r4,21460
+0xc020f44c &lt;yosemite_setup_arch+48&gt;:    li      r5,6
+0xc020f450 &lt;yosemite_setup_arch+52&gt;:    lis     r29,-16350
+0xc020f454 &lt;yosemite_setup_arch+56&gt;:    addi    r3,r31,48
+0xc020f458 &lt;yosemite_setup_arch+60&gt;:    lis     r25,-16350
+0xc020f45c &lt;yosemite_setup_arch+64&gt;:    bl      0xc000c708
+&lt;memcpy&gt;
+0xc020f460 &lt;yosemite_setup_arch+68&gt;:    stw     r28,44(r31)
+0xc020f464 &lt;yosemite_setup_arch+72&gt;:    li      r4,512
+0xc020f468 &lt;yosemite_setup_arch+76&gt;:    li      r5,1
+0xc020f46c &lt;yosemite_setup_arch+80&gt;:    li      r3,4116
+0xc020f470 &lt;yosemite_setup_arch+84&gt;:    addi    r26,r25,15104
+0xc020f474 &lt;yosemite_setup_arch+88&gt;:    bl      0xc000d344
+&lt;ocp_get_one_device&gt;
+0xc020f478 &lt;yosemite_setup_arch+92&gt;:    lis     r4,-16350
+0xc020f47c &lt;yosemite_setup_arch+96&gt;:    lwz     r31,32(r3)
+0xc020f480 &lt;yosemite_setup_arch+100&gt;:   addi    r4,r4,21534
+0xc020f484 &lt;yosemite_setup_arch+104&gt;:   li      r5,6
+0xc020f488 &lt;yosemite_setup_arch+108&gt;:   addi    r3,r31,48
+0xc020f48c &lt;yosemite_setup_arch+112&gt;:   bl      0xc000c708
+&lt;memcpy&gt;
+0xc020f490 &lt;yosemite_setup_arch+116&gt;:   lis     r4,1017
+0xc020f494 &lt;yosemite_setup_arch+120&gt;:   lis     r5,168
+0xc020f498 &lt;yosemite_setup_arch+124&gt;:   stw     r28,44(r31)
+0xc020f49c &lt;yosemite_setup_arch+128&gt;:   ori     r4,r4,16554
+0xc020f4a0 &lt;yosemite_setup_arch+132&gt;:   ori     r5,r5,49152
+0xc020f4a4 &lt;yosemite_setup_arch+136&gt;:   addi    r3,r29,-15380
+0xc020f4a8 &lt;yosemite_setup_arch+140&gt;:   addi    r29,r29,-15380
+0xc020f4ac &lt;yosemite_setup_arch+144&gt;:   bl      0xc020e338
+&lt;ibm440gx_get_clocks&gt;
+0xc020f4b0 &lt;yosemite_setup_arch+148&gt;:   li      r0,0
+0xc020f4b4 &lt;yosemite_setup_arch+152&gt;:   lis     r11,-16352
+0xc020f4b8 &lt;yosemite_setup_arch+156&gt;:   ori     r0,r0,50000
+0xc020f4bc &lt;yosemite_setup_arch+160&gt;:   lwz     r10,12(r29)
+0xc020f4c0 &lt;yosemite_setup_arch+164&gt;:   lis     r9,-16352
+0xc020f4c4 &lt;yosemite_setup_arch+168&gt;:   stw     r0,8068(r11)
+0xc020f4c8 &lt;yosemite_setup_arch+172&gt;:   lwz     r0,84(r26)
+0xc020f4cc &lt;yosemite_setup_arch+176&gt;:   stw     r10,8136(r9)
+0xc020f4d0 &lt;yosemite_setup_arch+180&gt;:   mtctr   r0
+0xc020f4d4 &lt;yosemite_setup_arch+184&gt;:   bctrl
+0xc020f4d8 &lt;yosemite_setup_arch+188&gt;:   li      r5,64
+0xc020f4dc &lt;yosemite_setup_arch+192&gt;:   mr      r31,r3
+0xc020f4e0 &lt;yosemite_setup_arch+196&gt;:   lis     r4,-4288
+0xc020f4e4 &lt;yosemite_setup_arch+200&gt;:   li      r3,0
+0xc020f4e8 &lt;yosemite_setup_arch+204&gt;:   bl      0xc000c0f8
+&lt;ioremap64&gt;
+End of assembler dump.
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Once again, we need not be PowerPC assembly language experts to understand what is happening here. Notice the labels associated with the PowerPC <TT>bl</TT> instruction. This is a function call in PowerPC mnemonics. The symbolic function labels are the important data points. After a cursory analysis, we see several function calls near the start of this assembler listing:</P>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=none frame=hsides>
+<COLGROUP span=2 align=left>
+<COL width=100>
+<COL width=200></COLGROUP>
+<THEAD></THEAD>
+<TBODY>
+<TR>
+<TD class=bottomBorder vAlign=top align=left>
+<P class=docText>Address</P></TD>
+<TD class=bottomBorder vAlign=top align=left>
+<P class=docText>Function</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>0xc020f438</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>ocp_get_one_device()</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>0xc020f45c</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>memcpy()</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>0xc020f474</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>ocp_get_one_device()</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>0xc020f48c</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>memcpy()</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>0xc020f4ac</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>ibm440gx_get_clocks()</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1409">Listing 14-9</A> reproduces portions of the source file <TT>yosemite.c</TT>. Correlating the functions we found in the <TT>gdb disassemble</TT> output, we see those labels occurring in the function <TT>yosemite_set_emacdata()</TT>, around the line numbers reported by <TT>gdb</TT> when the breakpoint at <TT>yosemite_setup_arch()</TT> was encountered. The key to understanding the anomaly is to notice the subroutine call at the very start of <TT>yosemite_setup_arch()</TT>. The compiler has inlined the call to <TT>yosemite_set_emacdata()</TT> instead of generating a function call, as would be expected by simple inspection of the source code. This inlining produced the mismatch in the line numbers when <TT>gdb</TT> hit the breakpoint. Even though the <A name=iddle1994></A><TT>yosemite_set_emacdata()</TT> function was not declared using the inline keyword, GCC inlined the function as a performance optimization.</P><A name=ch1409></A>
+<H5 id=title-IDASPZKH class=docExampleTitle>Listing 14-9. Portions of Source File <TT>yosemite.c</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>109 static void __init yosemite_set_emacdata(void)
+110 {
+111         struct ocp_def *def;
+112         struct ocp_func_emac_data *emacdata;
+113
+114         /* Set mac_addr and phy mode for each EMAC */
+115
+116         def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 0);
+117         emacdata = def-&gt;additions;
+118         memcpy(emacdata-&gt;mac_addr, __res.bi_enetaddr, 6);
+119         emacdata-&gt;phy_mode = PHY_MODE_RMII;
+120
+121         def = ocp_get_one_device(OCP_VENDOR_IBM, OCP_FUNC_EMAC, 1);
+122         emacdata = def-&gt;additions;
+123         memcpy(emacdata-&gt;mac_addr, __res.bi_enet1addr, 6);
+124         emacdata-&gt;phy_mode = PHY_MODE_RMII;
+125 }
+126
+...
+304
+305 static void __init
+306 yosemite_setup_arch(void)
+307 {
+308         yosemite_set_emacdata();
+309
+310         ibm440gx_get_clocks(&amp;clocks, YOSEMITE_SYSCLK, 6 * 1843200);
+311         ocp_sys_info.opb_bus_freq = clocks.opb;
+312
+313         /* init to some ~sane value until calibrate_delay() runs */
+314         loops_per_jiffy = 50000000/HZ;
+315
+316         /* Setup PCI host bridge */
+317         yosemite_setup_hose();
+318
+319 #ifdef CONFIG_BLK_DEV_INITRD
+320        if (initrd_start)
+321                ROOT_DEV = Root_RAM0;
+322         else
+323 #endif
+324 #ifdef CONFIG_ROOT_NFS
+325                 ROOT_DEV = Root_NFS;
+326 #else
+327                 ROOT_DEV = Root_HDA1;
+328 #endif
+329
+330         yosemite_early_serial_map();
+331
+332         /* Identify the system */
+333         printk( "AMCC PowerPC " BOARDNAME " Platform\n" );
+334 }
+335</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1197></A><A name=iddle1290></A><A name=iddle1547></A><A name=iddle1635></A><A name=iddle1735></A><A name=iddle2061></A>To summarize the previous discussion:</P>
+<UL>
+<LI>
+<P class=docList>We entered a breakpoint in <TT>gdb</TT> at <TT>yosemite_setup_arch()</TT>.</P></LI>
+<LI>
+<P class=docList>When the breakpoint was hit, we found ourselves at line 116 of the source file, which was far removed from the function where we defined the breakpoint.</P></LI>
+<LI>
+<P class=docList>We produced a disassembly listing of the code at <TT>yosemite_setup_arch()</TT> and discovered the labels to which this sequence of code was branching.</P></LI>
+<LI>
+<P class=docList>Comparing the labels back to our source code, we discovered that the compiler had placed the <TT>yosemite_set_emacdata()</TT> subroutine inline with the function where we entered a breakpoint, causing potential confusion.</P></LI></UL>
+<P class=docText>This explains the line numbers reported by <TT>gdb</TT> when the original breakpoint in <TT>yosemite_setup_arch()</TT> was hit.</P>
+<P class=docText>Compilers employ many different kinds of optimization algorithms. This example presented but one: function inlining. Each can confuse a debugger (the human and the machine) in a different way. The challenge is to understand what is happening at the machine level and translate that into what we as developers had intended. You can see now the benefits of using the minimum possible optimization level for debugging.</P><A name=ch14lev2sec6></A>
+<H4 id=title-IDAXTZKH class=docSection2Title>14.3.3. gdb User-Defined Commands</H4>
+<P class=docText>You might already realize that <TT>gdb</TT> looks for an initialization file on startup, called <TT>.gdbinit</TT>. When first invoked, <TT>gdb</TT> loads this initialization file (usually found in the user's home directory) and acts on the commands within it. One of my favorite combinations is to connect to the target system and set initial breakpoints. In this case, the contents of <TT>.gdbinit</TT> would look like <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1410">Listing 14-10</A>.</P>
+<P class=docText></P><A name=ch1410></A>
+<H5 id=title-IDAWUZKH class=docExampleTitle>Listing 14-10. Simple <TT>gdb</TT> Initialization File</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>cat ~/.gdbinit</SPAN>
+set history save on
+set history filename ~/.gdb_history
+set output-radix 16
+
+define connect
+#   target remote bdi:2001
+    target remote /dev/ttyS0
+    b panic
+    b sys_sync
+end</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1195></A><A name=iddle1196></A><A name=iddle1295></A><A name=iddle1650></A><A name=iddle1740></A><A name=iddle2012></A><A name=iddle2037></A><A name=iddle2059></A><A name=iddle2060></A><A name=iddle2458></A><A name=iddle2512></A><A name=iddle2571></A>This simple <TT>.gdbinit</TT> file enables the storing of command history in a user-specified file and sets the default output radix for printing of values. Then it defines a <TT>gdb</TT> <SPAN class=docEmphasis>user-defined command</SPAN> called <TT>connect</TT>. (User-defined commands are also often called macros.) When issued at the <TT>gdb</TT> command prompt, <TT>gdb</TT> connects to the target system via the desired method and sets the system breakpoints at <TT>panic()</TT> and <TT>sys_sync()</TT>. One method is commented out; we discuss this method shortly in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch14lev1sec4">Section 14.4</A>.</P>
+<P class=docText>There is no end to the creative use of <TT>gdb</TT> user-defined commands. When debugging in the kernel, it is often useful to examine global data structures such as task lists and memory maps. Here we present several useful <TT>gdb</TT> user-defined commands capable of displaying specific kernel data that you might need to access during your kernel debugging.</P><A name=ch14lev2sec7></A>
+<H4 id=title-IDAQ0ZKH class=docSection2Title>14.3.4. Useful Kernel gdb Macros</H4>
+<P class=docText>During kernel debugging, it is often useful to view the processes that are running on the system, as well as some common attributes of those processes. The kernel maintains a linked list of tasks described by <TT>struct task_struct</TT>. The address of the first task in the list is contained in the kernel global variable <TT>init_task</TT>, which represents the initial task spawned by the kernel during startup. Each task contains a <TT>struct list_head</TT>, which links the tasks in a circular linked list. These two ubiquitous kernel structures are described in the following header files:</P>
+<DIV class=docText><PRE>struct task_struct            .../include/linux/sched.h
+struct list_head              .../include/linux/list.h</PRE></DIV><BR>
+<P class=docText><A name=iddle1500></A><A name=iddle1912></A><A name=iddle2427></A>Using <TT>gdb</TT> macros, we can traverse the task list and display useful information about the tasks. It is easy to modify the macros to extract the data you might be interested in. It is also a very useful tool for learning the details of kernel internals.</P>
+<P class=docText>The first macro we examine (in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1411">Listing 14-11</A>) is a simple one that searches the kernel's linked list of <TT>task_struct</TT> structures until it finds the given task. If it is found, it displays the name of the task.</P><A name=ch1411></A>
+<H5 id=title-IDAY2ZKH class=docExampleTitle>Listing 14-11. <TT>gdb find_task</TT> Macro</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE> 1 # Helper function to find a task given a PID or the
+ 2 # address of a task_struct.
+ 3 # The result is set into $t
+ 4 define find_task
+ 5   # Addresses greater than _end: kernel data...
+ 6   # ...user passed in an address
+ 7   if ((unsigned)$arg0 &gt; (unsigned)&amp;_end)
+ 8     set $t=(struct task_struct *)$arg0
+ 9   else
+10     # User entered a numeric PID
+11     # Walk the task list to find it
+12     set $t=&amp;init_task
+13     if (init_task.pid != (unsigned)$arg0)
+14       find_next_task $t
+15       while (&amp;init_task!=$t &amp;&amp; $t-&gt;pid != (unsigned)$arg0)
+16         find_next_task $t
+17       end
+18       if ($t == &amp;init_task)
+19         printf "Couldn't find task; using init_task\n"
+20       end
+21     end
+22   end
+23   printf "Task \"%s\":\n", $t-&gt;comm
+24 end</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Place this text into your <TT>.gdbinit</TT> file and restart <TT>gdb</TT>, or <SPAN class=docEmphasis>source<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14fn7">[7]</A></SUP></SPAN> it using <TT>gdb's source</TT> command. (We explain the <TT>find_next_task</TT> macro later in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1415">Listing 14-15</A>.) Invoke it as follows:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn7>[7]</A></SUP> A helpful shortcut for macro development is the <TT>gdb source</TT> command. This command opens and reads a source file containing macro definitions.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>(gdb) <SPAN class=docEmphStrong>find_task 910</SPAN>
+   Task "syslogd":</PRE></DIV><BR>
+<P class=docText>or</P>
+<DIV class=docText><PRE>(gdb) <SPAN class=docEmphStrong>find_task 0xCFFDE470</SPAN>
+   Task "bash":</PRE></DIV><BR>
+<P class=docText><A name=iddle1916></A><A name=iddle2288></A>Line 4 defines the macro name. Line 7 decides whether the input argument is a PID (numeric entry starting at zero and limited to a few million) or a <TT>task_struct</TT> address that must be greater than the end of the Linux kernel image itself, defined by the symbol <TT>_end</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14fn8">[8]</A></SUP> If it's an address, the only action required is to cast it to the proper type to enable dereferencing the associated <TT>task_struct</TT>. This is done at line 8. As the comment in line 3 states, this macro returns a <TT>gdb</TT> convenience variable typecasted to a pointer to a <TT>struct task_struct</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn8>[8]</A></SUP> The symbol <TT>_end</TT> is defined in the linker script file during the final link.</P></BLOCKQUOTE>
+<P class=docText>If the input argument is a numeric PID, the list is traversed to find the matching <TT>task_struct</TT>. Lines 12 and 13 initialize the loop variables (<TT>gdb</TT> does not have a <TT>for</TT> statement in its macro command language), and lines 15 through 17 define the search loop. The <TT>find_next_task</TT> macro is used to extract the pointer to the next <TT>task_struct</TT> in the linked list. Finally, if the search fails, a sane return value is set (the address of <TT>init_task</TT>) so that it can be safely used in other macros.</P>
+<P class=docText>Building on the <TT>find_task</TT> macro in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1411">Listing 14-11</A>, we can easily create a simple <TT>ps</TT> command that displays useful information about each process running on the system.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1412">Listing 14-12</A> defines a <TT>gdb</TT> macro that displays interesting information from a running process, extracted from the <TT>struct task_struct</TT> for the given process. It is invoked like any other <TT>gdb</TT> command, by typing its name followed by any required input parameters. Notice that this user-defined command requires a single argument, either a PID or the address of a <TT>task_struct</TT>.</P><A name=ch1412></A>
+<H5 id=title-IDA0B2IH class=docExampleTitle>Listing 14-12. <TT>gdb</TT> Macro: Print Process Information</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE> 1 define ps
+ 2   # Print column headers
+ 3   task_struct_header
+ 4   set $t=&amp;init_task
+ 5   task_struct_show $t
+ 6   find_next_task $t
+ 7   # Walk the list
+ 8   while &amp;init_task!=$t
+ 9     # Display useful info about each task
+10     task_struct_show $t
+11     find_next_task $t
+12   end
+13 end
+14
+15 document ps
+16 Print points of interest for all tasks
+17 end</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1918></A>This <TT>ps</TT> macro is similar to the <TT>find_task</TT> macro, except that it requires no input arguments and it adds a macro (<TT>task_struct_show</TT>) to display the useful information from each <TT>task_struct</TT>. Line 3 prints a banner line with column headings. Lines 4 through 6 set up the loop and display the first task. Lines 8 through 11 loop through each task, calling the <TT>task_struct_show</TT> macro for each.</P>
+<P class=docText>Notice also the inclusion of the <TT>gdb document</TT> command. This allows the <TT>gdb</TT> user to get help by issuing the <TT>help ps</TT> command from the <TT>gdb</TT> command prompt as follows:</P>
+<DIV class=docText><PRE>(gdb) <SPAN class=docEmphStrong>help ps</SPAN>
+   Print points of interest for all tasks</PRE></DIV><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1413">Listing 14-13</A> displays the output of this macro on a target board running only minimal services.</P><A name=ch1413></A>
+<H5 id=title-IDAIE2IH class=docExampleTitle>Listing 14-13. <TT>gdb ps</TT> Macro Output</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>ps</SPAN>
+Address      PID State      User_NIP  Kernel-SP  device comm
+0xC01D3750     0 Running              0xC0205E90 (none) swapper
+0xC04ACB10     1 Sleeping  0x0FF6E85C 0xC04FFCE0 (none) init
+0xC04AC770     2 Sleeping             0xC0501E90 (none) ksoftirqd/0
+0xC04AC3D0     3 Sleeping             0xC0531E30 (none) events/0
+0xC04AC030     4 Sleeping             0xC0533E30 (none) khelper
+0xC04CDB30     5 Sleeping             0xC0535E30 (none) kthread
+0xC04CD790    23 Sleeping             0xC06FBE30 (none) kblockd/0
+0xC04CD3F0    45 Sleeping             0xC06FDE50 (none) pdflush
+0xC04CD050    46 Sleeping             0xC06FFE50 (none) pdflush
+0xC054B7B0    48 Sleeping             0xC0703E30 (none) aio/0
+0xC054BB50    47 Sleeping             0xC0701E20 (none) kswapd0
+0xC054B410   629 Sleeping             0xC0781E60 (none) kseriod
+0xC054B070   663 Sleeping             0xCFC59E30 (none) rpciod/0
+0xCFFDE0D0   675 Sleeping  0x0FF6E85C 0xCF86DCE0 (none) udevd
+0xCF95B110   879 Sleeping  0x0FF0BE58 0xCF517D80 (none) portmap
+0xCFC24090   910 Sleeping  0x0FF6E85C 0xCF61BCE0 (none) syslogd
+0xCF804490   918 Sleeping  0x0FF66C7C 0xCF65DD70 (none) klogd
+0xCFE350B0   948 Sleeping  0x0FF0E85C 0xCF67DCE0 (none) rpc.statd
+0xCFFDE810   960 Sleeping  0x0FF6E85C 0xCF5C7CE0 (none) inetd
+
+0xCFC24B70   964 Sleeping  0x0FEEBEAC 0xCF64FD80 (none) mvltd
+0xCFE35B90   973 Sleeping  0x0FF66C7C 0xCFEF7CE0 ttyS1  getty
+0xCFE357F0   974 Sleeping  0x0FF4B85C 0xCF6EBCE0 (none) in.telnetd
+0xCFFDE470   979 Sleeping  0x0FEB6950 0xCF675DB0 ttyp0  bash
+0xCFFDEBB0   982&lt;Running   0x0FF6EB6C 0xCF7C3870 ttyp0  sync
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1919></A><A name=iddle2513></A>The bulk of the work done by this <TT>ps</TT> macro is performed by the <TT>task_struct_show</TT> macro. As shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1413">Listing 14-13</A>, the <TT>task_struct_show</TT> macro displays the following fields from each <TT>task_struct</TT>:</P>
+<UL>
+<LI>
+<P class=docText><TT>Address</TT> Address of the <TT>task_struct</TT> for the process</P></LI>
+<LI>
+<P class=docText><TT>PID</TT> Process ID</P></LI>
+<LI>
+<P class=docText><TT>State</TT> Current state of the process</P></LI>
+<LI>
+<P class=docText><TT>User_NIP</TT> Userspace Next Instruction Pointer</P></LI>
+<LI>
+<P class=docText><TT>Kernel_SP</TT> Kernel Stack Pointer</P></LI>
+<LI>
+<P class=docText><TT>device</TT> Device associated with this process</P></LI>
+<LI>
+<P class=docText><TT>comm</TT> Name of the process (or command)</P></LI></UL>
+<P class=docText>It is relatively easy to modify the macro to show the items of interest for your particular kernel debugging task. The only complexity is in the simplicity of the macro language. Because function equivalents such as <TT>strlen</TT> do not exist in <TT>gdb</TT>'s user-defined command language, screen formatting must be done by hand.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1414">Listing 14-14</A> reproduces the <TT>task_struct_show</TT> macro that produced the previous listing.</P><A name=ch1414></A>
+<H5 id=title-IDAUI5IH class=docExampleTitle>Listing 14-14. <TT>gdb task_struct_show</TT> Macro</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE> 1 define task_struct_show
+ 2   # task_struct addr and PID
+ 3   printf "0x%08X %5d", $arg0, $arg0-&gt;pid
+ 4
+ 5   # Place a '&lt;' marker on the current task
+ 6   #  if ($arg0 == current)
+ 7   # For PowerPC, register r2 points to the "current" task
+ 8   if ($arg0 == $r2)
+ 9     printf "&lt;"
+10   else
+11     printf " "
+12   end
+13
+14   # State
+15   if ($arg0-&gt;state == 0)
+16     printf "Running   "
+17   else
+18     if ($arg0-&gt;state == 1)
+19       printf "Sleeping  "
+20     else
+21       if ($arg0-&gt;state == 2)
+22         printf "Disksleep "
+23       else
+24         if ($arg0-&gt;state == 4)
+25           printf "Zombie    "
+26         else
+27           if ($arg0-&gt;state == 8)
+28             printf "sTopped   "
+29           else
+30             if ($arg0-&gt;state == 16)
+31               printf "Wpaging   "
+32             else
+33               printf "%2d        ", $arg0-&gt;state
+34             end
+35           end
+36         end
+37       end
+38     end
+39   end
+40
+41   # User NIP
+42   if ($arg0-&gt;thread.regs)
+43     printf "0x%08X ", $arg0-&gt;thread.regs-&gt;nip
+44   else
+45     printf "           "
+46   end
+47
+48   # Display the kernel stack pointer
+49   printf "0x%08X ", $arg0-&gt;thread.ksp
+50
+51   # device
+52   if ($arg0-&gt;signal-&gt;tty)
+53     printf "%s   ", $arg0-&gt;signal-&gt;tty-&gt;name
+54   else
+55     printf "(none) "
+56   end
+57
+58   # comm
+59   printf "%s\n", $arg0-&gt;comm
+60 end</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1499></A><A name=iddle1911></A>Line 3 displays the address of the <TT>task_struct</TT>. Lines 8 through 12 display the process ID. If this is the current process (the process that was currently running on this CPU at the time the breakpoint was hit), it is marked with a <TT>&lt;</TT> character.</P>
+<P class=docText>Lines 14 through 39 decode and display the state of the process. This is followed by displaying the user process next instruction pointer (NIP) and the kernel stack pointer (SP). Finally, the device associated with the process is displayed, followed by the name of the process (stored in the <TT>-&gt;comm</TT> element of the <TT>task_struct</TT>.)</P>
+<P class=docText>It is important to note that this macro is architecture dependent, as shown in lines 7 and 8. In general, macros such as these are highly architecture- and version-dependent. Any time a change in the underlying structure is made, macros such as these must be updated. However, if you spend a lot of time debugging the kernel using <TT>gdb</TT>, the payback is often worth the effort.</P>
+<P class=docText>For completeness, we present the <TT>find_next_task</TT> macro. Its implementation is less than obvious and deserves explanation. (It is assumed that you can easily deduce the <TT>task_struct_header</TT> that completes the series necessary for the <TT>ps</TT> macro presented in this section. It is nothing more than a single line arranging the column headers with the correct amount of whitespace.) <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1415">Listing 14-15</A> presents the <TT>find_next_task</TT> macro used in our <TT>ps</TT> and <TT>find_task</TT> macros.</P><A name=ch1415></A>
+<H5 id=title-IDAEL5IH class=docExampleTitle>Listing 14-15. <TT>gdb find_next_task</TT> Macro</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>define find_next_task
+  # Given a task address, find the next task in the linked list
+  set $t = (struct task_struct *)$arg0
+  set $offset=( (char *)&amp;$t-&gt;tasks - (char *)$t)
+  set $t=(struct task_struct *)( (char *)$t-&gt;tasks.next- (char *)$offset)
+end</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The function performed by this macro is simple. The implementation is slightly less than straightforward. The goal is to return the <TT>-&gt;next</TT> pointer, which points to the next <TT>task_struct</TT> on the linked list. However, the <TT>task_struct</TT> structures are linked by the address of the <TT>struct list_head</TT> member called <TT>tasks</TT>, as opposed to the common practice of being linked by the starting address of the <TT>task_struct</TT> itself. Because the <TT>-&gt;next</TT> pointer points to the address of the <TT>task</TT> structure element in the next <TT>task_struct</TT> on the list, we must subtract to get the address of the top of the <TT>task_struct</TT> itself. The value we subtract from the <TT>-&gt;next</TT> pointer <A name=iddle1915></A><A name=iddle2042></A><A name=iddle2054></A>is the offset from that pointer's address to the top of <TT>task_struct</TT>. First we calculate the offset and then we use that offset to adjust the <TT>-&gt;next</TT> pointer to point to the top of <TT>task_struct</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14fig05">Figure 14-5</A> should make this clear.</P><A name=ch14fig05></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 14-5. Task structure list linking</H5>
+<P class=docText><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/14elp05.jpg" width=500 height=325></P></CENTER>
+<P></P><BR>
+<P class=docText>Now we present one final macro that will be useful in the next section when we discuss debugging loadable modules. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1416">Listing 14-16</A> is a simple macro that displays the kernel's list of currently installed loadable modules.</P><A name=ch1416></A>
+<H5 id=title-IDA4O5IH class=docExampleTitle>Listing 14-16. <TT>gdb</TT> List Modules Macro</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>1 define lsmod
+2   printf "Address\t\tModule\n"
+3   set $m=(struct list_head *)&amp;modules
+4   set $done=0
+5   while ( !$done )
+6     # list_head is 4-bytes into struct module
+7     set $mp=(struct module *)((char *)$m-&gt;next - (char *)4)
+8     printf "0x%08X\t%s\n", $mp, $mp-&gt;name
+9     if ( $mp-&gt;list-&gt;next == &amp;modules)
+10       set $done=1
+11     end
+12     set $m=$m-&gt;next
+13   end
+14 end
+15
+16 document lsmod
+17 List the loaded kernel modules and their start addresses
+18 end</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1294></A><A name=iddle1739></A><A name=iddle2040></A>This simple loop starts with the kernel's global variable <TT>module</TT>. This variable is a <TT>struct list_head</TT> that marks the start of the linked list of loadable modules. The only complexity is the same as that described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1415">Listing 14-15</A>. We must subtract an offset from the <TT>struct list_head</TT> pointer to point to the top of the <TT>struct module</TT>. This is performed in line 7. This macro produces a simple listing of modules containing the address of the <TT>struct module</TT> and the module's name. Here is an example of its use:</P>
+<DIV class=docText><PRE>(gdb) <SPAN class=docEmphStrong>lsmod</SPAN>
+Address         Module
+0xD1012A80      ip_conntrack_tftp
+0xD10105A0      ip_conntrack
+0xD102F9A0      loop
+(gdb) <SPAN class=docEmphStrong>help lsmod</SPAN>
+List the loaded kernel modules and their start addresses
+(gdb)</PRE></DIV><BR>
+<P class=docText>Macros such as the ones presented here are very powerful debugging aids. You can create macros in a similar fashion to display anything in the kernel that lends itself to easy access, especially the major data structures maintained as linked lists. Examples include process memory map information, module information, file system information, and timer lists and so on. The information presented here should get you started.</P><A name=ch14lev2sec8></A>
+<H4 id=title-IDA3R5IH class=docSection2Title>14.3.5. Debugging Loadable Modules</H4>
+<P class=docText>The most common reason for using KGDB is to debug loadable kernel modules, that is, device drivers. One of the more convenient features of loadable modules is that, under most circumstances, it is not necessary to reboot the kernel for each new debugging session. You can start a debugging session, make some changes, <A name=iddle1019></A><A name=iddle1982></A><A name=iddle2465></A>recompile, and reload the module without the hassle and delay of a complete kernel reboot.</P>
+<P class=docText>The complication associated with debugging loadable modules is in gaining access to the symbolic debug information contained in the module's object file. Because loadable modules are dynamically linked when they are loaded into the kernel, the symbolic information contained in the object file is useless until the symbol table is adjusted.</P>
+<P class=docText>Recall from our earlier examples how we invoke <TT>gdb</TT> for a kernel debugging session:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ppc_4xx-gdb vmlinux</SPAN></PRE></DIV><BR>
+<P class=docText>This launches a <TT>gdb</TT> debugging session on your host, and reads the symbol information from the Linux kernel ELF file <TT>vmlinux</TT>. Of course, you will not find symbols for any loadable modules in this file. Loadable modules are separate compilation units and are linked as individual standalone ELF objects. Therefore, if we intend to perform any source-level debugging on a loadable module, we need to load its debug symbols from the ELF file. <TT>gdb</TT> provides this capability in its <TT>add-symbol-file</TT> command.</P>
+<P class=docText>The <TT>add-symbol-file</TT> command loads symbols from the specified object file, assuming that the module itself has already been loaded. However, we are faced with the chicken-and-egg syndrome. We don't have any symbol information until the loadable module has been loaded into the kernel and the <TT>add-symbol-file</TT> command is issued to read in the module's symbol information. However, after the module has been loaded, it is too late to set breakpoints and debug the module's <TT>*_init</TT> and related functions because they have already executed.</P>
+<P class=docText>The solution to this dilemma is to place a breakpoint in the kernel code that is responsible for loading the module, after it has been linked but before its initialization function has been called. This work is done by <TT>.../kernel/module.c</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1417">Listing 14-17</A> reproduces the relevant portions of <TT>module.c</TT>.</P><A name=ch1417></A>
+<H5 id=title-IDA5U5IH class=docExampleTitle>Listing 14-17. <TT>module.c</TT>: Module Initialization</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+1901         down(&amp;notify_mutex);
+1902        notifier_call_chain(&amp;module_notify_list, MODULE_STATE_COMING, mod);
+1903         up(&amp;notify_mutex);
+1904
+1905         /* Start the module */
+1906         if (mod-&gt;init != NULL)
+1907                 ret = mod-&gt;init();
+1908         if (ret &lt; 0) {
+1909                 /* Init routine failed: abort.  Try to protect us from
+1910                    buggy refcounters. */
+1911                 mod-&gt;state = MODULE_STATE_GOING;
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1933></A><A name=iddle2049></A>We load the module using the <TT>modprobe</TT> utility, which was demonstrated in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list05">Listing 8-5</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08.html#ch08">Chapter 8</A>, "Device Driver Basics," and looks like this:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>modprobe loop</SPAN></PRE></DIV><BR>
+<P class=docText>This command issues a special system call that directs the kernel to load the module. The module loading begins at <TT>sys_init_module()</TT> in <TT>module.c</TT>. After the module has been loaded into kernel memory and dynamically linked, control is passed to the module's <TT>_init</TT> function. This is shown in lines 1906 and 1907 of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1417">Listing 14-17</A>. We place our breakpoint here. This enables us to add the symbol file to <TT>gdb</TT> and subsequently set breakpoints in the module. We demonstrate this process using the Linux kernel's loopback driver called <TT>loop.ko</TT>. This module has no dependencies on other modules and is reasonably easy to demonstrate.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1418">Listing 14-18</A> shows the <TT>gdb</TT> commands to initiate this debugging session on <TT>loop.ko</TT>.</P><A name=ch1418></A>
+<H5 id=title-IDAJY5IH class=docExampleTitle>Listing 14-18. Initiate Module Debug Session: <TT>loop.ko</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>1 $ <SPAN class=docEmphStrong>ppc-linux-gdb --silent vmlinux</SPAN>
+2 (gdb) <SPAN class=docEmphStrong>connect</SPAN>
+3 breakinst () at arch/ppc/kernel/ppc-stub.c:825
+4 825     }
+5 Breakpoint 1 at 0xc0016b18: file kernel/panic.c, line 74.
+6 Breakpoint 2 at 0xc005a8c8: file fs/buffer.c, line 296.
+7 (gdb) <SPAN class=docEmphStrong>b module.c:1907</SPAN>
+8 Breakpoint 3 at 0xc003430c: file kernel/module.c, line 1907.
+9 (gdb) <SPAN class=docEmphStrong>c</SPAN>
+10 Continuing.
+11 &gt;&gt;&gt;&gt; Here we let the kernel finish booting
+12      and then load the loop.ko module on the target
+13
+14 Breakpoint 3, sys_init_module (umod=0x30029000, len=0x2473e,
+15     uargs=0x10016338 "") at kernel/module.c:1907
+16 1907                    ret = mod-&gt;init();
+17 (gdb) <SPAN class=docEmphStrong>lsmod</SPAN>
+18 Address         Module
+19 0xD102F9A0      loop
+20 (gdb) <SPAN class=docEmphStrong>set $m=(struct module *)0xD102F9A0.</SPAN>
+21 (gdb) <SPAN class=docEmphStrong>p $m-&gt;module_core</SPAN>
+22 $1 = (void *) 0xd102c000
+23 (gdb) <SPAN class=docEmphStrong>add-symbol-file ./drivers/block/loop.ko 0xd102c000</SPAN>
+24 add symbol table from file "./drivers/block/loop.ko" at
+25         .text_addr = 0xd102c000
+26 (y or n) <SPAN class=docEmphStrong>y</SPAN>
+27 Reading symbols from /home/chris/sandbox/linux-2.6.13-amcc/
+drivers/block        /loop.ko...done.</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1634></A>Starting with line 2, we use the <TT>gdb</TT> user-defined macro <TT>connect</TT> created earlier in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1410">Listing 14-10</A> to connect to the target board and set our initial breakpoints. We then add the breakpoint in <TT>module.c</TT>, as shown in line 7, and we issue the <TT>continue</TT> command (<TT>c)</TT>. Now the kernel completes the boot process and we establish a <TT>telnet</TT> session into the target and load the <TT>loop.ko</TT> module (not shown). When the loopback module is loaded, we immediately hit breakpoint #3. <TT>gdb</TT> then displays the information shown in lines 14 through 16.</P>
+<P class=docText>At this point, we need to discover the address where the Linux kernel linked our module's <TT>.text</TT> section. Linux stores this address in the module information structure <TT>struct module</TT> in the <TT>module_core</TT> element. Using the <TT>lsmod</TT> macro we defined in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1416">Listing 14-16</A>, we obtain the address of the <TT>struct module</TT> associated with our <TT>loop.ko</TT> module. This is shown in lines 17 through 19. Now we use this structure address to obtain the module's <TT>.text</TT> address from the <TT>module_core</TT> structure member. We pass this address to the <TT>gdb add-symbol-file</TT> command, and <TT>gdb</TT> uses this address to adjust its internal symbol table to match the actual addresses where the module was linked into the kernel. From there, we can proceed in the usual manner to set breakpoints in the module, step through code, examine data, and so on.</P>
+<P class=docText>We conclude this section with a demonstration of placing a breakpoint in the loopback module's initialization function so that we can step through the module's initialization code. The complication here is that the kernel loads the module's initialization code into a separately allocated portion of memory so that it can be freed after use. Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, "Kernel Initialization," our discussion of the <TT>__init</TT> macro. This macro expands into a compiler attribute that directs the linker to place the marked portion of code into a specially named ELF section. In essence, <A name=iddle1879></A>any function defined with this attribute is placed in a separate ELF section named <TT>.init.text</TT>. Its use is similar to the following:</P>
+<DIV class=docText><PRE>static int __init loop_init(void){...}</PRE></DIV><BR>
+<P class=docText>This invocation would place the compiled <TT>loop_init()</TT> function into the <TT>.init.text</TT> section of the <TT>loop.ko</TT> object module. When the module is loaded, the kernel allocates a chunk of memory for the main body of the module, which is pointed to by the <TT>struct module</TT> member named <TT>module_core</TT>. It then allocates a separate chunk of memory to hold the <TT>.init.text</TT> section. After the initialization function is called, the kernel frees the memory that contained the initialization function. Because the object module is split like this, we need to inform <TT>gdb</TT> of this addressing scheme to be able to use symbolic data for debugging the initialization function.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14fn9">[9]</A></SUP> <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch1419">Listing 14-19</A> demonstrates these steps.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn9>[9]</A></SUP> As of this writing, there is a bug in <TT>gdb</TT> that prevents this technique from working properly. Hopefully, by the time you read this, it will be fixed.</P></BLOCKQUOTE><A name=ch1419></A>
+<H5 id=title-IDAE45IH class=docExampleTitle>Listing 14-19. Debugging Module <TT>init</TT> Code</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ppc_4xx-gdb -slient vmlinux</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote /dev/ttyS0</SPAN>
+Remote debugging using /dev/ttyS0
+breakinst () at arch/ppc/kernel/ppc-stub.c:825
+825     }
+&lt;&lt; Place a breakpoint before calling module init &gt;&gt;
+(gdb) <SPAN class=docEmphStrong>b module.c:1907</SPAN>
+Breakpoint 1 at 0xc0036418: file kernel/module.c, line 1907.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+
+Breakpoint 1, sys_init_module (umod=0xd102ef40, len=0x23cb3, uargs=0x10016338 "")
+at kernel/module.c:1907
+1907                    ret = mod-&gt;init();
+
+&lt;&lt; Discover init addressing from struct module &gt;&gt;
+(gdb) <SPAN class=docEmphStrong>lsmod</SPAN>
+Address         Module
+0xD102EF40      loop
+(gdb) <SPAN class=docEmphStrong>set $m=(struct module *)0xD102EF40</SPAN>
+(gdb) p <SPAN class=docEmphStrong>$m-&gt;module_core</SPAN>
+$1 = (void *) 0xd102b000
+(gdb) <SPAN class=docEmphStrong>p $m-&gt;module_init</SPAN>
+$2 = (void *) 0xd1031000
+&lt;&lt; Now load a symbol file using the core and init addrs &gt;&gt;
+(gdb) <SPAN class=docEmphStrong>add-symbol-file ./drivers/block/loop.ko 0xd102b000 -s .init.text 0xd1031000</SPAN>
+add symbol table from file "./drivers/block/loop.ko" at
+        .text_addr = 0xd102b000
+        .init.text_addr = 0xd1031000
+(y or n) y
+Reading symbols from /home/chris/sandbox/linux-2.6.13-amcc/drivers/block/loop.ko...done.
+(gdb) <SPAN class=docEmphStrong>b loop_init</SPAN>
+Breakpoint 3 at 0xd1031000: file drivers/block/loop.c, line 1244.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+&lt;&lt; Breakpoint hit, proceed to debug module init function &gt;&gt;
+Breakpoint 3, 0xd1031000 in loop_init () file drivers/block/loop.c, line 1244
+1244        if (max_loop &lt; 1 || max_loop &gt; 256) {
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch14lev2sec9></A>
+<H4 id=title-IDAIADLH class=docSection2Title>14.3.6. printk Debugging</H4>
+<P class=docText><A name=iddle1298></A><A name=iddle1743></A><A name=iddle2048></A><A name=iddle2247></A>Debugging kernel and device driver code using <TT>printk</TT> is a popular technique, mostly because <TT>printk</TT> has evolved into a very robust method. You can call <TT>printk</TT> from almost any context, including from interrupt handlers. <TT>printk</TT> is the kernel's version of the familiar <TT>printf()</TT> C library function. <TT>printk</TT> is defined in <TT>.../kernel/printk.c</TT>.</P>
+<P class=docText>It is important to understand the limitations of using <TT>printk</TT> for debugging. First, <TT>printk</TT> requires a console device. Moreover, although the console device is configured as early as possible during kernel initialization, there are many calls to <TT>printk</TT> before the console device has been initialized. We present a method to cope with this limitation later, in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec5.html#ch14lev1sec5">Section 14.5</A>, "When It Doesn't Boot."</P>
+<P class=docText>The <TT>printk</TT> function allows the addition of a string marker that identifies the level of severity of a given message. The header file <TT>.../include/linux/kernel.h</TT> defines eight levels:</P>
+<DIV class=docText><PRE>#define     KERN_EMERG    "&lt;0&gt;" /* system is unusable */
+#define     KERN_ALERT    "&lt;1&gt;" /* action must be taken immediately */
+#define     KERN_CRIT     "&lt;2&gt;" /* critical conditions */
+#define     KERN_ERR      "&lt;3&gt;" /* error conditions */
+#define     KERN_WARNING  "&lt;4&gt;" /* warning conditions */
+#define     KERN_NOTICE   "&lt;5&gt;" /* normal but significant condition */
+#define     KERN_INFO     "&lt;6&gt;" /* informational */
+#define     KERN_DEBUG    "&lt;7&gt;" /* debug-level messages */</PRE></DIV><BR>
+<P class=docText><A name=iddle1296></A><A name=iddle1741></A><A name=iddle2063></A>A simple <TT>printk</TT> message might look like this:</P>
+<DIV class=docText><PRE>printk("foo() entered w/ %s\n", arg);</PRE></DIV><BR>
+<P class=docText>If the severity string is omitted, the kernel assigns a default severity level, which is defined in <TT>printk.c</TT>. In recent kernels, this is set at severity level 4, <TT>KERN_WARNING</TT>. Specifying <TT>printk</TT> with a severity level might look something like this:</P>
+<DIV class=docText><PRE>printk(KERN_CRIT "vmalloc failed in foo()\n");</PRE></DIV><BR>
+<P class=docText>By default, all <TT>printk</TT> messages below a predefined <SPAN class=docEmphasis>loglevel</SPAN> are displayed on the system console device. The default loglevel is defined in <TT>printk.c</TT>. In recent Linux kernels, it has the value <TT>7</TT>. This means that any <TT>printk</TT> message that is greater in importance than <TT>KERN_DEBUG</TT> will be displayed on the console.</P>
+<P class=docText>You can set the default kernel loglevel in a variety of ways. At boot time, you can specify the default loglevel on your target board by passing the appropriate kernel command line parameters to the kernel at boot time. Three kernel command line options defined in <TT>main.c</TT> affect the default loglevel:</P>
+<UL>
+<LI>
+<P class=docText><TT>debug</TT> Sets the console loglevel to 10</P></LI>
+<LI>
+<P class=docText><TT>quiet</TT> Sets the console loglevel to 4</P></LI>
+<LI>
+<P class=docText><TT>loglevel=</TT> Sets the console loglevel to your choice of value</P></LI></UL>
+<P class=docText>Using <TT>debug</TT> effectively displays every <TT>printk</TT> message. Using <TT>quiet</TT> displays all <TT>printk</TT> messages of severity <TT>KERN_ERR</TT> or higher.</P>
+<P class=docText><TT>printk</TT> messages can be logged to files on your target or via the network. Use <TT>klogd</TT> (kernel log daemon) and <TT>syslogd</TT> (system log daemon) to control the logging behavior of <TT>printk</TT> messages. These popular utilities are described in man pages and many Linux references, and are not described here.</P><A name=ch14lev2sec10></A>
+<H4 id=title-IDAYHDLH class=docSection2Title>14.3.7. Magic SysReq Key</H4>
+<P class=docText>This useful debugging aid is invoked through a series of special predefined key sequences that send messages directly to the kernel. For many target architectures and boards, you use a simple terminal emulator on a serial port as a system console. For these architectures, the Magic SysReq key is defined as a break character followed by a command character. Consult the documentation on the terminal emulator you use for how to send a break character. Many Linux developers use the <TT>minicom</TT> terminal emulator. For <TT>minicom</TT>, the break character is sent by typing <A name=iddle1291></A><A name=iddle1586></A><A name=iddle1712></A><A name=iddle1736></A><TT>Ctl-A F</TT>. After sending the break in this manner, you have 5 seconds to enter the command character before the command times out.</P>
+<P class=docText>This useful kernel tool can be very helpful for development and debugging, but it can also cause data loss and system corruption. Indeed, the <TT>b</TT> command immediately reboots your system without any notification or preparation. Open files are not closed, disks are not synced, and file systems are not unmounted. When the reboot (<TT>b</TT>) command is issued, control is immediately passed to the reset vector of your architecture in a most abrupt and stunning manner. Use this powerful tool at your own peril!</P>
+<P class=docText>This feature is well documented in the Linux kernel documentation subdirectory in a file called <TT>sysrq.txt</TT>. There you find the details for many architectures and the description of available commands.</P>
+<P class=docText>For example, another way to set the kernel loglevel just discussed is to use the Magic SysReq key. The command is a number from 0 through 9, which results in the default loglevel being set to the number of the command. From minicom, press <TT>Ctl-A F</TT> followed by a number, such as 9. Here is how it looks on the terminal:</P>
+<DIV class=docText><PRE>$ SysRq : Changing Loglevel
+   Loglevel set to 9</PRE></DIV><BR>
+<P class=docText>Commands can be used to dump registers, shut down your system, reboot your system, dump a list of processes, dump current memory information to your console, and more. See the documentation file in any recent Linux kernel for the details.</P>
+<P class=docText>This feature is most commonly used when something causes your system to lock up. Often the Magic SysReq key provides a way to learn something from an otherwise dead system.

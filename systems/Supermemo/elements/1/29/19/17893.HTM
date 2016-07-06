@@ -1,0 +1,101 @@
+<H4 class=subsection>11.3.2 An Alarm Clock Program</H4><A name=index-insomnia_002c-cure-for></A><A name=index-Robbins_002c-Arnold-3></A>
+<BLOCKQUOTE>
+<P><I>Nothing cures insomnia like a ringing alarm clock.</I> </P></BLOCKQUOTE>
+<DIV align=center>&#8212; <EM>Arnold Robbins</EM> </DIV><A name=index-Quanstrom_002c-Erik></A>
+<BLOCKQUOTE>
+<P><I>Sleep is for web developers.</I> </P></BLOCKQUOTE>
+<DIV align=center>&#8212; <EM>Erik Quanstrom</EM> </DIV><A name=index-time_002c-alarm-clock-example-program></A><A name=index-alarm-clock-example-program></A>
+<P>The following program is a simple &#8220;alarm clock&#8221; program. You give it a time of day and an optional message. At the specified time, it prints the message on the standard output. In addition, you can give it the number of times to repeat the message as well as a delay between repetitions. </P>
+<P>This program uses the <CODE>getlocaltime()</CODE> function from <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Getlocaltime-Function">Getlocaltime Function</A>. </P>
+<P>All the work is done in the <CODE>BEGIN</CODE> rule. The first part is argument checking and setting of defaults: the delay, the count, and the message to print. If the user supplied a message without the ASCII BEL character (known as the &#8220;alert&#8221; character, <CODE>"\a"</CODE>), then it is added to the message. (On many systems, printing the ASCII BEL generates an audible alert. Thus when the alarm goes off, the system calls attention to itself in case the user is not looking at the computer.) Just for a change, this program uses a <CODE>switch</CODE> statement (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Switch-Statement">Switch Statement</A>), but the processing could be done with a series of <CODE>if</CODE>-<CODE>else</CODE> statements instead. Here is the program: </P><A name=index-alarm_002eawk-program></A>
+<DIV class=example><PRE class=example># alarm.awk --- set an alarm
+#
+# Requires getlocaltime() library function
+# usage: alarm time [ "message" [ count [ delay ] ] ]
+
+BEGIN    \
+{
+    # Initial argument sanity checking
+    usage1 = "usage: alarm time ['message' [count [delay]]]"
+    usage2 = sprintf("\t(%s) time ::= hh:mm", ARGV[1])
+
+    if (ARGC &lt; 2) {
+        print usage1 &gt; "/dev/stderr"
+        print usage2 &gt; "/dev/stderr"
+        exit 1
+    }
+    switch (ARGC) {
+    case 5:
+        delay = ARGV[4] + 0
+        # fall through
+    case 4:
+        count = ARGV[3] + 0
+        # fall through
+    case 3:
+        message = ARGV[2]
+        break
+    default:
+        if (ARGV[1] !~ /[[:digit:]]?[[:digit:]]:[[:digit:]]{2}/) {
+            print usage1 &gt; "/dev/stderr"
+            print usage2 &gt; "/dev/stderr"
+            exit 1
+        }
+        break
+    }
+
+    # set defaults for once we reach the desired time
+    if (delay == 0)
+        delay = 180    # 3 minutes
+</PRE><PRE class=example>    if (count == 0)
+        count = 5
+</PRE><PRE class=example>    if (message == "")
+        message = sprintf("\aIt is now %s!\a", ARGV[1])
+    else if (index(message, "\a") == 0)
+        message = "\a" message "\a"
+</PRE></DIV>
+<P>The next section of code turns the alarm time into hours and minutes, converts it (if necessary) to a 24-hour clock, and then turns that time into a count of the seconds since midnight. Next it turns the current time into a count of seconds since midnight. The difference between the two is how long to wait before setting off the alarm: </P>
+<DIV class=example><PRE class=example>    # split up alarm time
+    split(ARGV[1], atime, ":")
+    hour = atime[1] + 0    # force numeric
+    minute = atime[2] + 0  # force numeric
+
+    # get current broken down time
+    getlocaltime(now)
+
+    # if time given is 12-hour hours and it's after that
+    # hour, e.g., `alarm 5:30' at 9 a.m. means 5:30 p.m.,
+    # then add 12 to real hour
+    if (hour &lt; 12 &amp;&amp; now["hour"] &gt; hour)
+        hour += 12
+
+    # set target time in seconds since midnight
+    target = (hour * 60 * 60) + (minute * 60)
+
+    # get current time in seconds since midnight
+    current = (now["hour"] * 60 * 60) + \
+               (now["minute"] * 60) + now["second"]
+
+    # how long to sleep for
+    naptime = target - current
+    if (naptime &lt;= 0) {
+        print "time is in the past!" &gt; "/dev/stderr"
+        exit 1
+    }
+</PRE></DIV><A name=index-sleep-utility></A>
+<P>Finally, the program uses the <CODE>system()</CODE> function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#I_002fO-Functions">I/O Functions</A>) to call the <CODE>sleep</CODE> utility. The <CODE>sleep</CODE> utility simply pauses for the given number of seconds. If the exit status is not zero, the program assumes that <CODE>sleep</CODE> was interrupted and exits. If <CODE>sleep</CODE> exited with an OK status (zero), then the program prints the message in a loop, again using <CODE>sleep</CODE> to delay for however many seconds are necessary: </P>
+<DIV class=example><PRE class=example>    # zzzzzz..... go away if interrupted
+    if (system(sprintf("sleep %d", naptime)) != 0)
+        exit 1
+
+    # time to notify!
+    command = sprintf("sleep %d", delay)
+    for (i = 1; i &lt;= count; i++) {
+        print message
+        # if sleep command interrupted, go away
+        if (system(command) != 0)
+            break
+    }
+
+    exit 0
+}
+</PRE></DIV>

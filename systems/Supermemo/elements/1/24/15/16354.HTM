@@ -1,0 +1,10 @@
+Another example of the usefulness of phony targets is in conjunction with recursive invocations of <CODE>make</CODE> (for more information, see <A href="https://www.gnu.org/software/make/manual/make.html#Recursion">Recursive Use of <CODE>make</CODE></A>). In this case the makefile will often contain a variable which lists a number of sub-directories to be built. One way to handle this is with one rule whose recipe is a shell loop over the sub-directories, like this: <PRE class=example>     SUBDIRS = foo bar baz
+     
+     subdirs:
+             for dir in $(SUBDIRS); do \
+               $(MAKE) -C $$dir; \
+             done
+</PRE>
+<P>There are problems with this method, however. First, any error detected in a sub-make is ignored by this rule, so it will continue to build the rest of the directories even when one fails. This can be overcome by adding shell commands to note the error and exit, but then it will do so even if <CODE>make</CODE> is invoked with the <CODE>-k</CODE> option, which is unfortunate. Second, and perhaps more importantly, you cannot take advantage of <CODE>make</CODE>'s ability to build targets in parallel (see <A href="https://www.gnu.org/software/make/manual/make.html#Parallel">Parallel Execution</A>), since there is only one rule. 
+<P>By declaring the sub-directories as phony targets (you must do this as the sub-directory obviously always exists; otherwise it won't be built) you can remove these problems: <PRE class=example><P><SPAN class=cloze>[...]</SPAN> </P></PRE>
+<P>Here we've also declared that the <SAMP><SPAN class=file>foo</SPAN></SAMP> sub-directory cannot be built until after the <SAMP><SPAN class=file>baz</SPAN></SAMP> sub-directory is complete; this kind of relationship declaration is particularly important when attempting parallel builds.

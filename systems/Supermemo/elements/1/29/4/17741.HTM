@@ -1,0 +1,59 @@
+<H3 class=section>4.8 Multiple-Line Records</H3><A name=index-multiple_002dline-records></A><A name=index-records_002c-multiline></A><A name=index-input_002c-multiline-records></A><A name=index-files_002c-reading_002c-multiline-records></A><A name=index-input_002c-files_002c-See-input-files></A>
+<P>In some databases, a single line cannot conveniently hold all the information in one entry. In such cases, you can use multiline records. The first step in doing this is to choose your data format. </P><A name=index-record-separators_002c-with-multiline-records></A>
+<P>One technique is to use an unusual character or string to separate records. For example, you could use the formfeed character (written &#8216;<SAMP>\f</SAMP>&#8217; in <CODE>awk</CODE>, as in C) to separate them, making each record a page of the file. To do this, just set the variable <CODE>RS</CODE> to <CODE>"\f"</CODE> (a string containing the formfeed character). Any other character could equally well be used, as long as it won&#8217;t be part of the data in a record. </P><A name=index-RS-variable_002c-multiline-records-and></A>
+<P>Another technique is to have blank lines separate records. By a special dispensation, an empty string as the value of <CODE>RS</CODE> indicates that records are separated by one or more blank lines. When <CODE>RS</CODE> is set to the empty string, each record always ends at the first blank line encountered. The next record doesn&#8217;t start until the first nonblank line that follows. No matter how many blank lines appear in a row, they all act as one record separator. (Blank lines must be completely empty; lines that contain only whitespace do not count.) </P><A name=index-leftmost-longest-match></A><A name=index-matching_002c-leftmost-longest></A>
+<P>You can achieve the same effect as &#8216;<SAMP>RS = ""</SAMP>&#8217; by assigning the string <CODE>"\n\n+"</CODE> to <CODE>RS</CODE>. This regexp matches the newline at the end of the record and one or more blank lines after the record. In addition, a regular expression always matches the longest possible sequence when there is a choice (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Leftmost-Longest">Leftmost Longest</A>). So the next record doesn&#8217;t start until the first nonblank line that follows&#8212;no matter how many blank lines appear in a row, they are considered one record separator. </P><A name=index-dark-corner_002c-multiline-records></A>
+<P>There is an important difference between &#8216;<SAMP>RS = ""</SAMP>&#8217; and &#8216;<SAMP>RS = "\n\n+"</SAMP>&#8217;. In the first case, leading newlines in the input data file are ignored, and if a file ends without extra blank lines after the last record, the final newline is removed from the record. In the second case, this special processing is not done. (d.c.) </P><A name=index-field-separator_002c-in-multiline-records></A><A name=index-FS_002c-in-multiline-records></A>
+<P>Now that the input is separated into records, the second step is to separate the fields in the record. One way to do this is to divide each of the lines into fields in the normal manner. This happens by default as the result of a special feature. When <CODE>RS</CODE> is set to the empty string, <EM>and</EM> <CODE>FS</CODE> is set to a single character, the newline character <EM>always</EM> acts as a field separator. This is in addition to whatever field separations result from <CODE>FS</CODE>.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT25" name=DOCF25><SUP>25</SUP></A> </P>
+<P>The original motivation for this special exception was probably to provide useful behavior in the default case (i.e., <CODE>FS</CODE> is equal to <CODE>"&nbsp;"</CODE><!-- /@w -->). This feature can be a problem if you really don&#8217;t want the newline character to separate fields, because there is no way to prevent it. However, you can work around this by using the <CODE>split()</CODE> function to break up the record manually (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>). If you have a single character field separator, you can work around the special feature in a different way, by making <CODE>FS</CODE> into a regexp for that single character. For example, if the field separator is a percent character, instead of &#8216;<SAMP>FS = "%"</SAMP>&#8217;, use &#8216;<SAMP>FS = "[%]"</SAMP>&#8217;. </P>
+<P>Another way to separate fields is to put each field on a separate line: to do this, just set the variable <CODE>FS</CODE> to the string <CODE>"\n"</CODE>. (This single character separator matches a single newline.) A practical example of a data file organized this way might be a mailing list, where each entry is separated by blank lines. Consider a mailing list in a file named <SAMP>addresses</SAMP>, which looks like this: </P>
+<DIV class=example><PRE class=example>Jane Doe
+123 Main Street
+Anywhere, SE 12345-6789
+
+John Smith
+456 Tree-lined Avenue
+Smallville, MW 98765-4321
+&#8230;
+</PRE></DIV>
+<P>A simple program to process this file is as follows: </P>
+<DIV class=example><PRE class=example># addrs.awk --- simple mailing list program
+
+# Records are separated by blank lines.
+# Each line is one field.
+BEGIN { RS = "" ; FS = "\n" }
+
+{
+      print "Name is:", $1
+      print "Address is:", $2
+      print "City and State are:", $3
+      print ""
+}
+</PRE></DIV>
+<P>Running the program produces the following output: </P>
+<DIV class=example><PRE class=example>$ awk -f addrs.awk addresses
+-| Name is: Jane Doe
+-| Address is: 123 Main Street
+-| City and State are: Anywhere, SE 12345-6789
+-|
+-| Name is: John Smith
+-| Address is: 456 Tree-lined Avenue
+-| City and State are: Smallville, MW 98765-4321
+-|
+&#8230;
+</PRE></DIV>
+<P>See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Labels-Program">Labels Program</A>, for a more realistic program that deals with address lists. The following table summarizes how records are split, based on the value of <CODE>RS</CODE>: </P>
+<DL compact>
+<DT><CODE>RS == "\n"</CODE></DT>
+<DD>
+<P>Records are separated by the newline character (&#8216;<SAMP>\n</SAMP>&#8217;). In effect, every line in the data file is a separate record, including blank lines. This is the default. </P></DD>
+<DT><CODE>RS == <VAR>any single character</VAR></CODE></DT>
+<DD>
+<P>Records are separated by each occurrence of the character. Multiple successive occurrences delimit empty records. </P></DD>
+<DT><CODE>RS == ""</CODE></DT>
+<DD>
+<P>Records are separated by runs of blank lines. When <CODE>FS</CODE> is a single character, then the newline character always serves as a field separator, in addition to whatever value <CODE>FS</CODE> may have. Leading and trailing newlines in a file are ignored. </P></DD>
+<DT><CODE>RS == <VAR>regexp</VAR></CODE></DT>
+<DD>
+<P>Records are separated by occurrences of characters that match <VAR>regexp</VAR>. Leading and trailing matches of <VAR>regexp</VAR> delimit empty records. (This is a <CODE>gawk</CODE> extension; it is not specified by the POSIX standard.) </P></DD></DL><A name=index-gawk_002c-RT-variable-in-1></A><A name=index-RT-variable-1></A>
+<P>In all cases, <CODE>gawk</CODE> sets <CODE>RT</CODE> to the input text that matched the value specified by <CODE>RS</CODE>. But if the input file ended without any text that matches <CODE>RS</CODE>, then <CODE>gawk</CODE> sets <CODE>RT</CODE> to the null string.

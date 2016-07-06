@@ -1,0 +1,226 @@
+<H1 class=SECT1><A name=AEN23170></A>C.1. Sed</H1>
+<P><I class=FIRSTTERM>Sed</I> is a non-interactive <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN23174" name=AEN23174><SPAN class=footnote>[141]</SPAN></A> <B class=COMMAND>s</B>tream <B class=COMMAND>ed</B>itor. It receives text input, whether from <TT class=FILENAME>stdin</TT> or from a file, performs certain operations on specified lines of the input, one line at a time, then outputs the result to <TT class=FILENAME>stdout</TT> or to a file. Within a shell script, <I class=FIRSTTERM>sed</I> is usually one of several tool components in a pipe.</P>
+<P><I class=FIRSTTERM>Sed</I> determines which lines of its input that it will operate on from the <I class=FIRSTTERM>address range</I> passed to it. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN23185" name=AEN23185><SPAN class=footnote>[142]</SPAN></A> Specify this address range either by line number or by a pattern to match. For example, <TT class=REPLACEABLE><I>3d</I></TT> signals <I class=FIRSTTERM>sed</I> to delete line 3 of the input, and <TT class=REPLACEABLE><I>/Windows/d</I></TT> tells sed that you want every line of the input containing a match to <SPAN class=QUOTE>"Windows"</SPAN> deleted.</P>
+<P>Of all the operations in the <I class=FIRSTTERM>sed</I> toolkit, we will focus primarily on the three most commonly used ones. These are <B class=COMMAND>p</B>rinting (to <TT class=FILENAME>stdout</TT>), <B class=COMMAND>d</B>eletion, and <B class=COMMAND>s</B>ubstitution.</P>
+<P><A name=SEDBASICTABLE></A></P>
+<DIV class=TABLE><A name=AEN23200></A>
+<P><B>Table C-1. Basic sed operators</B></P>
+<TABLE class=CALSTABLE border=1>
+<THEAD>
+<TR>
+<TH vAlign=top align=left>Operator</TH>
+<TH vAlign=top align=left>Name</TH>
+<TH vAlign=top align=left>Effect</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>[address-range]/p</TT></TD>
+<TD vAlign=top align=left>print</TD>
+<TD vAlign=top align=left>Print [specified address range]</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>[address-range]/d</TT></TD>
+<TD vAlign=top align=left>delete</TD>
+<TD vAlign=top align=left>Delete [specified address range]</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>s/pattern1/pattern2/</TT></TD>
+<TD vAlign=top align=left>substitute</TD>
+<TD vAlign=top align=left>Substitute pattern2 for first instance of pattern1 in a line</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>[address-range]/s/pattern1/pattern2/</TT></TD>
+<TD vAlign=top align=left>substitute</TD>
+<TD vAlign=top align=left>Substitute pattern2 for first instance of pattern1 in a line, over <TT class=REPLACEABLE><I>address-range</I></TT></TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>[address-range]/y/pattern1/pattern2/</TT></TD>
+<TD vAlign=top align=left>transform</TD>
+<TD vAlign=top align=left>replace any character in pattern1 with the corresponding character in pattern2, over <TT class=REPLACEABLE><I>address-range</I></TT> (equivalent of <B class=COMMAND>tr</B>)</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>[address] i pattern Filename</TT></TD>
+<TD vAlign=top align=left>insert</TD>
+<TD vAlign=top align=left>Insert pattern at address indicated in file Filename. Usually used with <TT class=OPTION>-i</TT> <TT class=REPLACEABLE><I>in-place</I></TT> option.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>g</TT></TD>
+<TD vAlign=top align=left>global</TD>
+<TD vAlign=top align=left>Operate on <EM>every</EM> pattern match within each matched line of input</TD></TR></TBODY></TABLE></DIV>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>Unless the <TT class=OPTION>g</TT> (<I class=FIRSTTERM>global</I>) operator is appended to a <I class=FIRSTTERM>substitute</I> command, the substitution operates only on the <EM>first</EM> instance of a pattern match within each line.</P></TD></TR></TBODY></TABLE></DIV>
+<P>From the command-line and in a shell script, a sed operation may require quoting and certain options.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>sed -e '/^$/d' $filename
+# The -e option causes the next string to be interpreted as an editing instruction.
+#  (If passing only a single instruction to sed, the "-e" is optional.)
+#  The "strong" quotes ('') protect the RE characters in the instruction
+#+ from reinterpretation as special characters by the body of the script.
+# (This reserves RE expansion of the instruction for sed.)
+#
+# Operates on the text contained in file $filename.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>In certain cases, a <I class=FIRSTTERM>sed</I> editing command will not work with single quotes.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>filename=file1.txt
+pattern=BEGIN
+
+  sed "/^$pattern/d" "$filename"  # Works as specified.
+# sed '/^$pattern/d' "$filename"    has unexpected results.
+#        In this instance, with strong quoting (' ... '),
+#+      "$pattern" will not expand to "BEGIN".</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P><I class=FIRSTTERM>Sed</I> uses the <TT class=OPTION>-e</TT> option to specify that the following string is an instruction or set of instructions. If there is only a single instruction contained in the string, then this may be omitted.</P></TD></TR></TBODY></TABLE></DIV>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>sed -n '/xzy/p' $filename
+# The -n option tells sed to print only those lines matching the pattern.
+# Otherwise all input lines would print.
+# The -e option not necessary here since there is only a single editing instruction.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=SEDOPTABLE></A></P>
+<DIV class=TABLE><A name=AEN23271></A>
+<P><B>Table C-2. Examples of sed operators</B></P>
+<TABLE class=CALSTABLE border=1>
+<THEAD>
+<TR>
+<TH vAlign=top align=left>Notation</TH>
+<TH vAlign=top align=left>Effect</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>8d</TT></TD>
+<TD vAlign=top align=left>Delete 8th line of input.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>/^$/d</TT></TD>
+<TD vAlign=top align=left>Delete all blank lines.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>1,/^$/d</TT></TD>
+<TD vAlign=top align=left>Delete from beginning of input up to, and including first blank line.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>/Jones/p</TT></TD>
+<TD vAlign=top align=left>Print only lines containing <SPAN class=QUOTE>"Jones"</SPAN> (with <SPAN class=TOKEN>-n</SPAN> option).</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>s/Windows/Linux/</TT></TD>
+<TD vAlign=top align=left>Substitute <SPAN class=QUOTE>"Linux"</SPAN> for first instance of <SPAN class=QUOTE>"Windows"</SPAN> found in each input line.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>s/BSOD/stability/g</TT></TD>
+<TD vAlign=top align=left>Substitute <SPAN class=QUOTE>"stability"</SPAN> for every instance of <SPAN class=QUOTE>"BSOD"</SPAN> found in each input line.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>s/ *$//</TT></TD>
+<TD vAlign=top align=left>Delete all spaces at the end of every line.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>s/00*/0/g</TT></TD>
+<TD vAlign=top align=left>Compress all consecutive sequences of zeroes into a single zero.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>echo "Working on it." | sed -e '1i How far are you along?'</TT></TD>
+<TD vAlign=top align=left>Prints "How far are you along?" as first line, "Working on it" as second.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>5i 'Linux is great.' file.txt</TT></TD>
+<TD vAlign=top align=left>Inserts 'Linux is great.' at line 5 of the file file.txt.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>/GUI/d</TT></TD>
+<TD vAlign=top align=left>Delete all lines containing <SPAN class=QUOTE>"GUI"</SPAN>.</TD></TR>
+<TR>
+<TD vAlign=top align=left><TT class=OPTION>s/GUI//g</TT></TD>
+<TD vAlign=top align=left>Delete all instances of <SPAN class=QUOTE>"GUI"</SPAN>, leaving the remainder of each line intact.</TD></TR></TBODY></TABLE></DIV>
+<P>Substituting a zero-length string for another is equivalent to deleting that string within a line of input. This leaves the remainder of the line intact. Applying <TT class=USERINPUT><B>s/GUI//</B></TT> to the line 
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=USERINPUT><B>The most important parts of any application are its GUI and sound effects</B></TT></PRE></FONT></TD></TR></TBODY></TABLE>results in 
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=COMPUTEROUTPUT>The most important parts of any application are its  and sound effects</TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>A backslash forces the <B class=COMMAND>sed</B> replacement command to continue on to the next line. This has the effect of using the <I class=FIRSTTERM>newline</I> at the end of the first line as the <I class=FIRSTTERM>replacement string</I>. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>s/^  */\
+/g</PRE></FONT></TD></TR></TBODY></TABLE>This substitution replaces line-beginning spaces with a newline. The net result is to replace paragraph indents with a blank line between paragraphs.</P>
+<P>An address range followed by one or more operations may require open and closed curly brackets, with appropriate newlines. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>/[0-9A-Za-z]/,/^$/{
+/^$/d
+}</PRE></FONT></TD></TR></TBODY></TABLE>This deletes only the first of each set of consecutive blank lines. That might be useful for single-spacing a text file, but retaining the blank line(s) between paragraphs.</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>The usual delimiter that <I class=FIRSTTERM>sed</I> uses is <SPAN class=TOKEN>/</SPAN>. However, <EM>sed</EM> allows other delimiters, such as <SPAN class=TOKEN>%</SPAN>. This is useful when <SPAN class=TOKEN>/</SPAN> is part of a replacement string, as in a file pathname. See <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FINDSTRING">Example 11-10</A> and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#STRIPC">Example 16-32</A>.</P></TD></TR></TBODY></TABLE></DIV>
+<P><A name=DOUBLESPACE></A></P>
+<DIV class=TIP>
+<P></P>
+<TABLE class=TIP border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Tip src="http://tldp.org/LDP/abs/images/tip.gif"></TD>
+<TD vAlign=top align=left>
+<P>A quick way to double-space a text file is <TT class=USERINPUT><B>sed G filename</B></TT>.</P></TD></TR></TBODY></TABLE></DIV>
+<P>For illustrative examples of sed within shell scripts, see: 
+<P></P>
+<OL type=1>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX3">Example 36-1</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX4">Example 36-2</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX57">Example 16-3</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#RN">Example A-2</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#GRP">Example 16-17</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#COL">Example 16-27</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#BEHEAD">Example A-12</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#TREE">Example A-16</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#TREE2">Example A-17</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#STRIPC">Example 16-32</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#FINDSTRING">Example 11-10</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#BASE">Example 16-48</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#MAILFORMAT">Example A-1</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#RND">Example 16-14</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#WF">Example 16-12</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#LIFESLOW">Example A-10</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#SELFDOCUMENT">Example 19-12</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#DICTLOOKUP">Example 16-19</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#WHX">Example A-29</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#BASHPODDER">Example A-31</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#TOHTML">Example A-24</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#STOPWATCH">Example A-43</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#SEDAPPEND">Example A-55</A></P></LI></OL>
+<P></P>
+<P>For a more extensive treatment of <I class=FIRSTTERM>sed</I>, refer to the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#DGSEDREF">pertinent references</A> in the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BIBLIO"><I>Bibliography</I></A>.

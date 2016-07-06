@@ -1,0 +1,32 @@
+# Documentation/RCU/UP.txt
+<P></P>
+<P>RCU on Uniprocessor Systems</P>
+<P></P>
+<P><BR>A common misconception is that, on UP systems, the call_rcu() primitive<BR>may immediately invoke its function.&nbsp; The basis of this misconception<BR>is that since there is only one CPU, it should not be necessary to<BR>wait for anything else to get done, since there are no other CPUs for<BR>anything else to be happening on.&nbsp; Although this approach will -sort- -of-<BR>work a surprising amount of the time, it is a very bad idea in general.<BR>This document presents three examples that demonstrate exactly how bad<BR>an idea this is.</P>
+<P><BR>Example 1: softirq Suicide</P>
+<P>Suppose that an RCU-based algorithm scans a linked list containing<BR>elements A, B, and C in process context, and can delete elements from<BR>this same list in softirq context.&nbsp; Suppose that the process-context scan<BR>is referencing element B when it is interrupted by softirq processing,<BR>which deletes element B, and then invokes call_rcu() to free element B<BR>after a grace period.</P>
+<P>Now, if call_rcu() were to directly invoke its arguments, then upon return<BR>from softirq, the list scan would find itself referencing a newly freed<BR>element B.&nbsp; This situation can greatly decrease the life expectancy of<BR>your kernel.</P>
+<P>This same problem can occur if call_rcu() is invoked from a hardware<BR>interrupt handler.</P>
+<P><BR>Example 2: Function-Call Fatality</P>
+<P>Of course, one could avert the suicide described in the preceding example<BR>by having call_rcu() directly invoke its arguments only if it was called<BR>from process context.&nbsp; However, this can fail in a similar manner.</P>
+<P>Suppose that an RCU-based algorithm again scans a linked list containing<BR>elements A, B, and C in process contexts, but that it invokes a function<BR>on each element as it is scanned.&nbsp; Suppose further that this function<BR>deletes element B from the list, then passes it to call_rcu() for deferred<BR>freeing.&nbsp; This may be a bit unconventional, but it is perfectly legal<BR>RCU usage, since call_rcu() must wait for a grace period to elapse.<BR>Therefore, in this case, allowing call_rcu() to immediately invoke<BR>its arguments would cause it to fail to make the fundamental guarantee<BR>underlying RCU, namely that call_rcu() defers invoking its arguments until<BR>all RCU read-side critical sections currently executing have completed.</P>
+<P>Quick Quiz #1: why is it -not- legal to invoke synchronize_rcu() in<BR>&nbsp;this case?</P>
+<P><BR>Example 3: Death by Deadlock</P>
+<P>Suppose that call_rcu() is invoked while holding a lock, and that the<BR>callback function must acquire this same lock.&nbsp; In this case, if<BR>call_rcu() were to directly invoke the callback, the result would<BR>be self-deadlock.</P>
+<P>In some cases, it would possible to restructure to code so that<BR>the call_rcu() is delayed until after the lock is released.&nbsp; However,<BR>there are cases where this can be quite ugly:</P>
+<P>1.&nbsp;If a number of items need to be passed to call_rcu() within<BR>&nbsp;the same critical section, then the code would need to create<BR>&nbsp;a list of them, then traverse the list once the lock was<BR>&nbsp;released.</P>
+<P>2.&nbsp;In some cases, the lock will be held across some kernel API,<BR>&nbsp;so that delaying the call_rcu() until the lock is released<BR>&nbsp;requires that the data item be passed up via a common API.<BR>&nbsp;It is far better to guarantee that callbacks are invoked<BR>&nbsp;with no locks held than to have to modify such APIs to allow<BR>&nbsp;arbitrary data items to be passed back up through them.</P>
+<P>If call_rcu() directly invokes the callback, painful locking restrictions<BR>or API changes would be required.</P>
+<P>Quick Quiz #2: What locking restriction must RCU callbacks respect?</P>
+<P><BR>Summary</P>
+<P>Permitting call_rcu() to immediately invoke its arguments breaks RCU,<BR>even on a UP system.&nbsp; So do not do it!&nbsp; Even on a UP system, the RCU<BR>infrastructure -must- respect grace periods, and -must- invoke callbacks<BR>from a known environment in which no locks are held.</P>
+<P>It -is- safe for synchronize_sched() and synchronize_rcu_bh() to return<BR>immediately on an UP system.&nbsp; It is also safe for synchronize_rcu()<BR>to return immediately on UP systems, except when running preemptable<BR>RCU.</P>
+<P>Quick Quiz #3: Why can't synchronize_rcu() return immediately on<BR>&nbsp;UP systems running preemptable RCU?</P>
+<P><BR>Answer to Quick Quiz #1:<BR>&nbsp;Why is it -not- legal to invoke synchronize_rcu() in this case?</P>
+<P>&nbsp;Because the calling function is scanning an RCU-protected linked<BR>&nbsp;list, and is therefore within an RCU read-side critical section.<BR>&nbsp;Therefore, the called function has been invoked within an RCU<BR>&nbsp;read-side critical section, and is not permitted to block.</P>
+<P>Answer to Quick Quiz #2:<BR>&nbsp;What locking restriction must RCU callbacks respect?</P>
+<P>&nbsp;Any lock that is acquired within an RCU callback must be<BR>&nbsp;acquired elsewhere using an _irq variant of the spinlock<BR>&nbsp;primitive.&nbsp; For example, if "mylock" is acquired by an<BR>&nbsp;RCU callback, then a process-context acquisition of this<BR>&nbsp;lock must use something like spin_lock_irqsave() to<BR>&nbsp;acquire the lock.</P>
+<P>&nbsp;If the process-context code were to simply use spin_lock(),<BR>&nbsp;then, since RCU callbacks can be invoked from softirq context,<BR>&nbsp;the callback might be called from a softirq that interrupted<BR>&nbsp;the process-context critical section.&nbsp; This would result in<BR>&nbsp;self-deadlock.</P>
+<P>&nbsp;This restriction might seem gratuitous, since very few RCU<BR>&nbsp;callbacks acquire locks directly.&nbsp; However, a great many RCU<BR>&nbsp;callbacks do acquire locks -indirectly-, for example, via<BR>&nbsp;the kfree() primitive.</P>
+<P>Answer to Quick Quiz #3:<BR>&nbsp;Why can't synchronize_rcu() return immediately on UP systems<BR>&nbsp;running preemptable RCU?</P>
+<P>&nbsp;Because some other task might have been preempted in the middle<BR>&nbsp;of an RCU read-side critical section.&nbsp; If synchronize_rcu()<BR>&nbsp;simply immediately returned, it would prematurely signal the<BR>&nbsp;end of the grace period, which would come as a nasty shock to<BR>&nbsp;that other thread when it started running again.

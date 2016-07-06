@@ -1,0 +1,34 @@
+<H3 class=section>12.4 Using <CODE>gawk</CODE> for Network Programming</H3><A name=index-advanced-features_002c-network-programming></A><A name=index-networks_002c-programming></A><A name=index-TCP_002fIP></A><A name=index-_002finet_002f_2026-special-files-_0028gawk_0029></A><A name=index-files_002c-_002finet_002f_2026-_0028gawk_0029></A><A name=index-_002finet4_002f_2026-special-files-_0028gawk_0029></A><A name=index-files_002c-_002finet4_002f_2026-_0028gawk_0029></A><A name=index-_002finet6_002f_2026-special-files-_0028gawk_0029></A><A name=index-files_002c-_002finet6_002f_2026-_0028gawk_0029></A><A name=index-EMISTERED></A>
+<BLOCKQUOTE>
+<P><CODE>EMISTERED</CODE>:<BR>&nbsp;&nbsp;&nbsp;&nbsp;<I>A host is a host from coast to coast,<BR>&nbsp;&nbsp;&nbsp;&nbsp;and no-one can talk to host that&#8217;s close,<BR>&nbsp;&nbsp;&nbsp;&nbsp;unless the host that isn&#8217;t close<BR>&nbsp;&nbsp;&nbsp;&nbsp;is busy hung or dead.</I> </P></BLOCKQUOTE>
+<P>In addition to being able to open a two-way pipeline to a coprocess on the same system (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Two_002dway-I_002fO">Two-way I/O</A>), it is possible to make a two-way connection to another process on another system across an IP network connection. </P>
+<P>You can think of this as just a <EM>very long</EM> two-way pipeline to a coprocess. The way <CODE>gawk</CODE> decides that you want to use TCP/IP networking is by recognizing special file names that begin with one of &#8216;<SAMP>/inet/</SAMP>&#8217;, &#8216;<SAMP>/inet4/</SAMP>&#8217; or &#8216;<SAMP>/inet6</SAMP>&#8217;. </P>
+<P>The full syntax of the special file name is <SAMP>/<VAR>net-type</VAR>/<VAR>protocol</VAR>/<VAR>local-port</VAR>/<VAR>remote-host</VAR>/<VAR>remote-port</VAR></SAMP>. The components are: </P>
+<DL compact>
+<DT><VAR>net-type</VAR></DT>
+<DD>
+<P>Specifies the kind of Internet connection to make. Use &#8216;<SAMP>/inet4/</SAMP>&#8217; to force IPv4, and &#8216;<SAMP>/inet6/</SAMP>&#8217; to force IPv6. Plain &#8216;<SAMP>/inet/</SAMP>&#8217; (which used to be the only option) uses the system default, most likely IPv4. </P></DD>
+<DT><VAR>protocol</VAR></DT>
+<DD>
+<P>The protocol to use over IP. This must be either &#8216;<SAMP>tcp</SAMP>&#8217;, or &#8216;<SAMP>udp</SAMP>&#8217;, for a TCP or UDP IP connection, respectively. The use of TCP is recommended for most applications. </P></DD>
+<DT><VAR>local-port</VAR></DT>
+<DD><A name=index-getaddrinfo_0028_0029-function-_0028C-library_0029></A>
+<P>The local TCP or UDP port number to use. Use a port number of &#8216;<SAMP>0</SAMP>&#8217; when you want the system to pick a port. This is what you should do when writing a TCP or UDP client. You may also use a well-known service name, such as &#8216;<SAMP>smtp</SAMP>&#8217; or &#8216;<SAMP>http</SAMP>&#8217;, in which case <CODE>gawk</CODE> attempts to determine the predefined port number using the C <CODE>getaddrinfo()</CODE> function. </P></DD>
+<DT><VAR>remote-host</VAR></DT>
+<DD>
+<P>The IP address or fully-qualified domain name of the Internet host to which you want to connect. </P></DD>
+<DT><VAR>remote-port</VAR></DT>
+<DD>
+<P>The TCP or UDP port number to use on the given <VAR>remote-host</VAR>. Again, use &#8216;<SAMP>0</SAMP>&#8217; if you don&#8217;t care, or else a well-known service name. </P></DD></DL><A name=index-gawk_002c-ERRNO-variable-in-4></A><A name=index-ERRNO-variable-1></A>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Failure in opening a two-way socket will result in a non-fatal error being returned to the calling code. The value of <CODE>ERRNO</CODE> indicates the error (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Auto_002dset">Auto-set</A>). </P></BLOCKQUOTE>
+<P>Consider the following very simple example: </P>
+<DIV class=example><PRE class=example>BEGIN {
+  Service = "/inet/tcp/0/localhost/daytime"
+  Service |&amp; getline
+  print $0
+  close(Service)
+}
+</PRE></DIV>
+<P>This program reads the current date and time from the local system&#8217;s TCP &#8216;<SAMP>daytime</SAMP>&#8217; server. It then prints the results and closes the connection. </P>
+<P>Because this topic is extensive, the use of <CODE>gawk</CODE> for TCP/IP programming is documented separately. See <CITE>TCP/IP Internetworking with <CODE>gawk</CODE></CITE>, which comes as part of the <CODE>gawk</CODE> distribution, for a much more complete introduction and discussion, as well as extensive examples.

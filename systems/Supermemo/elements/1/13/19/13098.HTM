@@ -1,0 +1,219 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>11.5.&nbsp;A Recursive MAL Subprogram</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s04.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;11.&nbsp;Reentrant and Recursive Subprograms</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s06.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="11.5.&nbsp;A Recursive MAL Subprogram" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286964032></A>11.5.&nbsp;A Recursive MAL Subprogram</H2></DIV></DIV></DIV><PRE class=programlisting>#########################################################################
+#   Description:
+#       Recursive factorial example
+#
+#   Modification history:
+#   Date        Name        Modification
+#   2011-05-11  Jason Bacon Begin
+#########################################################################
+
+#########################################################################
+#   Global constants (do not use global variables!)
+#   By convention, constant names use all capital letters.
+#########################################################################
+
+# Common ASCII/ISO control characters
+
+ISO_EOT             =   4   # End of transmission (Ctrl+D)
+ISO_BEL             =   7   # Bell
+ISO_BS              =   8   # Backspace
+ISO_TAB             =   9   # Tab
+ISO_LF              =   10  # Line feed (newline)
+ISO_FF              =   12  # Form feed
+ISO_CR              =   13  # Carriage return
+
+# System call constants
+
+SYS_PRINT_INT       =   1
+SYS_PRINT_FLOAT     =   2
+SYS_PRINT_DOUBLE    =   3
+SYS_PRINT_STRING    =   4
+SYS_READ_INT        =   5
+SYS_READ_FLOAT      =   6
+SYS_READ_DOUBLE     =   7
+SYS_READ_STRING     =   8
+SYS_SBRK            =   9
+SYS_EXIT            =   10
+SYS_PRINT_CHAR      =   11
+SYS_READ_CHAR       =   12
+
+#########################################################################
+#   Sample macros
+#   Use these as models to create others, such as print_word_reg,
+#   read_word_reg, etc.
+#########################################################################
+
+	# Save contents of an integer register on the stack
+	.macro  pushw($register)
+	addi    $sp, $sp, -4
+	sw      $register, ($sp)
+	.end_macro
+	
+	# Retrieve top of stack to an integer register
+	.macro  popw($register)
+	lw      $register, ($sp)
+	addi    $sp, $sp, 4
+	.end_macro
+	
+	# Print the character in $const
+	# $const must be an immediate value
+	# Example: print_char_const(ISO_LF)
+	.macro  print_char_const($const)
+	pushw($a0)
+	pushw($v0)
+	
+	li      $a0, $const
+	li      $v0, SYS_PRINT_CHAR
+	syscall
+	
+	popw($v0)
+	popw($a0)
+	.end_macro
+	
+	# Print the string at address $var
+	# $var must be a label
+	.macro  print_string_var($var)
+	pushw($a0)
+	pushw($v0)
+	
+	la      $a0, $var
+	li      $v0, SYS_PRINT_STRING
+	syscall
+	
+	popw($v0)
+	popw($a0)
+	.end_macro
+	
+	# Print the integer in $var
+	# $var must be a label
+	.macro  print_word_var($var)
+	pushw($a0)
+	pushw($v0)
+	
+	lw      $a0, $var
+	li      $v0, SYS_PRINT_INT
+	syscall
+	
+	popw($v0)
+	popw($a0)
+	.end_macro
+
+
+######################################################################### 
+#   Subprogram Description:
+#       Return n! for a non-negative integer n
+#
+#   Arguments:
+#       $a0 = n
+#
+#   Returns:
+#       $v0 = n!
+#########################################################################
+
+#########################################################################
+#   Modification history:
+#   Date        Name        Modification
+#   11-11-2010  J Bacon     Created
+#########################################################################
+
+	.text
+factorial:
+	# Save registers modified by this subprogram
+	pushw($ra)
+	
+	# Initialize for and check for base case
+	li      $v0, 1
+	blt     $a0, 2, factorial_done
+	
+	# Perform recursive call.  First save n in a non-static
+	# location, so each invocation has its own copy.
+	# pushw($a0)
+	
+	addi    $a0, $a0, -1    # Compute (n-1)! using recursive call
+	jal     factorial
+	addi    $a0, $a0, 1
+	
+	# n! = n * (n-1)!
+	# Pop n before multiplying so we use the n from THIS invocation
+	# popw($a0)
+	mul     $v0, $v0, $a0
+
+factorial_done:
+	# Restore registers modified by this subprogram
+	popw($ra)
+	
+	# Return to caller
+	jr      $ra
+
+
+#########################################################################
+#   Main program
+#########################################################################
+
+# Variables for main
+	.data
+	.align 2
+n:          .word   0
+nfactorial: .word   0
+
+factorial_equals:   .asciiz "! = "
+
+# Main body
+	.text
+main:
+	# Save registers modified here
+	pushw($ra)
+
+	# Print factorials of integers from 0 to 10
+	li      $s0, 0
+next_fact:
+	# Compute n!
+	move    $a0, $s0
+	jal     factorial
+
+	sw      $v0, nfactorial
+	sw      $s0, n
+	print_word_var(n)
+	print_string_var(factorial_equals)
+	print_word_var(nfactorial)
+	print_char_const(ISO_LF)
+	
+	# Next n
+	addi    $s0, $s0, 1
+	ble     $s0, 10, next_fact
+	
+	# Restore registers modified here
+	popw($ra)
+	
+	# Return to system
+	jr      $ra
+
+</PRE></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s04.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s06.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">11.4.&nbsp;Recursion&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;11.6.&nbsp;Homework</TD></TR></TBODY></TABLE></DIV>

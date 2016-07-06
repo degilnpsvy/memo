@@ -1,0 +1,56 @@
+<H3 id=title-IDAUBQWD class=docSection1Title>6.2. Kernel's Last Boot Steps</H3>
+<P class=docText><A name=iddle1418></A><A name=iddle1611></A><A name=iddle1748></A><A name=iddle1905></A><A name=iddle2177></A><A name=iddle2485></A>In the previous chapter, we introduced the steps the kernel takes in the final phases of system boot. The final snippet of code from <TT>.../init/main.c</TT> is reproduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec2.html#ch06list2">Listing 6-2</A> for convenience.</P><A name=ch06list2></A>
+<H5 id=title-IDADEQWD class=docExampleTitle>Listing 6-2. Final Boot Steps from <TT>main.c</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>   ...
+     if (execute_command) {
+              run_init_process(execute_command);
+              printk(KERN_WARNING "Failed to execute %s.  Attempting "
+                                    "defaults...\n", execute_command);
+     }
+
+     run_init_process("/sbin/init");
+     run_init_process("/etc/init");
+     run_init_process("/bin/init");
+     run_init_process("/bin/sh");
+
+     panic("No init found.  Try passing init= option to kernel.");</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This is the final sequence of events for the kernel thread called <TT>init</TT> spawned by the kernel during the final stages of boot. The <TT>run_init_process()</TT> is a small wrapper around the <TT>execve()</TT> function, which is a kernel system call with a rather interesting behavior. The <TT>execve()</TT> function never returns if no error conditions are encountered in the call. The memory space in which the calling thread is executing is overwritten by the called program's memory image. In effect, the called program directly replaces the calling thread, including inheriting its Process ID (PID).</P>
+<P class=docText>The structure of this initialization sequence has been unchanged for a long time in the development of the Linux kernel. In fact, Linux version 1.0 contained similar constructs. Essentially, this is the start of user space<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec2.html#ch06fn04">[4]</A></SUP> processing. As you can see from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec2.html#ch06list2">Listing 6-2</A>, unless the Linux kernel is successful in executing one of these processes, the kernel will halt, displaying the message passed in the <TT>panic()</TT> system call. If you have been working with embedded systems for any length of time, and especially if you have experience working on root file systems, you are more than familiar with this kernel <TT>panic()</TT> and its message! If you search on Google for this <TT>panic()</TT> error message, you will find page after page of hits for this FAQ. When you complete this chapter, you will be an expert at troubleshooting this common failure.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn04>[4]</A></SUP> In actuality, modern Linux kernels create a userspace-like environment earlier in the boot sequence for specialized activities, which are beyond the scope of this book.</P></BLOCKQUOTE>
+<P class=docText>Notice a key ingredient of these processes: They are all programs that are expected to reside on a root file system that has a similar structure to that presented in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06list1">Listing 6-1</A>. Therefore we know that we must at least satisfy the kernel's requirement for an <TT>init</TT> process that is capable of executing within its own environment.</P>
+<P class=docText>In looking at <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec2.html#ch06list2">Listing 6-2</A>, this means that at least one of the <TT>run_init_process()</TT> function calls must succeed. You can see that the kernel tries to execute one of four programs in the order in which they are encountered. As you can see from the listing, if none of these four programs succeeds, the booting kernel issues the dreaded <TT>panic()</TT> function call and dies right there. Remember, this snippet of code from <TT>.../init/main.c</TT> is executed only once on bootup. If it does not succeed, the kernel can do little but complain and halt, which it does through the <TT>panic()</TT> function call.</P><A name=ch06lev2sec7></A>
+<H4 id=title-IDARGQWD class=docSection2Title>6.2.1. First User Space Program</H4>
+<P class=docText>On most Linux systems, <TT>/sbin/init</TT> is spawned by the kernel on boot. This is why it is attempted first from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec2.html#ch06list2">Listing 6-2</A>. Effectively, this becomes the first user space program to run. To review, this is the sequence:</P><A name=ch06pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Mount the root file system<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Spawn the first user space program, which, in this discussion, becomes <TT>init</TT><BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText>In our example minimal root file system from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec2.html#ch06list2">Listing 6-2</A>, the first three attempts at spawning a user space process would fail because we did not provide an executable file called <TT>init</TT> anywhere on the file system. Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06list1">Listing 6-1</A> that we had a soft link called <TT>sh</TT> that pointed back to <TT>busybox</TT>. You should now realize the purpose for that soft link: It causes <TT>busybox</TT> to be executed by the kernel as the initial process, while also satisfying the common requirement for a shell executable from userspace.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec2.html#ch06fn05">[5]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn05>[5]</A></SUP> When <TT>busybox</TT> is invoked via the <TT>sh</TT> symbolic link, it spawns a shell. We cover this in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch11.html#ch11">Chapter 11</A>.</P></BLOCKQUOTE><A name=ch06lev2sec8></A>
+<H4 id=title-IDAIJQWD class=docSection2Title>6.2.2. Resolving Dependencies</H4>
+<P class=docText><A name=iddle1316></A>It is not sufficient to simply include an executable such as <TT>init</TT> on your file system and expect it to boot. For every process you place on your root file system, you must also satisfy its dependencies. Most processes have two categories of dependencies: those that are needed to resolve unresolved references within a dynamically linked executable, and external configuration or data files that an application might need. We have a tool to find the former, but the latter can be supplied only by at least a cursory understanding of the application in question.</P>
+<P class=docText>An example will help make this clear. The <TT>init</TT> process is a dynamically linked executable. To run <TT>init</TT>, we need to satisfy its library dependencies. A tool has been developed for this purpose: <TT>ldd</TT>. To understand what libraries a given application requires, simply run your cross-version of <TT>ldd</TT> on the binary:</P>
+<DIV class=docText><PRE> $ <SPAN class=docEmphStrong>ppc_4xxFP-ldd init</SPAN>
+        libc.so.6 =&gt; /opt/eldk/ppc_4xxFP/lib/libc.so.6
+        ld.so.1 =&gt; /opt/eldk/ppc_4xxFP/lib/ld.so.1
+ $</PRE></DIV><BR>
+<P class=docText>From this <TT>ldd</TT> output, we can see that the PowerPC <TT>init</TT> executable in this example is dependent on two libraries. These are the standard C library (<TT>libc.so.6</TT>) and the Linux dynamic loader (<TT>ld.so.1</TT>).</P>
+<P class=docText>To satisfy the second category of dependencies for an executable, the configuration and data files that it might need, there is little substitute for some knowledge about how the subsystem works. For example, <TT>init</TT> expects to read its operational configuration from a data file called <TT>inittab</TT> located on <TT>/etc</TT>. Unless you are using a tool that has this knowledge built in, such as those described in the earlier <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec1.html#ch06lev2sec6">Section 6.1.6</A>, "Automated File System Build Tools," you must supply that knowledge.</P><A name=ch06lev2sec9></A>
+<H4 id=title-IDATLQWD class=docSection2Title>6.2.3. Customized Initial Process</H4>
+<P class=docText>It is worth noting that the developer can control which initial process is executed at startup. This is done by a kernel command line parameter. It is hinted at in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec2.html#ch06list2">Listing 6-2</A> by the text contained within the <TT>panic()</TT> function call. Building on our kernel command line from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, here is how it might look with a developer-specified <TT>init</TT> process:</P>
+<DIV class=docText><PRE>console=ttyS0,115200 ip=bootp root=/dev/nfs init=/sbin/myinit</PRE></DIV><BR>
+<P class=docText><A name=iddle1614></A><A name=iddle2389></A><A name=iddle2477></A><A name=iddle2494></A>Specifying <TT>init=</TT> in the kernel command line in this way, you must provide a binary executable on your root file system in the <TT>/sbin</TT> directory called <TT>myinit</TT>. This would be the first process to gain control at the completion of the kernel's boot process.

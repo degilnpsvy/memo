@@ -1,0 +1,81 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>15.11.&nbsp;Interrupts and Queues</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15s10.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;15.&nbsp;Exceptions</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15s12.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="15.11.&nbsp;Interrupts and Queues" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286966614></A>15.11.&nbsp;Interrupts and Queues</H2></DIV></DIV></DIV>
+<P>Since an exception handler does not accept arguments or return values, sharing data between the handler and other subprograms must be done using global variables or registers. As the number of registers is limited, we generally don't want to tie up any of them for the duration of the program execution by reserving them for the exception handler. Therefore, communication with exception handlers is the one place where using global variables is well justified.</P>
+<P>Normally, a variable in MAL is only accessible in the source file where it is defined. Since the SPIM exception handler must be in a separate file, we need a way to make variables in one file accessible in another. This is done with the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=code>.global</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>directive.</P><PRE class=programlisting>	Key_queue:  .word   0:100
+		    .globl  Key_queue
+	</PRE>
+<P>The above definition placed in either the exception handler file or the main source file makes<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=code>Key_queue</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>accessible from both.</P>
+<P>The most common way for an interrupt handler and program to share data is using a queue. A keyboard ISR could simply place the the character it reads into a scalar global variable, from which the program could read it. However, this would provide no advantage over software polling, since the ISR is only moving the data from the receiver data register to another location. It is still necessary for the program to read the character before it is overwritten.</P>
+<P>Using a queue softens the requirement on the program to keep up with input. If the ISR places characters in a queue that can hold 100 characters, then 100 characters can be typed while the program is busy with other work, and no data loss will occur. The program must still keep up with input, but it can check for input much less frequently, as long as it processes all the data in the queue before it overflows.</P>
+<P>The getc subprogram below can be used by a program to read input from a queue. The ISR must be written to place the keys read into the same queue. Note that both the program and the ISR will update<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=code>Key_count</CODE>. Since the ISR may update it at any moment while the program is running, it is called a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>volatile</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>variable. Special care must be taken when programming with volatile variables, to account for the fact that their value could change at any moment, unbeknownst to the program.</P><PRE class=programlisting>		    .data 
+		    .align 2
+		    
+		    .globl  Key_queue
+	Key_queue:  .byte   0:100
+		    .globl  Key_count
+	Key_count:  .word   0
+		    .globl  Key_head
+	Key_head:   .word   0
+		    .globl  Key_tail
+	Key_tail:   .word   0
+	
+		.text
+	getc:
+		push($ra)
+		push($a0)
+		
+		# Wait for keystroke
+	getc_wait:
+		lw      $t0, Key_count
+		beqz    $t0, getc_wait
+		
+		# Read char
+		lw      $t0, Key_head
+		lbu     $v0, ($t0)
+		
+		# Advance head
+		addi    $t0, $t0, 1
+		la      $t1, Key_queue
+		sub     $t1, $t0, $t1
+		blt     $t1, 100, getc_no_wrap
+		la      $t0, Key_queue
+	getc_no_wrap:
+		sw      $t0, Key_head
+		
+		# Decrement count
+		lw      $t0, Key_count
+		addi    $t0, $t0, -1
+		sw      $t0, Key_count
+		
+		# Return to caller
+		pop($a0)
+		pop($ra)
+		jr      $ra
+	</PRE></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15s10.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15s12.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">15.10.&nbsp;Example Code Using Interrupts&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;15.12.&nbsp;Other Architectures</TD></TR></TBODY></TABLE></DIV>

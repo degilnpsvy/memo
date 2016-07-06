@@ -1,0 +1,19 @@
+# Documentation/fb/deferred_io.txt
+<P></P>
+<P>Deferred IO<BR>-----------</P>
+<P></P>
+<P>Deferred IO is a way to delay and repurpose IO. It uses host memory as a<BR>buffer and the MMU pagefault as a pretrigger for when to perform the device<BR>IO. The following example may be a useful explanation of how one such setup<BR>works:</P>
+<P>- userspace app like Xfbdev mmaps framebuffer<BR>- deferred IO and driver sets up fault and page_mkwrite handlers<BR>- userspace app tries to write to mmaped vaddress<BR>- we get pagefault and reach fault handler<BR>- fault handler finds and returns physical page<BR>- we get page_mkwrite where we add this page to a list<BR>- schedule a workqueue task to be run after a delay<BR>- app continues writing to that page with no additional cost. this is<BR>&nbsp; the key benefit.<BR>- the workqueue task comes in and mkcleans the pages on the list, then<BR>&nbsp;completes the work associated with updating the framebuffer. this is<BR>&nbsp; the real work talking to the device.<BR>- app tries to write to the address (that has now been mkcleaned)<BR>- get pagefault and the above sequence occurs again</P>
+<P>As can be seen from above, one benefit is roughly to allow bursty framebuffer<BR>writes to occur at minimum cost. Then after some time when hopefully things<BR>have gone quiet, we go and really update the framebuffer which would be<BR>a relatively more expensive operation.</P>
+<P>For some types of nonvolatile high latency displays, the desired image is<BR>the final image rather than the intermediate stages which is why it's okay<BR>to not update for each write that is occurring.</P>
+<P>It may be the case that this is useful in other scenarios as well. Paul Mundt<BR>has mentioned a case where it is beneficial to use the page count to decide<BR>whether to coalesce and issue SG DMA or to do memory bursts.</P>
+<P>Another one may be if one has a device framebuffer that is in an usual format,<BR>say diagonally shifting RGB, this may then be a mechanism for you to allow<BR>apps to pretend to have a normal framebuffer but reswizzle for the device<BR>framebuffer at vsync time based on the touched pagelist.</P>
+<P>How to use it: (for applications)<BR>---------------------------------<BR>No changes needed. mmap the framebuffer like normal and just use it.</P>
+<P>How to use it: (for fbdev drivers)<BR>----------------------------------<BR>The following example may be helpful.</P>
+<P>1. Setup your structure. Eg:</P>
+<P>static struct fb_deferred_io hecubafb_defio = {<BR>&nbsp;.delay&nbsp;&nbsp;= HZ,<BR>&nbsp;.deferred_io&nbsp;= hecubafb_dpy_deferred_io,<BR>};</P>
+<P>The delay is the minimum delay between when the page_mkwrite trigger occurs<BR>and when the deferred_io callback is called. The deferred_io callback is<BR>explained below.</P>
+<P>2. Setup your deferred IO callback. Eg:<BR>static void hecubafb_dpy_deferred_io(struct fb_info *info,<BR>&nbsp;&nbsp;&nbsp;&nbsp;struct list_head *pagelist)</P>
+<P>The deferred_io callback is where you would perform all your IO to the display<BR>device. You receive the pagelist which is the list of pages that were written<BR>to during the delay. You must not modify this list. This callback is called<BR>from a workqueue.</P>
+<P>3. Call init<BR>&nbsp;info-&gt;fbdefio = &amp;hecubafb_defio;<BR>&nbsp;fb_deferred_io_init(info);</P>
+<P>4. Call cleanup<BR>&nbsp;fb_deferred_io_cleanup(info);

@@ -1,0 +1,30 @@
+9.4 Addressing Modes </P>
+<P>As noted previously, the hardware supports only one addressing mode, base reg+offset, where offset is in the range -32768 to 32767. However, the assembler will synthesize code to access data at addresses specified in various other ways: </P>
+<P>Direct: A data label or external variable name supplied by you </P>
+<P>Direct+index: An offset from a labeled location specified with a register </P>
+<P>Constant: Just a large number, interpreted as an absolute 32-bit address </P>
+<P>Register indirect: Just register+offset with an offset of zero </P>
+<P>When these methods are combined with the assembler&#8217;s willingness to do simple constant arithmetic at compile time and the use of a macro processor, you are able to do most of what you might want. Here are some examples: Instruction Expands to </P>
+<P>lw $2, ($3) =&gt;&gt;lw $2, 0($3) </P>
+<P>lw $2, 8+4($3) =&gt; lw $2, 12($3) </P>
+<P>lw $2, addr =&gt; lui at, %hi(addr) </P>
+<P>lw $2, %lo(addr)(at) </P>
+<P>sw $2, addr($3) =&gt; lui at, %hi(addr) </P>
+<P>addu at, at, $3 </P>
+<P>sw $2, %lo(addr)(at) </P>
+<P>The symbol addr in the above examples can be any of the following: </P>
+<P>A relocatable symbol&#8212;the name of a label or variable (whether in this module or elsewhere) </P>
+<P>A relocatable symbol &#177; a constant expression (the assembler/linker can handle this at system build time) </P>
+<P>A 32-bit constant expression (e.g., the absolute address of a device register) </P>
+<P>The constructs %hi() and %lo() represent the high and low 16 bits of the address. This is not quite the straightforward division into low and high halfwords that it looks, because the 16-bit offset field of an lw is interpreted as signed. So if the addr value is such that bit 15 is a 1, then the %lo(addr) value will act as negative, and we need to increment %hi(addr) to compensate: </P>
+<P>addr %hi(addr) %lo(addr) </P>
+<P>0x1234.5678 0x1234 0x5678 </P>
+<P>0x1000.8000 0x1001 0x8000 </P>
+<P>The la (load address) macro instruction provides a similar service for addresses to that provided for integer constants by li: </P>
+<P>la $2, 4($3) =&gt; &gt;ddiu $2, $3, 4 </P>
+<P>la $2, addr =&gt; lui at, %hi(addr) </P>
+<P>addiu $2, at, %lo(addr) </P>
+<P>la $2, addr($3) =&gt; lui at, %hi(addr) </P>
+<P>addiu $2, at, %lo(addr) </P>
+<P>addu $2, $2, $3 </P>
+<P>In principle, la could avoid messing around with apparently negative %lo( ) values by using an ori instruction. But load/store instructions have a signed 16-bit address offset, and as a result the linker is already equipped with the ability to fix up addresses into two parts that can be added correctly. So la uses the add instruction to avoid the linker having to understand two different fix-up types.

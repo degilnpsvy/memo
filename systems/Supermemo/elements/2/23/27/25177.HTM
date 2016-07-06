@@ -1,0 +1,9 @@
+static int create_dir(struct kobject *kobj)<BR>{<BR>&nbsp;const struct kobj_ns_type_operations *ops;<BR>&nbsp;int error; 
+<P></P>
+<P>&nbsp;error = sysfs_create_dir_ns(kobj, kobject_namespace(kobj));<BR>&nbsp;if (error)<BR>&nbsp;&nbsp;return error;</P>
+<P>&nbsp;error = populate_dir(kobj);<BR>&nbsp;if (error) {<BR>&nbsp;&nbsp;sysfs_remove_dir(kobj);<BR>&nbsp;&nbsp;return error;<BR>&nbsp;} 
+<P>&nbsp;/*<BR>&nbsp; * @kobj-&gt;sd may be deleted by an ancestor going away.&nbsp; Hold an<BR>&nbsp; * extra reference so that it stays until @kobj is gone.<BR>&nbsp; */<BR>&nbsp;sysfs_get(kobj-&gt;sd); 
+<P></P>
+<P>&nbsp;/*<BR>&nbsp; * If @kobj has ns_ops, its children need to be filtered based on<BR>&nbsp; * their namespace tags.&nbsp; Enable namespace support on @kobj-&gt;sd.<BR>&nbsp; */<BR>&nbsp;ops = kobj_child_ns_ops(kobj);<BR>&nbsp;if (ops) {<BR>&nbsp;&nbsp;BUG_ON(ops-&gt;type &lt;= KOBJ_NS_TYPE_NONE);<BR>&nbsp;&nbsp;BUG_ON(ops-&gt;type &gt;= KOBJ_NS_TYPES);<BR>&nbsp;&nbsp;BUG_ON(!kobj_ns_type_registered(ops-&gt;type));</P>
+<P>&nbsp;&nbsp;sysfs_enable_ns(kobj-&gt;sd);<BR>&nbsp;}</P>
+<P>&nbsp;return 0;<BR>}

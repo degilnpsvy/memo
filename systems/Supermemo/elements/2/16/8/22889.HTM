@@ -1,0 +1,39 @@
+#/Documentation/serial/serial-rs485.txt
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; RS485 SERIAL COMMUNICATIONS</P>
+<P></P>
+<P>1. INTRODUCTION</P>
+<P>&nbsp;&nbsp; EIA-485, also known as TIA/EIA-485 or RS-485, is a standard defining the<BR>&nbsp;&nbsp; electrical characteristics of drivers and receivers for use in balanced<BR>&nbsp;&nbsp; digital multipoint systems.<BR>&nbsp;&nbsp; This standard is widely used for communications in industrial automation<BR>&nbsp;&nbsp; because it can be used effectively over long distances and in electrically<BR>&nbsp;&nbsp; noisy environments.</P>
+<P>2. HARDWARE-RELATED CONSIDERATIONS</P>
+<P>&nbsp;&nbsp; Some CPUs/UARTs (e.g., Atmel AT91 or 16C950 UART) contain a built-in<BR>&nbsp;&nbsp; half-duplex mode capable of automatically controlling line direction by<BR>&nbsp;&nbsp; toggling RTS or DTR signals. That can be used to control external<BR>&nbsp;&nbsp; half-duplex hardware like an RS485 transceiver or any RS232-connected<BR>&nbsp;&nbsp; half-duplex devices like some modems.</P>
+<P>&nbsp;&nbsp; For these microcontrollers, the Linux driver should be made capable of<BR>&nbsp;&nbsp; working in both modes, and proper ioctls (see later) should be made<BR>&nbsp;&nbsp; available at user-level to allow switching from one mode to the other, and<BR>&nbsp;&nbsp; vice versa.</P>
+<P>3. DATA STRUCTURES ALREADY AVAILABLE IN THE KERNEL</P>
+<P>&nbsp;&nbsp; The Linux kernel provides the serial_rs485 structure (see [1]) to handle<BR>&nbsp;&nbsp; RS485 communications. This data structure is used to set and configure RS485<BR>&nbsp;&nbsp; parameters in the platform data and in ioctls.</P>
+<P>&nbsp;&nbsp; The device tree can also provide RS485 boot time parameters (see [2]<BR>&nbsp;&nbsp; for bindings). The driver is in charge of filling this data structure from<BR>&nbsp;&nbsp; the values given by the device tree.</P>
+<P>&nbsp;&nbsp; Any driver for devices capable of working both as RS232 and RS485 should<BR>&nbsp;&nbsp; provide at least the following ioctls:</P>
+<P>&nbsp;&nbsp;&nbsp; - TIOCSRS485 (typically associated with number 0x542F). This ioctl is used<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; to enable/disable RS485 mode from user-space</P>
+<P>&nbsp;&nbsp;&nbsp; - TIOCGRS485 (typically associated with number 0x542E). This ioctl is used<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; to get RS485 mode from kernel-space (i.e., driver) to user-space.</P>
+<P>&nbsp;&nbsp; In other words, the serial driver should contain a code similar to the next<BR>&nbsp;&nbsp; one:</P>
+<P>&nbsp;static struct uart_ops atmel_pops = {<BR>&nbsp;&nbsp;/* ... */<BR>&nbsp;&nbsp;.ioctl&nbsp;&nbsp;= handle_ioctl,<BR>&nbsp;};</P>
+<P>&nbsp;static int handle_ioctl(struct uart_port *port,<BR>&nbsp;&nbsp;unsigned int cmd,<BR>&nbsp;&nbsp;unsigned long arg)<BR>&nbsp;{<BR>&nbsp;&nbsp;struct serial_rs485 rs485conf;</P>
+<P>&nbsp;&nbsp;switch (cmd) {<BR>&nbsp;&nbsp;case TIOCSRS485:<BR>&nbsp;&nbsp;&nbsp;if (copy_from_user(&amp;rs485conf,<BR>&nbsp;&nbsp;&nbsp;&nbsp;(struct serial_rs485 *) arg,<BR>&nbsp;&nbsp;&nbsp;&nbsp;sizeof(rs485conf)))<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EFAULT;</P>
+<P>&nbsp;&nbsp;&nbsp;/* ... */<BR>&nbsp;&nbsp;&nbsp;break;</P>
+<P>&nbsp;&nbsp;case TIOCGRS485:<BR>&nbsp;&nbsp;&nbsp;if (copy_to_user((struct serial_rs485 *) arg,<BR>&nbsp;&nbsp;&nbsp;&nbsp;...,<BR>&nbsp;&nbsp;&nbsp;&nbsp;sizeof(rs485conf)))<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return -EFAULT;<BR>&nbsp;&nbsp;&nbsp;/* ... */<BR>&nbsp;&nbsp;&nbsp;break;</P>
+<P>&nbsp;&nbsp;/* ... */<BR>&nbsp;&nbsp;}<BR>&nbsp;}</P>
+<P><BR>4. USAGE FROM USER-LEVEL</P>
+<P>&nbsp;&nbsp; From user-level, RS485 configuration can be get/set using the previous<BR>&nbsp;&nbsp; ioctls. For instance, to set RS485 you can use the following code:</P>
+<P>&nbsp;#include &lt;linux/serial.h&gt;</P>
+<P>&nbsp;/* Driver-specific ioctls: */<BR>&nbsp;#define TIOCGRS485&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0x542E<BR>&nbsp;#define TIOCSRS485&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0x542F</P>
+<P>&nbsp;/* Open your specific device (e.g., /dev/mydevice): */<BR>&nbsp;int fd = open ("/dev/mydevice", O_RDWR);<BR>&nbsp;if (fd &lt; 0) {<BR>&nbsp;&nbsp;/* Error handling. See errno. */<BR>&nbsp;}</P>
+<P>&nbsp;struct serial_rs485 rs485conf;</P>
+<P>&nbsp;/* Enable RS485 mode: */<BR>&nbsp;rs485conf.flags |= SER_RS485_ENABLED;</P>
+<P>&nbsp;/* Set logical level for RTS pin equal to 1 when sending: */<BR>&nbsp;rs485conf.flags |= SER_RS485_RTS_ON_SEND;<BR>&nbsp;/* or, set logical level for RTS pin equal to 0 when sending: */<BR>&nbsp;rs485conf.flags &amp;= ~(SER_RS485_RTS_ON_SEND);</P>
+<P>&nbsp;/* Set logical level for RTS pin equal to 1 after sending: */<BR>&nbsp;rs485conf.flags |= SER_RS485_RTS_AFTER_SEND;<BR>&nbsp;/* or, set logical level for RTS pin equal to 0 after sending: */<BR>&nbsp;rs485conf.flags &amp;= ~(SER_RS485_RTS_AFTER_SEND);</P>
+<P>&nbsp;/* Set rts delay before send, if needed: */<BR>&nbsp;rs485conf.delay_rts_before_send = ...;</P>
+<P>&nbsp;/* Set rts delay after send, if needed: */<BR>&nbsp;rs485conf.delay_rts_after_send = ...;</P>
+<P>&nbsp;/* Set this flag if you want to receive data even whilst sending data */<BR>&nbsp;rs485conf.flags |= SER_RS485_RX_DURING_TX;</P>
+<P>&nbsp;if (ioctl (fd, TIOCSRS485, &amp;rs485conf) &lt; 0) {<BR>&nbsp;&nbsp;/* Error handling. See errno. */<BR>&nbsp;}</P>
+<P>&nbsp;/* Use read() and write() syscalls here... */</P>
+<P>&nbsp;/* Close the device when finished: */<BR>&nbsp;if (close (fd) &lt; 0) {<BR>&nbsp;&nbsp;/* Error handling. See errno. */<BR>&nbsp;}</P>
+<P>5. REFERENCES</P>
+<P>&nbsp;[1]&nbsp;include/linux/serial.h<BR>&nbsp;[2]&nbsp;Documentation/devicetree/bindings/serial/rs485.txt

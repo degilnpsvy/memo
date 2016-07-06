@@ -1,0 +1,86 @@
+Creating Tracking Branches </P>
+<P>In the same way that your master branch can be thought of as extending the development brought in on the origin/master branch, you can create a new branch based on any remote-tracking branch and use it to extend that line of development. </P>
+<P>We&#8217;ve already seen that remote-tracking branches are introduced during a clone operation or when remotes are added to a repository. In later versions of Git, after about 1.6.6 or so, Git makes it very easy to create a local- and remote-tracking branch pair using a consistent ref name for them. A simple check out request using the name of a remote-tracking branch causes a new local-tracking branch to be created and associated with the remote-tracking branch. However, Git does this only if your branch name matches just one remote branch name from all of the repository remotes. And by the phrase &#8220;branch name matches,&#8221; Git means the full branch name after the name of the remote in a refspec. </P>
+<P>Let&#8217;s use Git&#8217;s source repository for some examples. By pulling both from GitHub and git.kernel.org, we&#8217;ll create a repository that has a vast collection of branch names from two remotes, some of which are duplicates. </P>
+<P># Grab GitHub's repository </P>
+<P>$ git clone git://github.com/gitster/git.git</P>
+<P>Cloning into 'git'... </P>
+<P>... </P>
+<P>$ git remote add korg git://git.kernel.org/pub/scm/git/git.git </P>
+<P>$ git remote update </P>
+<P>Fetching origin </P>
+<P>Fetching korg </P>
+<P>remote: Counting objects: 3541, done. </P>
+<P>remote: Compressing objects: 100% (1655/1655), done. </P>
+<P>remote: Total 3541 (delta 1796), reused 3451 (delta 1747) </P>
+<P>Receiving objects: 100% (3541/3541), 1.73 MiB | 344 KiB/s, done. </P>
+<P>Resolving deltas: 100% (1796/1796), done. </P>
+<P>From git://git.kernel.org/pub/scm/git/git </P>
+<P>* [new branch] maint -&gt; korg/maint </P>
+<P>* [new branch] master -&gt; korg/master </P>
+<P>* [new branch] next -&gt; korg/next </P>
+<P>* [new branch] pu -&gt; korg/pu </P>
+<P>* [new branch] todo -&gt; korg/todo</P>
+<P># Find a uniquely name branch and check it out. </P>
+<P>$ git branch -a | grep split-blob </P>
+<P>remotes/origin/jc/split-blob </P>
+<P>$ git branch </P>
+<P>* master </P>
+<P>$ git checkout jc/split-blob </P>
+<P>Branch jc/split-blob set up to track remote branch jc/split-blob from origin. </P>
+<P>Switched to a new branch 'jc/split-blob' </P>
+<P>$ git branch </P>
+<P>* jc/split-blob </P>
+<P>master </P>
+<P>Notice that we had to use the full branch name jc/split-blob and not simply splitblob. In the case when the branch name is ambiguous, you can directly establish and set up the branch yourself. </P>
+<P>$ git branch -a | egrep 'maint$' </P>
+<P>remotes/korg/maint</P>
+<P>remotes/origin/maint </P>
+<P>$ git checkout maint </P>
+<P>error: pathspec 'maint' did not match any file(s) known to git. </P>
+<P># Just select one of the maint branches. </P>
+<P>$ git checkout --track korg/maint </P>
+<P>Branch maint set up to track remote branch maint from korg. </P>
+<P>Switched to a new branch'maint' </P>
+<P>It is likely that the two branches represent the same commit as found in two different repositories and you can simply choose one on which to base your local-tracking branch. </P>
+<P>If for some reason you wish to use a different name for your local-tracking branch, use the -b option. </P>
+<P>$ git checkout -b mypu --track korg/pu </P>
+<P>Branch mypu set up to track remote branch pu from korg. </P>
+<P>Switched to a new branch 'mypu' </P>
+<P>Under the hood, Git automatically adds a branch entry to the .git/config to indicate that the remote-tracking branch should be merged into your new local-tracking branch. The collected changes from the previous series of commands yields the following config file: </P>
+<P>$ cat .git/config </P>
+<P>[core] </P>
+<P>repositoryformatversion = 0 </P>
+<P>filemode = true </P>
+<P>bare = false </P>
+<P>logallrefupdates = true </P>
+<P>[remote "origin"] </P>
+<P>fetch = +refs/heads/*:refs/remotes/origin/* </P>
+<P>url = git://github.com/gitster/git.git </P>
+<P>[branch "master"] </P>
+<P>remote = origin </P>
+<P>merge = refs/heads/master </P>
+<P>[remote "korg"] </P>
+<P>url = git://git.kernel.org/pub/scm/git/git.git </P>
+<P>fetch = +refs/heads/*:refs/remotes/korg/* </P>
+<P>[branch "jc/split-blob"] </P>
+<P>remote = origin </P>
+<P>merge = refs/heads/jc/split-blob </P>
+<P>[branch "maint"] </P>
+<P>remote = korg </P>
+<P>merge = refs/heads/maint </P>
+<P>[branch "mypu"] </P>
+<P>remote = korg </P>
+<P>merge = refs/heads/pu </P>
+<P>As usual, you may also use git config or a text editor to manipulate the branch entries in the configuration file. </P>
+<P>When you get lost in the tracking branch mire, use the command git remote show remote to help sort out all the remotes and branches. </P>
+<P>At this point, it should be pretty clear that the default clone behavior introduces localtracking branch master for the remote-tracking branch origin/master as a simplifying convenience just as if you had explicitly checked out the master branch yourself. </P>
+<P>To reinforce the idea that making commits directly on a remote-tracking branch isn&#8217;t good form, checking out a remote-tracking branch using early versions of Git (prior to about 1.6.6 or so) caused a detached HEAD. As mentioned in &#8220;Detached HEAD Branches&#8221; on page 102 of Chapter 7, a detached HEAD is essentially an anonymous branch name. Making commits on the detached HEAD is possible, but you shouldn&#8217;t then update your remote-tracking branch HEAD with any local commits lest you suffer grief later when fetching new updates from that remote. (If you find you need to keep any such commits on a detached HEAD, use git checkout -b my_branch to create a new, local branch on which to further develop your changes.) Collectively, it isn&#8217;t really a good, intuitive approach. </P>
+<P>If you don&#8217;t want to check out a local-tracking branch when you create it, you can instead use git branch --track local-branch remote-branch to create the localtracking branch and record the local- and remote-branch association in the .git/config file for you: </P>
+<P>$ git branch --track dev origin/dev </P>
+<P>Branch dev set up to track remote branch dev from origin. </P>
+<P>And, if you already have a topic branch that you decide should be associated with an upstream repository&#8217;s remote-tracking branch, you can establish the relationship using the --upstream option. Typically, this is done after adding a new remote, like this: </P>
+<P>$ git remote add upstreamrepo git://git.example.org/upstreamrepo.git </P>
+<P># Branch mydev already existed. </P>
+<P># Leave it alone, but associated it with upstreamrepo/dev. </P>
+<P>$ git branch --set-upstream mydev upstreamrepo/dev

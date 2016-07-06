@@ -1,0 +1,146 @@
+<H4 class=subsection>11.2.2 Searching for Regular Expressions in Files</H4><A name=index-regular-expressions_002c-searching-for></A><A name=index-searching_002c-files-for-regular-expressions></A><A name=index-files_002c-searching-for-regular-expressions></A><A name=index-egrep-utility-1></A>
+<P>The <CODE>egrep</CODE> utility searches files for patterns. It uses regular expressions that are almost identical to those available in <CODE>awk</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Regexp">Regexp</A>). You invoke it as follows: </P>
+<DIV class=example><PRE class=example>egrep <SPAN class=roman><FONT face=Batang>[</FONT></SPAN> <VAR>options</VAR> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN> '<VAR>pattern</VAR>' <VAR>files</VAR> &#8230;
+</PRE></DIV>
+<P>The <VAR>pattern</VAR> is a regular expression. In typical usage, the regular expression is quoted to prevent the shell from expanding any of the special characters as file name wildcards. Normally, <CODE>egrep</CODE> prints the lines that matched. If multiple file names are provided on the command line, each output line is preceded by the name of the file and a colon. </P>
+<P>The options to <CODE>egrep</CODE> are as follows: </P>
+<DL compact>
+<DT><CODE>-c</CODE></DT>
+<DD>
+<P>Print out a count of the lines that matched the pattern, instead of the lines themselves. </P></DD>
+<DT><CODE>-s</CODE></DT>
+<DD>
+<P>Be silent. No output is produced and the exit value indicates whether the pattern was matched. </P></DD>
+<DT><CODE>-v</CODE></DT>
+<DD>
+<P>Invert the sense of the test. <CODE>egrep</CODE> prints the lines that do <EM>not</EM> match the pattern and exits successfully if the pattern is not matched. </P></DD>
+<DT><CODE>-i</CODE></DT>
+<DD>
+<P>Ignore case distinctions in both the pattern and the input data. </P></DD>
+<DT><CODE>-l</CODE></DT>
+<DD>
+<P>Only print (list) the names of the files that matched, not the lines that matched. </P></DD>
+<DT><CODE>-e <VAR>pattern</VAR></CODE></DT>
+<DD>
+<P>Use <VAR>pattern</VAR> as the regexp to match. The purpose of the <SAMP>-e</SAMP> option is to allow patterns that start with a &#8216;<SAMP>-</SAMP>&#8217;. </P></DD></DL>
+<P>This version uses the <CODE>getopt()</CODE> library function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Getopt-Function">Getopt Function</A>) and the file transition library program (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Filetrans-Function">Filetrans Function</A>). </P>
+<P>The program begins with a descriptive comment and then a <CODE>BEGIN</CODE> rule that processes the command-line arguments with <CODE>getopt()</CODE>. The <SAMP>-i</SAMP> (ignore case) option is particularly easy with <CODE>gawk</CODE>; we just use the <CODE>IGNORECASE</CODE> built-in variable (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Built_002din-Variables">Built-in Variables</A>): </P><A name=index-egrep_002eawk-program></A>
+<DIV class=example><PRE class=example># egrep.awk --- simulate egrep in awk
+#
+# Options:
+#    -c    count of lines
+#    -s    silent - use exit value
+#    -v    invert test, success if no match
+#    -i    ignore case
+#    -l    print filenames only
+#    -e    argument is pattern
+#
+# Requires getopt and file transition library functions
+
+BEGIN {
+    while ((c = getopt(ARGC, ARGV, "ce:svil")) != -1) {
+        if (c == "c")
+            count_only++
+        else if (c == "s")
+            no_print++
+        else if (c == "v")
+            invert++
+        else if (c == "i")
+            IGNORECASE = 1
+        else if (c == "l")
+            filenames_only++
+        else if (c == "e")
+            pattern = Optarg
+        else
+            usage()
+    }
+</PRE></DIV>
+<P>Next comes the code that handles the <CODE>egrep</CODE>-specific behavior. If no pattern is supplied with <SAMP>-e</SAMP>, the first nonoption on the command line is used. The <CODE>awk</CODE> command-line arguments up to <CODE>ARGV[Optind]</CODE> are cleared, so that <CODE>awk</CODE> won&#8217;t try to process them as files. If no files are specified, the standard input is used, and if multiple files are specified, we make sure to note this so that the file names can precede the matched lines in the output: </P>
+<DIV class=example><PRE class=example>    if (pattern == "")
+        pattern = ARGV[Optind++]
+
+    for (i = 1; i &lt; Optind; i++)
+        ARGV[i] = ""
+    if (Optind &gt;= ARGC) {
+        ARGV[1] = "-"
+        ARGC = 2
+    } else if (ARGC - Optind &gt; 1)
+        do_filenames++
+
+#    if (IGNORECASE)
+#        pattern = tolower(pattern)
+}
+</PRE></DIV>
+<P>The last two lines are commented out, since they are not needed in <CODE>gawk</CODE>. They should be uncommented if you have to use another version of <CODE>awk</CODE>. </P>
+<P>The next set of lines should be uncommented if you are not using <CODE>gawk</CODE>. This rule translates all the characters in the input line into lowercase if the <SAMP>-i</SAMP> option is specified.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT70" name=DOCF70><SUP>70</SUP></A> The rule is commented out since it is not necessary with <CODE>gawk</CODE>: </P>
+<DIV class=example><PRE class=example>#{
+#    if (IGNORECASE)
+#        $0 = tolower($0)
+#}
+</PRE></DIV>
+<P>The <CODE>beginfile()</CODE> function is called by the rule in <SAMP>ftrans.awk</SAMP> when each new file is processed. In this case, it is very simple; all it does is initialize a variable <CODE>fcount</CODE> to zero. <CODE>fcount</CODE> tracks how many lines in the current file matched the pattern. Naming the parameter <CODE>junk</CODE> shows we know that <CODE>beginfile()</CODE> is called with a parameter, but that we&#8217;re not interested in its value: </P>
+<DIV class=example><PRE class=example>function beginfile(junk)
+{
+    fcount = 0
+}
+</PRE></DIV>
+<P>The <CODE>endfile()</CODE> function is called after each file has been processed. It affects the output only when the user wants a count of the number of lines that matched. <CODE>no_print</CODE> is true only if the exit status is desired. <CODE>count_only</CODE> is true if line counts are desired. <CODE>egrep</CODE> therefore only prints line counts if printing and counting are enabled. The output format must be adjusted depending upon the number of files to process. Finally, <CODE>fcount</CODE> is added to <CODE>total</CODE>, so that we know the total number of lines that matched the pattern: </P>
+<DIV class=example><PRE class=example>function endfile(file)
+{
+    if (! no_print &amp;&amp; count_only) {
+        if (do_filenames)
+            print file ":" fcount
+        else
+            print fcount
+    }
+
+    total += fcount
+}
+</PRE></DIV>
+<P>The following rule does most of the work of matching lines. The variable <CODE>matches</CODE> is true if the line matched the pattern. If the user wants lines that did not match, the sense of <CODE>matches</CODE> is inverted using the &#8216;<SAMP>!</SAMP>&#8217; operator. <CODE>fcount</CODE> is incremented with the value of <CODE>matches</CODE>, which is either one or zero, depending upon a successful or unsuccessful match. If the line does not match, the <CODE>next</CODE> statement just moves on to the next record. </P>
+<P>A number of additional tests are made, but they are only done if we are not counting lines. First, if the user only wants exit status (<CODE>no_print</CODE> is true), then it is enough to know that <EM>one</EM> line in this file matched, and we can skip on to the next file with <CODE>nextfile</CODE>. Similarly, if we are only printing file names, we can print the file name, and then skip to the next file with <CODE>nextfile</CODE>. Finally, each line is printed, with a leading file name and colon if necessary: </P><A name=index-_0021-_0028exclamation-point_0029_002c-_0021-operator-3></A><A name=index-exclamation-point-_0028_0021_0029_002c-_0021-operator-2></A>
+<DIV class=example><PRE class=example>{
+    matches = ($0 ~ pattern)
+    if (invert)
+        matches = ! matches
+
+    fcount += matches    # 1 or 0
+
+    if (! matches)
+        next
+
+    if (! count_only) {
+        if (no_print)
+            nextfile
+
+        if (filenames_only) {
+            print FILENAME
+            nextfile
+        }
+
+        if (do_filenames)
+            print FILENAME ":" $0
+        else
+            print
+    }
+}
+</PRE></DIV>
+<P>The <CODE>END</CODE> rule takes care of producing the correct exit status. If there are no matches, the exit status is one; otherwise it is zero: </P>
+<DIV class=example><PRE class=example>END    \
+{
+    if (total == 0)
+        exit 1
+    exit 0
+}
+</PRE></DIV>
+<P>The <CODE>usage()</CODE> function prints a usage message in case of invalid options, and then exits: </P>
+<DIV class=example><PRE class=example>function usage(    e)
+{
+    e = "Usage: egrep [-csvil] [-e pat] [files ...]"
+    e = e "\n\tegrep [-csvil] pat [files ...]"
+    print e &gt; "/dev/stderr"
+    exit 1
+}
+</PRE></DIV>
+<P>The variable <CODE>e</CODE> is used so that the function fits nicely on the printed page. </P><A name=index-END-pattern_002c-backslash-continuation-and></A><A name=index-_005c-_0028backslash_0029_002c-continuing-lines-and-1></A><A name=index-backslash-_0028_005c_0029_002c-continuing-lines-and-1></A>
+<P>Just a note on programming style: you may have noticed that the <CODE>END</CODE> rule uses backslash continuation, with the open brace on a line by itself. This is so that it more closely resembles the way functions are written. Many of the examples in this chapter use this style. You can decide for yourself if you like writing your <CODE>BEGIN</CODE> and <CODE>END</CODE> rules this way or not.

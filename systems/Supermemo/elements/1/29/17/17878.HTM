@@ -1,0 +1,138 @@
+<H3 class=section>10.5 Reading the User Database</H3><A name=index-libraries-of-awk-functions_002c-user-database_002c-reading></A><A name=index-functions_002c-library_002c-user-database_002c-reading></A><A name=index-user-database_002c-reading></A><A name=index-database_002c-users_002c-reading></A><A name=index-PROCINFO-array-2></A>
+<P>The <CODE>PROCINFO</CODE> array (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Built_002din-Variables">Built-in Variables</A>) provides access to the current user&#8217;s real and effective user and group ID numbers, and if available, the user&#8217;s supplementary group set. However, because these are numbers, they do not provide very useful information to the average user. There needs to be some way to find the user information associated with the user and group ID numbers. This section presents a suite of functions for retrieving information from the user database. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Group-Functions">Group Functions</A>, for a similar suite that retrieves information from the group database. </P><A name=index-getpwent_0028_0029-function-_0028C-library_0029></A><A name=index-getpwent_0028_0029-user_002ddefined-function></A><A name=index-users_002c-information-about_002c-retrieving></A><A name=index-login-information></A><A name=index-account-information></A><A name=index-password-file></A><A name=index-files_002c-password></A>
+<P>The POSIX standard does not define the file where user information is kept. Instead, it provides the <CODE>&lt;pwd.h&gt;</CODE> header file and several C language subroutines for obtaining user information. The primary function is <CODE>getpwent()</CODE>, for &#8220;get password entry.&#8221; The &#8220;password&#8221; comes from the original user database file, <SAMP>/etc/passwd</SAMP>, which stores user information, along with the encrypted passwords (hence the name). </P><A name=index-pwcat-program></A>
+<P>While an <CODE>awk</CODE> program could simply read <SAMP>/etc/passwd</SAMP> directly, this file may not contain complete information about the system&#8217;s set of users.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT69" name=DOCF69><SUP>69</SUP></A> To be sure you are able to produce a readable and complete version of the user database, it is necessary to write a small C program that calls <CODE>getpwent()</CODE>. <CODE>getpwent()</CODE> is defined as returning a pointer to a <CODE>struct passwd</CODE>. Each time it is called, it returns the next entry in the database. When there are no more entries, it returns <CODE>NULL</CODE>, the null pointer. When this happens, the C program should call <CODE>endpwent()</CODE> to close the database. Following is <CODE>pwcat</CODE>, a C program that &#8220;cats&#8221; the password database: </P>
+<DIV class=example><PRE class=example>/*
+ * pwcat.c
+ *
+ * Generate a printable version of the password database
+ */
+#include &lt;stdio.h&gt;
+#include &lt;pwd.h&gt;
+
+int
+main(int argc, char **argv)
+{
+    struct passwd *p;
+
+    while ((p = getpwent()) != NULL)
+        printf("%s:%s:%ld:%ld:%s:%s:%s\n",
+            p-&gt;pw_name, p-&gt;pw_passwd, (long) p-&gt;pw_uid,
+            (long) p-&gt;pw_gid, p-&gt;pw_gecos, p-&gt;pw_dir, p-&gt;pw_shell);
+
+    endpwent();
+    return 0;
+}
+</PRE></DIV>
+<P>If you don&#8217;t understand C, don&#8217;t worry about it. The output from <CODE>pwcat</CODE> is the user database, in the traditional <SAMP>/etc/passwd</SAMP> format of colon-separated fields. The fields are: </P>
+<DL compact>
+<DT>Login name</DT>
+<DD>
+<P>The user&#8217;s login name. </P></DD>
+<DT>Encrypted password</DT>
+<DD>
+<P>The user&#8217;s encrypted password. This may not be available on some systems. </P></DD>
+<DT>User-ID</DT>
+<DD>
+<P>The user&#8217;s numeric user ID number. (On some systems it&#8217;s a C <CODE>long</CODE>, and not an <CODE>int</CODE>. Thus we cast it to <CODE>long</CODE> for all cases.) </P></DD>
+<DT>Group-ID</DT>
+<DD>
+<P>The user&#8217;s numeric group ID number. (Similar comments about <CODE>long</CODE> vs. <CODE>int</CODE> apply here.) </P></DD>
+<DT>Full name</DT>
+<DD>
+<P>The user&#8217;s full name, and perhaps other information associated with the user. </P></DD>
+<DT>Home directory</DT>
+<DD>
+<P>The user&#8217;s login (or &#8220;home&#8221;) directory (familiar to shell programmers as <CODE>$HOME</CODE>). </P></DD>
+<DT>Login shell</DT>
+<DD>
+<P>The program that is run when the user logs in. This is usually a shell, such as Bash. </P></DD></DL>
+<P>A few lines representative of <CODE>pwcat</CODE>&#8217;s output are as follows: </P><A name=index-Jacobs_002c-Andrew></A><A name=index-Robbins_002c-Arnold-2></A><A name=index-Robbins_002c-Miriam-2></A>
+<DIV class=example><PRE class=example>$ <KBD><EM>pwcat</EM></KBD>
+-| root:3Ov02d5VaUPB6:0:1:Operator:/:/bin/sh
+-| nobody:*:65534:65534::/:
+-| daemon:*:1:1::/:
+-| sys:*:2:2::/:/bin/csh
+-| bin:*:3:3::/bin:
+-| arnold:xyzzy:2076:10:Arnold Robbins:/home/arnold:/bin/sh
+-| miriam:yxaay:112:10:Miriam Robbins:/home/miriam:/bin/sh
+-| andy:abcca2:113:10:Andy Jacobs:/home/andy:/bin/sh
+&#8230;
+</PRE></DIV>
+<P>With that introduction, following is a group of functions for getting user information. There are several functions here, corresponding to the C functions of the same names: </P><A name=index-_005fpw_005finit_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example># passwd.awk --- access password file information
+
+BEGIN {
+    # tailor this to suit your system
+    _pw_awklib = "/usr/local/libexec/awk/"
+}
+
+function _pw_init(    oldfs, oldrs, olddol0, pwcat, using_fw, using_fpat)
+{
+    if (_pw_inited)
+        return
+
+    oldfs = FS
+    oldrs = RS
+    olddol0 = $0
+    using_fw = (PROCINFO["FS"] == "FIELDWIDTHS")
+    using_fpat = (PROCINFO["FS"] == "FPAT")
+    FS = ":"
+    RS = "\n"
+
+    pwcat = _pw_awklib "pwcat"
+    while ((pwcat | getline) &gt; 0) {
+        _pw_byname[$1] = $0
+        _pw_byuid[$3] = $0
+        _pw_bycount[++_pw_total] = $0
+    }
+    close(pwcat)
+    _pw_count = 0
+    _pw_inited = 1
+    FS = oldfs
+    if (using_fw)
+        FIELDWIDTHS = FIELDWIDTHS
+    else if (using_fpat)
+        FPAT = FPAT
+    RS = oldrs
+    $0 = olddol0
+}
+</PRE></DIV><A name=index-BEGIN-pattern_002c-pwcat-program></A>
+<P>The <CODE>BEGIN</CODE> rule sets a private variable to the directory where <CODE>pwcat</CODE> is stored. Because it is used to help out an <CODE>awk</CODE> library routine, we have chosen to put it in <SAMP>/usr/local/libexec/awk</SAMP>; however, you might want it to be in a different directory on your system. </P>
+<P>The function <CODE>_pw_init()</CODE> keeps three copies of the user information in three associative arrays. The arrays are indexed by username (<CODE>_pw_byname</CODE>), by user ID number (<CODE>_pw_byuid</CODE>), and by order of occurrence (<CODE>_pw_bycount</CODE>). The variable <CODE>_pw_inited</CODE> is used for efficiency, since <CODE>_pw_init()</CODE> needs to be called only once. </P><A name=index-getline-command_002c-_005fpw_005finit_0028_0029-function></A>
+<P>Because this function uses <CODE>getline</CODE> to read information from <CODE>pwcat</CODE>, it first saves the values of <CODE>FS</CODE>, <CODE>RS</CODE>, and <CODE>$0</CODE>. It notes in the variable <CODE>using_fw</CODE> whether field splitting with <CODE>FIELDWIDTHS</CODE> is in effect or not. Doing so is necessary, since these functions could be called from anywhere within a user&#8217;s program, and the user may have his or her own way of splitting records and fields. </P><A name=index-PROCINFO-array_002c-testing-the-field-splitting></A>
+<P>The <CODE>using_fw</CODE> variable checks <CODE>PROCINFO["FS"]</CODE>, which is <CODE>"FIELDWIDTHS"</CODE> if field splitting is being done with <CODE>FIELDWIDTHS</CODE>. This makes it possible to restore the correct field-splitting mechanism later. The test can only be true for <CODE>gawk</CODE>. It is false if using <CODE>FS</CODE> or <CODE>FPAT</CODE>, or on some other <CODE>awk</CODE> implementation. </P>
+<P>The code that checks for using <CODE>FPAT</CODE>, using <CODE>using_fpat</CODE> and <CODE>PROCINFO["FS"]</CODE>, is similar. </P>
+<P>The main part of the function uses a loop to read database lines, split the line into fields, and then store the line into each array as necessary. When the loop is done, <CODE><SPAN class=nolinebreak>_pw_init()</SPAN><!-- /@w --></CODE> cleans up by closing the pipeline, setting <CODE><SPAN class=nolinebreak>_pw_inited</SPAN><!-- /@w --></CODE> to one, and restoring <CODE>FS</CODE> (and <CODE>FIELDWIDTHS</CODE> or <CODE>FPAT</CODE> if necessary), <CODE>RS</CODE>, and <CODE>$0</CODE>. The use of <CODE><SPAN class=nolinebreak>_pw_count</SPAN><!-- /@w --></CODE> is explained shortly. </P><A name=index-getpwnam_0028_0029-function-_0028C-library_0029></A>
+<P>The <CODE>getpwnam()</CODE> function takes a username as a string argument. If that user is in the database, it returns the appropriate line. Otherwise, it relies on the array reference to a nonexistent element to create the element with the null string as its value: </P><A name=index-getpwnam_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example>function getpwnam(name)
+{
+    _pw_init()
+    return _pw_byname[name]
+}
+</PRE></DIV><A name=index-getpwuid_0028_0029-function-_0028C-library_0029></A>
+<P>Similarly, the <CODE>getpwuid()</CODE> function takes a user ID number argument. If that user number is in the database, it returns the appropriate line. Otherwise, it returns the null string: </P><A name=index-getpwuid_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example>function getpwuid(uid)
+{
+    _pw_init()
+    return _pw_byuid[uid]
+}
+</PRE></DIV><A name=index-getpwent_0028_0029-function-_0028C-library_0029-1></A>
+<P>The <CODE>getpwent()</CODE> function simply steps through the database, one entry at a time. It uses <CODE>_pw_count</CODE> to track its current position in the <CODE>_pw_bycount</CODE> array: </P><A name=index-getpwent_0028_0029-user_002ddefined-function-1></A>
+<DIV class=example><PRE class=example>function getpwent()
+{
+    _pw_init()
+    if (_pw_count &lt; _pw_total)
+        return _pw_bycount[++_pw_count]
+    return ""
+}
+</PRE></DIV><A name=index-endpwent_0028_0029-function-_0028C-library_0029></A>
+<P>The <CODE>endpwent()<!-- /@w --></CODE> function resets <CODE><SPAN class=nolinebreak>_pw_count</SPAN><!-- /@w --></CODE> to zero, so that subsequent calls to <CODE>getpwent()</CODE> start over again: </P><A name=index-endpwent_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example>function endpwent()
+{
+    _pw_count = 0
+}
+</PRE></DIV>
+<P>A conscious design decision in this suite is that each subroutine calls <CODE><SPAN class=nolinebreak>_pw_init()</SPAN><!-- /@w --></CODE> to initialize the database arrays. The overhead of running a separate process to generate the user database, and the I/O to scan it, are only incurred if the user&#8217;s main program actually calls one of these functions. If this library file is loaded along with a user&#8217;s program, but none of the routines are ever called, then there is no extra runtime overhead. (The alternative is move the body of <CODE><SPAN class=nolinebreak>_pw_init()</SPAN><!-- /@w --></CODE> into a <CODE>BEGIN</CODE> rule, which always runs <CODE>pwcat</CODE>. This simplifies the code but runs an extra process that may never be needed.) </P>
+<P>In turn, calling <CODE>_pw_init()</CODE> is not too expensive, because the <CODE>_pw_inited</CODE> variable keeps the program from reading the data more than once. If you are worried about squeezing every last cycle out of your <CODE>awk</CODE> program, the check of <CODE>_pw_inited</CODE> could be moved out of <CODE>_pw_init()</CODE> and duplicated in all the other functions. In practice, this is not necessary, since most <CODE>awk</CODE> programs are I/O-bound, and such a change would clutter up the code. </P>
+<P>The <CODE>id</CODE> program in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Id-Program">Id Program</A>, uses these functions.

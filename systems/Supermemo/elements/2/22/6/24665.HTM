@@ -1,0 +1,35 @@
+<H5 id=title-ID0EXVPM class=docSection3Title>More Event Interfaces</H5>
+<P class=docText><A name="input devices"></A>The vms driver utilizes the generic evdev event interface, but input devices such as keyboards, mice, and touch controllers have custom event drivers. We will look at them when we discuss the corresponding device drivers.</P>
+<P class=docText><A name=iddle2025></A><A name=iddle2372></A><A name=iddle2404></A><A name=iddle4663></A><A name="and export"></A>To write your own event driver and export it to user space via <SPAN class=docEmphasis>/dev/input/mydev</SPAN>, you have to populate a structure called <FONT class=clozed><TT>input_handler</TT> and register it with the input core as follows:</FONT></P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks><FONT class=clozed>Code View:</FONT></DIV><PRE><FONT class=clozed>static struct input_handler my_event_handler = {
+  .event      = mydev_event,      /* Handle event reports sent by
+                                     input device drivers that use
+                                     this event driver's services */
+  .fops       = &amp;mydev_fops,      /* Methods to manage
+                                     <SPAN class=docEmphasis>/dev/input/mydev</SPAN> */
+  .minor      = MYDEV_MINOR_BASE, /* Minor number of
+                                     <SPAN class=docEmphasis>/dev/input/mydev</SPAN> */
+  .name       = "mydev",          /* Event driver name */
+  .id_table   = mydev_ids,        /* This event driver can handle
+                                     requests from these IDs */
+  .connect    = mydev_connect,    /* Invoked if there is an
+                                     ID match */
+  .disconnect = mydev_disconnect, /* Called when the driver unregisters
+                                   */
+};
+
+/* Driver Initialization */
+static int __init
+mydev_init(void)
+{
+  /* ... */
+
+  input_register_handler(&amp;my_event_handler);
+
+  /* ... */
+  return 0;
+}
+
+					  </FONT></PRE></DIV><BR>
+<P class=docText><FONT class=clozed>Look at the implementation of mousedev (<SPAN class=docEmphasis>drivers/input/mousedev.c</SPAN>) for a complete example.</FONT>

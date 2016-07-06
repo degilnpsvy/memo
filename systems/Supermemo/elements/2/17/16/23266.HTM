@@ -1,0 +1,53 @@
+<H3 id=700181-857 class=docSection1Title>9.6. cramfs</H3>
+<P class=docText>From the <TT>README</TT> file in the cramfs project, the goal of cramfs is to "cram a file system into a small ROM." The cramfs file system is very useful for embedded systems that contain a small ROM or FLASH memory that holds static data and programs. Borrowing again from the cramfs <TT>README</TT> file, "cramfs is designed to be simple and small, and compress things well."</P>
+<P class=docText>The cramfs file system is read only. It is created with a command line utility called <TT>mkcramfs</TT>. If you don't have it on your development workstation, you can download it from the link at the end of this chapter. As with JFFS2, <TT>mkcramfs</TT> builds a file system image from a directory specified on the command line. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec6.html#ch09list10">Listing 9-10</A> details the procedure for building a cramfs image. We use the same file system structure from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec5.html#ch09list08">Listing 9-8</A> that we used to build the JFFS2 image.</P><A name=ch09list10></A>
+<H5 id=title-IDAPVQWD class=docExampleTitle>Listing 9-10. <TT>mkcramfs</TT> Command Example</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>mkcramfs</SPAN>
+usage: mkcramfs [-h] [-v] [-b blksize] [-e edition] [-i file] [-n name]
+dirname outfile
+ -h         print this help
+ -E         make all warnings errors (non-zero exit status)
+ -b blksize use this blocksize, must equal page size
+ -e edition set edition number (part of fsid)
+ -i file    insert a file image into the filesystem (requires &gt;= 2.4.0)
+ -n name    set name of cramfs filesystem
+ -p         pad by 512 bytes for boot code
+ -s         sort directory entries (old option, ignored)
+ -v         be more verbose
+ -z         make explicit holes (requires &gt;= 2.3.39)
+ dirname    root of the directory tree to be compressed
+ outfile    output file
+
+#
+# <SPAN class=docEmphStrong>mkcramfs . ../cramfs.image</SPAN>
+warning: gids truncated to 8 bits (this may be a security concern)
+# <SPAN class=docEmphStrong>ls -l ../cramfs.image</SPAN>
+-rw-rw-r--  1 chris chris 1019904 Sep 19 18:06 ../cramfs.image</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1249></A><A name=iddle1442></A><A name=iddle1895></A>The <TT>mkcramfs</TT> command was initially issued without any command line parameters to reproduce the usage message. Because there is no man page for this utility, this is the best way to understand its usage. We subsequently issued the command specifying the current directory, ., as the source of the files for the <TT>cramfs</TT> file system, and a file called <TT>cramfs.image</TT> as the destination. Finally, we listed the file just created, and we see a new file called <TT>cramfs.image</TT>.</P>
+<P class=docText>Note that if your kernel is configured with cramfs support, you can mount this file system image on your Linux development workstation and examine its contents. Of course, because it is a read-only file system, you cannot modify it. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec6.html#ch09list11">Listing 9-11</A> demonstrates mounting the cramfs file system on a mount point called <TT>/mnt/flash</TT>.</P><A name=ch09list11></A>
+<H5 id=title-IDAKYQWD class=docExampleTitle>Listing 9-11. Examining the <TT>cramfs</TT> File System</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>mount -o loop cramfs.image /mnt/flash</SPAN>
+# <SPAN class=docEmphStrong>ls -l /mnt/flash</SPAN>
+total 6
+drwxr-xr-x  1 root  root 704 Dec 31  1969 bin
+drwxr-xr-x  1 root  root   0 Dec 31  1969 dev
+drwxr-xr-x  1 root  root 416 Dec 31  1969 etc
+drwxr-xr-x  1 root  root   0 Dec 31  1969 home
+drwxr-xr-x  1 root  root 172 Dec 31  1969 lib
+drwxr-xr-x  1 root  root   0 Dec 31  1969 proc
+drws------  1 root  root   0 Dec 31  1969 root
+drwxr-xr-x  1 root  root 272 Dec 31  1969 sbin
+drwxrwxrwt  1 root  root   0 Dec 31  1969 tmp
+drwxr-xr-x  1 root  root 124 Dec 31  1969 usr
+drwxr-xr-x  1 root  root 212 Dec 31  1969 var
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1003></A><A name=iddle1413></A><A name=iddle1420></A><A name=iddle1467></A><A name=iddle1468></A><A name=iddle2147></A><A name=iddle2149></A><A name=iddle2150></A>You might have noticed the warning message regarding group ID (GID) when the <TT>mkcramfs</TT> command was executed. The cramfs file system uses very terse metadata to reduce file system size and increase the speed of execution. One of the "features" of the cramfs file system is that it truncates the group ID field to 8 bits. Linux uses 16-bit group ID field. The result is that files created with group IDs greater than 255 are truncated with the warning issued in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec6.html#ch09list10">Listing 9-10</A>.</P>
+<P class=docText>Although somewhat limited in terms of maximum file sizes, maximum number of files, and so on, the cramfs file system is ideal for boot ROMS, in which read-only operation and fast compression are ideally suited.

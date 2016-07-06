@@ -1,0 +1,214 @@
+<DIV class=abstract>Using ptrace allows you to set up system call interception and modification at the user level. </DIV>
+<DIV class=content>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x16d4e890.0x16e43e58></A>Doing Funny Things</DIV>
+<P>Now it's time for some fun. In the following example, we will reverse the string passed to the write system call:</P><PRE class=programlisting>#include &lt;sys/ptrace.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;linux/user.h&gt;
+#include &lt;sys/syscall.h&gt;
+const int long_size = sizeof(long);
+void reverse(char *str)
+{   int i, j;
+    char temp;
+    for(i = 0, j = strlen(str) - 2;
+        i &lt;= j; ++i, --j) {
+        temp = str[i];
+        str[i] = str[j];
+        str[j] = temp;
+    }
+}
+void getdata(pid_t child, long addr,
+             char *str, int len)
+{   char *laddr;
+    int i, j;
+    union u {
+            long val;
+            char chars[long_size];
+    }data;
+    i = 0;
+    j = len / long_size;
+    laddr = str;
+    while(i &lt; j) {
+        data.val = ptrace(PTRACE_PEEKDATA,
+                          child, addr + i * 4,
+                          NULL);
+        memcpy(laddr, data.chars, long_size);
+        ++i;
+        laddr += long_size;
+    }
+    j = len % long_size;
+    if(j != 0) {
+        data.val = ptrace(PTRACE_PEEKDATA,
+                          child, addr + i * 4,
+                          NULL);
+        memcpy(laddr, data.chars, j);
+    }
+    str[len] = '\0';
+}
+void putdata(pid_t child, long addr,
+             char *str, int len)
+{   char *laddr;
+    int i, j;
+    union u {
+            long val;
+            char chars[long_size];
+    }data;
+    i = 0;
+    j = len / long_size;
+    laddr = str;
+    while(i &lt; j) {
+        memcpy(data.chars, laddr, long_size);
+        ptrace(PTRACE_POKEDATA, child,
+               addr + i * 4, data.val);
+        ++i;
+        laddr += long_size;
+    }
+    j = len % long_size;
+    if(j != 0) {
+        memcpy(data.chars, laddr, j);
+        ptrace(PTRACE_POKEDATA, child,
+               addr + i * 4, data.val);
+    }
+}
+int main()
+{
+   pid_t child;
+   child = fork();
+   if(child == 0) {
+      ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+      execl("/bin/ls", "ls", NULL);
+   }
+   else {
+      long orig_eax;
+      long params[3];
+      int status;
+      char *str, *laddr;
+      int toggle = 0;
+      while(1) {
+         wait(&amp;status);
+         if(WIFEXITED(status))
+             break;
+         orig_eax = ptrace(PTRACE_PEEKUSER,
+                           child, 4 * ORIG_EAX,
+                           NULL);
+         if(orig_eax == SYS_write) {
+            if(toggle == 0) {
+               toggle = 1;
+               params[0] = ptrace(PTRACE_PEEKUSER,
+                                  child, 4 * EBX,
+                                  NULL);
+               params[1] = ptrace(PTRACE_PEEKUSER,
+                                  child, 4 * ECX,
+                                  NULL);
+               params[2] = ptrace(PTRACE_PEEKUSER,
+                                  child, 4 * EDX,
+                                  NULL);
+               str = (char *)calloc((params[2]+1)
+                                 * sizeof(char));
+               getdata(child, params[1], str,
+                       params[2]);
+               reverse(str);
+               putdata(child, params[1], str,
+                       params[2]);
+            }
+            else {
+               toggle = 0;
+            }
+         }
+      ptrace(PTRACE_SYSCALL, child, NULL, NULL);
+      }
+   }
+   return 0;
+}
+</PRE>
+<P>The output looks like this: </P><PRE class=programlisting>ppadala@linux:~/ptrace &gt; ls
+a.out        dummy.s      ptrace.txt
+libgpm.html  registers.c  syscallparams.c
+dummy        ptrace.html  simple.c
+ppadala@linux:~/ptrace &gt; ./a.out
+txt.ecartp      s.ymmud      tuo.a
+c.sretsiger     lmth.mpgbil  c.llacys_egnahc
+c.elpmis        lmth.ecartp  ymmud
+</PRE>This example makes use of all the concepts previously discussed, plus a few more. In it, we use calls to ptrace with PTRACE_POKEDATA to change the data values. It works exactly the same way as PTRACE_PEEKDATA, except it both reads and writes the data thatt the child passes in arguments to the system call whereas PEEKDATA only reads the data. 
+<P></P></DIV>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x16d4e890.0x16e44068></A>Single-Stepping</DIV>
+<P><SPAN class=bold><B>ptrace</B></SPAN> provides features to single-step through the child's code. The call to ptrace(PTRACE_SINGLESTEP,..) tells the kernel to stop the child at each instruction and let the parent take control. The following example shows a way of reading the instruction being executed when a system call is executed. I have created a small dummy executable for you to understand what is happening instead of bothering with the calls made by libc.</P>
+<P>Here's the listing for dummy1.s. It's written in assembly language and compiled as gcc -o dummy1 dummy1.s:</P><PRE class=programlisting>.data
+hello:
+    .string "hello world\n"
+.globl  main
+main:
+    movl    $4, %eax
+    movl    $2, %ebx
+    movl    $hello, %ecx
+    movl    $12, %edx
+    int     $0x80
+    movl    $1, %eax
+    xorl    %ebx, %ebx
+    int     $0x80
+    ret
+</PRE>
+<P>The example program that single-steps through the above code is: </P><PRE class=programlisting>#include &lt;sys/ptrace.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;linux/user.h&gt;
+#include &lt;sys/syscall.h&gt;
+int main()
+{   pid_t child;
+    const int long_size = sizeof(long);
+    child = fork();
+    if(child == 0) {
+        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        execl("./dummy1", "dummy1", NULL);
+    }
+    else {
+        int status;
+        union u {
+            long val;
+            char chars[long_size];
+        }data;
+        struct user_regs_struct regs;
+        int start = 0;
+        long ins;
+        while(1) {
+            wait(&amp;status);
+            if(WIFEXITED(status))
+                break;
+            ptrace(PTRACE_GETREGS,
+                   child, NULL, &amp;regs);
+            if(start == 1) {
+                ins = ptrace(PTRACE_PEEKTEXT,
+                             child, regs.eip,
+                             NULL);
+                printf("EIP: %lx Instruction "
+                       "executed: %lx\n",
+                       regs.eip, ins);
+            }
+            if(regs.orig_eax == SYS_write) {
+                start = 1;
+                ptrace(PTRACE_SINGLESTEP, child,
+                       NULL, NULL);
+            }
+            else
+                ptrace(PTRACE_SYSCALL, child,
+                       NULL, NULL);
+        }
+    }
+    return 0;
+}
+</PRE>This program prints: <PRE class=programlisting>hello world
+EIP: 8049478 Instruction executed: 80cddb31
+EIP: 804947c Instruction executed: c3
+</PRE>You might have to look at Intel's manuals to make sense out of those instruction bytes. Using single stepping for more complex processes, such as setting breakpoints, requires careful design and more complex code. 
+<P></P>
+<P>In Part II, we will see how breakpoints can be inserted and code can be injected into a running program.</P>
+<P>All of the example code from this article and from Part II (which will be printed in next month's issue) is available as a tar archive on the <I>Linux Journal</I> FTP site [<A href="ftp://ftp.linuxjournal.com/pub/lj/listings/issue103/6011.tgz">ftp.linuxjournal.com/pub/lj/listings/issue103/6011.tgz</A>].</P></DIV>
+<DIV class=authorblurb>
+<P></P>
+<DIV class=mediaobject><IMG src="http://www.linuxjournal.com/files/linuxjournal.com/linuxjournal/articles/061/6100/6100aa.jpg"></DIV>email: <A href="mailto:ppadala@cise.ufl.edu">ppadala@cise.ufl.edu</A> 
+<P></P>
+<P><SPAN class=bold><B>Pradeep Padala</B></SPAN> is currently working on his Master's degree at the University of Florida. His research interests include Grid and distributed systems. He can be reached via e-mail at <A href="mailto:p_padala@yahoo.com">p_padala@yahoo.com</A> or through his web site (<A href="http://www.cise.ufl.edu/~ppadala">www.cise.ufl.edu/~ppadala</A>).</P></DIV></DIV>

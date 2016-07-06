@@ -1,0 +1,90 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>10.8.&nbsp;Macros vs. Subprograms</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s07.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;10.&nbsp;Subprogram Calls and the Stack</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s09.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="10.8.&nbsp;Macros vs. Subprograms" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286963223></A>10.8.&nbsp;Macros vs. Subprograms</H2></DIV></DIV></DIV>
+<P>Macros are an alternative to subprograms in that they provide a way to implement abstractions. Like subprograms, they allow us to replace a block of code with a single line that refers to it. This makes the source code much easier to read, and eliminates redundancy if the same block of code is needed in more than one place.</P>
+<P>Unlike subprograms, referring to a macro does not involve a jumping to and back from the subprogram body. Each reference to a macro is<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>replaced</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>by the macro body. Hence, there is no overhead of branching to and from the code, no need to pass arguments at run-time, and no need to save and restore the return address register.</P>
+<P>This substitution is performed by a<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>preprocessor</EM></SPAN>, or by the assembler or compiler itself, depending on the implementation.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286963240></A>A preprocessor is a program that modifies the source code before it is translated by the compiler or assembler. The command<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>app</EM></SPAN>, which stands for Assembly PreProcessor, is an example. Preprocessors perform simple text substitutions like replacing named constants with their values, macro substitutions, and inserting the contents of other files (includes).</P>
+<P>In high-level languages, macro references and subprogram calls usually look very similar, so the differences are not so obvious. In assembly language, the differences are more apparent, since for each subprogram call, we see the instructions necessary to pass arguments, retrieve return values, etc.</P>
+<P>The code below demonstrates the process of calling a subprogram multiple times. Here we see the overhead associated with calling the subprogram.</P><PRE class=programlisting>	square:
+		mul     $v0, $a0, $a0
+		jr      $ra
+		
+	main:
+		# Cache num1 and num2 in registers
+		lw      $s1, num1
+		lw      $s2, num2
+		
+		# subprogram call 1
+		move    $a0, $s1    # Pass argument
+		jal     square
+		move    $s3, $v0    # Retrieve return value
+		
+		# subprogram call 2
+		move    $a0, $s1    # Pass argument
+		jal     square
+		move    $s4, $v0    # Retrieve return value
+	</PRE>
+<P>Below is the same program implemented with a macro instead of a subprogram. The preprocessor replaces each macro reference with the macro body, so there is no subprogram call overhead involved.</P><PRE class=programlisting>	# Raw source code
+		.macro  square($result_reg, $source_reg)
+		mul     $result_reg, $source_reg, $source_reg
+		.end_macro
+	
+	main:
+		# Cache num1 and num2 in registers
+		lw      $s1, num1
+		lw      $s2, num2
+		
+		square($s3, $s1)
+		square($s4, $s2)
+	</PRE><PRE class=programlisting>	# Preprocessor output, passed to assembler
+	# (or simulator in the case of SPIM)
+	
+	# Raw source code
+		.macro  square($result_reg, $source_reg)
+		mul     $result_reg, $source_reg, $source_reg
+		.end_macro
+	
+	main:
+		# Cache num1 and num2 in registers
+		lw      $s1, num1
+		lw      $s2, num2
+		
+		mul     $s3, $s1, $s1
+		mul     $s4, $s2, $s2
+	</PRE>
+<P>Although macros eliminate argument passing, return addresses, and two branch instructions, macros must save and restore any registers they modify, just as subprograms do. Since a macro is an abstraction for a block of code, we cannot see what the macro body is doing by looking at a reference to the macro. Hence, macros must not have any side-effects on registers or anything else in the program, except for the macro arguments.</P>
+<P>Macros are most useful for small and frequently used blocks of code that we would like to abstract, such as the push and pop operations in MAL. Using a macro to represent a large block of code that is referenced frequently would result in a significant increase in the size of the machine code, since the macro body is inserted in place of each reference.</P>
+<P>Like many coding constructs, macros have some dangers. Consider the following macro in a C program, which uses the conditional operator to compute an absolute value:</P><PRE class=programlisting>	#define ABS(x)  ((x) &gt;= 0 ? (x) : -(x))
+	
+	a = ABS(b++);
+	</PRE>
+<P>The preprocessor will convert this code to the following:</P><PRE class=programlisting>	a = ((b++) &gt;= 0 ? (b++) : -(b++));
+	</PRE>
+<P>The problem here is that b will be incremented twice, regardless of the outcome of the conditional. It is incremented once when the comparison (b++) &gt;= 0 is evaluated, and then again when either (b++) or -(b++) is assigned to a!</P>
+<P>In order to avoid such side-effects, a convention is used by many C programmers: All macro names are written entirely in upper case, so that the programmer always knows whether they are using a macro or a function. Not all macros follow this convention, however. For example,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>getc()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is implemented as a macro in most standard C libraries. Fortunately, the getc() macro has no dangerous side-effects.</P></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s07.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s09.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">10.7.&nbsp;The Stack Frame&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;10.9.&nbsp;Coding Practice</TD></TR></TBODY></TABLE></DIV>

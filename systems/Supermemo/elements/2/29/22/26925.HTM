@@ -1,0 +1,97 @@
+# qemu:include/exec/cpu_ldst.h 
+<P></P>
+<P>/*<BR>&nbsp;*&nbsp; Software MMU support<BR>&nbsp;*<BR>&nbsp;* This library is free software; you can redistribute it and/or<BR>&nbsp;* modify it under the terms of the GNU Lesser General Public<BR>&nbsp;* License as published by the Free Software Foundation; either<BR>&nbsp;* version 2 of the License, or (at your option) any later version.<BR>&nbsp;*<BR>&nbsp;* This library is distributed in the hope that it will be useful,<BR>&nbsp;* but WITHOUT ANY WARRANTY; without even the implied warranty of<BR>&nbsp;* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.&nbsp; See the GNU<BR>&nbsp;* Lesser General Public License for more details.<BR>&nbsp;*<BR>&nbsp;* You should have received a copy of the GNU Lesser General Public<BR>&nbsp;* License along with this library; if not, see &lt;<A href="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</A>&gt;.<BR>&nbsp;*<BR>&nbsp;*/</P>
+<P><FONT class=extract>/*<BR>&nbsp;* Generate inline load/store functions for all MMU modes (typically<BR>&nbsp;* at least _user and _kernel) as well as _data versions, for all data<BR>&nbsp;* sizes.<BR>&nbsp;*<BR>&nbsp;* Used by target op helpers.<BR>&nbsp;*<BR>&nbsp;* The syntax for the accessors is:<BR>&nbsp;*<BR>&nbsp;* load: cpu_ld{sign}{size}_{mmusuffix}(env, ptr)<BR>&nbsp;*<BR>&nbsp;* store: cpu_st{sign}{size}_{mmusuffix}(env, ptr, val)<BR>&nbsp;*<BR>&nbsp;* sign is:<BR>&nbsp;* (empty): for 32 and 64 bit sizes<BR>&nbsp;*&nbsp;&nbsp; u&nbsp;&nbsp;&nbsp; : unsigned<BR>&nbsp;*&nbsp;&nbsp; s&nbsp;&nbsp;&nbsp; : signed<BR>&nbsp;*<BR>&nbsp;* size is:<BR>&nbsp;*&nbsp;&nbsp; b: 8 bits<BR>&nbsp;*&nbsp;&nbsp; w: 16 bits<BR>&nbsp;*&nbsp;&nbsp; l: 32 bits<BR>&nbsp;*&nbsp;&nbsp; q: 64 bits<BR>&nbsp;*<BR>&nbsp;* mmusuffix is one of the generic suffixes "data" or "code", or<BR>&nbsp;* (for softmmu configs)&nbsp; a target-specific MMU mode suffix as defined<BR>&nbsp;* in target cpu.h.<BR>&nbsp;*/<BR></FONT>#ifndef CPU_LDST_H<BR>#define CPU_LDST_H</P>
+<P><FONT class=extract>#if defined(CONFIG_USER_ONLY)<BR>/* All direct uses of g2h and h2g need to go away for usermode softmmu.&nbsp; */<BR>#define g2h(x) ((void *)((unsigned long)(target_ulong)(x) + guest_base))</FONT></P>
+<P><FONT class=extract>#if HOST_LONG_BITS &lt;= TARGET_VIRT_ADDR_SPACE_BITS<BR>#define h2g_valid(x) 1<BR>#else<BR>#define h2g_valid(x) ({ \<BR>&nbsp;&nbsp;&nbsp; unsigned long __guest = (unsigned long)(x) - guest_base; \<BR>&nbsp;&nbsp;&nbsp; (__guest &lt; (1ul &lt;&lt; TARGET_VIRT_ADDR_SPACE_BITS)) &amp;&amp; \<BR>&nbsp;&nbsp;&nbsp; (!reserved_va || (__guest &lt; reserved_va)); \<BR>})<BR>#endif</FONT></P>
+<P><FONT class=extract>#define h2g_nocheck(x) ({ \<BR>&nbsp;&nbsp;&nbsp; unsigned long __ret = (unsigned long)(x) - guest_base; \<BR>&nbsp;&nbsp;&nbsp; (abi_ulong)__ret; \<BR>})</FONT></P>
+<P><FONT class=extract>#define h2g(x) ({ \<BR>&nbsp;&nbsp;&nbsp; /* Check if given address fits target address space */ \<BR>&nbsp;&nbsp;&nbsp; assert(h2g_valid(x)); \<BR>&nbsp;&nbsp;&nbsp; h2g_nocheck(x); \<BR>})</FONT></P>
+<P><FONT class=extract>#endif</FONT></P>
+<P><FONT class=extract>#if defined(CONFIG_USER_ONLY)</FONT></P>
+<P><FONT class=extract>/* In user-only mode we provide only the _code and _data accessors. */</FONT></P>
+<P><FONT class=extract>#define MEMSUFFIX _data<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_useronly_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_useronly_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_useronly_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_useronly_template.h"<BR>#undef MEMSUFFIX</FONT></P>
+<P><FONT class=extract>#define MEMSUFFIX _code<BR>#define CODE_ACCESS<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_useronly_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_useronly_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_useronly_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_useronly_template.h"<BR>#undef MEMSUFFIX<BR>#undef CODE_ACCESS</FONT></P>
+<P><FONT class=extract>#else</FONT></P>
+<P><FONT class=extract>/* The memory helpers for tcg-generated code need tcg_target_long etc.&nbsp; */<BR>#include "tcg.h"</FONT></P>
+<P><FONT class=extract>#ifdef MMU_MODE0_SUFFIX<BR>#define CPU_MMU_INDEX 0<BR>#define MEMSUFFIX MMU_MODE0_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 2) &amp;&amp; defined(MMU_MODE1_SUFFIX)<BR>#define CPU_MMU_INDEX 1<BR>#define MEMSUFFIX MMU_MODE1_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 3) &amp;&amp; defined(MMU_MODE2_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 2<BR>#define MEMSUFFIX MMU_MODE2_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 3) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 4) &amp;&amp; defined(MMU_MODE3_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 3<BR>#define MEMSUFFIX MMU_MODE3_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 4) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 5) &amp;&amp; defined(MMU_MODE4_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 4<BR>#define MEMSUFFIX MMU_MODE4_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 5) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 6) &amp;&amp; defined(MMU_MODE5_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 5<BR>#define MEMSUFFIX MMU_MODE5_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 6) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 7) &amp;&amp; defined(MMU_MODE6_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 6<BR>#define MEMSUFFIX MMU_MODE6_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 7) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 8) &amp;&amp; defined(MMU_MODE7_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 7<BR>#define MEMSUFFIX MMU_MODE7_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 8) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 9) &amp;&amp; defined(MMU_MODE8_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 8<BR>#define MEMSUFFIX MMU_MODE8_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 9) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 10) &amp;&amp; defined(MMU_MODE9_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 9<BR>#define MEMSUFFIX MMU_MODE9_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 10) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 11) &amp;&amp; defined(MMU_MODE10_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 10<BR>#define MEMSUFFIX MMU_MODE10_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 11) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt;= 12) &amp;&amp; defined(MMU_MODE11_SUFFIX)</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX 11<BR>#define MEMSUFFIX MMU_MODE11_SUFFIX<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#endif /* (NB_MMU_MODES &gt;= 12) */</FONT></P>
+<P><FONT class=extract>#if (NB_MMU_MODES &gt; 12)<BR>#error "NB_MMU_MODES &gt; 12 is not supported for now"<BR>#endif /* (NB_MMU_MODES &gt; 12) */</FONT></P>
+<P><FONT class=extract>/* these access are slower, they must be as rare as possible */<BR>#define CPU_MMU_INDEX (cpu_mmu_index(env, false))<BR>#define MEMSUFFIX _data<BR>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"<BR>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX</FONT></P>
+<P><FONT class=extract>#define CPU_MMU_INDEX (cpu_mmu_index(env, true))<BR>#define MEMSUFFIX _code<BR>#define SOFTMMU_CODE_ACCESS</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 1<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 2<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 4<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#define DATA_SIZE 8<BR>#include "exec/cpu_ldst_template.h"</FONT></P>
+<P><FONT class=extract>#undef CPU_MMU_INDEX<BR>#undef MEMSUFFIX<BR>#undef SOFTMMU_CODE_ACCESS</FONT></P>
+<P><FONT class=extract>#endif /* defined(CONFIG_USER_ONLY) */</FONT></P>
+<P><FONT class=extract>/**<BR>&nbsp;* tlb_vaddr_to_host:<BR>&nbsp;* @env: CPUArchState<BR>&nbsp;* @addr: guest virtual address to look up<BR>&nbsp;* @access_type: 0 for read, 1 for write, 2 for execute<BR>&nbsp;* @mmu_idx: MMU index to use for lookup<BR>&nbsp;*<BR>&nbsp;* Look up the specified guest virtual index in the TCG softmmu TLB.<BR>&nbsp;* If the TLB contains a host virtual address suitable for direct RAM<BR>&nbsp;* access, then return it. Otherwise (TLB miss, TLB entry is for an<BR>&nbsp;* I/O access, etc) return NULL.<BR>&nbsp;*<BR>&nbsp;* This is the equivalent of the initial fast-path code used by<BR>&nbsp;* TCG backends for guest load and store accesses.<BR>&nbsp;*/<BR>static inline void *tlb_vaddr_to_host(CPUArchState *env, target_ulong addr,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int access_type, int mmu_idx)<BR>{<BR>#if defined(CONFIG_USER_ONLY)<BR>&nbsp;&nbsp;&nbsp; return g2h(vaddr);<BR>#else<BR>&nbsp;&nbsp;&nbsp; int index = (addr &gt;&gt; TARGET_PAGE_BITS) &amp; (CPU_TLB_SIZE - 1);<BR>&nbsp;&nbsp;&nbsp; CPUTLBEntry *tlbentry = &amp;env-&gt;tlb_table[mmu_idx][index];<BR>&nbsp;&nbsp;&nbsp; target_ulong tlb_addr;<BR>&nbsp;&nbsp;&nbsp; uintptr_t haddr;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; switch (access_type) {<BR>&nbsp;&nbsp;&nbsp; case 0:<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tlb_addr = tlbentry-&gt;addr_read;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; break;<BR>&nbsp;&nbsp;&nbsp; case 1:<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tlb_addr = tlbentry-&gt;addr_write;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; break;<BR>&nbsp;&nbsp;&nbsp; case 2:<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tlb_addr = tlbentry-&gt;addr_code;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; break;<BR>&nbsp;&nbsp;&nbsp; default:<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; g_assert_not_reached();<BR>&nbsp;&nbsp;&nbsp; }</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; if ((addr &amp; TARGET_PAGE_MASK)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; != (tlb_addr &amp; (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* TLB entry is for a different page */<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return NULL;<BR>&nbsp;&nbsp;&nbsp; }</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; if (tlb_addr &amp; ~TARGET_PAGE_MASK) {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* IO access */<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return NULL;<BR>&nbsp;&nbsp;&nbsp; }</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; haddr = addr + env-&gt;tlb_table[mmu_idx][index].addend;<BR>&nbsp;&nbsp;&nbsp; return (void *)haddr;<BR>#endif /* defined(CONFIG_USER_ONLY) */<BR>}</FONT></P>
+<P>#endif /* CPU_LDST_H */

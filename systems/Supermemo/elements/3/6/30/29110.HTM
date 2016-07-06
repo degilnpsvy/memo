@@ -1,0 +1,25 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title>Interrupt Descriptor Table</H2></DIV></DIV></DIV>
+<P><A id=IXT-4-466 class=indexterm></A><A id=IXT-4-467 class=indexterm></A>A system table called <SPAN class=emphasis><EM>Interrupt Descriptor Table</EM></SPAN> (IDT) associates each interrupt or exception vector with the address of the corresponding interrupt or exception handler. The IDT must be properly initialized before the kernel enables interrupts. </P>
+<P>The IDT format is similar to that of the GDT and the LDTs examined in <A title="Chapter&nbsp;2.&nbsp;Memory Addressing" class=link href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch02.html">Chapter 2</A>. Each entry corresponds to an interrupt or an exception vector and consists of an 8-byte descriptor. Thus, a maximum of 256 &#215; 8 = 2048 bytes are required to store the IDT. </P>
+<P>The <CODE class=literal>idtr</CODE> <A id=IXT-4-468 class=indexterm></A>CPU register allows the IDT to be located anywhere in memory: it specifies both the IDT base physical address and its limit (maximum length). It must be initialized before enabling interrupts by using the <CODE class=literal>lidt</CODE> assembly language instruction. </P>
+<P>The IDT may include three types of descriptors; <A title="Figure&nbsp;4-2.&nbsp;Gate descriptors&#8217; format" class=link href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch04s02.html#linuxkernel2-CHP-4-FIG-2">Figure 4-2</A> illustrates the meaning of the 64 bits included in each of them. In particular, the value of the <CODE class=literal>Type</CODE> field encoded in the bits 40-43 identifies the descriptor type. </P>
+<DIV class=figure><A id=linuxkernel2-CHP-4-FIG-2></A>
+<DIV class=figure-contents>
+<DIV class=mediaobject><A id=I_4_tt79></A><IMG alt="Gate descriptors&#8217; format" src="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/tagoreillycom20070221oreillyimages79614.png" width=434 height=359></DIV></DIV>
+<P class=title>Figure&nbsp;4-2.&nbsp;Gate descriptors&#8217; format</P></DIV>
+<P>The descriptors are:</P>
+<DIV class=variablelist>
+<DL>
+<DT><SPAN class=term><A id=IXT-4-469 class=indexterm></A><SPAN class=emphasis><EM>Task gate</EM></SPAN> </SPAN>
+<DD>
+<P>Includes the TSS selector of the process that must replace the current one when an interrupt signal occurs. Linux does not use task gates. </P>
+<DT><SPAN class=term><A id=IXT-4-470 class=indexterm></A><FONT class=extract><SPAN class=emphasis><EM>Interrupt gate</EM></SPAN> </FONT></SPAN>
+<DD>
+<P><FONT class=extract>Includes the Segment Selector and the offset inside the segment of an interrupt or exception handler. While transferring control to the proper segment, the processor clears the IF flag, thus disabling further maskable interrupts. </FONT></P>
+<DT><SPAN class=term><A id=IXT-4-471 class=indexterm></A><FONT class=extract><SPAN class=emphasis><EM>Trap gate</EM></SPAN> </FONT></SPAN>
+<DD>
+<P><FONT class=extract>Similar to an interrupt gate, except that while transferring control to the proper segment, the processor does not modify the IF flag. </FONT></P></DD></DL></DIV>
+<P>As we shall see in the later section <A title="Interrupt, Trap, and System Gates" class=link href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch04s04.html#linuxkernel2-CHP-4-SECT-4.1">Section 4.4.1</A>, Linux uses interrupt gates to handle interrupts and trap gates to handle exceptions.

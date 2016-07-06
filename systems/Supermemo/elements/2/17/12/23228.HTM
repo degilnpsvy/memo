@@ -1,0 +1,407 @@
+<H3 id=700181-890 class=docSection1Title>4.3. Kernel Build System</H3>
+<P class=docText>The Linux kernel configuration and build system is rather complicated, as one would expect of software projects containing more than six million lines of code! In this section, we cover the foundation of the kernel build system for developers who need to customize the build environment.</P>
+<P class=docText>A recent Linux kernel snapshot showed more than 800 makefiles<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fn05">[5]</A></SUP> in the kernel source tree. This might sound like a large number, but it might not seem so large <A name=iddle1149></A><A name=iddle1213></A><A name=iddle1312></A><A name=iddle1360></A><A name=iddle1493></A><A name=iddle1494></A><A name=iddle1724></A><A name=iddle2067></A>when you understand the structure and operation of the build system. The Linux kernel build system has been significantly updated since the days of Linux 2.4 and earlier. For those of you familiar with the older kernel build system, we're sure you will find the new <SPAN class=docEmphasis>Kbuild</SPAN> system to be a huge improvement. We limit our discussion in this section to this and later kernel versions based on <TT>Kbuild</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn05>[5]</A></SUP> Not all these makefiles are directly involved in building the kernel. Some, for example, build documentation files.</P></BLOCKQUOTE><A name=ch04lev2sec8></A>
+<H4 id=title-IDAMGLFI class=docSection2Title>4.3.1. The Dot-Config</H4>
+<P class=docText>Introduced earlier, the dot-config file is the configuration blueprint for building a Linux kernel image. You will likely spend significant effort at the start of your Linux project building a configuration that is appropriate for your embedded platform. Several editors, both text based and graphical, are designed to edit your kernel configuration. The output of this configuration exercise is written to a configuration file named <TT>.config</TT>, located in the top-level Linux source directory that drives the kernel build.</P>
+<P class=docText>You have likely invested significant time perfecting your kernel configuration, so you will want to protect it. Several <TT>make</TT> commands delete this configuration file without warning. The most common is <TT>make mrproper</TT>. This <TT>make</TT> target is designed to return the kernel source tree to its pristine, unconfigured state. This includes removing all configuration data from the source treeand, yes, it deletes your <TT>.config</TT>.</P>
+<P class=docText>As you might know, any filename in Linux preceded by a dot is a hidden file in Linux. It is unfortunate that such an important file is marked hidden; this has brought considerable grief to more than one developer. If you execute <TT>make mrproper</TT> without having a backup copy of your <TT>.config</TT> file, you, too, will share our grief. (You have been warnedback up your <TT>.config</TT> file!)</P>
+<P class=docText><A name=iddle1323></A><A name=iddle1363></A><A name=iddle1369></A><A name=iddle1607></A><A name=iddle1957></A><A name=iddle2038></A><A name=iddle2039></A><A name=iddle2102></A>The <TT>.config</TT> file is a collection of definitions with a simple format. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list05">Listing 4.5</A> shows a snippet of a <TT>.config</TT> from a recent Linux kernel release.</P><A name=ch04list05></A>
+<H5 id=title-IDAYLLFI class=docExampleTitle>Listing 4-5. Snippet from Linux 2.6 .config</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+# USB support
+#
+CONFIG_USB=m
+# CONFIG_USB_DEBUG is not set
+
+
+# Miscellaneous USB options
+#
+CONFIG_USB_DEVICEFS=y
+# CONFIG_USB_BANDWIDTH is not set
+# CONFIG_USB_DYNAMIC_MINORS is not set
+
+# USB Host Controller Drivers
+#
+CONFIG_USB_EHCI_HCD=m
+# CONFIG_USB_EHCI_SPLIT_ISO is not set
+# CONFIG_USB_EHCI_ROOT_HUB_TT is not set
+CONFIG_USB_OHCI_HCD=m
+CONFIG_USB_UHCI_HCD=m
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>To understand the <TT>.config</TT> file, you need to understand a fundamental aspect of the Linux kernel. Linux has a monolithic structure. That is, the entire kernel is compiled and linked as a single statically linked executable. However, it is possible to compile and <SPAN class=docEmphasis>incrementally link</SPAN><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fn06">[6]</A></SUP> a set of sources into a single object module suitable for dynamic insertion into a running kernel. This is the usual method for supporting most common device drivers. In Linux, these are called <SPAN class=docEmphasis>loadable modules</SPAN>. They are also generically called device drivers. After the kernel is booted, a special application program is invoked to insert the loadable module into a running kernel.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn06>[6]</A></SUP> Incremental linking is a technique used to generate an object module that is intended to be linked again into another object. In this way, unresolved symbols that remain after incremental linking do not generate errorsthey are resolved at the next link stage.</P></BLOCKQUOTE>
+<P class=docText>Armed with that knowledge, let's look again at <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list05">Listing 4-5</A>. This snippet of the configuration file (<TT>.config</TT>) shows a portion of the USB subsystem configuration. The first configuration option, <TT>CONFIG_USB=m</TT>, declares that the USB subsystem is to be included in this kernel configuration and that it will be compiled as a <SPAN class=docEmphasis>dynamically loadable module</SPAN>(<TT>=m</TT>), to be loaded sometime after the kernel has booted. The other <A name=iddle1148></A><A name=iddle1223></A><A name=iddle1723></A>choice would have been <TT>=y</TT>, in which case the USB module would be compiled and statically linked as part of the kernel image itself. It would end up in the <TT>.../drivers/built-in.o</TT> composite binary that you saw in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list03">Listing 4-3</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04fig01">Figure 4-1</A>. The astute reader will realize that if a driver is configured as a loadable module, its code is not included in the kernel proper, but rather exists as a stand-alone object module, a <SPAN class=docEmphasis>loadable module</SPAN>, to be inserted into the running kernel after boot.</P>
+<P class=docText>Notice in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list05">Listing 4-5</A> the <TT>CONFIG_USB_DEVICEFS=y</TT> declaration. This configuration option behaves in a slightly different manner. In this case, <TT>USB_DEVICEFS</TT> (as configuration options are commonly abbreviated) is not a stand-alone module, but rather a feature to be enabled or disabled in the USB driver. It does not necessarily result in a module that is compiled into the kernel proper (<TT>=y</TT>); instead, it enables one or more features, often represented as additional object modules to be included in the overall USB device driver module. Usually, the help text in the configuration editor, or the hierarchy presented by the configuration editor, makes this distinction clear.</P><A name=ch04lev2sec9></A>
+<H4 id=title-IDAKPLFI class=docSection2Title>4.3.2. Configuration Editor(s)</H4>
+<P class=docText>Early kernels used a simple command line driven script to configure the kernel. This was cumbersome even for early kernels, in which the number of configuration parameters was much smaller. This command line style interface is still supported, but using it is tedious, to say the least. A typical configuration from a recent kernel requires answering more than 600 questions from the command line, entering your choice followed by the Enter key for each query from the script. Furthermore, if you make a mistake, there is no way to back up; you must start from the beginning again. That can be profoundly frustrating if you make a mistake on the 599th entry!</P>
+<P class=docText>In some situations, such as building a kernel on an embedded system without graphics, using the command line configuration utility is unavoidable, but this author would go to great lengths to find a way around it.</P>
+<P class=docText>The kernel-configuration subsystem uses several graphical front ends. In fact, a recent Linux kernel release included 10 such configuration targets. They are summarized here, from text taken directly from the output of <TT>make help</TT>:</P>
+<UL>
+<LI>
+<P class=docText><TT>config</TT> Update current config using a line-oriented program</P></LI>
+<LI>
+<P class=docText><TT>menuconfig</TT> Update current config using a menu-based program</P></LI>
+<LI>
+<P class=docText><SPAN class=docEmphasis><TT>xconfig</TT></SPAN> Update current config using a QT-based front end</P></LI>
+<LI>
+<P class=docText><TT>gconfig</TT> Update current config using a GTK-based front end</P></LI>
+<LI>
+<P class=docText><TT>oldconfig</TT> Update current config using a provided <TT>.config</TT> as the base</P></LI>
+<LI>
+<P class=docText><TT>randconfig</TT> New config with random answer to all options</P></LI>
+<LI>
+<P class=docText><SPAN class=docEmphasis><TT>defconfig</TT></SPAN> New config with default answer to all options</P></LI>
+<LI>
+<P class=docText><SPAN class=docEmphasis><TT>allmodconfig</TT></SPAN> New config that selects modules, when possible</P></LI>
+<LI>
+<P class=docText><TT>allyesconfig</TT> New config in which all options are accepted with <TT>yes</TT></P></LI>
+<LI>
+<P class=docText><TT>allnoconfig</TT> New minimal config</P></LI></UL>
+<P class=docText>The first four of these makefile configuration targets invoke a form of configuration editor, as described in the list. Because of space considerations, we focus our discussion in this chapter and others only on the GTK-based graphical front end. Realize that you can use the configuration editor of your choice with the same results.</P>
+<P class=docText>The configuration editor is invoked by entering the command <TT>make gconfig</TT> from the top-level kernel directory.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fn07">[7]</A></SUP> <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fig02">Figure 4-2</A> shows the top-level configuration menu presented to the developer when <TT>gconfig</TT> is run. From here, every available configuration parameter can be accessed to generate a custom kernel configuration.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn07>[7]</A></SUP> As mentioned, you can use the configuration editor of your choice, such as <TT>make xconfig</TT> or <TT>make menuconfig.</TT></P></BLOCKQUOTE><A name=ch04fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 4-2. Top-level kernel configuration</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/04elp02_alt.jpg" target=_self>[View full size image]</A></DIV><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/04elp02.jpg" width=500 height=375>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1958></A>When the configuration editor is exited, you are prompted to save your changes. If you elect to save your changes, the global configuration file <TT>.config</TT> is updated (or created, if it does not already exist). This <TT>.config</TT> file, introduced earlier, drives the kernel build via the top-level makefile. You will notice in this makefile that the <TT>.config</TT> file is read directly by an <TT>include</TT> statement.</P>
+<P class=docText>Most kernel software modules also read the configuration indirectly via the <TT>.config</TT> file as follows. During the build process, the <TT>.config</TT> file is processed into a C header file found in the <TT>.../include/linux</TT> directory, called <TT>autoconf.h</TT>. This is an automatically generated file and should never be edited directly because edits are lost each time a configuration editor is run. Many kernel source files include this file directly using the <TT>#include</TT> preprocessor directive. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list06">Listing 4-6</A> reproduces a section of this header file that corresponds to the earlier USB example above. Note that, for each entry in the <TT>.config</TT> file snippet in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list05">Listing 4-5</A>, a corresponding entry is created in <TT>autoconf.h</TT>. This is how the source files in the kernel source tree reference the kernel configuration.</P><A name=ch04list06></A>
+<H5 id=title-IDAYVLFI class=docExampleTitle>Listing 4-6. Linux autoconf.h</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>/*
+ * USB support
+ */
+#define CONFIG_USB_MODULE 1
+#undef CONFIG_USB_DEBUG
+
+/*
+ * Miscellaneous USB options
+ */
+#define CONFIG_USB_DEVICEFS 1
+#undef CONFIG_USB_BANDWIDTH
+#undef CONFIG_USB_DYNAMIC_MINORS
+
+/*
+ * USB Host Controller Drivers
+ */
+#define CONFIG_USB_EHCI_HCD_MODULE 1
+#undef CONFIG_USB_EHCI_SPLIT_ISO
+#undef CONFIG_USB_EHCI_ROOT_HUB_TT
+#define CONFIG_USB_OHCI_HCD_MODULE 1
+#define CONFIG_USB_UHCI_HCD_MODULE 1</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1151></A><A name=iddle1174></A><A name=iddle1726></A><A name=iddle2069></A><A name=iddle2631></A>If you haven't already done so, execute <TT>make gconfig</TT> in your top-level kernel source directory, and poke around this configuration utility to see the large number of subsections and configuration options available to the Linux developer. As long as you don't explicitly save your changes, they are lost upon exiting the configuration editor and you can safely explore without modifying your kernel configuration.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fn08">[8]</A></SUP> Many configuration parameters contain helpful explanation text, which can add to your understanding of the different configuration options.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn08>[8]</A></SUP> Better yet, make a backup copy of your <TT>.config</TT> file.</P></BLOCKQUOTE><A name=ch04lev2sec10></A>
+<H4 id=title-IDAIYLFI class=docSection2Title>4.3.3. Makefile Targets</H4>
+<P class=docText>If you type <TT>make help</TT> at the top-level Linux source directory, you are presented with a list of targets that can be generated from the source tree. The most common use of <TT>make</TT> is to specify no target. This generates the kernel ELF file <TT>vmlinux</TT> and is the default binary image for your chosen architecture (for example, <TT>bzImage</TT> for x86). Specifying <TT>make</TT> with no target also builds all the device-driver modules (kernel-loadable modules) specified by the configuration.</P>
+<P class=docText>Many architectures and machine types require binary targets specific to the architecture and bootloader in use. One of the more common architecture specific targets is <TT>zImage</TT>. In many architectures, this is the default target image that can be loaded and run on the target embedded system. One of the common mistakes that newcomers make is to specify <TT>bzImage</TT> as the <TT>make</TT> target. The <TT>bzImage</TT> target is specific to the x86/PC architecture. Contrary to popular myth, the <TT>bzImage</TT> is not a <TT>bzip2</TT>-compressed image. It is a big <TT>zImage</TT>. Without going into the details of legacy PC architecture, it is enough to know that a <TT>bzImage</TT> is suitable only for PC-compatible machines with an industry-standard PC-style BIOS.</P>
+<P class=docText><A name=iddle1972></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list07">Listing 4-7</A> contains the output from <TT>make help</TT> from a recent Linux kernel. You can see from the listing that many targets are available in the top-level Linux kernel makefile. Each is listed along with a short description of its use. It is important to realize that even the <TT>help make</TT> target (as in <TT>make help</TT>) is architecture specific. You get a different list of architecture-specific targets depending on the architecture you pass on the <TT>make</TT> invocation. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list07">Listing 4-7</A> illustrates an invocation that specifies the ARM architecture, as you can see from the <TT>make</TT> command line.</P><A name=ch04list07></A>
+<H5 id=title-IDA00LFI class=docExampleTitle>Listing 4-7. Makefile Targets</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>make ARCH=arm help</SPAN>
+Cleaning targets:
+  clean            -  remove most generated files but keep the config
+  mrproper         -  remove all generated files + config +  various backup files
+
+Configuration targets:
+  config           -  Update current config utilising a line-oriented program
+  menuconfig       -  Update current config utilising a menu based program
+  xconfig          -  Update current config utilising a QT based front-end
+  gconfig          -  Update current config utilising a GTK based front-end
+  oldconfig        -  Update current config utilising a provided .config as base
+  randconfig       -  New config with random answer to all options
+  defconfig        -  New config with default answer to all options
+  allmodconfig     -  New config selecting modules when possible
+  allyesconfig     -  New config where all options are accepted with yes
+  allnoconfig      -  New minimal config
+
+Other generic targets:
+  all              - Build all targets marked with [*]
+* vmlinux          - Build the bare kernel
+* modules          - Build all modules
+  modules_install  - Install all modules
+  dir/             - Build all files in dir and below
+  dir/file.[ois]   - Build specified target only
+  dir/file.ko      - Build module including final link
+  rpm              - Build a kernel as an RPM package
+  tags/TAGS        - Generate tags file for editors
+  cscope           - Generate cscope index
+  kernelrelease    - Output the release version string
+
+Static analysers
+  buildcheck       - List dangling references to vmlinux discarded sections and
+                     init sections from non-init sections
+  checkstack       - Generate a list of stack hogs
+  namespacecheck   - Name space analysis on compiled kernel
+
+Kernel packaging:
+  rpm-pkg          - Build the kernel as an RPM package
+  binrpm-pkg       - Build an rpm package containing the compiled kernel and
+                     modules
+deb-pkg          - Build the kernel as an deb package
+  tar-pkg          - Build the kernel as an uncompressed tarball
+  targz-pkg        - Build the kernel as a gzip compressed tarball
+  tarbz2-pkg       - Build the kernel as a bzip2 compressed tarball
+
+Documentation targets:
+  Linux kernel internal documentation in different formats:
+  xmldocs (XML DocBook), psdocs (Postscript), pdfdocs (PDF)
+  htmldocs (HTML), mandocs (man pages, use installmandocs to install)
+
+
+Architecture specific targets (arm):
+* zImage           -  Compressed kernel image (arch/arm/boot/zImage)
+  Image            -  Uncompressed kernel image (arch/arm/boot/Image)
+* xipImage         - XIP kernel image, if configured (arch/arm/boot/xipImage)
+  bootpImage       - Combined zImage and initial RAM disk
+                     (supply initrd image via make variable INITRD=&lt;path&gt;)
+  install           - Install uncompressed kernel
+  zinstall          - Install compressed kernel
+                     Install using (your) ~/bin/installkernel or
+                     (distribution) /sbin/installkernel or
+                     install to $(INSTALL_PATH) and run lilo
+  assabet_defconfig          - Build for assabet
+  badge4_defconfig           - Build for badge4
+  bast_defconfig             - Build for bast
+  cerfcube_defconfig         - Build for cerfcube
+  clps7500_defconfig         - Build for clps7500
+  collie_defconfig           - Build for collie
+  corgi_defconfig            - Build for corgi
+  ebsa110_defconfig          - Build for ebsa110
+  edb7211_defconfig          - Build for edb7211
+  enp2611_defconfig          - Build for enp2611
+  ep80219_defconfig          - Build for ep80219
+  epxa10db_defconfig         - Build for epxa10db
+  footbridge_defconfig       - Build for footbridge
+  fortunet_defconfig         - Build for fortunet
+  h3600_defconfig            - Build for h3600
+  h7201_defconfig            - Build for h7201
+  h7202_defconfig            - Build for h7202
+  hackkit_defconfig          - Build for hackkit
+  integrator_defconfig       - Build for integrator
+  iq31244_defconfig          - Build for iq31244
+  iq80321_defconfig          - Build for iq80321
+  iq80331_defconfig          - Build for iq80331
+  iq80332_defconfig          - Build for iq80332
+  ixdp2400_defconfig         - Build for ixdp2400
+  ixdp2401_defconfig         - Build for ixdp2401
+  ixdp2800_defconfig         - Build for ixdp2800
+  ixdp2801_defconfig         - Build for ixdp2801
+  ixp4xx_defconfig           - Build for ixp4xx
+  jornada720_defconfig       - Build for jornada720
+  lart_defconfig             - Build for lart
+  lpd7a400_defconfig         - Build for lpd7a400
+  lpd7a404_defconfig         - Build for lpd7a404
+  lubbock_defconfig          - Build for lubbock
+lusl7200_defconfig         - Build for lusl7200
+  mainstone_defconfig        - Build for mainstone
+  mx1ads_defconfig           - Build for mx1ads
+  neponset_defconfig         - Build for neponset
+  netwinder_defconfig        - Build for netwinder
+  omap_h2_1610_defconfig     - Build for omap_h2_1610
+  pleb_defconfig             - Build for pleb
+  poodle_defconfig           - Build for poodle
+  pxa255-idp_defconfig       - Build for pxa255-idp
+  rpc_defconfig              - Build for rpc
+  s3c2410_defconfig          - Build for s3c2410
+  shannon_defconfig          - Build for shannon
+  shark_defconfig            - Build for shark
+  simpad_defconfig           - Build for simpad
+  smdk2410_defconfig         - Build for smdk2410
+  spitz_defconfig            - Build for spitz
+  versatile_defconfig        - Build for versatile
+
+
+  make V=0|1 [targets] 0 =&gt; quiet build (default), 1 =&gt; verbose build
+  make O=dir [targets] Locate all output files in "dir", including .config
+  make C=1   [targets] Check all c source with $CHECK (sparse)
+  make C=2   [targets] Force check of all c source with $CHECK (sparse)
+
+Execute "make" or "make all" to build all targets marked with [*]
+For further info see the ./README file</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1150></A><A name=iddle1219></A><A name=iddle1716></A><A name=iddle1725></A>Many of these targets you might never use. However, it is useful to know that they exist. As you can see from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list07">Listing 4-7</A>, the targets listed with an asterisk are built by default. Notice the numerous default configurations, listed as <TT>*_defconfig</TT>. Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04lev2sec4">Section 4.2.2</A>, "Compiling the Kernel," the command we used to preconfigure a pristine kernel source tree: We invoked <TT>make</TT> with an architecture and a default configuration. The default configuration was <TT>ixp4xx_defconfig</TT>, which appears in this list of ARM targets. This is a good way to discover all the default configurations available for a particular kernel release and architecture.</P><A name=ch04lev2sec11></A>
+<H4 id=title-IDAT3LFI class=docSection2Title>4.3.4. Kernel Configuration</H4>
+<P class=docText><TT>Kconfig</TT> (or a file with a similar root followed by an extension, such as <TT>Kconfig</TT>.<SPAN class=docEmphasis>ext</SPAN>) exists in almost 300 kernel subdirectories. <TT>Kconfig</TT> drives the configuration process for the features contained within its subdirectory. The contents of <TT>Kconfig</TT> are parsed by the configuration subsystem, which presents configuration choices to the user, and contains help text associated with a given configuration parameter.</P>
+<P class=docText>The configuration utility (such as <TT>gconf</TT>, presented earlier) reads the <TT>Kconfig</TT> files starting from the <TT>arch</TT> subdirectory's <TT>Kconfig</TT> file. It is invoked from the <A name=iddle1941></A><TT>Kconfig</TT> makefile with an entry that looks like this:</P>
+<DIV class=docText><PRE>gconfig: $(obj)/gconf
+        $&lt; arch/$(ARCH)/Kconfig</PRE></DIV><BR>
+<P class=docText>Depending on which architecture you are building, <TT>gconf</TT> reads this architecture-specific <TT>Kconfig</TT> as the top-level configuration definition. Contained within <TT>Kconfig</TT> are a number of lines that look like this:</P>
+<DIV class=docText><PRE>source  "drivers/pci/Kconfig"</PRE></DIV><BR>
+<P class=docText>This directive tells the configuration editor utility to read in another <TT>Kconfig</TT> file from another location within the kernel source tree. Each architecture contains many such <TT>Kconfig</TT> files; taken together, these determine the complete set of menu options presented to the user when configuring the kernel. Each <TT>Kconfig</TT> file is free to source additional <TT>Kconfig</TT> files in different parts of the source tree. The configuration utility<TT>gconf</TT>, in this case, recursively reads the <TT>Kconfig</TT> file chain and builds the configuration menu structure.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list08">Listing 4-8</A> is a partial tree view of the <TT>Kconfig</TT> files associated with the ARM architecture. In a recent Linux 2.6 source tree from which this example was taken, the kernel configuration was defined by 170 separate <TT>Kconfig</TT> files. This listing omits most of those, for the sake of space and claritythe idea is to show the overall structure. To list them all in this tree view would take several pages of this text.</P><A name=ch04list08></A>
+<H5 id=title-IDA0AMFI class=docExampleTitle>Listing 4-8. Partial Listing of Kconfig for ARM Architecture</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>arch/arm/Kconfig &lt;&lt;&lt;&lt;&lt;&lt; (top level Kconfig)
+|-&gt;  init/Kconfig
+|  ...
+|-&gt;  arch/arm/mach-iop3xx/Kconfig
+|-&gt;  arch/arm/mach-ixp4xx/Kconfig
+|    ...
+|-&gt;  net/Kconfig
+|    |-&gt;  net/ipv4/Kconfig
+|    |     |-&gt;  net/ipv4/ipvs/Kconfig
+|    ...
+|-&gt;  drivers/char/Kconfig
+|    |-&gt;  drivers/serial/Kconfig
+|    ...
+|-&gt;  drivers/usb/Kconfig
+|    |-&gt;  drivers/usb/core/Kconfig
+|    |-&gt;  drivers/usb/host/Kconfig
+| ...
+|-&gt;  lib/Kconfig</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1260></A><A name=iddle1717></A>Looking at <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list08">Listing 4-8</A>, the file <TT>arch/arm/Kconfig</TT> would contain a line like this:</P>
+<DIV class=docText><PRE>source "net/Kconfig"</PRE></DIV><BR>
+<P class=docText>The file <TT>net/Kconfig</TT> would contain a line like this:</P>
+<DIV class=docText><PRE>source "net/ipv4/Kconfig"</PRE></DIV><BR>
+<P class=docText>&#8230;and so on.</P>
+<P class=docText>As mentioned earlier, these <TT>Kconfig</TT> files taken together determine the configuration menu structure and configuration options presented to the user during kernel configuration. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fig03">Figure 4-3</A> is an example of the configuration utility (<TT>gconf</TT>) for the ARM architecture compiled from the example in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list08">Listing 4-8</A>.</P><A name=ch04fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 4-3. gconf configuration screen</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/04elp03_alt.jpg" target=_self>[View full size image]</A></DIV><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/04elp03.jpg" width=500 height=375>
+<P></P></CENTER>
+<P></P><BR><A name=ch04lev2sec12></A>
+<H4 id=title-IDAJEMFI class=docSection2Title>4.3.5. Custom Configuration Options</H4>
+<P class=docText>Many embedded developers add feature support to the Linux kernel to support their particular custom hardware. One of the most common examples of this is multiple versions of a given hardware platform, each of which requires some compile-time options to be configured in the kernel source tree. Instead of having <A name=iddle1843></A>a separate version of the kernel source tree for each hardware version, a developer can add configuration options to enable his custom features.</P>
+<P class=docText>The configuration management architecture described in the previous paragraphs makes it easy to customize and add features. A quick peek into a typical <TT>Kconfig</TT> file shows the structure of the configuration script language. As an example, assume that you have two hardware platforms based on the IXP425 network processor, and that your engineering team had dubbed them Vega and Constellation. Each board has specialized hardware that must be initialized early during the kernel boot phase. Let's see how easy it is to add these configuration options to the set of choices presented to the developer during kernel configuration. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list09">Listing 4-9</A> is a snippet from the top-level ARM <TT>Kconfig</TT> file.</P><A name=ch04list09></A>
+<H5 id=title-IDATFMFI class=docExampleTitle>Listing 4-9. Snippet from &#8230;/arch/arm/Kconfig</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>source "init/Kconfig"
+
+menu "System Type"
+
+choice
+        prompt "ARM system type"
+        default ARCH_RPC
+
+config ARCH_CLPS7500
+        bool "Cirrus-CL-PS7500FE"
+
+
+config ARCH_CLPS711X
+        bool "CLPS711x/EP721x-based"
+
+...
+
+source "arch/arm/mach-ixp4xx/Kconfig</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>In this <TT>Kconfig</TT> snippet taken from the top-level ARM architecture <TT>Kconfig</TT>, you see the menu item System Type being defined. After the <TT>ARM System type</TT> prompt, you see a list of choices related to the ARM architecture. Later in the file, you see the inclusion of the IXP4<SPAN class=docEmphasis>xx</SPAN>-specific <TT>Kconfig</TT> definitions. In this file, you add your custom <A name=iddle1844></A>configuration switches. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list10">Listing 4-10</A> reproduces a snippet of this file. Again, for readability and convenience, we've omitted irrelevant text, as indicated by the ellipsis.</P><A name=ch04list10></A>
+<H5 id=title-IDAEHMFI class=docExampleTitle>Listing 4-10. File Snippet: arch/arm/mach-ixp4xx/Kconfig</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>menu "Intel IXP4xx Implementation Options"
+
+
+comment "IXP4xx Platforms"
+
+
+config ARCH_AVILA
+         bool "Avila"
+         help
+           Say 'Y' here if you want your kernel to support...
+
+config ARCH_ADI_COYOTE
+         bool "Coyote"
+         help
+           Say 'Y' here if you want your kernel to support
+          the ADI Engineering Coyote...
+
+ # (These are our new custom options)
+ config ARCH_VEGA
+         bool "Vega"
+         help
+           Select this option for "Vega" hardware support
+
+
+ config ARCH_CONSTELLATION
+          bool "Constellation"
+          help
+            Select this option for "Constellation"
+            hardware support
+   ...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fig04">Figure 4-4</A> illustrates the result of these changes as it appears when running the <TT>gconf</TT> utility (via <TT>make ARCH=arm gconfig</TT>). As a result of these simple changes, the configuration editor now includes options for our two new hardware platforms.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fn09">[9]</A></SUP> Shortly, you'll see how you can use this configuration information in the source tree to conditionally select objects that contain support for your new boards.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn09>[9]</A></SUP> We have intentionally removed many options under ARM system type and Intel IXP4 <SPAN class=docEmphasis>xx</SPAN> Implementation Options to fit the picture on the page.</P></BLOCKQUOTE>
+<P class=docText></P><A name=ch04fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 4-4. Custom configuration options</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/04elp04_alt.jpg" target=_self>[View full size image]</A></DIV><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/04elp04.jpg" width=500 height=366>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1877></A>After the configuration editor (<TT>gconf</TT>, in these examples) is run and you select support for one of your custom hardware platforms, the <TT>.config</TT> file introduced earlier contains macros for your new options. As with all kernel-configuration options, each is preceded with <TT>CONFIG_</TT> to identify it as a kernel-configuration option. As a result, two new configuration options have been defined, and their state has been recorded in the <TT>.config</TT> file. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list11">Listing 4-11</A> shows the new <TT>.config</TT> file with your new configuration options.</P><A name=ch04list11></A>
+<H5 id=title-IDADKMFI class=docExampleTitle>Listing 4-11. Customized .config File Snippet</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+#
+# IXP4xx Platforms
+#
+# CONFIG_ARCH_AVILA is not set
+# CONFIG_ARCH_ADI_COYOTE is not set
+CONFIG_ARCH_VEGA=y
+# CONFIG_ARCH_CONSTELLATION is not set
+# CONFIG_ARCH_IXDP425 is not set
+# CONFIG_ARCH_PRPMC1100 is not set
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1152></A><A name=iddle1727></A><A name=iddle1970></A><A name=iddle2070></A>Notice two new configuration options related to your Vega and Constellation hardware platforms. As illustrated in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fig04">Figure 4-4</A>, you selected support for Vega; in the <TT>.config</TT> file, you can see the new <TT>CONFIG_</TT> option representing that the Vega board is selected and set to the value '<TT>y</TT>'. Notice also that the <TT>CONFIG_</TT> option related to Constellation is present but not selected.</P><A name=ch04lev2sec13></A>
+<H4 id=title-IDAOMMFI class=docSection2Title>4.3.6. Kernel Makefiles</H4>
+<P class=docText>When building the kernel, the Makefiles scan the configuration and decide what subdirectories to descend into and what source files to compile for a given configuration. To complete the example of adding support for two custom hardware platforms, Vega and Constellation, let's look at the makefile that would read this configuration and take some action based on customizations.</P>
+<P class=docText>Because you're dealing with hardware specific options in this example, assume that the customizations are represented by two hardware-setup modules called <TT>vega_setup.c</TT> and <TT>constellation_setup.c</TT>. We've placed these C source files in the <TT>.../arch/arm/mach-ixp4xx</TT> subdirectory of the kernel source tree. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04list12">Listing 4-12</A> contains the complete makefile for this directory from a recent Linux release.</P><A name=ch04list12></A>
+<H5 id=title-IDALNMFI class=docExampleTitle>Listing 4-12. Makefile from &#8230;/arch/arm/mach-ixp4xx Kernel Subdirectory</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>#
+# Makefile for the linux kernel.
+#
+
+obj-y    += common.o common-pci.o
+
+
+obj-$(CONFIG_ARCH_IXDP4XX)    += ixdp425-pci.o ixdp425-setup.o
+obj-$(CONFIG_MACH_IXDPG425)   += ixdpg425-pci.o coyote-setup.o
+obj-$(CONFIG_ARCH_ADI_COYOTE) += coyote-pci.o coyote-setup.o
+obj-$(CONFIG_MACH_GTWX5715)   += gtwx5715-pci.o gtwx5715-setup.o</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>You might be surprised by the simplicity of this makefile. Much work has gone into the development of the kernel build system for just this reason. For the average developer who simply needs to add support for his custom hardware, the design of the kernel build system makes these kinds of customizations very straightforward.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch0410">[10]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch0410>[10]</A></SUP> In actuality, the kernel build system is very complicated, but most of the complexity is cleverly hidden from the average developer. As a result, it is relatively easy to add, modify, or delete configurations without having to be an expert.</P></BLOCKQUOTE>
+<P class=docText><A name=iddle1359></A><A name=iddle1747></A><A name=iddle1832></A>Looking at this makefile, it might be obvious what must be done to introduce new hardware setup routines conditionally based on your configuration options. Simply add the following two lines at the bottom of the makefile, and you're done:</P>
+<DIV class=docText><PRE>obj-$(CONFIG_ARCH_VEGA)   += vega_setup.o
+obj-$(CONFIG_ARCH_CONSTELLATION)   += costellation_setup.o</PRE></DIV><BR>
+<P class=docText>These steps complete the simple addition of setup modules specific to the hypothetical example custom hardware. Using similar logic, you should now be able to make your own modifications to the kernel configuration/build system.</P><A name=ch04lev2sec14></A>
+<H4 id=title-IDAKPMFI class=docSection2Title>4.3.7. Kernel Documentation</H4>
+<P class=docText>A wealth of information is available in the Linux source tree itself. It would be difficult indeed to read it all because there are nearly 650 documentation files in 42 subdirectories in the <TT>.../Documentation</TT> directory. Be cautious in reading this material: Given the rapid pace of kernel development and release, this documentation tends to become outdated quickly. Nonetheless, it often provides a great starting point from which you can form a foundation on a particular kernel subsystem or concept.</P>
+<P class=docText>Do not neglect the Linux Documentation Project, found at <A class=docLink href="http://www.tldp.org/" target=_blank>www.tldp.org</A>, where you might find the most up-to-date version of a particular document or man page.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04fn11">[11]</A></SUP> The list of suggested reading at the end of this chapter duplicates the URL for the Linux Documentation Project, for easy reference. Of particular interest to the previous discussion is the Kbuild documentation found in the kernel <TT>.../Documentation/kbuild</TT> subdirectory.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn11>[11]</A></SUP> Always assume that features advance faster than the corresponding documentation, so treat the docs as a guide rather than indisputable facts.</P></BLOCKQUOTE>
+<P class=docText>No discussion of Kernel documentation would be complete without mentioning Google. One day soon, <SPAN class=docEmphasis>Googling</SPAN> will appear in Merriam Webster's as a verb! Chances are, many problems and questions you might ask have already been asked and answered before. Spend some time to become proficient in searching the Internet for answers to questions. You will discover numerous mailing lists and other information repositories full of useful information related to your specific project or problem. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app05.html#app05">Appendix E</A> contains a useful list of open-source resources.

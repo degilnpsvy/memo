@@ -1,0 +1,116 @@
+<H3 id=title-IDAIXOWD class=docSection1Title>2.2. Anatomy of an Embedded System</H3>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02fig01">Figure 2-1</A> shows a block diagram of a typical embedded system. This is a very simple example of a high-level hardware architecture that might be found in a wireless access point. The system is centered on a 32-bit RISC processor. Flash memory is used for nonvolatile program and data storage. Main memory is synchronous dynamic random-access memory (SDRAM) and might contain anywhere from a few megabytes to hundreds of megabytes, depending on the application. A real-time clock module, often backed up by battery, keeps the time of day (calendar/wall clock, including date). This example includes an Ethernet and USB interface, as well as a serial port for console access via RS-232. The 802.11 chipset implements the wireless modem function.</P>
+<P class=docText></P><A name=ch02fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 2-1. Example embedded system</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/02elp01.jpg" width=437 height=296></P></CENTER>
+<P></P><BR>
+<P class=docText>Often the processor in an embedded system performs many functions beyond the traditional CPU. The hypothetical processor in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02fig01">Figure 2-1</A> contains an integrated UART for a serial interface, and integrated USB and Ethernet controllers. Many processors contain integrated peripherals. We look at several examples of integrated processors in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch03.html#ch03">Chapter 3</A>, "Processor Basics."</P><A name=ch02lev2sec2></A>
+<H4 id=title-IDAJZOWD class=docSection2Title>2.2.1. Typical Embedded Linux Setup</H4>
+<P class=docText><A name=iddle1322></A><A name=iddle1380></A>Often the first question posed by the newcomer to embedded Linux is, just what does one need to begin development? To answer that question, we look at a typical embedded Linux development setup (see <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02fig02">Figure 2-2</A>).</P><A name=ch02fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 2-2. Embedded Linux development setup</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/02elp02.jpg" width=400 height=338></P></CENTER>
+<P></P><BR>
+<P class=docText>Here we show a very common arrangement. We have a host development system, running your favorite desktop Linux distribution, such as Red Hat or SuSE or Debian Linux. Our embedded Linux target board is connected to the development host via an RS-232 serial cable. We plug the target board's Ethernet interface into a local Ethernet hub or switch, to which our development host is also attached via Ethernet. The development host contains your development tools and utilities along with target filesnormally obtained from an embedded Linux distribution.</P>
+<P class=docText>For this example, our primary connection to the embedded Linux target is via the RS-232 connection. A serial terminal program is used to communicate with the target board. Minicom is one of the most commonly used serial terminal applications and is available on virtually all desktop Linux distributions.</P><A name=ch02lev2sec3></A>
+<H4 id=title-IDAN1OWD class=docSection2Title>2.2.2. Starting the Target Board</H4>
+<P class=docText><A name=iddle1112></A><A name=iddle1127></A><A name=iddle1401></A><A name=iddle1929></A><A name=iddle2509></A><A name=iddle2566></A>When power is first applied, a bootloader supplied with your target board takes immediate control of the processor. It performs some very low-level hardware initialization, including processor and memory setup, initialization of the UART controlling the serial port, and initialization of the Ethernet controller. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02list01">Listing 2-1</A> displays the characters received from the serial port, resulting from power being applied to the target. For this example, we have chosen a target board from AMCC, the PowerPC 440EP Evaluation board nicknamed Yosemite. This is basically a reference design containing the AMCC 440EP embedded processor. It ships from AMCC with the U-Boot bootloader preinstalled.</P><A name=ch02list01></A>
+<H5 id=title-IDAB4OWD class=docExampleTitle>Listing 2-1. Initial Bootloader Serial Output</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>U-Boot 1.1.4 (Mar 18 2006 - 20:36:11)
+
+AMCC PowerPC 440EP Rev. B
+Board: Yosemite - AMCC PPC440EP Evaluation Board
+         VCO: 1066 MHz
+         CPU: 533 MHz
+         PLB: 133 MHz
+         OPB: 66 MHz
+         EPB: 66 MHz
+         PCI: 66 MHz
+I2C:   ready
+DRAM:  256 MB
+FLASH: 64 MB
+PCI:   Bus Dev VenId DevId Class Int
+In:    serial
+Out:   serial
+Err:   serial
+Net:   ppc_4xx_eth0, ppc_4xx_eth1
+
+=&gt;</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>When power is applied to the Yosemite board, U-Boot performs some low-level hardware initialization, which includes configuring a serial port. It then prints a banner line, as shown in the first line of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02list01">Listing 2-1</A>. Next the processor name and revision are displayed, followed by a text string identifying the board type. This is a literal string entered by the developer in the U-Boot source code.</P>
+<P class=docText>U-Boot then displays the internal clock configuration (which was configured before any serial output was displayed). When this is complete, U-Boot configures any hardware subsystems as directed by its static configuration. Here we see I2C, DRAM, <A name=iddle1094></A><A name=iddle1122></A><A name=iddle1389></A><A name=iddle1390></A><A name=iddle1720></A><A name=iddle1967></A><A name=iddle2557></A>FLASH, PCI, and Network subsystems being configured by U-Boot. Finally, U-Boot waits for input from the console over the serial port, as indicated by the <TT>=&gt;</TT> prompt.</P><A name=ch02lev2sec4></A>
+<H4 id=title-IDAQBPWD class=docSection2Title>2.2.3. Booting the Kernel</H4>
+<P class=docText>Now that U-Boot has initialized the hardware, serial port, and Ethernet network interface, it has only one job left in its short but useful lifespan: to load and boot the Linux kernel. All bootloaders have a command to load and execute an operating system image. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02list02">Listing 2-2</A> presents one of the more common ways U-Boot is used to manually load and boot a Linux kernel.</P><A name=ch02list02></A>
+<H5 id=title-IDAFCPWD class=docExampleTitle>Listing 2-2. Loading the Linux Kernel</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>=&gt; <SPAN class=docEmphStrong>tftpboot 200000 uImage-440ep</SPAN>
+ENET Speed is 100 Mbps - FULL duplex connection
+Using ppc_4xx_eth0 device
+TFTP from server 192.168.1.10; our IP address is 192.168.1.139
+Filename 'uImage-amcc'.
+Load address: 0x200000
+Loading: <SPAN class=docEmphStrong>####################################################
+         ######################################</SPAN>
+done
+Bytes transferred = 962773 (eb0d5 hex)
+
+=&gt; <SPAN class=docEmphStrong>bootm 200000</SPAN>
+## Booting image at 00200000 ...
+   Image Name:   Linux-2.6.13
+   Image Type:   PowerPC Linux Kernel Image (gzip compressed)
+   Data Size:    962709 Bytes = 940.1 kB
+   Load Address: 00000000
+   Entry Point:  00000000
+   Verifying Checksum ... OK
+   Uncompressing Kernel Image ... OK
+Linux version 2.6.13 (chris@junior) (gcc version 4.0.0 (DENX ELDK 4.0 4.0.0))
+  #2 Thu Feb 16 19:30:13 EST 2006
+AMCC PowerPC 440EP Yosemite Platform
+...
+&lt; <SPAN class=docEmphasis>Lots of Linux kernel boot messages, removed for clarity</SPAN> &gt;
+...
+amcc login:    &lt;&lt;&lt; <SPAN class=docEmphasis>This is a Linux kernel console command prompt</SPAN></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1128></A><A name=iddle1391></A><A name=iddle1752></A><A name=iddle2518></A>The <TT>tftpboot</TT> command instructs U-Boot to load the kernel image <TT>uImage-440ep</TT> into memory over the network using the TFTP<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02fn02">[2]</A></SUP> protocol. The kernel image, in this case, is located on the development workstation (usually the same machine that has the serial port connected to the target board). The <TT>tftpboot</TT> command is passed an address that is the physical address in the target board's memory where the kernel image will be loaded. Don't worry about the details now; we cover U-Boot in much greater detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch02fn02>[2]</A></SUP> This and other servers you will be using are covered in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12.html#ch12">Chapter 12</A>, "Embedded Development Environment."</P></BLOCKQUOTE>
+<P class=docText>Next, the <TT>bootm</TT> (boot from memory image) command is issued, to instruct U-Boot to boot the kernel we just loaded from the address specified by the <TT>bootm</TT> command. This command transfers control to the Linux kernel. Assuming that your kernel is properly configured, this results in booting the Linux kernel to a console command prompt on your target board, as shown by the login prompt.</P>
+<P class=docText>Note that the <TT>bootm</TT> command is the death knell for U-Boot. This is an important concept. Unlike the BIOS in a desktop PC, most embedded systems are architected in such a way that when the Linux kernel takes control, the bootloader ceases to exist. The kernel claims any memory and system resources that the bootloader previously used. The only way to pass control back to the bootloader is to reboot the board.</P>
+<P class=docText>One final observation is worth noting. All the serial output in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02list02">Listing 2-2</A> up to and including this line is produced by the U-Boot bootloader:</P><PRE>Uncompressing Kernel Image ... OK</PRE><BR>
+<P class=docText>The rest of the boot messages are produced by the Linux kernel. We'll have much more to say about this later, but it is worth noting where U-Boot leaves off and where the Linux kernel image takes over.</P><A name=ch02lev2sec5></A>
+<H4 id=title-IDAFGPWD class=docSection2Title>2.2.4. Kernel Initialization: Overview</H4>
+<P class=docText>When the Linux kernel begins execution, it spews out numerous status messages during its rather comprehensive boot process. In the example being discussed here, the Linux kernel spit out more than 100 lines before it issued the login prompt. (We omitted them from the listing, for clarity of the point being discussed.) <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02list03">Listing 2-3</A> <A name=iddle1486></A><A name=iddle1960></A><A name=iddle2116></A><A name=iddle2383></A>reproduces the last several lines of output before the login prompt. The goal of this exercise is not to delve into the details of the kernel initialization (this is covered in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, "Kernel Initialization"), but to gain a high-level understanding of what is happening and what components are required to boot a Linux kernel on an embedded system.</P><A name=ch02list03></A>
+<H5 id=title-IDARIPWD class=docExampleTitle>Listing 2-3. Linux Final Boot Messages</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+Looking up port of RPC 100003/2 on 192.168.0.9
+Looking up port of RPC 100005/1 on 192.168.0.9
+VFS: Mounted root (nfs filesystem).
+Freeing init memory: 232K
+INIT: version 2.78 booting
+...
+
+coyote login:</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Shortly before issuing a login prompt on our serial terminal, Linux <SPAN class=docEmphasis>mounts</SPAN> a <SPAN class=docEmphasis>root file system</SPAN>. In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02list03">Listing 2-3</A>, Linux goes through the steps required to mount its root file system remotely (via Ethernet) from an NFS<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02fn03">[3]</A></SUP> server on a machine with the IP address 192.168.0.9. Usually, this is your development workstation. The root file system contains the application programs, system libraries, and utilities that make up a GNU/Linux system.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch02fn03>[3]</A></SUP> We cover NFS and other required servers in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12.html#ch12">Chapter 12</A>.</P></BLOCKQUOTE>
+<P class=docText>The important point in this discussion should not be understated: <SPAN class=docEmphasis>Linux requires a file system</SPAN>. Many legacy embedded operating systems did not require a file system, and this is a frequent surprise to engineers making the transition from legacy embedded OSs to embedded Linux. A file system consists of a predefined set of system directories and files in a specific layout on a hard drive or other medium that the Linux kernel <SPAN class=docEmphasis>mounts</SPAN> as its root file system.</P>
+<P class=docText>Note that there are other devices from which Linux can mount a root file system. The most common, of course, is to mount a partition from a hard drive as the root file system, as is done on your Linux workstation. Indeed, NFS is pretty useless when you ship your embedded Linux widget out the door and away from your development environment. However, as you progress through this book, you will come to appreciate the power and flexibility of NFS root mounting as a development environment.</P><A name=ch02lev2sec6></A>
+<H4 id=title-IDAHKPWD class=docSection2Title>2.2.5. First User Space Process: init</H4>
+<P class=docText><A name=iddle1392></A><A name=iddle1394></A><A name=iddle1616></A><A name=iddle1785></A><A name=iddle1788></A><A name=iddle2074></A><A name=iddle2444></A><A name=iddle2570></A>One more important point should be made before moving on. Notice in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02list03">Listing 2-3</A> this line:</P><PRE>INIT: version 2.78 booting.</PRE><BR>
+<P class=docText>Until this point, the kernel itself was executing code, performing the numerous initialization steps in a context known as <SPAN class=docEmphasis>kernel context</SPAN>. In this operational state, the kernel owns all system memory and operates with full authority over all system resources. The kernel has access to all physical memory and to all I/O subsystems.</P>
+<P class=docText>When the Linux kernel has completed its internal initialization and mounted its root file system, the default behavior is to spawn an application program called <TT>init</TT>. When the kernel starts <TT>init</TT>, it is said to be running in <SPAN class=docEmphasis>user space</SPAN> or user space context. In this operational mode, the user space process has restricted access to the system and must use kernel system calls to request kernel services such as device and file I/O. These user space processes, or programs, operate in a virtual memory space picked at random<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch02lev1sec2.html#ch02fn04">[4]</A></SUP> and managed by the kernel. The kernel, in cooperation with specialized memory-management hardware in the processor, performs virtual-to-physical address translation for the user space process. The single biggest benefit of this architecture is that an error in one process can't trash the memory space of another, which is a common pitfall in legacy embedded OSs and can lead to bugs that are difficult to track down.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch02fn04>[4]</A></SUP> It's not actually random, but for purposes of this discussion, it might as well be. This topic will be covered in more detail later.</P></BLOCKQUOTE>
+<P class=docText>Don't be alarmed if these concepts seem foreign. The objective of this section is to paint a broad picture from which you will develop more detailed knowledge as you progress through the book. These and other concepts are covered in great detail in later chapters.

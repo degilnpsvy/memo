@@ -1,0 +1,15 @@
+<H4 id=title-ID0E2CPM class=docSection2Title>Debugging</H4>
+<P class=docText><A name="are generally"></A>Concurrency-related problems are generally hard to debug because they are usually difficult to reproduce. <FONT class=extract>It's a good idea to enable SMP (<TT>CONFIG_SMP</TT>) and preemption (<TT>CONFIG_PREEMPT</TT></FONT><A name="is going"></A><FONT class=extract>) while compiling and testing your code, even if your production kernel is going to run on a UP machine with preemption disabled.</FONT> <FONT class=extract>There is a kernel configuration option under <SPAN class=docEmphasis><A name="Kernel hacking"></A>Kernel hacking</SPAN> called <SPAN class=docEmphasis>Spinlock and rw-lock debugging</SPAN> (<TT>CONFIG_DEBUG_SPINLOCK</TT></FONT><A name="help you"></A><FONT class=extract>) that can help you catch some common spinlock errors. Also available are tools such as lockmeter (</FONT><A class=docLink href="http://oss.sgi.com/projects/lockmeter/" target=_blank><FONT class=extract>http://oss.sgi.com/projects/lockmeter/</FONT></A><A name="collect lock"></A><FONT class=extract>) that collect lock-related statistics.</FONT></P>
+<P class=docText><A name="lock an"></A>A common concurrency problem occurs when you forget to lock an access to a shared resource. This results in different threads "racing" through that access in an unregulated manner. The problem, called a <SPAN class=docEmphasis>race condition</SPAN><A name="of occasional"></A>, might manifest in the form of occasional strange code behavior.</P>
+<P class=docText><A name="locks in"></A>Another potential problem arises when you miss releasing held locks in certain code paths, resulting in deadlocks. To understand this, consider the following example:</P>
+<DIV class=docText><PRE>spin_lock(&amp;mylock);     /* Acquire lock */
+
+/* ... Critical Section ... */
+
+if (error) {            /* This error condition occurs rarely */
+  return -EIO; /* Forgot to release the lock! */
+}
+
+spin_unlock(&amp;mylock);   /* Release lock */</PRE></DIV><BR>
+<P class=docText><A name="any thread"></A>After the occurrence of the error condition, any thread trying to acquire <TT>mylock</TT> gets deadlocked, and the kernel might freeze.</P>
+<P class=docText><A name="after you"></A>If the problem first manifests months or years after you write the code, it'll be all the more tough to go back and debug it. (There is a related debugging example in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec3.html#ch21lev2sec14">Kdump</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21">Chapter 21</A><A name="To avoid"></A>, "Debugging Device Drivers.") To avoid such unpleasant encounters, concurrency logic should be designed when you architect your software.

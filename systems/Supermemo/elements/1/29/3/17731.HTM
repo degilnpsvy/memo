@@ -1,0 +1,71 @@
+<H3 class=section>4.4 Changing the Contents of a Field</H3><A name=index-fields_002c-changing-contents-of></A>
+<P>The contents of a field, as seen by <CODE>awk</CODE>, can be changed within an <CODE>awk</CODE> program; this changes what <CODE>awk</CODE> perceives as the current input record. (The actual input is untouched; <CODE>awk</CODE> <EM>never</EM> modifies the input file.) Consider the following example and its output: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk '{ nboxes = $3 ; $3 = $3 - 10</EM></KBD>
+&gt;        <KBD><EM>print nboxes, $3 }' inventory-shipped</EM></KBD>
+-| 25 15
+-| 32 22
+-| 24 14
+&#8230;
+</PRE></DIV>
+<P>The program first saves the original value of field three in the variable <CODE>nboxes</CODE>. The &#8216;<SAMP>-</SAMP>&#8217; sign represents subtraction, so this program reassigns field three, <CODE>$3</CODE>, as the original value of field three minus ten: &#8216;<SAMP>$3 - 10</SAMP>&#8217;. (See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Arithmetic-Ops">Arithmetic Ops</A>.) Then it prints the original and new values for field three. (Someone in the warehouse made a consistent mistake while inventorying the red boxes.) </P>
+<P>For this to work, the text in field <CODE>$3</CODE> must make sense as a number; the string of characters must be converted to a number for the computer to do arithmetic on it. The number resulting from the subtraction is converted back to a string of characters that then becomes field three. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Conversion">Conversion</A>. </P>
+<P>When the value of a field is changed (as perceived by <CODE>awk</CODE>), the text of the input record is recalculated to contain the new field where the old one was. In other words, <CODE>$0</CODE> changes to reflect the altered field. Thus, this program prints a copy of the input file, with 10 subtracted from the second field of each line: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk '{ $2 = $2 - 10; print $0 }' inventory-shipped</EM></KBD>
+-| Jan 3 25 15 115
+-| Feb 5 32 24 226
+-| Mar 5 24 34 228
+&#8230;
+</PRE></DIV>
+<P>It is also possible to also assign contents to fields that are out of range. For example: </P>
+<DIV class=example><PRE class=example>$ awk '{ $6 = ($5 + $4 + $3 + $2)
+&gt;        print $6 }' inventory-shipped
+-| 168
+-| 297
+-| 301
+&#8230;
+</PRE></DIV><A name=index-adding_002c-fields></A><A name=index-fields_002c-adding></A>
+<P>We&#8217;ve just created <CODE>$6</CODE>, whose value is the sum of fields <CODE>$2</CODE>, <CODE>$3</CODE>, <CODE>$4</CODE>, and <CODE>$5</CODE>. The &#8216;<SAMP>+</SAMP>&#8217; sign represents addition. For the file <SAMP>inventory-shipped</SAMP>, <CODE>$6</CODE> represents the total number of parcels shipped for a particular month. </P>
+<P>Creating a new field changes <CODE>awk</CODE>&#8217;s internal copy of the current input record, which is the value of <CODE>$0</CODE>. Thus, if you do &#8216;<SAMP>print $0</SAMP>&#8217; after adding a field, the record printed includes the new field, with the appropriate number of field separators between it and the previously existing fields. </P><A name=index-OFS-variable></A><A name=index-output-field-separator_002c-See-OFS-variable></A><A name=index-field-separators_002c-See-Also-OFS></A>
+<P>This recomputation affects and is affected by <CODE>NF</CODE> (the number of fields; see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Fields">Fields</A>). For example, the value of <CODE>NF</CODE> is set to the number of the highest field you create. The exact format of <CODE>$0</CODE> is also affected by a feature that has not been discussed yet: the <EM>output field separator</EM>, <CODE>OFS</CODE>, used to separate the fields (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Output-Separators">Output Separators</A>). </P>
+<P>Note, however, that merely <EM>referencing</EM> an out-of-range field does <EM>not</EM> change the value of either <CODE>$0</CODE> or <CODE>NF</CODE>. Referencing an out-of-range field only produces an empty string. For example: </P>
+<DIV class=example><PRE class=example>if ($(NF+1) != "")
+    print "can't happen"
+else
+    print "everything is normal"
+</PRE></DIV>
+<P>should print &#8216;<SAMP>everything is normal</SAMP>&#8217;, because <CODE>NF+1</CODE> is certain to be out of range. (See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#If-Statement">If Statement</A>, for more information about <CODE>awk</CODE>&#8217;s <CODE>if-else</CODE> statements. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Typing-and-Comparison">Typing and Comparison</A>, for more information about the &#8216;<SAMP>!=</SAMP>&#8217; operator.) </P>
+<P>It is important to note that making an assignment to an existing field changes the value of <CODE>$0</CODE> but does not change the value of <CODE>NF</CODE>, even when you assign the empty string to a field. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo a b c d | awk '{ OFS = ":"; $2 = ""</EM></KBD>
+&gt;                       <KBD><EM>print $0; print NF }'</EM></KBD>
+-| a::c:d
+-| 4
+</PRE></DIV>
+<P>The field is still there; it just has an empty value, denoted by the two colons between &#8216;<SAMP>a</SAMP>&#8217; and &#8216;<SAMP>c</SAMP>&#8217;. This example shows what happens if you create a new field: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo a b c d | awk '{ OFS = ":"; $2 = ""; $6 = "new"</EM></KBD>
+&gt;                       <KBD><EM>print $0; print NF }'</EM></KBD>
+-| a::c:d::new
+-| 6
+</PRE></DIV>
+<P>The intervening field, <CODE>$5</CODE>, is created with an empty value (indicated by the second pair of adjacent colons), and <CODE>NF</CODE> is updated with the value six. </P><A name=index-dark-corner_002c-NF-variable_002c-decrementing></A><A name=index-NF-variable_002c-decrementing></A>
+<P>Decrementing <CODE>NF</CODE> throws away the values of the fields after the new value of <CODE>NF</CODE> and recomputes <CODE>$0</CODE>. (d.c.) Here is an example: </P>
+<DIV class=example><PRE class=example>$ echo a b c d e f | awk '{ print "NF =", NF;
+&gt;                            NF = 3; print $0 }'
+-| NF = 6
+-| a b c
+</PRE></DIV><A name=index-portability_002c-NF-variable_002c-decrementing></A>
+<BLOCKQUOTE>
+<P><B>CAUTION:</B> Some versions of <CODE>awk</CODE> don&#8217;t rebuild <CODE>$0</CODE> when <CODE>NF</CODE> is decremented. Caveat emptor. </P></BLOCKQUOTE>
+<P>Finally, there are times when it is convenient to force <CODE>awk</CODE> to rebuild the entire record, using the current value of the fields and <CODE>OFS</CODE>. To do this, use the seemingly innocuous assignment: </P>
+<DIV class=example><PRE class=example>$1 = $1   # force record to be reconstituted
+print $0  # or whatever else with $0
+</PRE></DIV>
+<P>This forces <CODE>awk</CODE> to rebuild the record. It does help to add a comment, as we&#8217;ve shown here. </P>
+<P>There is a flip side to the relationship between <CODE>$0</CODE> and the fields. Any assignment to <CODE>$0</CODE> causes the record to be reparsed into fields using the <EM>current</EM> value of <CODE>FS</CODE>. This also applies to any built-in function that updates <CODE>$0</CODE>, such as <CODE>sub()</CODE> and <CODE>gsub()</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>). </P><A name=index-sidebar_002c-Understanding-_00240></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B>Understanding <CODE>$0</CODE></B> </DIV>
+<P>It is important to remember that <CODE>$0</CODE> is the <EM>full</EM> record, exactly as it was read from the input. This includes any leading or trailing whitespace, and the exact whitespace (or other characters) that separate the fields. </P>
+<P>It is a not-uncommon error to try to change the field separators in a record simply by setting <CODE>FS</CODE> and <CODE>OFS</CODE>, and then expecting a plain &#8216;<SAMP>print</SAMP>&#8217; or &#8216;<SAMP>print $0</SAMP>&#8217; to print the modified record. </P>
+<P>But this does not work, since nothing was done to change the record itself. Instead, you must force the record to be rebuilt, typically with a statement such as &#8216;<SAMP>$1 = $1</SAMP>&#8217;, as described earlier. </P></TD></TR></TBODY></TABLE>

@@ -1,0 +1,240 @@
+<H3 id=-100000 class=docSection1Title>Kernel Debuggers</H3>
+<P class=docText><A name="debugger as"></A>The Linux kernel has no built-in debugger support. Whether to include a debugger as part of the stock kernel is an oft-debated point in kernel mailing lists. The instruction level <SPAN class=docEmphasis>Kernel Debugger</SPAN> (kdb) and the source-level <SPAN class=docEmphasis>Kernel GNU Debugger</SPAN><A name="Linux kernel"></A> (kgdb) are the two main Linux kernel debuggers. As of today, whether you use kdb or kgdb, you need to download relevant patches and apply them to your kernel sources. Even if you want to stay away from the hassle of patching your kernel sources with debugger support, you can glean information about kernel panics and peek at kernel variables via the plain <SPAN class=docEmphasis>GNU Debugger</SPAN> (gdb). JTAG debuggers use hardware-assisted debugging and are powerful, but expensive.</P>
+<P class=docText><A name=iddle1332></A><A name=iddle1333></A><A name=iddle1683></A><A name=iddle1698></A><A name=iddle1735></A><A name=iddle2527></A><A name=iddle2562></A><A name=iddle4628></A><A name="can single"></A>Kernel debuggers make kernel internals more transparent. You can single-step through instructions, disassemble instructions, display and modify kernel variables, and look at stack traces. In this chapter, let's learn the basics of kernel debuggers with the help of some examples.</P><A name=ch21lev2sec1></A>
+<H4 id=title-ID0EIFBO class=docSection2Title>Entering a Debugger</H4>
+<P class=docText><A name="debugger in"></A>You can enter a kernel debugger in multiple ways. One way is to pass command-line arguments that ask the kernel to enter the debugger during boot. Another way is via software or hardware <SPAN class=docEmphasis>breakpoint</SPAN><A name="execution stopped"></A>s. A breakpoint is an address where you want execution stopped and control transferred to the debugger. A software breakpoint replaces the instruction at that address with something else that causes an exception. You may set software breakpoints either using debugger commands or by inserting them into your code. For x86-based systems, you can set a software breakpoint in your kernel source code as follows:</P>
+<DIV class=docText><PRE>asm(" int $3");</PRE></DIV><BR>
+<P class=docText>Alternatively, you can invoke the <TT>BREAKPOINT</TT> macro, which translates to the appropriate architecture-dependent instruction.</P>
+<P class=docText><A name="of software"></A>You may use hardware breakpoints in place of software breakpoints if the instruction where you need to stop is in flash memory, where it cannot be replaced by the debugger. A hardware breakpoint needs processor support. The corresponding address has to be added to a debug register. You can only have as many hardware breakpoints as the number of debug registers supported by the processor.</P>
+<P class=docText><A name="You may"></A>You may also ask a debugger to set a <SPAN class=docEmphasis>watchpoint</SPAN><A name="The debugger"></A> on a variable. The debugger stops execution whenever an instruction modifies data at the watchpoint address.</P>
+<P class=docText><A name="to enter"></A>Yet another common method to enter a debugger is by hitting an attention key, but there are instances when this won't work. If your code is sitting in a tight loop after disabling interrupts, the kernel will not get a chance to process the attention key and enter the debugger. For example, you can't enter the debugger via an attention key if your code does something like this:</P>
+<DIV class=docText><PRE>unsigned long flags;
+
+local_irq_save(flags);
+while (1) continue;
+local_irq_restore(flags);</PRE></DIV><BR>
+<P class=docText><A name=iddle1701></A><A name=iddle2516></A><A name=iddle2530></A><A name=iddle2565></A><A name="transferred to"></A>When control is transferred to the debugger, you can start your analysis using various debugger commands.</P><A name=ch21lev2sec2></A>
+<H4 id=title-ID0EDIBO class=docSection2Title>Kernel Debugger (kdb)</H4>
+<P class=docText><A name="device drivers"></A>Kdb is an instruction-level debugger used for debugging kernel code and device drivers. Before you can use it, you need to patch your kernel sources with kdb support and recompile the kernel. (Refer to the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21lev2sec6">Downloads</A><A name="kdb patches"></A>" for information on downloading kdb patches.) The main advantage of kdb is that it's easy to set up, because you don't need an additional machine to do the debugging (unlike kgdb). The main disadvantage is that you need to correlate your sources with disassembled code (again, unlike kgdb).</P>
+<P class=docText><A name="help of"></A>Let's wet our toes in kdb with the help of an example. Here's the crime scene: You have modified a kernel serial driver to work with your x86-based hardware. But the driver isn't working, and you would like kdb to help nab the culprit.</P>
+<P class=docText><A name="by setting"></A>Let's start our search for fingerprints by setting a breakpoint at the serial driver <TT>open()</TT><A name="to open"></A> entry point. Remember, because kdb is not a source-level debugger, you have to open your sources and try to match the instructions with your C code. Let's list the source snippet in question:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong><SPAN class=docEmphasis>drivers/serial/myserial.c</SPAN>:</SPAN>
+
+static int rs_open(struct tty_struct *tty, struct file *filp)
+{
+  struct async_struct *info;
+
+  /* ... */
+  retval = get_async_struct(line, &amp;info);
+  if (retval) return(retval);
+  tty-&gt;driver_data = info;
+  <SPAN class=docEmphStrong>/* Point A */</SPAN>
+
+  /* ... */
+}</PRE></DIV><BR>
+<P class=docText><A name="out how"></A>Press the Pause key and enter kdb. Let's find out how the disassembled <TT>rs_open()</TT><A name="As usual"></A> looks. As usual, all debug sessions shown in this chapter attach explanations using the <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> symbol.</P>
+<DIV class=docText><PRE>Entering kdb (current=0xc03f6000, pid 0) on processor 0 due to
+Keyboard Entry
+
+kdb&gt; id rs_open           <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Disassemble rs_open</SPAN>
+0xc01cce00 rs_open:       sub $0x1c, %esp
+0xc01cce03 rs_open+0x03:  mov $ffffffed, %ecx
+...
+0xc01cce4b rs_open+0x4b:  call 0xc01ccca0, get_async_struct
+...
+0xc01cce56 rs_open+0x56:  mov 0xc(%esp,1), %eax
+0xc01cce5a rs_open+0x5a:  mov %eax, 0x9a4(%ebx)
+...</PRE></DIV><BR>
+<P class=docText><A name=iddle3848></A><A name="in the"></A>Point A in the source code is a good place to attach a breakpoint because you can peek at both the <TT>tty</TT> structure and the <TT>info</TT> structure to see what's going on.</P>
+<P class=docText><A name="at the"></A>Looking side by side at the source and the disassembly, <TT>rs_open+0x5a</TT><A name="Note that"></A> corresponds to Point A. Note that correlation is easier if the kernel is compiled without optimization flags.</P>
+<P class=docText>Set a breakpoint at <TT>rs_open+0x5a</TT> (which is address <TT>0xc01cce5a</TT>) and continue execution by exiting the debugger:</P>
+<DIV class=docText><PRE>kbd&gt; bp rs_open+0x5a  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Set breakpoint</SPAN>
+kbd&gt; go               <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Continue execution</SPAN></PRE></DIV><BR>
+<P class=docText>Now you need to get the kernel to call <TT>rs_open()</TT><A name="echo some"></A> to hit the breakpoint. To trigger this, execute an appropriate user-space program. In this case, echo some characters to the corresponding serial port (<SPAN class=docEmphasis>/dev/ttySX</SPAN>):</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; echo "kerala monsoons" &gt; /dev/ttySX</SPAN></PRE></DIV><BR>
+<P class=docText><A name="invocation of"></A>This results in the invocation of <TT>rs_open()</TT>. The breakpoint gets hit, and kdb assumes control:</P>
+<DIV class=docText><PRE>Entering kdb on processor 0 due to Breakpoint @ 0xc01cce5a
+kdb&gt;</PRE></DIV><BR>
+<P class=docText>Let's now find out the contents of the <TT>info</TT><A name="before the"></A> structure. If you look at the disassembly, one instruction before the breakpoint (<TT>rs_open+0x56</TT>), you will see that the <A name=iddle1702></A><A name=iddle2531></A><A name=iddle2566></A><A name=iddle2658></A><A name=iddle2918></A><TT>EAX</TT><A name=the></A> register contains the address of the <TT>info</TT> structure. Let's look at the register contents:</P>
+<DIV class=docText><PRE>kbd&gt; r              <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Dump register contents</SPAN>
+eax = 0xcf1ae680 ebx = 0xce03b000 ecx = 0x00000000
+...</PRE></DIV><BR>
+<P class=docText>So, <TT>0xcf1ae680</TT> is the address of the <TT>info</TT> structure. Dump its contents using the <TT>md</TT> command:</P>
+<DIV class=docText><PRE>kbd&gt; md 0xcf1ae680  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Memory dump</SPAN>
+0xcf1ae680 00005301 0000ABC 00000000 10000400
+...</PRE></DIV><BR>
+<P class=docText><A name="corresponding structure"></A>To make sense of this dump, let's look at the corresponding structure definition. <TT>info</TT> is defined as <TT>struct async_struct</TT> in <SPAN class=docEmphasis>include/linux/serialP.h</SPAN> as follows:</P>
+<DIV class=docText><PRE>struct async_struct {
+  int            magic;  /* Magic Number */
+  unsigned long  port;   /* I/O Port */
+  int            hub6;
+  /* ... */
+};</PRE></DIV><BR>
+<P class=docText>If you match the dump with the definition, <TT>0x5301</TT> is the magic number and <TT>0xABC</TT> is the I/O port. Well, isn't this interesting! <TT>0xABC</TT><A name="done enough"></A> doesn't look like a valid port. If you have done enough serial port debugging, you will know that the I/O port base addresses and IRQs are configured in <SPAN class=docEmphasis>include/asm-x86/serial.h</SPAN><A name="for x"></A> for x86-based hardware. Change the port definition to the correct value, recompile the kernel, and continue your testing!</P><A name=ch21lev2sec3></A>
+<H4 id=title-ID0E1PBO class=docSection2Title>Kernel GNU Debugger (kgdb)</H4>
+<P class=docText><A name="a source"></A>Kgdb is a source-level debugger. It is easier to use than kdb because you don't have to spend time correlating assembly code with your sources. However it's more difficult to set up because an additional machine is needed to front-end the debugging.</P>
+<P class=docText><A name=iddle2659></A><A name="gdb in"></A>You have to use gdb in tandem with kgdb to step through kernel code. gdb runs on the host machine, while the kgdb-patched kernel (refer to the "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21lev2sec6">Downloads</A><A name="on downloading"></A>" section for information on downloading kgdb patches) runs on the target hardware. The host and the target are connected via a serial null-modem cable, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fig01">Figure 21.1</A>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fn01">[1]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch21fn01>[1]</A></SUP> You can also launch kgdb debug sessions over Ethernet.</P></BLOCKQUOTE><A name=ch21fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 21.1. Kgdb setup.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/MjltNHJhaS9kNy8zY3JncDA4dHMvOTMxZTZhZzU1LjFpMmYvcGdoaWZjaXMwMWc-.jpg" width=450 height=163></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="baud rate"></A>You have to inform the kernel about the identity and baud rate of the serial port via command-line arguments. Depending on the bootloader used, add the following kernel arguments to either <SPAN class=docEmphasis>syslinux.cfg</SPAN>, <SPAN class=docEmphasis>lilo.conf</SPAN>, or <SPAN class=docEmphasis>grub.conf</SPAN>:</P>
+<DIV class=docText><PRE>kgdbwait kgdb8250=X,115200</PRE></DIV><BR>
+<P class=docText><TT>kgdbwait</TT><A name="wait until"></A> asks the kernel to wait until a connection is established with the host-side gdb, <TT>X</TT><A name=and></A> is the serial port connected to the host, and <TT>115200</TT><A name="for communication"></A> is the baud rate used for communication.</P>
+<P class=docText><A name="host side"></A>Now configure the same baud rate on the host side:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; stty speed 115200 &lt; /dev/ttySX</SPAN></PRE></DIV><BR>
+<P class=docText><A name="that does"></A>If your host computer is a laptop that does not have a serial port, you may use a USB-to-serial converter for the debug session. In that case, instead of <SPAN class=docEmphasis>/dev/ttySX</SPAN><A name="use the"></A>, use the <SPAN class=docEmphasis>/dev/ttyUSBX</SPAN><A name="by the"></A> node created by the usbserial driver. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec1.html#ch06fig04">Figure 6.4</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A>, "Serial Drivers," illustrates this scenario.</P>
+<P class=docText><A name="the example"></A>Let's learn kgdb basics using the example of a buggy kernel module. Modules are easier to debug because the entire kernel need not be recompiled after making code changes, but remember to compile your module with the <TT>-g</TT><A name="symbolic information"></A> option to generate symbolic information. Because modules are dynamically loaded, the debugger needs to be informed <A name=iddle4308></A>about the symbolic information that the module contains. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21ex01">Listing 21.1</A> contains a buggy <TT>trojan_function()</TT>. Assume that it's defined in <SPAN class=docEmphasis>drivers/char/my_module.c</SPAN>.</P><A name=ch21ex01></A>
+<H5 id=title-ID0EGUBO class=docExampleTitle>Listing 21.1. Buggy Function</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>char buffer;
+
+int
+trojan_function()
+{
+  int *my_variable = 0xAB, i;
+
+  /* ... */
+  Point A:
+  i = *my_variable; /* Kernel Panic: my_variable points
+                       to bad memory */
+  return(i);
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Insert <SPAN class=docEmphasis>my_module.ko</SPAN> on the target and look inside <SPAN class=docEmphasis>/sys/module/my_module/sections/</SPAN> to decipher ELF (<SPAN class=docEmphasis>Executable and Linking Format</SPAN>) section addresses.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fn02">[2]</A></SUP> The <TT>.text</TT> section in ELF files contains code, <TT>.data</TT> contains initialized variables, <TT>.rodata</TT> contains initialized read-only variables such as strings, and <TT>.bss</TT><A name="these sections"></A> contains variables that are not initialized during startup. The addresses of these sections are available in the form of the files <SPAN class=docEmphasis>.text</SPAN>, <SPAN class=docEmphasis>.data</SPAN>, <SPAN class=docEmphasis>.rodata</SPAN>, and <SPAN class=docEmphasis>.bss</SPAN> in <SPAN class=docEmphasis>/sys/module/my_module/sections/</SPAN> if you enable <TT>CONFIG_KALLSYMS</TT><A name="the code"></A> during kernel configuration. To obtain the code section address, for instance, do this:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch21fn02>[2]</A></SUP><A name="the section"></A> If you are still using a 2.4 kernel, get the section addresses using the <TT>&#37413;&#25608;</TT> option to insmod instead:</P></BLOCKQUOTE>
+<BLOCKQUOTE>
+<P class=docFootnote><PRE><SPAN class=docEmphStrong>bash&gt; insmod my_module.o &#37413;&#25608;</SPAN>
+Using /lib/modules/2.x.y/kernel/drivers/char/my_module.o
+Sections:       Size      Address   Align
+.this           00000060  e091a000  2**2
+.text           00001ec0  e091a060  2**4
+...
+.rodata         0000004c  e091d1fc  2**2
+.data           00000048  e091d260  2**5
+.bss            000000e4  e091d2c0  2**5
+...
+</PRE>
+<P></P></BLOCKQUOTE>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /sys/module/my_module/sections/.text</SPAN>
+0xe091a060</PRE></DIV><BR>
+<P class=docText><A name=iddle1046></A><A name="available from"></A>More module load information is available from <SPAN class=docEmphasis>/proc/modules</SPAN> and <SPAN class=docEmphasis>/proc/kallsyms</SPAN>.</P>
+<P class=docText><A name="the host"></A>After you have the section addresses, invoke gdb on the host-side machine:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; gdb vmlinux</SPAN>              <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> vmlinux is the uncompressed kernel
+
+(gdb) target remote /dev/ttySX <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Connect to the target</SPAN></PRE></DIV><BR>
+<P class=docText>Because you passed <TT>kgdbwait</TT><A name="the kernel"></A> as a kernel command-line argument, gdb gets control when the kernel boots on the target. Now inform gdb about the preceding section addresses using the <TT>add-symbol-file</TT> command:</P>
+<DIV class=docText><PRE>(gdb) add-symbol-file drivers/char/mymodule.ko 0xe091a060
+      -s .rodata 0xe091d1fc -s .data 0xe091d260 -s .bss 0xe091d2c0
+
+add symbol table from file "drivers/char/my_module.ko" at
+        .text_addr = 0xe091a060
+        .rodata_addr = 0xe091d1fc
+        .data_addr = 0xe091d260
+        .bss_addr = 0xe091d2c0
+(y or n) y
+Reading symbols from drivers/char/mymodule.ko ...done.</PRE></DIV><BR>
+<P class=docText><A name="To debug"></A>To debug the kernel panic, let's set a breakpoint at <TT>trojan_function()</TT>:</P>
+<DIV class=docText><PRE>(gdb) b trojan_function         <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Set breakpoint
+(gdb) c                         <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Continue execution</PRE></DIV><BR>
+<P class=docText><A name="hits the"></A>When kgdb hits the breakpoint, let's look at the stack trace, single-step until Point A, and display the value of <TT>my_variable</TT>:</P>
+<DIV class=docText><PRE>(gdb) bt                         <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Back (stack) trace
+#0 trojan_function () at my_module.c :124
+#1 0xe091a108 in my_parent_function (my_var1=438, my_var2=0xe091d288)
+..
+
+(gdb) step
+(gdb) step                       <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Continue to single-step up to
+                                      Point A
+(gdb) p my_variable
+$0 = 0</PRE></DIV><BR>
+<P class=docText><A name=iddle1699></A><A name=iddle2128></A><A name=iddle2152></A><A name=iddle2528></A><A name=iddle2563></A><A name=iddle3612></A><A name="bug here"></A>There is an obvious bug here. <TT>my_variable</TT> points to <TT>NULL</TT> because <TT>trojan_function()</TT><A name="memory for"></A> forgot to allocate memory for it. Let's just allocate the memory using kgdb, circumvent the kernel crash, and continue testing:</P>
+<DIV class=docText><PRE>(gdb) p &amp;buffer                  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Print address of buffer
+$1 = 0xe091a100 ""
+(gdb) set my_variable=0xe091a100 <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> my_variable = &amp;buffer
+(gdb) c                          <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Continue your testing</PRE></DIV><BR><A name=ch21note01></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="When you"></A>Kgdb ports are available for several architectures such as x86, ARM, and PowerPC. When you use kgdb to debug a target embedded device (instead of the PC shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fig01">Figure 21.1</A><A name="run on"></A>), the gdb front-end that you run on your host system needs to be compiled to work with your target platform. For example, to debug a device driver developed for an ARM-based embedded device from your x86-based host development system, you have to use the appropriately generated gdb, often named arm-linux-gdb. The exact name depends on the distribution you use.</P>
+<P></P></DIV><BR><A name=ch21lev2sec4></A>
+<H4 id=title-ID0ER2BO class=docSection2Title>GNU Debugger (gdb)</H4>
+<P class=docText><A name="to gather"></A>As mentioned earlier, you can use plain gdb to gather some kernel debug information. However, you can't step through kernel code, set breakpoints, or modify kernel variables. Let's use gdb to debug the kernel panic caused by the buggy function in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21ex01">Listing 21.1</A>, but assume this time that <TT>trojan_function()</TT><A name="the kernel"></A> is compiled as part of the kernel and not as a module, because you can't easily peek inside modules using gdb.</P>
+<P class=docText>This is part of the "oops" message generated when <TT>trojan_function()</TT> is executed:</P>
+<DIV class=docText><PRE>Unable to handle kernel NULL pointer dereference at
+virtual address 000000ab
+ ...
+ eax: f7571de0   ebx: ffffe000   ecx: f6c78000   edx: f98df870
+ ...
+ Stack: c019d731 00000000
+        ...
+        bffffbe8 c0108fab
+Call Trace:     [<C019D731>] [<C013B8AC>] [<C0108FAB>]
+...</C0108FAB></C013B8AC></C019D731></PRE></DIV><BR>
+<P class=docText>Copy this cryptic "oops" message to <SPAN class=docEmphasis>oops.txt</SPAN> and use the <SPAN class=docEmphasis>ksymoops</SPAN><A name="to hand"></A> utility to obtain more verbose output. You might need to hand-copy the message if the system is hung:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ksymoops oops.txt</SPAN>
+Code;  c019d710 <TROJAN_FUNCTION+0 10="">
+00000000 &lt;_EIP&gt;:
+Code;  c019d710 <TROJAN_FUNCTION+0 10="">  &lt;=====
+   0:   a1 ab 00 00 00            mov   0xab,%eax   &lt;=====
+Code;  c019d715 <TROJAN_FUNCTION+5 10="">
+   5:   c3                        ret</TROJAN_FUNCTION+5></TROJAN_FUNCTION+0></TROJAN_FUNCTION+0></PRE></DIV><BR>
+<P class=docText><A name=iddle1700></A><A name=iddle2510></A><A name=iddle2529></A><A name=iddle2564></A><A name="as is"></A>2.6 kernels emit "oops" output that can be used as is without the need of decoding using <SPAN class=docEmphasis>ksymoops</SPAN><A name="if you"></A> if you enable <TT>CONFIG_KALLSYMS</TT> during kernel configuration.</P>
+<P class=docText><A name="the preceding"></A>Looking at the preceding dump, the "oops" has occurred inside <TT>trojan_function()</TT><A name="more information"></A>. Let's use gdb to obtain more information. In the following invocation, <SPAN class=docEmphasis>vmlinux</SPAN><A name="kernel image"></A> is the uncompressed kernel image, and <SPAN class=docEmphasis>/proc/kcore</SPAN> is the kernel address space:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; gdb vmlinux /proc/kcore</SPAN>
+
+(gdb) p xtime      <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Test the waters by printing a kernel variable</SPAN>
+$0 = 1113173755</PRE></DIV><BR>
+<P class=docText><A name="values due"></A>Repeated access to the same variable will not yield refreshed values due to gdb's cached access. You can force a fresh access by rereading the core file using gdb's <TT>core-file</TT><A name="disassembly of"></A> command. Let's now look at the disassembly of <TT>trojan_function()</TT>:</P>
+<DIV class=docText><PRE>(gdb) x/2i trojan_function       <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Disassemble trojan_function</SPAN>
+0xc019d710 <TROJAN_FUNCTION>:    mov 0xab, %eax
+0xc019d715 <TROJAN_FUNCTION+5>:  ret</TROJAN_FUNCTION+5></TROJAN_FUNCTION></PRE></DIV><BR>
+<P class=docText><TT>trojan_function()</TT><A name="to compiler"></A> looks laconic when seen in assembly due to compiler optimizations. It's effectively copying the contents of address <TT>0xab</TT> to the <TT>EAX</TT><A name="from functions"></A> register, which holds the return value from functions on x86-based systems. But <TT>0xab</TT><A name="the bug"></A> does not look like a valid kernel address! Fix the bug by allocating valid memory space to <TT>my_variable</TT>, recompile, and continue your testing.</P><A name=ch21lev2sec5></A>
+<H4 id=title-ID0EMACO class=docSection2Title>JTAG Debuggers</H4>
+<P class=docText><A name="specialized monitor"></A>JTAG debuggers use hardware-assist to debug code. You need specialized monitor hardware<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fn03">[3]</A></SUP><A name="and a"></A> and a front-end user interface (some JTAG debuggers use gdb as the front-end) to step through code. JTAG can also be used for purposes other than debugging, such as burning code onto on-board flash memory, as discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18.html#ch18">Chapter 18</A><A name="are common"></A>, "Embedding Linux." JTAG connectors are common on development boards but are usually not part of production units.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch21fn03>[3]</A></SUP><A name="with several"></A> Some JTAG debuggers work with several processor architectures if you suitably replace the probe that connects the debugger to the target board.</P></BLOCKQUOTE>
+<P class=docText><A name="connect to"></A>JTAG debuggers usually connect to target hardware via serial port, USB, or Ethernet. With Ethernet, you can remotely access the JTAG debugger, and hence the target board, even if the board itself does not possess a network interface.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fig02">Figure 21.2</A><A name="in this"></A> shows a JTAG-based remote debugging session in action. The JTAG debugger used in this scenario supports a gdb front end. The development host and the JTAG hardware are connected to an Ethernet LAN. The debug serial port on the target hardware is connected to the serial port on the JTAG box. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fig02">Figure 21.2</A><A name="the Linux"></A> achieves remote debugging on the Linux development host using five terminal sessions. Terminal 1 runs gdb, which connects to the JTAG box over the network using telnet:</P>
+<DIV class=docText><PRE>(gdb) target remote 10.1.1.2:1001 <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> 10.1.1.2 is the IP address of
+                                    the JTAG hardware. 1001 is the
+                                    JTAG TCP port that listens to
+                                    incoming gdb connections</PRE></DIV><BR><A name=ch21fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 21.2. An example JTAG-based remote debug setup.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/MjltNHJhaS9kNy8zY3JncDA4dHMvOTMxZTZhZzU1aV8xaTJmL3BhZmhpdGNsMDJzZy5n.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/MjltNHJhaS9kNy8zY3JncDA4dHMvOTMxZTZhZzU1LjFpMmYvcGdoaWZjaXMwMmc-.jpg" width=500 height=481>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="set a"></A>To debug boot portions of the kernel, for example, set a gdb breakpoint at <TT>start_kernel()</TT>. (You can find its address from <SPAN class=docEmphasis>System.map</SPAN><A name="root of"></A>, which is generated in the root of your source tree when you build the kernel.)</P>
+<P class=docText><A name="telnet client"></A>Terminal 2 attaches a serial console to the target. A telnet client running on Terminal 2 connects to a prespecified TCP port on the JTAG box, which is configured (using Terminal 3) to tunnel data arriving via its serial port:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; telnet 10.1.1.2 50</SPAN>          <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> 10.1.1.2 is the IP address of
+                                       the JTAG hardware. 50 is the
+                                       JTAG TCP port that tunnels data
+                                       arriving via its serial port</PRE></DIV><BR>
+<P class=docText><A name="such as"></A>This is equivalent to running an emulator such as <SPAN class=docEmphasis>minicom</SPAN><A name="after directly"></A> after directly connecting the target's debug serial port to the host (instead of to the JTAG box, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fig02">Figure 21.2</A><A name="the host"></A>), but that'll constrain the host to be physically adjacent to the target.</P>
+<P class=docText><A name=iddle4597></A><A name=iddle4606></A><A name="JTAG box"></A>Terminal 3 telnets to the JTAG box and offers debugger-specific semantics. You can use it for example, to do the following:</P><A name=ch21pro01></A>
+<UL class=doclist start="">
+<LI>Pull a JTAG definition script over TFTP from the host and execute it during JTAG boot. A JTAG definition script usually initializes the processor, clock registers, chip select registers, and memory banks. After this is done, the JTAG hardware is ready to download code on to the target and execute it. The JTAG manufacturer usually provides definition files for all supported platforms, so you are likely to have a close starting point for your board.<BR><BR></LI>
+<LI>Download your bootloader, kernel, or stand-alone code from the host over TFTP, to flash memory or RAM on the target. File formats such as ELF and binary are usually supported by JTAG debuggers.<BR><BR></LI>
+<LI>Single-step code, set breakpoints, examine registers, and dump memory regions.<BR><BR></LI>
+<LI>Reset the target.<BR><BR></LI></UL>
+<P class=docText><A name="be flaky"></A>JTAG debugging can be flaky at times, so if you are debugging remotely, it might be a good idea to power the target via a remote power control switch, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fig02">Figure 21.2</A><A name="web browser"></A>. That way, you can hard-reset the target from the host using a web browser, as shown in Terminal 4. You may also choose to power the JTAG hardware via a remote power switch. That will let you test run a bootloader directly from flash without the intervention of JTAG and its definition files.</P>
+<P class=docText><A name="possesses a"></A>If the target board possesses a network interface, it can mount its root filesystem over NFS from the development host. (See the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18lev1sec8.html#ch18lev2sec15">NFS-Mounted Root</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18.html#ch18">Chapter 18</A><A name="host operates"></A> for details on doing this.) Terminal 5 on the host operates locally on the exported root filesystem.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fn04">[4]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch21fn04>[4]</A></SUP><A name="terminals depending"></A> You may have more such terminals depending on your debug scenario. If you are using an oscilloscope that has remote display capabilities, for example, you may operate it via a web browser on another terminal.</P></BLOCKQUOTE>
+<P class=docText><A name="within an"></A>If your team is scattered geographically, run Terminals 1 through 5 within an environment such as <SPAN class=docEmphasis>Virtual Network Computing</SPAN><A name="your distribution"></A> (VNC). If VNC is not already part of your distribution, download it from <A class=docLink href="http://www.realvnc.com/" target=_blank>www.realvnc.com</A><A name="With such"></A>. With such a setup, you can debug the electrons on your remote board from the comfort of your home! Some JTAG vendors provide a sophisticated integrated development environment<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21fn05">[5]</A></SUP><A name="all the"></A> that encompasses all the functionalities previously detailed, so you don't need to manage VNC terminal sessions if you're using one of those.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch21fn05>[5]</A></SUP><A name="independent of"></A> While JTAG hardware is independent of the target operating system, the front-end interface is likely to have OS dependencies.</P></BLOCKQUOTE>
+<P class=docText><A name="when you"></A>During hardware bring up, when you are porting your bootloader or other stand-alone code to the target, it's a good idea to first generate an ELF image and debug it from RAM before running it from flash. Remember, however, to eliminate bootloader initializations that duplicate the ones performed by the JTAG definition script.</P>
+<P class=docText><A name="use a"></A>A key advantage of JTAG debuggers is that you can use a single tool to debug the different pieces that constitute your firmware solution. So, you can use the same <A name=iddle1678></A><A name=iddle1697></A><A name=iddle1711></A><A name=iddle1712></A><A name=iddle1716></A><A name=iddle1717></A><A name=iddle2044></A><A name=iddle2525></A><A name=iddle2526></A><A name=iddle2561></A><A name=iddle2684></A><A name=iddle2685></A><A name=iddle2689></A><A name=iddle2690></A><A name=iddle3620></A><A name=iddle3631></A><A name="base kernel"></A>debugger to debug the BIOS, bootloader, base kernel, device driver modules, as well as user-space applications, at source level.</P><A name=ch21lev2sec6></A>
+<H4 id=title-ID0E6LCO class=docSection2Title>Downloads</H4>
+<P class=docText><A name="and IA"></A>You may download kdb patches for the x86 and IA64 architectures from <A class=docLink href="http://oss.sgi.com/projects/kdb" target=_blank>http://oss.sgi.com/projects/kdb</A><A name="two patches"></A>. Each supported kernel version needs two patches: a common one and an architecture-dependent one.</P>
+<P class=docText>The home page for the kgdb project is <A class=docLink href="http://kgdb.sourceforge.net/" target=_blank>http://kgdb.sourceforge.net</A><A name="using kgdb"></A>. The website also has documentation on configuring and using kgdb.</P>
+<P class=docText><A name="contain gdb"></A>If your Linux distribution does not already contain gdb, you can obtain it from <A class=docLink href="http://www.gnu.org/software/gdb/gdb.html" target=_blank>www.gnu.org/software/gdb/gdb.html</A>.

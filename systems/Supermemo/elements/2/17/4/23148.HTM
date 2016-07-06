@@ -1,0 +1,155 @@
+<H3 id=-100000 class=docSection1Title>The Root Filesystem</H3>
+<P class=docText><A name="Before the"></A>Before the advent of Linux distributions, it used to be a project by itself to put together a compact application-set tailored to suit the size limitations of available storage. One had to cobble together the sources of a minimal set of utilities, libraries, tools, and daemons; ensure that their versions liked each other; and cross-compile them. Today's distributions supply a ready-made application-set built for supported processors and offer tools that let you pick and choose components at the granularity of packages. Of course, you may still want to implement custom utilities and tools to supplement the distribution-supplied applications.</P>
+<P class=docText><A name="flash memory"></A>On embedded devices, flash memory (discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17.html#ch17">Chapter 17</A><A name="vehicle to"></A>) is the commonly used vehicle to hold the application-set and is mounted as the root device at the end of the boot process. Hard disks are uncommon because they are power-intensive, bulky, and have moving parts that are not tolerant to shock and vibe. Common places that hold the root filesystem on embedded devices include the following:</P>
+<UL>
+<LI>
+<P class=docList>An initial ramdisk (<SPAN class=docEmphasis>initramfs</SPAN> or <SPAN class=docEmphasis>initrd</SPAN><A name="starting point"></A>) is usually the starting point before you get drivers for other potential root devices working and is used for development purposes.</P></LI>
+<LI>
+<P class=docList><A name="than using"></A>NFS-mounting the root filesystem is a development strategy much more powerful than using a ramdisk. We discuss this in detail in the next section.</P></LI>
+<LI>
+<P class=docList><A name="flash chips"></A>Storage media such as flash chips, SD/MMC cards, CF cards, DOCs, and DOMs.</P></LI></UL>
+<P class=docText><A name="good idea"></A>Note that it may not be a good idea to let all the data stay in the root partition. It's common to spread files across different storage partitions and tag desired <SPAN class=docEmphasis>read-write</SPAN> or <SPAN class=docEmphasis>read-only</SPAN><A name="the possibility"></A> protection flags, especially if there is the possibility that the device will be shut down abruptly.</P><A name=ch18lev2sec15></A>
+<H4 id=title-ID0ESJAO class=docSection2Title>NFS-Mounted Root</H4>
+<P class=docText><A name="to hasten"></A>NFS-mounting the root filesystem can serve as a catalyst to hasten the embedded development cycle. In this case, the root filesystem physically resides on your development host and not on the target, so its size is virtually unlimited and not restricted by the <A name=iddle4250></A><A name="Downloading device"></A>amount of storage locally available on the target. Downloading device driver modules or applications to the target, as well as uploading logs, is as simple (and fast) as copying them to <SPAN class=docEmphasis>/path/to/target/rootfilesystem/</SPAN><A name="on your"></A> on your development host. Such ease of testing and debugging is a good reason why you should insist on having Ethernet on engineering-level hardware, even if production units won't have Ethernet support. Having Ethernet on your board also lets your bootloader use the Trivial File Transfer Protocol (TFTP) to download the kernel image to the target over a network.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18lev1sec8.html#ch18tab02">Table 18.2</A><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18lev1sec8.html#ch18fn04">[4]</A></SUP><A name="typical steps"></A> shows the typical steps needed to get TFTP and NFS working with your embedded device. It assumes that your development host also doubles up as TFTP, NFS, and DHCP servers, and that the bootloader (BLOB in this example) supports the Ethernet chipset used on the embedded device.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch18fn04>[4]</A></SUP><A name="path names"></A> The filenames and directory path names used in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18lev1sec8.html#ch18tab02">Table 18.2</A> are distribution-dependent.</P></BLOCKQUOTE><A name=ch18tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><A name="Time with"></A>Table 18.2. Saving Development Time with TFTP and NFS</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=100>
+<COL width=225>
+<COL width=225></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>&nbsp;</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Target Embedded Device</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Host Development Platform</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Kernel Boot over TFTP</TD>
+<TD class=docTableCell vAlign=top align=left><A name="from the"></A>Configure the IP address of the target and the server (host) from the bootloader prompt: 
+<DIV class=docText><PRE>/* Target IP */
+<SPAN class=docEmphStrong>blob&gt; ip 4.1.1.2</SPAN>
+/* Host IP */
+<SPAN class=docEmphStrong>blob&gt; server 4.1.1.1</SPAN>
+/* Kernel image */
+<SPAN class=docEmphStrong>blob&gt; TftpFile /tftpdir/zImage</SPAN>
+/* Pull the Kernel over the
+net */
+<SPAN class=docEmphStrong>blob&gt; tftp</SPAN>
+TFTPing /tftpboot/zImage............Ok
+<SPAN class=docEmphStrong>blob&gt;</SPAN></PRE></DIV><BR></TD>
+<TD class=docTableCell vAlign=top align=left>Configure the host IP address: 
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ifconfig eth0 4.1.1.1</SPAN></PRE></DIV><BR>
+<P class=docText><A name="TFTP server"></A>Install and configure the TFTP server (the exact steps depend on your distribution): 
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /etc/xinetd.conf/tftp</SPAN>
+service tftp
+{
+  socket_type  = dgram
+  protocol     = udp
+  wait         = yes
+  user         = root
+  server       = /usr/sbin/in.tftpd
+  server_args  = /tftpdir
+  disable      = no
+  per_source   = 11
+  cps          = 100 2
+  flags        = IPv4
+}</PRE></DIV><BR>
+<P></P>
+<P class=docText><A name="present in"></A>Make sure that the TFTP server is present in <SPAN class=docEmphasis>/usr/sbin/in.tftpd</SPAN> and that <SPAN class=docEmphasis>xinetd</SPAN> is alive.</P><A name="NFS enabled"></A>Compile the target kernel with NFS enabled and copy it to <SPAN class=docEmphasis>/tftpdir/zImage</SPAN>.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Root filesystem over NFS</TD>
+<TD class=docTableCell vAlign=top align=left>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>blob&gt; boot console=/dev/</SPAN>
+<SPAN class=docEmphStrong>ttyS0,115200n8 root=/dev/nfs</SPAN>
+<SPAN class=docEmphStrong>ip=dhcp</SPAN>
+/*Kernel boot messages*/
+/* ... */
+VFS: Mounted root (nfs
+filesystem)
+/* ... */
+login:</PRE></DIV><BR></TD>
+<TD class=docTableCell vAlign=top align=left>Export <SPAN class=docEmphasis>/path/to/target/root/</SPAN> for NFS access:
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /etc/exports</SPAN>
+/path/to/target/root/ *(rw,sync,no_
+root_squash,no_all_squash)</PRE></DIV><BR>
+<P class=docText>Start NFS: 
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; service nfs start</SPAN></PRE></DIV><BR>
+<P></P><A name="device relies"></A>Configure the DHCP server. The kernel on the embedded device relies on this server to assign it the 4.1.1.2 IP address during boot and to supply <SPAN class=docEmphasis>/path/to/target/root/:</SPAN> 
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; cat /etc/dhcpd.conf</SPAN>
+...
+subnet 4.1.1.0 netmask
+255.255.255.0 {
+range 4.1.1.2 4.1.1.10
+max-lease-time 43200
+option routers 4.1.1.1
+option ip-forwarding off
+option broadcast-address 4.1.1.255
+option subnet-mask 255.255.255.0
+group {
+  next-server 4.1.1.1
+  host target-device {
+   /* MAC of the embedded device */
+   hardware Ethernet AA:BB:CC:DD:
+   EE:FF;
+   fixed-address 4.1.1.2;
+   option root-path
+   "/path/to/target/root/";
+  }
+}
+...
+<SPAN class=docEmphStrong>bash&gt; service dhcpd start</SPAN>
+<SPAN class=docEmphStrong>bash&gt;</SPAN>
+
+					  </PRE></DIV><BR></TD></TR></TBODY></TABLE></P><BR><A name=ch18lev2sec16></A>
+<H4 id=title-ID0EFRAO class=docSection2Title>Compact Middleware</H4>
+<P class=docText><A name=iddle1532></A><A name=iddle1976></A><A name=iddle2065></A><A name=iddle3839></A><A name="prefer middleware"></A>Embedded devices that are tight on memory prefer middleware implementations that have small footprint and low runtime memory requirements. The trade-offs usually <A name=iddle1357></A><A name=iddle2992></A><A name=iddle3567></A><A name=iddle4256></A><A name=iddle4278></A><A name=iddle4373></A><A name=iddle4386></A><A name="lie in"></A>lie in features, standards compatibility, and speed. Let's take a look at some popular compact middleware solutions that may be potential candidates for populating your root filesystem.</P>
+<P class=docText><SPAN class=docEmphasis>BusyBox</SPAN><A name="tool commonly"></A> is a tool commonly used to provide a multi-utility environment on embedded systems having limited memory. It scratches out some features but provides an optimized replacement for several shell utilities.</P>
+<P class=docText><SPAN class=docEmphasis>uClibc</SPAN><A name="of the"></A> is a compact version of the GNU C library that was originally developed to work with uClinux. uClibc works on normal Linux systems, too, and is licensed under LGPL. If your embedded device is short on space, try uClibc rather than glibc.</P>
+<P class=docText><A name="need to"></A>Embedded systems that need to run an X Windows server commonly rely on <SPAN class=docEmphasis>TinyX</SPAN><A name="frame buffer"></A>, a low-footprint X server shipped along with the XFree86 4.0 code. TinyX runs over frame buffer drivers and can be used on devices, such as the one showed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12fig06">Figure 12.6</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12.html#ch12">Chapter 12</A>.</P>
+<P class=docText><SPAN class=docEmphasis>Thttpd</SPAN><A name="server that"></A> is a lightweight HTTP server that makes low demands on CPU and memory resources.</P>
+<P class=docText><A name="using a"></A>Even if you are creating a non-Linux solution using a tiny 8-bit MMU-less microcontroller, you will likely want it to interoperate with Linux. Assume, for example, that you are writing deeply embedded firmware for an Infrared storage keychain. The keychain can hold a gigabyte of personal data that can be accessed via a web browser from your Linux laptop over Infrared. If you are running a compact TCP/IP stack, such as <SPAN class=docEmphasis>uIP</SPAN><A name="such as"></A> over a minimal IrDA stack such as <SPAN class=docEmphasis>Pico-IrDA</SPAN><A name="ensuring their"></A> on the Infrared keychain, you have the task of ensuring their interoperability with the corresponding Linux protocol stacks.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18lev1sec8.html#ch18tab03">Table 18.3</A><A name="middleware projects"></A> lists the home pages of the compact middleware projects referred to in this section.</P><A name=ch18tab03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><A name="Table "></A>Table 18.3. Examples of Compact Middleware</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=100>
+<COL width=225>
+<COL width=225></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Download Location</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>BusyBox</TD>
+<TD class=docTableCell vAlign=top align=left><A name="shell environment"></A>Small footprint shell environment</TD>
+<TD class=docTableCell vAlign=top align=left><A class=docLink href="http://www.busybox.net/" target=_blank>www.busybox.net</A></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>uClibc</TD>
+<TD class=docTableCell vAlign=top align=left>Small-sized version of glibc</TD>
+<TD class=docTableCell vAlign=top align=left><A class=docLink href="http://www.uclibc.org/" target=_blank>www.uclibc.org</A></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>TinyX</TD>
+<TD class=docTableCell vAlign=top align=left><A name="that are"></A>X server for devices that are tight on memory</TD>
+<TD class=docTableCell vAlign=top align=left><A name="X Windows"></A>Part of the X Windows source tree downloadable from ftp://ftp.xfree86.org/pub/XFree86/4.0/</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Thttpd</TD>
+<TD class=docTableCell vAlign=top align=left>Tiny HTTP server</TD>
+<TD class=docTableCell vAlign=top align=left><A class=docLink href="http://www.acme.com/software/thttpd" target=_blank>www.acme.com/software/thttpd</A></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>uIP</TD>
+<TD class=docTableCell vAlign=top align=left>Compact TCP/IP stack for microcontrollers</TD>
+<TD class=docTableCell vAlign=top align=left><A class=docLink href="http://www.sics.se/~adam/uip" target=_blank>www.sics.se/~adam/uip</A></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Pico-IrDA</TD>
+<TD class=docTableCell vAlign=top align=left>Minimal IrDA stack for microcontrollers</TD>
+<TD class=docTableCell vAlign=top align=left><A class=docLink href="http://blaulogic.com/pico_irda.shtml" target=_blank>http://blaulogic.com/pico_irda.shtml</A></TD></TR></TBODY></TABLE>

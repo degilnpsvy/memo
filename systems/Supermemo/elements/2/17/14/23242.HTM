@@ -1,0 +1,121 @@
+<H3 id=title-IDARUFCD class=docSection1Title>6.4. Initial RAM Disk</H3>
+<P class=docText>The Linux kernel contains a mechanism to mount an early root file system to perform certain startup-related system initialization and configuration. This mechanism is known as the <SPAN class=docEmphasis>initial RAM disk,</SPAN> or simply <SPAN class=docEmphasis>initrd</SPAN>. Support for this functionality must be compiled into the kernel. This kernel configuration option is found under Block Devices, RAM disk support in the kernel configuration utility. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06fig01">Figure 6-1</A> shows an example of the configuration for initrd.</P>
+<P class=docText></P><A name=ch06fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 6-1. Linux kernel configuration utility</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/06elp01_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/06elp01.jpg" width=500 height=375>
+<P></P></CENTER>
+<P></P><BR><A name=ch06lev2sec12></A>
+<H4 id=title-IDAAWFCD class=docSection2Title>6.4.1. Initial RAM Disk Purpose</H4>
+<P class=docText><A name=iddle1090></A><A name=iddle1105></A><A name=iddle1642></A><A name=iddle2481></A>The initial RAM disk is a small self-contained root file system that usually contains directives to load specific device drivers before the completion of the boot cycle. In Linux workstation distributions such as Red Hat and Fedora Core, an initial RAM disk is used to load the device drivers for the EXT3 file system before mounting the real root file system. An <TT>initrd</TT> is frequently used to load a device driver that is required in order to access the real root file system.</P><A name=ch06lev2sec13></A>
+<H4 id=title-IDA0XFCD class=docSection2Title>6.4.2. Booting with initrd</H4>
+<P class=docText>To use the <TT>initrd</TT> functionality, the bootloader gets involved on most architectures to pass the <TT>initrd</TT> image to the kernel. A common scenario is that the bootloader loads a compressed kernel image into memory and then loads an <TT>initrd</TT> image into another section of available memory. In doing so, it becomes the bootloader's responsibility to pass the load address of the <TT>initrd</TT> image to the kernel before passing control to it. The exact mechanism differs depending on the architecture, bootloader, and platform implementation. However, the kernel must know where the <TT>initrd</TT> image is located so it can load it.</P>
+<P class=docText><A name=iddle1121></A><A name=iddle2556></A>Some architectures and platforms construct a single composite binary image. This scheme is used when the bootloader does not have specific Linux support for loading <TT>initrd</TT> images. In this case, the kernel and <TT>initrd</TT> image are simply concatenated together. You will find reference to this type of composite image in the kernel makefiles as <TT>bootpImage.</TT> Presently, this is used only for <TT>arm</TT> architecture.</P>
+<P class=docText>So how does the kernel know where to find the <TT>initrd</TT> image? Unless there is some special magic in the bootloader, it is usually sufficient simply to pass the <TT>initrd</TT> image start address and size to the kernel via the kernel command line. Here is an example of a kernel command line for a popular ARM-based reference board containing the TI OMAP 5912 processor.</P>
+<DIV class=docText><PRE>console=ttyS0,115200 root=/dev/nfs                        \
+   nfsroot=192.168.1.9:/home/chris/sandbox/omap-target    \
+   initrd=0x10800000,0x14af47</PRE></DIV><BR>
+<P class=docText>The previous kernel command line has been separated into several lines to fit in the space provided. In actual practice, it is a single line, with the individual elements separated by spaces. This kernel command line defines the following kernel behavior:</P>
+<UL>
+<LI>
+<P class=docList>Specify a single console on device <TT>ttyS0</TT> at 115 kilobaud</P></LI>
+<LI>
+<P class=docList>Mount a root file system via NFS, the network file system</P></LI>
+<LI>
+<P class=docList>Find the NFS root file system on host 192.168.1.9</P>
+<BLOCKQUOTE>
+<P class=docText>(from directory <TT>/home/chris/sandbox/omap-target</TT>)</P></BLOCKQUOTE></LI>
+<LI>
+<P class=docList>Load and mount an initial ramdisk from physical memory location</P>
+<BLOCKQUOTE>
+<P class=docText>0x10800000, which has a size of 0x14AF47 (1,355,591 bytes)</P></BLOCKQUOTE></LI></UL>
+<P class=docText>One additional note regarding this example: Almost universally, the <TT>initrd</TT> image is compressed. The size specified on the kernel command line is the size of the compressed image.</P><A name=ch06lev2sec14></A>
+<H4 id=title-IDAQ1FCD class=docSection2Title>6.4.3. Bootloader Support for initrd</H4>
+<P class=docText>Let's look at a simple example based on the popular U-Boot bootloader running on an ARM processor. This bootloader has been designed with Linux kernel support. Using U-Boot, it is easy to include an <TT>initrd</TT> image with the kernel image. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06list10">Listing 6-10</A> examines a typical boot sequence containing an initial ramdisk image.</P>
+<P class=docText></P><A name=ch06list10></A>
+<H5 id=title-IDAJ2FCD class=docExampleTitle>Listing 6-10. Booting Kernel with Ramdisk Support</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>tftpboot 0x10000000 kernel-uImage</SPAN>
+...
+Load address: 0x10000000
+Loading: ############################ done
+Bytes transferred = 1069092 (105024 hex)
+
+# <SPAN class=docEmphStrong>tftpboot 0x10800000 initrd-uboot</SPAN>
+...
+Load address: 0x10800000
+Loading: ########################################### done
+Bytes transferred = 282575 (44fcf hex)
+
+# <SPAN class=docEmphStrong>bootm 0x10000000 0x10800040</SPAN>
+Uncompressing kernel.................done.
+...
+RAMDISK driver initialized: 16 RAM disks of 16384K size 1024 blocksize
+...
+RAMDISK: Compressed image found at block 0
+VFS: Mounted root (ext2 filesystem).
+Greetings: this is linuxrc from Initial RAMDisk
+Mounting /proc filesystem
+
+BusyBox v1.00 (2005.03.14-16:37+0000) Built-in shell (ash)
+Enter 'help' for a list of built-in commands.
+
+# (&lt;&lt;&lt;&lt; Busybox command prompt)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1849></A>Here in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06list10">Listing 6-10</A>, we get a glimpse of the U-Boot bootloader, which we examine in more detail in the next chapter. The <TT>tftpboot</TT> command causes U-Boot to download the kernel image from a tftp server. The kernel image is downloaded and placed into the base of this target system's memory at the 256MB address (0x10000000 hex<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06fn07">[7]</A></SUP>). Then a second image, the initial ramdisk image, is downloaded from a tftp server into memory at a higher memory address (256MB + 8MB, in this example). Finally, we issue the U-Boot <TT>bootm</TT> command, which is the "boot from memory" command. The <TT>bootm</TT> command takes two arguments: the address of the Linux kernel image, optionally followed by an address representing the location of the initial ramdisk image.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn07>[7]</A></SUP> It just so happens that on this particular board, our physical SDRAM starts at 256MB.</P></BLOCKQUOTE>
+<P class=docText><A name=iddle1645></A><A name=iddle1839></A><A name=iddle1963></A><A name=iddle2483></A>Take special note of one feature of the U-Boot bootloader. It fully supports loading kernel and ramdisk images over an Ethernet connection. This is a very useful development configuration. You can get a kernel and ramdisk image onto your board in other ways as well. You can flash them into your Flash memory using a hardware-based flash programming tool, or you can use a serial port and download the kernel and file system images via RS-232. However, because these images are typically large (a kernel can be about a megabyte, and a ramdisk can be tens of megabytes), you will save a significant amount of engineering time if you invest in this Ethernet-based tftp download method. Whatever bootloader you choose, make sure it supports network download of development images.</P><A name=ch06lev2sec15></A>
+<H4 id=title-IDAQ5FCD class=docSection2Title>6.4.4. initrd Magic: linuxrc</H4>
+<P class=docText>When the kernel boots, it detects the presence of the <TT>initrd</TT> image, and copies the compressed binary file from the specified physical location in RAM into a proper kernel ramdisk and mounts it as the root file system. The magic of the <TT>initrd</TT> comes from the contents of a special file within the <TT>initrd</TT> image. When the kernel mounts the initial ramdisk, it looks for a specific file called <TT>linuxrc</TT>. It treats this file as a script file and proceeds to execute the commands contained therein. This mechanism enables the system designer to specify the behavior of <TT>initrd</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06list11">Listing 6-11</A> contains a sample <TT>linuxrc</TT> file.</P><A name=ch06list11></A>
+<H5 id=title-IDAUAGCD class=docExampleTitle>Listing 6-11. Example <TT>linuxrc</TT> File</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>#!/bin/sh
+
+echo 'Greetings: this is 'linuxrc' from Initial Ramdisk'
+echo 'Mounting /proc filesystem'
+mount -t proc /proc /proc
+
+busybox sh</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>In practice, this file would contain directives required before we mount the real root file system. One example might be to load CompactFlash drivers to obtain a real root file system from a CompactFlash device. For purposes of this example, we simply spawn a busybox shell and halt the boot process for examination. You can see the <TT>#</TT> command prompt from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06list10">Listing 6-10</A> resulting from this busybox shell. If one were to type the <TT>exit</TT> command here, the kernel would continue its boot process until complete.</P>
+<P class=docText><A name=iddle1646></A><A name=iddle1758></A><A name=iddle2104></A><A name=iddle2118></A><A name=iddle2385></A><A name=iddle2484></A>After the kernel copies the ramdisk from physical memory into a kernel ramdisk, it returns this physical memory back to the available memory pool. You can think of this as transferring the <TT>initrd</TT> image from physical memory at the hard-coded address into the kernel's own virtual memory (in the form of a kernel ramdisk device).</P>
+<P class=docText>One last comment about <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06list11">Listing 6-11</A>: The <TT>mount</TT> command in which the <TT>/proc</TT> file system is mounted seems redundant in its use of the word <TT>proc</TT>. This command would also work:</P>
+<DIV class=docText><PRE>mount -t proc none /proc</PRE></DIV><BR>
+<P class=docText>Notice that the device field of the <TT>mount</TT> command has been changed to <TT>none</TT>. The <TT>mount</TT> command ignores the device field because no physical device is associated with the <TT>proc</TT> file system. The <TT>-t proc</TT> is enough to instruct <TT>mount</TT> to mount the <TT>/proc</TT> file system on the <TT>/proc</TT> mount point. I use the former invocation as a mental reminder that we are actually mounting the kernel pseudo device (the <TT>/proc</TT> file system) on <TT>/proc</TT>. The mount command ignores this argument. Use the method that you prefer.</P><A name=ch06lev2sec16></A>
+<H4 id=title-IDAEFGCD class=docSection2Title>6.4.5. The initrd Plumbing</H4>
+<P class=docText>As part of the Linux boot process, the kernel must locate and mount a root file system. Late in the boot process, the kernel decides what and where to mount in a function called <TT>prepare_namespace()</TT>. If <TT>initrd</TT> support is enabled in the kernel, as illustrated in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06fig01">Figure 6-1</A>, and the kernel command line is so configured, the kernel decompresses the compressed <TT>initrd</TT> image from physical memory and eventually copies the contents of this file into a ramdisk device (<TT>/dev/ram</TT>). At this point, we have a proper file system on a kernel ramdisk. After the file system has been read into the ramdisk, the kernel effectively mounts this ramdisk device as its root file system. Finally, the kernel spawns a kernel thread to execute the <TT>linuxrc</TT> file on the <TT>initrd</TT> image.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06fn08">[8]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn08>[8]</A></SUP> Out of necessity (space), this is a very simplified description of the sequence of events. The actual mechanism is similar in concept, but several significant details are omitted for clarity. You are encouraged to consult the kernel source code for more details. See <TT>.../init/main.c</TT> and <TT>.../init/do_mounts*.c</TT>.</P></BLOCKQUOTE>
+<P class=docText>When the <TT>linuxrc</TT> script has completed execution, the kernel unmounts the <TT>initrd</TT> and proceeds with the final stages of system boot. If the real root device has a directory called <TT>/initrd</TT>, Linux mounts the <TT>initrd</TT> file system on this path (in <A name=iddle1158></A><A name=iddle1643></A><A name=iddle1935></A><A name=iddle2482></A>this context, called a <SPAN class=docEmphasis>mount point</SPAN>). If this directory does not exist in the final root file system, the <TT>initrd</TT> image is simply discarded.</P>
+<P class=docText>If the kernel command line contains a <TT>root=</TT> parameter specifying a ramdisk (<TT>root=/dev/ram0</TT>, for example), the previously described <TT>initrd</TT> behavior changes in two important ways. First, the processing of the <TT>linuxrc</TT> executable is skipped. Second, no attempt is made to mount another file system as root. This means that you can have a Linux system with <TT>initrd</TT> as the only root file system. This is useful for minimal system configurations in which the only root file system is the ramdisk. Placing <TT>/dev/ram0</TT> on the kernel command line allows the full system initialization to complete with the <TT>initrd</TT> as the final root file system.</P><A name=ch06lev2sec17></A>
+<H4 id=title-IDA2IGCD class=docSection2Title>6.4.6. Building an initrd Image</H4>
+<P class=docText>Constructing a suitable root file system image is one of the more challenging aspects of embedded systems. Creating a proper <TT>initrd</TT> image is even more challenging because it needs to be small and specialized. For this section, we examine <TT>initrd</TT> requirements and file system contents.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec4.html#ch06list12">Listing 6-12</A> was produced by running the <TT>tree</TT> utility on our example <TT>initrd</TT> image from this chapter.</P><A name=ch06list12></A>
+<H5 id=title-IDA1JGCD class=docExampleTitle>Listing 6-12. Contents of Example <TT>initrd</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>.
+|-- bin
+|   |-- busybox
+|   |-- echo -&gt; busybox
+|   |-- mount -&gt; busybox
+|   '-- sh -&gt; busybox
+|-- dev
+|   |-- console
+|   |-- ram0
+|   '-- ttyS0
+|-- etc
+|-- linuxrc
+'-- proc
+
+4 directories, 8 files</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1640></A><A name=iddle1644></A><A name=iddle2479></A>As you can see, it is very small indeed; it takes up a little more than 500KB in uncompressed form. Since it is based on <TT>busybox</TT>, it has many capabilities. Because <TT>busybox</TT> is statically linked, it has no dependencies on any system libraries. You will learn more about <TT>busybox</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch11.html#ch11">Chapter 11</A>.

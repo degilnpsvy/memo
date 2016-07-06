@@ -1,0 +1,56 @@
+<H3 class=section>4.6 Reading Fixed-Width Data</H3>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> This section discusses an advanced feature of <CODE>gawk</CODE>. If you are a novice <CODE>awk</CODE> user, you might want to skip it on the first reading. </P></BLOCKQUOTE><A name=index-data_002c-fixed_002dwidth></A><A name=index-fixed_002dwidth-data></A><A name=index-advanced-features_002c-fixed_002dwidth-data></A>
+<P><CODE>gawk</CODE> provides a facility for dealing with fixed-width fields with no distinctive field separator. For example, data of this nature arises in the input for old Fortran programs where numbers are run together, or in the output of programs that did not anticipate the use of their output as input for other programs. </P>
+<P>An example of the latter is a table where all the columns are lined up by the use of a variable number of spaces and <EM>empty fields are just spaces</EM>. Clearly, <CODE>awk</CODE>&#8217;s normal field splitting based on <CODE>FS</CODE> does not work well in this case. Although a portable <CODE>awk</CODE> program can use a series of <CODE>substr()</CODE> calls on <CODE>$0</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>), this is awkward and inefficient for a large number of fields. </P><A name=index-troubleshooting_002c-fatal-errors_002c-field-widths_002c-specifying></A><A name=index-w-utility></A><A name=index-FIELDWIDTHS-variable></A><A name=index-gawk_002c-FIELDWIDTHS-variable-in></A>
+<P>The splitting of an input record into fixed-width fields is specified by assigning a string containing space-separated numbers to the built-in variable <CODE>FIELDWIDTHS</CODE>. Each number specifies the width of the field, <EM>including</EM> columns between fields. If you want to ignore the columns between fields, you can specify the width as a separate field that is subsequently ignored. It is a fatal error to supply a field width that is not a positive number. The following data is the output of the Unix <CODE>w</CODE> utility. It is useful to illustrate the use of <CODE>FIELDWIDTHS</CODE>: </P>
+<DIV class=example><PRE class=example> 10:06pm  up 21 days, 14:04,  23 users
+User     tty       login&nbsp; idle   JCPU   PCPU  what
+hzuo     ttyV0     8:58pm            9      5  vi p24.tex
+hzang    ttyV3     6:37pm    50                -csh
+eklye    ttyV5     9:53pm            7      1  em thes.tex
+dportein ttyV6     8:17pm  1:47                -csh
+gierd    ttyD3    10:00pm     1                elm
+dave     ttyD4     9:47pm            4      4  w
+brent    ttyp0    26Jun91  4:46  26:46   4:41  bash
+dave     ttyq4    26Jun9115days     46     46  wnewmail
+</PRE></DIV>
+<P>The following program takes the above input, converts the idle time to number of seconds, and prints out the first two fields and the calculated idle time: </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> This program uses a number of <CODE>awk</CODE> features that haven&#8217;t been introduced yet. </P></BLOCKQUOTE>
+<DIV class=example><PRE class=example>BEGIN  { FIELDWIDTHS = "9 6 10 6 7 7 35" }
+NR &gt; 2 {
+    idle = $4
+    sub(/^  */, "", idle)   # strip leading spaces
+    if (idle == "")
+        idle = 0
+    if (idle ~ /:/) {
+        split(idle, t, ":")
+        idle = t[1] * 60 + t[2]
+    }
+    if (idle ~ /days/)
+        idle *= 24 * 60 * 60
+
+    print $1, $2, idle
+}
+</PRE></DIV>
+<P>Running the program on the data produces the following results: </P>
+<DIV class=example><PRE class=example>hzuo      ttyV0  0
+hzang     ttyV3  50
+eklye     ttyV5  0
+dportein  ttyV6  107
+gierd     ttyD3  1
+dave      ttyD4  0
+brent     ttyp0  286
+dave      ttyq4  1296000
+</PRE></DIV>
+<P>Another (possibly more practical) example of fixed-width input data is the input from a deck of balloting cards. In some parts of the United States, voters mark their choices by punching holes in computer cards. These cards are then processed to count the votes for any particular candidate or on any particular issue. Because a voter may choose not to vote on some issue, any column on the card may be empty. An <CODE>awk</CODE> program for processing such data could use the <CODE>FIELDWIDTHS</CODE> feature to simplify reading the data. (Of course, getting <CODE>gawk</CODE> to run on a system with card readers is another story!) </P><A name=index-gawk_002c-splitting-fields-and></A>
+<P>Assigning a value to <CODE>FS</CODE> causes <CODE>gawk</CODE> to use <CODE>FS</CODE> for field splitting again. Use &#8216;<SAMP>FS = FS</SAMP>&#8217; to make this happen, without having to know the current value of <CODE>FS</CODE>. In order to tell which kind of field splitting is in effect, use <CODE>PROCINFO["FS"]</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Auto_002dset">Auto-set</A>). The value is <CODE>"FS"</CODE> if regular field splitting is being used, or it is <CODE>"FIELDWIDTHS"</CODE> if fixed-width field splitting is being used: </P>
+<DIV class=example><PRE class=example>if (PROCINFO["FS"] == "FS")
+    <VAR>regular field splitting</VAR> &#8230;
+else if  (PROCINFO["FS"] == "FIELDWIDTHS")
+    <VAR>fixed-width field splitting</VAR> &#8230;
+else
+    <VAR>content-based field splitting</VAR> &#8230; (see next section)
+</PRE></DIV>
+<P>This information is useful when writing a function that needs to temporarily change <CODE>FS</CODE> or <CODE>FIELDWIDTHS</CODE>, read some records, and then restore the original settings (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Passwd-Functions">Passwd Functions</A>, for an example of such a function).

@@ -1,0 +1,56 @@
+# Documentation/virtual/kvm/ppc-pv.txt
+<P></P>
+<P>The PPC KVM paravirtual interface<BR>=================================</P>
+<P></P>
+<P>The basic execution principle by which KVM on PowerPC works is to run all kernel<BR>space code in PR=1 which is user space. This way we trap all privileged<BR>instructions and can emulate them accordingly.</P>
+<P>Unfortunately that is also the downfall. There are quite some privileged<BR>instructions that needlessly return us to the hypervisor even though they<BR>could be handled differently.</P>
+<P>This is what the PPC PV interface helps with. It takes privileged instructions<BR>and transforms them into unprivileged ones with some help from the hypervisor.<BR>This cuts down virtualization costs by about 50% on some of my benchmarks.</P>
+<P>The code for that interface can be found in arch/powerpc/kernel/kvm*</P>
+<P>Querying for existence<BR>======================</P>
+<P>To find out if we're running on KVM or not, we leverage the device tree. When<BR>Linux is running on KVM, a node /hypervisor exists. That node contains a<BR>compatible property with the value "linux,kvm".</P>
+<P>Once you determined you're running under a PV capable KVM, you can now use<BR>hypercalls as described below.</P>
+<P>KVM hypercalls<BR>==============</P>
+<P>Inside the device tree's /hypervisor node there's a property called<BR>'hypercall-instructions'. This property contains at most 4 opcodes that make<BR>up the hypercall. To call a hypercall, just call these instructions.</P>
+<P>The parameters are as follows:</P>
+<P>&nbsp;Register&nbsp;IN&nbsp;&nbsp;&nbsp;OUT</P>
+<P>&nbsp;r0&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;volatile<BR>&nbsp;r3&nbsp;&nbsp;1st parameter&nbsp;&nbsp;Return code<BR>&nbsp;r4&nbsp;&nbsp;2nd parameter&nbsp;&nbsp;1st output value<BR>&nbsp;r5&nbsp;&nbsp;3rd parameter&nbsp;&nbsp;2nd output value<BR>&nbsp;r6&nbsp;&nbsp;4th parameter&nbsp;&nbsp;3rd output value<BR>&nbsp;r7&nbsp;&nbsp;5th parameter&nbsp;&nbsp;4th output value<BR>&nbsp;r8&nbsp;&nbsp;6th parameter&nbsp;&nbsp;5th output value<BR>&nbsp;r9&nbsp;&nbsp;7th parameter&nbsp;&nbsp;6th output value<BR>&nbsp;r10&nbsp;&nbsp;8th parameter&nbsp;&nbsp;7th output value<BR>&nbsp;r11&nbsp;&nbsp;hypercall number&nbsp;8th output value<BR>&nbsp;r12&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;volatile</P>
+<P>Hypercall definitions are shared in generic code, so the same hypercall numbers<BR>apply for x86 and powerpc alike with the exception that each KVM hypercall<BR>also needs to be ORed with the KVM vendor code which is (42 &lt;&lt; 16).</P>
+<P>Return codes can be as follows:</P>
+<P>&nbsp;Code&nbsp;&nbsp;Meaning</P>
+<P>&nbsp;0&nbsp;&nbsp;Success<BR>&nbsp;12&nbsp;&nbsp;Hypercall not implemented<BR>&nbsp;&lt;0&nbsp;&nbsp;Error</P>
+<P>The magic page<BR>==============</P>
+<P>To enable communication between the hypervisor and guest there is a new shared<BR>page that contains parts of supervisor visible register state. The guest can<BR>map this shared page using the KVM hypercall KVM_HC_PPC_MAP_MAGIC_PAGE.</P>
+<P>With this hypercall issued the guest always gets the magic page mapped at the<BR>desired location. The first parameter indicates the effective address when the<BR>MMU is enabled. The second parameter indicates the address in real mode, if<BR>applicable to the target. For now, we always map the page to -4096. This way we<BR>can access it using absolute load and store functions. The following<BR>instruction reads the first field of the magic page:</P>
+<P>&nbsp;ld&nbsp;rX, -4096(0)</P>
+<P>The interface is designed to be extensible should there be need later to add<BR>additional registers to the magic page. If you add fields to the magic page,<BR>also define a new hypercall feature to indicate that the host can give you more<BR>registers. Only if the host supports the additional features, make use of them.</P>
+<P>The magic page layout is described by struct kvm_vcpu_arch_shared<BR>in arch/powerpc/include/asm/kvm_para.h.</P>
+<P>Magic page features<BR>===================</P>
+<P>When mapping the magic page using the KVM hypercall KVM_HC_PPC_MAP_MAGIC_PAGE,<BR>a second return value is passed to the guest. This second return value contains<BR>a bitmap of available features inside the magic page.</P>
+<P>The following enhancements to the magic page are currently available:</P>
+<P>&nbsp; KVM_MAGIC_FEAT_SR&nbsp;&nbsp;Maps SR registers r/w in the magic page</P>
+<P>For enhanced features in the magic page, please check for the existence of the<BR>feature before using them!</P>
+<P>MSR bits<BR>========</P>
+<P>The MSR contains bits that require hypervisor intervention and bits that do<BR>not require direct hypervisor intervention because they only get interpreted<BR>when entering the guest or don't have any impact on the hypervisor's behavior.</P>
+<P>The following bits are safe to be set inside the guest:</P>
+<P>&nbsp; MSR_EE<BR>&nbsp; MSR_RI</P>
+<P>If any other bit changes in the MSR, please still use mtmsr(d).</P>
+<P>Patched instructions<BR>====================</P>
+<P>The "ld" and "std" instructions are transormed to "lwz" and "stw" instructions<BR>respectively on 32 bit systems with an added offset of 4 to accommodate for big<BR>endianness.</P>
+<P>The following is a list of mapping the Linux kernel performs when running as<BR>guest. Implementing any of those mappings is optional, as the instruction traps<BR>also act on the shared page. So calling privileged instructions still works as<BR>before.</P>
+<P>From&nbsp;&nbsp;&nbsp;To<BR>====&nbsp;&nbsp;&nbsp;==</P>
+<P>mfmsr&nbsp;rX&nbsp;&nbsp;ld&nbsp;rX, magic_page-&gt;msr<BR>mfsprg&nbsp;rX, 0&nbsp;&nbsp;ld&nbsp;rX, magic_page-&gt;sprg0<BR>mfsprg&nbsp;rX, 1&nbsp;&nbsp;ld&nbsp;rX, magic_page-&gt;sprg1<BR>mfsprg&nbsp;rX, 2&nbsp;&nbsp;ld&nbsp;rX, magic_page-&gt;sprg2<BR>mfsprg&nbsp;rX, 3&nbsp;&nbsp;ld&nbsp;rX, magic_page-&gt;sprg3<BR>mfsrr0&nbsp;rX&nbsp;&nbsp;ld&nbsp;rX, magic_page-&gt;srr0<BR>mfsrr1&nbsp;rX&nbsp;&nbsp;ld&nbsp;rX, magic_page-&gt;srr1<BR>mfdar&nbsp;rX&nbsp;&nbsp;ld&nbsp;rX, magic_page-&gt;dar<BR>mfdsisr&nbsp;rX&nbsp;&nbsp;lwz&nbsp;rX, magic_page-&gt;dsisr</P>
+<P>mtmsr&nbsp;rX&nbsp;&nbsp;std&nbsp;rX, magic_page-&gt;msr<BR>mtsprg&nbsp;0, rX&nbsp;&nbsp;std&nbsp;rX, magic_page-&gt;sprg0<BR>mtsprg&nbsp;1, rX&nbsp;&nbsp;std&nbsp;rX, magic_page-&gt;sprg1<BR>mtsprg&nbsp;2, rX&nbsp;&nbsp;std&nbsp;rX, magic_page-&gt;sprg2<BR>mtsprg&nbsp;3, rX&nbsp;&nbsp;std&nbsp;rX, magic_page-&gt;sprg3<BR>mtsrr0&nbsp;rX&nbsp;&nbsp;std&nbsp;rX, magic_page-&gt;srr0<BR>mtsrr1&nbsp;rX&nbsp;&nbsp;std&nbsp;rX, magic_page-&gt;srr1<BR>mtdar&nbsp;rX&nbsp;&nbsp;std&nbsp;rX, magic_page-&gt;dar<BR>mtdsisr&nbsp;rX&nbsp;&nbsp;stw&nbsp;rX, magic_page-&gt;dsisr</P>
+<P>tlbsync&nbsp;&nbsp;&nbsp;nop</P>
+<P>mtmsrd&nbsp;rX, 0&nbsp;&nbsp;b&nbsp;&lt;special mtmsr section&gt;<BR>mtmsr&nbsp;rX&nbsp;&nbsp;b&nbsp;&lt;special mtmsr section&gt;</P>
+<P>mtmsrd&nbsp;rX, 1&nbsp;&nbsp;b&nbsp;&lt;special mtmsrd section&gt;</P>
+<P>[Book3S only]<BR>mtsrin&nbsp;rX, rY&nbsp;&nbsp;b&nbsp;&lt;special mtsrin section&gt;</P>
+<P>[BookE only]<BR>wrteei&nbsp;[0|1]&nbsp;&nbsp;b&nbsp;&lt;special wrteei section&gt;</P>
+<P><BR>Some instructions require more logic to determine what's going on than a load<BR>or store instruction can deliver. To enable patching of those, we keep some<BR>RAM around where we can live translate instructions to. What happens is the<BR>following:</P>
+<P>&nbsp;1) copy emulation code to memory<BR>&nbsp;2) patch that code to fit the emulated instruction<BR>&nbsp;3) patch that code to return to the original pc + 4<BR>&nbsp;4) patch the original instruction to branch to the new code</P>
+<P>That way we can inject an arbitrary amount of code as replacement for a single<BR>instruction. This allows us to check for pending interrupts when setting EE=1<BR>for example.</P>
+<P>Hypercall ABIs in KVM on PowerPC<BR>=================================<BR>1) KVM hypercalls (ePAPR)</P>
+<P>These are ePAPR compliant hypercall implementation (mentioned above). Even<BR>generic hypercalls are implemented here, like the ePAPR idle hcall. These are<BR>available on all targets.</P>
+<P>2) PAPR hypercalls</P>
+<P>PAPR hypercalls are needed to run server PowerPC PAPR guests (-M pseries in QEMU).<BR>These are the same hypercalls that pHyp, the POWER hypervisor implements. Some of<BR>them are handled in the kernel, some are handled in user space. This is only<BR>available on book3s_64.</P>
+<P>3) OSI hypercalls</P>
+<P>Mac-on-Linux is another user of KVM on PowerPC, which has its own hypercall (long<BR>before KVM). This is supported to maintain compatibility. All these hypercalls get<BR>forwarded to user space. This is only useful on book3s_32, but can be used with<BR>book3s_64 as well.

@@ -1,0 +1,18 @@
+# Modules 
+<P></P>
+<P>ifdef CONFIG_MODULES</P>
+<P><FONT class=extract># By default, build modules as well</FONT></P>
+<P><FONT class=extract>all: modules</FONT></P>
+<P><FONT class=extract># Build modules<BR>#<BR># A module can be listed more than once in obj-m resulting in<BR># duplicate lines in modules.order files.&nbsp; Those are removed<BR># using awk while concatenating to the final file.</FONT></P>
+<P><FONT class=extract>PHONY += modules<BR>modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin<BR>&nbsp;$(Q)$(AWK) '!x[$$0]++' $(vmlinux-dirs:%=$(objtree)/%/modules.order) &gt; $(objtree)/modules.order<BR>&nbsp;@$(kecho) '&nbsp; Building modules, stage 2.';<BR>&nbsp;$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost<BR>&nbsp;$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.fwinst obj=firmware __fw_modbuild</FONT></P>
+<P><FONT class=extract>modules.builtin: $(vmlinux-dirs:%=%/modules.builtin)<BR>&nbsp;$(Q)$(AWK) '!x[$$0]++' $^ &gt; $(objtree)/modules.builtin</FONT></P>
+<P><FONT class=extract>%/modules.builtin: include/config/auto.conf<BR>&nbsp;$(Q)$(MAKE) $(modbuiltin)=$*</FONT></P>
+<P><BR><FONT class=extract># Target to prepare building external modules<BR>PHONY += modules_prepare<BR>modules_prepare: prepare scripts</FONT></P>
+<P><FONT class=extract># Target to install modules<BR>PHONY += modules_install<BR>modules_install: _modinst_ _modinst_post</FONT></P>
+<P><FONT class=extract>PHONY += _modinst_<BR>_modinst_:<BR>&nbsp;@rm -rf $(MODLIB)/kernel<BR>&nbsp;@rm -f $(MODLIB)/source<BR>&nbsp;@mkdir -p $(MODLIB)/kernel<BR>&nbsp;@ln -s `cd $(srctree) &amp;&amp; /bin/pwd` $(MODLIB)/source<BR>&nbsp;@if [ ! $(objtree) -ef&nbsp; $(MODLIB)/build ]; then \<BR>&nbsp;&nbsp;rm -f $(MODLIB)/build ; \<BR>&nbsp;&nbsp;ln -s $(CURDIR) $(MODLIB)/build ; \<BR>&nbsp;fi<BR>&nbsp;@cp -f $(objtree)/modules.order $(MODLIB)/<BR>&nbsp;@cp -f $(objtree)/modules.builtin $(MODLIB)/<BR>&nbsp;$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modinst</FONT></P>
+<P><FONT class=extract># This depmod is only for convenience to give the initial<BR># boot a modules.dep even before / is mounted read-write.&nbsp; However the<BR># boot script depmod is the master version.<BR>PHONY += _modinst_post<BR>_modinst_post: _modinst_<BR>&nbsp;$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.fwinst obj=firmware __fw_modinst<BR>&nbsp;$(call cmd,depmod)</FONT></P>
+<P><FONT class=extract>ifeq ($(CONFIG_MODULE_SIG), y)<BR>PHONY += modules_sign<BR>modules_sign:<BR>&nbsp;$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modsign<BR>endif</FONT></P>
+<P>else # CONFIG_MODULES</P>
+<P><FONT class=extract># Modules not configured<BR># ---------------------------------------------------------------------------</FONT></P>
+<P><FONT class=extract>modules modules_install: FORCE<BR>&nbsp;@echo &gt;&amp;2<BR>&nbsp;@echo &gt;&amp;2 "The present kernel configuration has modules disabled."<BR>&nbsp;@echo &gt;&amp;2 "Type 'make config' and enable loadable module support."<BR>&nbsp;@echo &gt;&amp;2 "Then build a kernel with module support enabled."<BR>&nbsp;@echo &gt;&amp;2<BR>&nbsp;@exit 1</FONT></P>
+<P>endif # CONFIG_MODULES

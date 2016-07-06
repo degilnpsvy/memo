@@ -1,0 +1,25 @@
+<H4 class=subsection>10.3.4 Checking For Zero-length Files</H4>
+<P>All known <CODE>awk</CODE> implementations silently skip over zero-length files. This is a by-product of <CODE>awk</CODE>&#8217;s implicit read-a-record-and-match-against-the-rules loop: when <CODE>awk</CODE> tries to read a record from an empty file, it immediately receives an end of file indication, closes the file, and proceeds on to the next command-line data file, <EM>without</EM> executing any user-level <CODE>awk</CODE> program code. </P>
+<P>Using <CODE>gawk</CODE>&#8217;s <CODE>ARGIND</CODE> variable (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Built_002din-Variables">Built-in Variables</A>), it is possible to detect when an empty data file has been skipped. Similar to the library file presented in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Filetrans-Function">Filetrans Function</A>, the following library file calls a function named <CODE>zerofile()</CODE> that the user must provide. The arguments passed are the file name and the position in <CODE>ARGV</CODE> where it was found: </P><A name=index-zerofile_002eawk-program></A>
+<DIV class=example><PRE class=example># zerofile.awk --- library file to process empty input files
+
+BEGIN { Argind = 0 }
+
+ARGIND &gt; Argind + 1 {
+    for (Argind++; Argind &lt; ARGIND; Argind++)
+        zerofile(ARGV[Argind], Argind)
+}
+
+ARGIND != Argind { Argind = ARGIND }
+
+END {
+    if (ARGIND &gt; Argind)
+        for (Argind++; Argind &lt;= ARGIND; Argind++)
+            zerofile(ARGV[Argind], Argind)
+}
+</PRE></DIV>
+<P>The user-level variable <CODE>Argind</CODE> allows the <CODE>awk</CODE> program to track its progress through <CODE>ARGV</CODE>. Whenever the program detects that <CODE>ARGIND</CODE> is greater than &#8216;<SAMP>Argind + 1</SAMP>&#8217;, it means that one or more empty files were skipped. The action then calls <CODE>zerofile()</CODE> for each such file, incrementing <CODE>Argind</CODE> along the way. </P>
+<P>The &#8216;<SAMP>Argind != ARGIND</SAMP>&#8217; rule simply keeps <CODE>Argind</CODE> up to date in the normal case. </P>
+<P>Finally, the <CODE>END</CODE> rule catches the case of any empty files at the end of the command-line arguments. Note that the test in the condition of the <CODE>for</CODE> loop uses the &#8216;<SAMP>&lt;=</SAMP>&#8217; operator, not &#8216;<SAMP>&lt;</SAMP>&#8217;. </P>
+<P>As an exercise, you might consider whether this same problem can be solved without relying on <CODE>gawk</CODE>&#8217;s <CODE>ARGIND</CODE> variable. </P>
+<P>As a second exercise, revise this code to handle the case where an intervening value in <CODE>ARGV</CODE> is a variable assignment.

@@ -1,0 +1,117 @@
+<H1 class=SECT1><A name=LOCALVAR></A>24.2. Local Variables</H1>
+<P></P>
+<DIV class=VARIABLELIST>
+<P><B><A name=LOCALREF1></A>What makes a variable <I class=FIRSTTERM>local</I>?</B></P>
+<DL>
+<DT>local variables 
+<DD>
+<P>A variable declared as <I class=FIRSTTERM>local</I> is one that is visible only within the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CODEBLOCKREF">block of code</A> in which it appears. It has local <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SCOPEREF">scope</A>. In a function, a <I class=FIRSTTERM>local variable</I> has meaning only within that function block. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN18568" name=AEN18568><SPAN class=footnote>[110]</SPAN></A> </P>
+<DIV class=EXAMPLE><A name=EX62></A>
+<P><B>Example 24-12. Local variable visibility</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# ex62.sh: Global and local variables inside a function.
+
+func ()
+{
+  local loc_var=23       # Declared as local variable.
+  echo                   # Uses the 'local' builtin.
+  echo "\"loc_var\" in function = $loc_var"
+  global_var=999         # Not declared as local.
+                         # Therefore, defaults to global. 
+  echo "\"global_var\" in function = $global_var"
+}  
+
+func
+
+# Now, to see if local variable "loc_var" exists outside the function.
+
+echo
+echo "\"loc_var\" outside function = $loc_var"
+                                      # $loc_var outside function = 
+                                      # No, $loc_var not visible globally.
+echo "\"global_var\" outside function = $global_var"
+                                      # $global_var outside function = 999
+                                      # $global_var is visible globally.
+echo				      
+
+exit 0
+#  In contrast to C, a Bash variable declared inside a function
+#+ is local ONLY if declared as such.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P>Before a function is called, <EM>all</EM> variables declared within the function are invisible outside the body of the function, not just those explicitly declared as <I class=FIRSTTERM>local</I>. 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+func ()
+{
+global_var=37    #  Visible only within the function block
+                 #+ before the function has been called. 
+}                #  END OF FUNCTION
+
+echo "global_var = $global_var"  # global_var =
+                                 #  Function "func" has not yet been called,
+                                 #+ so $global_var is not visible here.
+
+func
+echo "global_var = $global_var"  # global_var = 37
+                                 # Has been set by function call.</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P><A name=EXITVALANOMALY01></A></P>
+<P>As Evgeniy Ivanov points out, when declaring and setting a local variable in a single command, apparently the order of operations is to <EM>first set the variable, and only afterwards restrict it to local scope</EM>. This is reflected in the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITSTATUSREF">return value</A>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+echo "==OUTSIDE Function (global)=="
+t=$(exit 1)
+echo $?      # 1
+             # As expected.
+echo
+
+function0 ()
+{
+
+echo "==INSIDE Function=="
+echo "Global"
+t0=$(exit 1)
+echo $?      # 1
+             # As expected.
+
+echo
+echo "Local declared &amp; assigned in same command."
+local t1=$(exit 1)
+echo $?      # 0
+             # Unexpected!
+#  Apparently, the variable assignment takes place before
+#+ the local declaration.
+#+ The return value is for the latter.
+
+echo
+echo "Local declared, then assigned (separate commands)."
+local t2
+t2=$(exit 1)
+echo $?      # 1
+             # As expected.
+
+}
+
+function0</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV></DD></DL></DIV>

@@ -1,0 +1,22 @@
+#/Documentation/serial/n_gsm.txt
+<P></P>
+<P>n_gsm.c GSM 0710 tty multiplexor HOWTO<BR>===================================================</P>
+<P></P>
+<P>This line discipline implements the GSM 07.10 multiplexing protocol<BR>detailed in the following 3GPP document :<BR><A href="http://www.3gpp.org/ftp/Specs/archive/07_series/07.10/0710-720.zip">http://www.3gpp.org/ftp/Specs/archive/07_series/07.10/0710-720.zip</A></P>
+<P>This document give some hints on how to use this driver with GPRS and 3G<BR>modems connected to a physical serial port.</P>
+<P>How to use it<BR>-------------<BR>1- initialize the modem in 0710 mux mode (usually AT+CMUX= command) through<BR>its serial port. Depending on the modem used, you can pass more or less<BR>parameters to this command,<BR>2- switch the serial line to using the n_gsm line discipline by using<BR>TIOCSETD ioctl,<BR>3- configure the mux using GSMIOC_GETCONF / GSMIOC_SETCONF ioctl,</P>
+<P>Major parts of the initialization program :<BR>(a good starting point is util-linux-ng/sys-utils/ldattach.c)<BR>#include &lt;linux/gsmmux.h&gt;<BR>#define N_GSM0710&nbsp;21&nbsp;/* GSM 0710 Mux */<BR>#define DEFAULT_SPEED&nbsp;B115200<BR>#define SERIAL_PORT&nbsp;/dev/ttyS0</P>
+<P>&nbsp;int ldisc = N_GSM0710;<BR>&nbsp;struct gsm_config c;<BR>&nbsp;struct termios configuration;</P>
+<P>&nbsp;/* open the serial port connected to the modem */<BR>&nbsp;fd = open(SERIAL_PORT, O_RDWR | O_NOCTTY | O_NDELAY);</P>
+<P>&nbsp;/* configure the serial port : speed, flow control ... */</P>
+<P>&nbsp;/* send the AT commands to switch the modem to CMUX mode<BR>&nbsp;&nbsp;&nbsp; and check that it's successful (should return OK) */<BR>&nbsp;write(fd, "AT+CMUX=0\r", 10);</P>
+<P>&nbsp;/* experience showed that some modems need some time before<BR>&nbsp;&nbsp;&nbsp; being able to answer to the first MUX packet so a delay<BR>&nbsp;&nbsp;&nbsp; may be needed here in some case */<BR>&nbsp;sleep(3);</P>
+<P>&nbsp;/* use n_gsm line discipline */<BR>&nbsp;ioctl(fd, TIOCSETD, &amp;ldisc);</P>
+<P>&nbsp;/* get n_gsm configuration */<BR>&nbsp;ioctl(fd, GSMIOC_GETCONF, &amp;c);<BR>&nbsp;/* we are initiator and need encoding 0 (basic) */<BR>&nbsp;c.initiator = 1;<BR>&nbsp;c.encapsulation = 0;<BR>&nbsp;/* our modem defaults to a maximum size of 127 bytes */<BR>&nbsp;c.mru = 127;<BR>&nbsp;c.mtu = 127;<BR>&nbsp;/* set the new configuration */<BR>&nbsp;ioctl(fd, GSMIOC_SETCONF, &amp;c);</P>
+<P>&nbsp;/* and wait for ever to keep the line discipline enabled */<BR>&nbsp;daemon(0,0);<BR>&nbsp;pause();</P>
+<P>4- create the devices corresponding to the "virtual" serial ports (take care,<BR>each modem has its configuration and some DLC have dedicated functions,<BR>for example GPS), starting with minor 1 (DLC0 is reserved for the management<BR>of the mux)</P>
+<P>MAJOR=`cat /proc/devices |grep gsmtty | awk '{print $1}`<BR>for i in `seq 1 4`; do<BR>&nbsp;mknod /dev/ttygsm$i c $MAJOR $i<BR>done</P>
+<P>5- use these devices as plain serial ports.<BR>for example, it's possible :<BR>- and to use gnokii to send / receive SMS on ttygsm1<BR>- to use ppp to establish a datalink on ttygsm2</P>
+<P>6- first close all virtual ports before closing the physical port.</P>
+<P>Additional Documentation<BR>------------------------<BR>More practical details on the protocol and how it's supported by industrial<BR>modems can be found in the following documents :<BR><A href="http://www.telit.com/module/infopool/download.php?id=616">http://www.telit.com/module/infopool/download.php?id=616</A><BR><A href="http://www.u-blox.com/images/downloads/Product_Docs/LEON-G100-G200-MuxImplementation_ApplicationNote_%28GSM%20G1-CS-10002%29.pdf">http://www.u-blox.com/images/downloads/Product_Docs/LEON-G100-G200-MuxImplementation_ApplicationNote_%28GSM%20G1-CS-10002%29.pdf</A><BR><A href="http://www.sierrawireless.com/Support/Downloads/AirPrime/WMP_Series/~/media/Support_Downloads/AirPrime/Application_notes/CMUX_Feature_Application_Note-Rev004.ashx">http://www.sierrawireless.com/Support/Downloads/AirPrime/WMP_Series/~/media/Support_Downloads/AirPrime/Application_notes/CMUX_Feature_Application_Note-Rev004.ashx</A><BR><A href="http://wm.sim.com/sim/News/photo/2010721161442.pdf">http://wm.sim.com/sim/News/photo/2010721161442.pdf</A></P>
+<P>11-03-08 - Eric B&#233;nard - &lt;<A href="mailto:eric@eukrea.com">eric@eukrea.com</A>&gt;

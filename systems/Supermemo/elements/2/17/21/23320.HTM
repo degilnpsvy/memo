@@ -1,0 +1,135 @@
+<H3 id=title-IDAY0PWC class=docSection1Title>17.4. Debugging the Real-Time Kernel</H3>
+<P class=docText>Several configuration options facilitate debugging and performance analysis of the real-time patched kernel. They are detailed in the following subsections.</P><A name=ch17lev2sec13></A>
+<H4 id=title-IDAD1PWC class=docSection2Title>17.4.1. Soft Lockup Detection</H4>
+<P class=docText>To enable soft lockup detection, enable <TT>CONFIG_DETECT_SOFTLOCKUP</TT> in the kernel configuration. This feature enables the detection of long periods of running in kernel mode without a context switch. This feature exists in non-real-time kernels but is useful for detecting very high latency paths or soft deadlock conditions. To use it, simply enable the feature and watch for any reports on the console or system log. Reports will be emitted similar to this:</P>
+<DIV class=docText><PRE>BUG: soft lockup detected on CPU0</PRE></DIV><BR>
+<P class=docText>When this message is emitted by the kernel, it is usually accompanied by a backtrace and other information such as the process name and PID. It will look similar to a kernel oops message complete with processor registers. See <TT>.../kernel/softlockup.c</TT> for details. This information can be used to help track down the source of the lockup condition.</P><A name=ch17lev2sec14></A>
+<H4 id=title-IDAC2PWC class=docSection2Title>17.4.2. Preemption Debugging</H4>
+<P class=docText><A name=iddle1306></A><A name=iddle1310></A><A name=iddle1770></A><A name=iddle1774></A><A name=iddle2229></A><A name=iddle2315></A><A name=iddle2319></A><A name=iddle2342></A><A name=iddle2346></A><A name=iddle2625></A>To enable preemption debugging, enable <TT>CONFIG_DEBUG_PREEMPT</TT> in the kernel configuration. This debug feature enables the detection of unsafe use of preemption semantics such as preemption count underflows and attempts to sleep while in an invalid context. To use it, simply enable the feature and watch for any reports on the console or system log. Here is just a small sample of reports possible when preemption debugging is enabled:</P>
+<DIV class=docText><PRE>BUG: &lt;me&gt; &lt;mypid&gt;, possible wake_up race on &lt;proc&gt; &lt;pid&gt;
+   BUG: lock recursion deadlock detected! &lt;more info&gt;
+   BUG: nonzero lock count &lt;n&gt; at exit time?</PRE></DIV><BR>
+<P class=docText>Many more messages are possiblethese are just a few examples of the kinds of problems that can be detected. These messages will help you avoid deadlocks and other erroneous or dangerous programming semantics when using real-time kernel features. For more details on the messages and conditions under which they are emitted, browse the Linux kernel source file <TT>.../kernel/rt-debug.c</TT>.</P><A name=ch17lev2sec15></A>
+<H4 id=title-IDAZQD3D class=docSection2Title>17.4.3. Debug Wakeup Timing</H4>
+<P class=docText>To enable wakeup timing, enable <TT>CONFIG_WAKEUP_TIMING</TT> in the kernel configuration. This debug option enables measurement of the time taken from waking up a high-priority process to when it is scheduled on a CPU. Using it is simple. When configured, measurement is disabled. To enable the measurement, do the following as root:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>echo '0' &gt;/proc/sys/kernel/preempt_max_latency</SPAN></PRE></DIV><BR>
+<P class=docText>When this <TT>/proc</TT> file is set to zero, each successive maximum wakeup timing result is written to this file. To read the current maximum, simply display the value:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>cat /proc/sys/kernel/preempt_max_latency</SPAN>
+84</PRE></DIV><BR>
+<P class=docText>As long as any of the latency-measurement modes are enabled in the kernel configuration, <TT>preempt_max_latency</TT> will always be updated with the maximum latency value. It cannot be disabled. Writing <TT>0</TT> to this <TT>/proc</TT> variable simply resets the maximum to zero to restart the cumulative measurement.</P><A name=ch17lev2sec16></A>
+<H4 id=title-IDAQSD3D class=docSection2Title>17.4.4. Wakeup Latency History</H4>
+<P class=docText><A name=iddle1303></A><A name=iddle1304></A><A name=iddle1309></A><A name=iddle1679></A><A name=iddle1680></A><A name=iddle1767></A><A name=iddle1768></A><A name=iddle1773></A><A name=iddle2312></A><A name=iddle2313></A><A name=iddle2318></A><A name=iddle2339></A><A name=iddle2340></A><A name=iddle2345></A><A name=iddle2624></A>To enable wakeup latency history, enable <TT>CONFIG_WAKEUP_LATENCY_HIST</TT> while <TT>CONFIG_WAKEUP_TIMING</TT> is also enabled. This option dumps all the wakeup timing measurements enabled by <TT>CONFIG_WAKEUP_TIMING</TT> into a file for later analysis. An example of this file and its contents is presented shortly when we examine interrupt off history.</P>
+<UL>
+<LI>
+<P class=docList><TT>CRITICAL_PREEMPT_TIMING</TT>: Measures the time spent in critical sections with preempt disabled.</P></LI>
+<LI>
+<P class=docList><TT>PREEMPT_OFF_HIST</TT>: Similar to <TT>WAKEUP_LATENCY_HIST</TT>. Gathers preempt off timing measurements into a bin for later analysis.</P></LI></UL><A name=ch17lev2sec17></A>
+<H4 id=title-IDALZD3D class=docSection2Title>17.4.5. Interrupt Off Timing</H4>
+<P class=docText>To enable measurement of maximum interrupt off timing, configure your kernel with <TT>CRITICAL_IRQSOFF_TIMING</TT> enabled. This option measures time spent in critical sections with <TT>irqs</TT> disabled. This feature works in the same way as wakeup latency timing. To enable the measurement, do the following as root:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>echo '0' &gt;/proc/sys/kernel/preempt_max_latency</SPAN></PRE></DIV><BR>
+<P class=docText>When this <TT>/proc</TT> file is set to zero, each successive maximum interrupt off timing result is written to this file. To read the current maximum, simply display the value:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>cat /proc/sys/kernel/preempt_max_latency</SPAN>
+97</PRE></DIV><BR>
+<P class=docText>You will notice that the latency measurements for both wakeup latency and interrupt off latency are enabled and displayed using the same <TT>/proc</TT> file. This means, of course, that only one measurement can be configured at a time, or the results might not be valid. Because these measurements add significant runtime overhead, it isn't wise to enable them all at once anyway.</P><A name=ch17lev2sec18></A>
+<H4 id=title-IDA30D3D class=docSection2Title>17.4.6. Interrupt Off History</H4>
+<P class=docText>Enabling <TT>INTERRUPT_OFF_HIST</TT> provides functionality similar to that with <TT>WAKEUP_LATENCY_HIST</TT>. This option gathers interrupt off timing measurements into a file for later analysis. This data is formatted as a histogram, with bins ranging <A name=iddle1938></A>from 0 microseconds to just over 10,000 microseconds. In the example just given, we saw that the maximum latency was 97 microseconds from that particular sample. Therefore, we can conclude that the latency data in histogram form will not contain any useful information beyond the 97-microsecond bin.</P>
+<P class=docText>History data is obtained by reading a special <TT>/proc</TT> file. This output is redirected to a regular file for analysis or plotting as follows:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>cat /proc/latency_hist/interrupt_off_latency/CPU0 &gt; hist_data.txt</SPAN></PRE></DIV><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec4.html#ch17list06">Listing 17-6</A> displays the first 10 lines of the history data.</P><A name=ch17list06></A>
+<H5 id=title-IDAU2D3D class=docExampleTitle>Listing 17-6. Interrupt Off Latency History (Head)</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ cat /proc/latency_hist/interrupt_off_latency/CPU0 | head
+#Minimum latency: 0 microseconds.
+#Average latency: 1 microseconds.
+#Maximum latency: 97 microseconds.
+#Total samples: 60097595
+#There are 0 samples greater or equal than 10240 microseconds
+#usecs           samples
+    0           13475417
+    1           38914907
+    2            2714349
+    3             442308
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec4.html#ch17list06">Listing 17-6</A> we can see the minimum and maximum values, the average of all the values, and the total number of samples. In this case, we accumulated slightly more than 60 million samples. The histogram data follows the summary and contains up to around 10,000 bins. We can easily plot this data using <TT>gnuplot</TT> as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec4.html#ch17fig05">Figure 17-5</A>.</P>
+<P class=docText></P><A name=ch17fig05></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 17-5. Interrupt off latency data</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/17elp05.jpg" width=400 height=295></P></CENTER>
+<P></P><BR><A name=ch17lev2sec19></A>
+<H4 id=title-IDAP4D3D class=docSection2Title>17.4.7. Latency Tracing</H4>
+<P class=docText><A name=iddle1305></A><A name=iddle1769></A><A name=iddle1814></A><A name=iddle2314></A><A name=iddle2341></A>The <TT>LATENCY_TRACE</TT> configuration option enables generation of kernel trace data associated with the last maximum latency measurement. It is also made available through the <TT>/proc</TT> file system. A latency trace can help you isolate the longest-latency code path. For each new maximum latency measurement, an associated trace is generated that facilitates tracing the code path of the associated maximum latency.</P>
+<P class=docText><A name=iddle1939></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec4.html#ch17list07">Listing 17-7</A> reproduces an example trace for a 78-microsecond maximum. As with the other measurement tools, enable the measurement by writing a <TT>0</TT> to <TT>/proc/sys/kernel/preempt_max_latency</TT>.</P>
+<P class=docText></P><A name=ch17list07></A>
+<H5 id=title-IDAZB0PC class=docExampleTitle>Listing 17-7. Interrupt Off Maximum Latency Trace</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>cat /proc/latency_trace</SPAN>
+preemption latency trace v1.1.5 on 2.6.14-rt-intoff-tim_trace
+-------------------------------------------------------------
+ latency: 78 us, #50/50, CPU#0 | (M:rt VP:0, KP:0, SP:1 HP:1)
+    -----------------
+    | task: softirq-timer/0-3 (uid:0 nice:0 policy:1 rt_prio:1)
+    -----------------
+
+
+                 _------=&gt; CPU#
+                / _-----=&gt; irqs-off
+               | / _----=&gt; need-resched
+               || / _---=&gt; hardirq/softirq
+               ||| / _--=&gt; preempt-depth
+               |||| /
+               |||||     delay
+  cmd      pid ||||| time  |   caller
+     \    /    |||||    \  |   /
+    cat-6637   0D...   1us : common_interrupt ((0))
+    cat-6637   0D.h.   2us : do_IRQ (c013d91c 0 0)
+    cat-6637   0D.h1   3us+: mask_and_ack_8259A (__do_IRQ)
+    cat-6637  0D.h1   10us : redirect_hardirq (__do_IRQ)
+    cat-6637  0D.h.   12us : handle_IRQ_event (__do_IRQ)
+    cat-6637  0D.h.   13us : timer_interrupt (handle_IRQ_event)
+    cat-6637  0D.h.   15us : handle_tick_update (timer_interrupt)
+    cat-6637  0D.h1   16us : do_timer (handle_tick_update)
+    ...   &lt;we're in the timer interrupt function&gt;
+    cat-6637  0D.h.   22us : run_local_timers (update_process_times)
+    cat-6637  0D.h.   22us : raise_softirq (run_local_timers)
+    cat-6637  0D.h.   23us : wakeup_softirqd (raise_softirq)
+    ...   &lt;softirq work pending - need to preempt is signaled&gt;
+    cat-6637  0Dnh.   34us : wake_up_process (wakeup_softirqd)
+    cat-6637  0Dnh.   35us+: rcu_pending (update_process_times)
+    cat-6637  0Dnh.   39us : scheduler_tick (update_process_times)
+    cat-6637  0Dnh.   39us : sched_clock (scheduler_tick)
+    cat-6637  0Dnh1   41us : task_timeslice (scheduler_tick)
+    cat-6637  0Dnh.   42us+: preempt_schedule (scheduler_tick)
+    cat-6637  0Dnh1   45us : note_interrupt (__do_IRQ)
+    cat-6637  0Dnh1   45us : enable_8259A_irq (__do_IRQ)
+    cat-6637  0Dnh1   47us : preempt_schedule (enable_8259A_irq)
+    cat-6637  0Dnh.   48us : preempt_schedule (__do_IRQ)
+    cat-6637  0Dnh.   48us : irq_exit (do_IRQ)
+    cat-6637  0Dn..   49us : preempt_schedule_irq (need_resched)
+    cat-6637  0Dn..   50us : __schedule (preempt_schedule_irq)
+    ...   &lt;here is the context switch to softirqd-timer thread&gt;
+  &lt;...&gt;-3     0D..2   74us+: __switch_to (__schedule)
+  &lt;...&gt;-3     0D..2   76us : __schedule &lt;cat-6637&gt; (74 62)
+  &lt;...&gt;-3     0D..2   77us : __schedule (schedule)
+  &lt;...&gt;-3     0D..2   78us : trace_irqs_on (__schedule)
+    ...   &lt;output truncated here for brevity&gt;</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1269></A><A name=iddle1302></A><A name=iddle1766></A><A name=iddle2311></A><A name=iddle2338></A>We have trimmed this listing significantly for clarity, but the key elements of this trace are obvious. This trace resulted from a timer interrupt. In the <TT>hardirq</TT> thread, little is done beyond queuing up some work for later in a <TT>softirq</TT> context. This is seen by the <TT>wakeup_softirqd()</TT> function at 23 microseconds and is typical for interrupt processing. This triggers the <TT>need_resched</TT> flag, as shown in the trace by the <TT>n</TT> in the third column of the second field. At 49 microseconds, after some processing in the timer <TT>softirq</TT>, the scheduler is invoked for preemption. At 74 microseconds, control is passed to the actual <TT>softirqd-timer/0</TT> thread running in this particular kernel as PID 3. (The process name was truncated to fit the field width and is shown as <TT>&lt;...&gt;</TT>.)</P>
+<P class=docText>Most of the fields of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec4.html#ch17list07">Listing 17-7</A> have obvious meanings. The <TT>irqs-off</TT> field contains a <TT>D</TT> for sections of code where interrupts are off. Because this latency trace is an interrupts off trace, we see this indicated throughout the trace. The <TT>need_resched</TT> field mirrors the state of the kernel's <TT>need_resched</TT> flag. An <TT>n</TT> indicates that the scheduler should be run at the soonest opportunity, and a period (<TT>.</TT>) means that this flag is not active. The <TT>hardirq/softirq</TT> field indicates a thread of execution in <TT>hardirq</TT> context with <TT>h</TT>, and <TT>softirq</TT> context with <TT>s</TT>. The preempt-depth field indicates the value of the kernel's <TT>preempt_count</TT> variable, an indicator of nesting level of locks within the kernel. Preemption can occur only when this variable is at zero.</P><A name=ch17lev2sec20></A>
+<H4 id=title-IDA4F0PC class=docSection2Title>17.4.8. Debugging Deadlock Conditions</H4>
+<P class=docText>The <TT>DEBUG_DEADLOCKS</TT> kernel configuration option enables detection and reporting of deadlock conditions associated with the semaphores and spinlocks in the kernel. When enabled, potential deadlock conditions are reported in a fashion similar to this:</P>
+<DIV class=docText><PRE>==========================================
+
+   [ BUG: lock recursion deadlock detected! |
+
+   ------------------------------------------
+   ...</PRE></DIV><BR>
+<P class=docText>Much information is displayed after the banner line announcing the deadlock detection, including the lock descriptor, lock name (if available), lock file and name (if available), lock owner, who is currently holding the lock, and so on. Using this debug tool, it is possible to immediately determine the offending processes. Of course, fixing it might not be so easy!</P><A name=ch17lev2sec21></A>
+<H4 id=title-IDA0G0PC class=docSection2Title>17.4.9. Runtime Control of Locking Mode</H4>
+<P class=docText><A name=iddle1307></A><A name=iddle1771></A><A name=iddle2045></A><A name=iddle2316></A><A name=iddle2343></A><A name=iddle2391></A>The <TT>DEBUG_RT_LOCKING_MODE</TT> option enables a runtime control to switch the real-time mutex back into a nonpreemptable mode, effectively changing the behavior of the real-time (spinlocks as mutexes) kernel back to a spinlock-based kernel. As with the other configuration options we have covered here, this tool should be considered a development aid to be used only in a development environment.</P>
+<P class=docText>It does not make sense to enable all of these debug modes at once. As you might imagine, most of these debug modes add size and significant processing overhead to the kernel. They are meant to be used as development aids and should be disabled for production code.

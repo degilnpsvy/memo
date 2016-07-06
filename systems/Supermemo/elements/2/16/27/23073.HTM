@@ -1,0 +1,92 @@
+<H3 id=-100000 class=docSection1Title>Accessing PCI Regions</H3>
+<P class=docText><A name="PCI devices"></A>PCI devices contain three addressable regions: configuration space, I/O ports, and device memory. Let's learn how to access these memory regions from a device driver.</P><A name=ch10lev2sec1></A>
+<H4 id=title-ID0EJLPM class=docSection2Title>Configuration Space</H4>
+<P class=docText><A name="offers a"></A>The kernel offers a set of six functions that your driver can use to operate on PCI configuration space:</P>
+<DIV class=docText><PRE>pci_read_config_[byte|word|dword](struct pci_dev *pdev,
+                                  int offset, int *value);
+and
+pci_write_config_[byte|word|dword](struct pci_dev *pdev,
+                                   int offset, int value);</PRE></DIV><BR>
+<P class=docText><A name="the argument"></A>In the argument list, <TT>struct pci_dev</TT> is the PCI device structure, and <TT>offset</TT><A name="you want"></A> is the byte position in the configuration space that you want to access. For read functions, <TT>value</TT><A name="supplied data"></A> is a pointer to a supplied data buffer, and for write routines, it contains the data to be written.</P>
+<P class=docText><A name=iddle1021></A><A name=iddle3407></A><A name=iddle3480></A><A name=iddle3482></A><A name=iddle3484></A><A name=iddle3486></A>Let's consider some examples:</P>
+<UL>
+<LI>
+<P class=docList><A name="use the"></A>To decipher the IRQ number assigned to a card function, use the following:</P>
+<DIV class=docText><PRE>unsigned char irq;
+pci_read_config_byte(pdev, PCI_INTERRUPT_LINE, &amp;irq);</PRE></DIV>
+<P class=docList>As per the PCI specification, offset <TT>60</TT><A name="IRQ number"></A> inside the PCI configuration space holds the IRQ number assigned to the card. All configuration register offsets are expressively defined in <SPAN class=docEmphasis>include/linux/pci_regs.h</SPAN>, so use <TT>PCI_INTERRUPT_LINE</TT> rather than <TT>60</TT><A name="at offset"></A> to specify this offset. Similarly, to read the PCI status register (two bytes at offset six in the configuration space), do this:</P>
+<DIV class=docText><PRE>unsigned short status;
+pci_read_config_word(pdev, PCI_STATUS, &amp;status);</PRE></DIV></LI>
+<LI>
+<P class=docList><A name="bytes of"></A>Only the first 64 bytes of the configuration space are standardized. The device manufacturer defines desired semantics to the rest. The Xircom card used earlier, assigns four bytes at offset 64 for power management purposes. To disable power management, the Xircom CardBus driver, <SPAN class=docEmphasis>drivers/net/tulip/xircom_cb.c</SPAN>, does this:</P>
+<DIV class=docText><PRE>#define PCI_POWERMGMT 0x40
+pci_write_config_dword(pdev, PCI_POWERMGMT, 0x0000);</PRE></DIV></LI></UL><A name=ch10lev2sec2></A>
+<H4 id=title-ID0EQPPM class=docSection2Title>I/O and Memory</H4>
+<P class=docText><A name="have up"></A>PCI cards have up to six I/O or memory regions. I/O regions contain registers, and memory regions hold data. Video cards, for example, have I/O spaces that accommodate control registers and memory regions that map to frame buffers. Not all cards have addressable memory regions, however. The semantics of I/O and memory spaces are hardware-dependent and can be obtained from the device data sheet.</P>
+<P class=docText><A name="Like for"></A>Like for configuration memory, the kernel offers a set of helpers to operate on I/O and memory regions of PCI devices:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>unsigned long pci_resource_[start|len|end|flags] (struct pci_dev *pdev, int bar);
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="on an"></A>To operate on an I/O region such as the device control registers of a PCI video card, the driver needs to do the following:</P><A name=ch10pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Get the I/O base address from the appropriate base address register (<TT>bar</TT>) in the configuration space<TT>:</TT><BR><BR>
+<DIV class=docText><PRE>unsigned long io_base = pci_resource_start(pdev, bar);</PRE></DIV><BR><A name=iddle3478></A><A name=iddle3804></A><A name=iddle3810></A>This assumes that the device control registers for this card are mapped to the memory region associated with <TT>bar</TT>, whose value can range from 0 through 5, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec2.html#ch10tab02">Table 10.2</A>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Mark this region as being spoken for, using the kernel's <TT>request_region()</TT> regulatory mechanism discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A>, "Character Drivers":<BR><BR>
+<DIV class=docText><PRE>request_region(io_base, length, "my_driver");</PRE></DIV><BR>Here, <TT>length</TT> is the size of the control register space and <TT>my_driver</TT> identifies the region's owner. Look for the entry containing <TT>my_driver</TT> in <SPAN class=docEmphasis>/proc/ioports</SPAN> to spot this memory region.<BR><BR>You may instead use the wrapper function <TT>pci_request_region()</TT>, defined in <SPAN class=docEmphasis>drivers/pci/pci.c</SPAN>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Add the register's offset obtained from the data-sheet, to the base address gleaned in Step 1. Operate on this address using the <TT>inb()</TT> and <TT>outb()</TT> family of functions discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A>:<BR><BR>
+<DIV class=docText><PRE>/* Read */
+register_data = inl(io_base + REGISTER_OFFSET);
+/* Use */
+/* ... */
+/* Write */
+outl(register_data, iobase + REGISTER_OFFSET);</PRE></DIV><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name="operate on"></A>To operate on a memory region such as the frame buffer on the above PCI video card, follow these steps<TT>:</TT></P><A name=ch10pro02></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Get the base address, length, and flags associated with the memory region<TT>:</TT><BR><BR>
+<DIV class=docText><PRE>unsigned long mmio_base   = pci_resource_start(pdev, bar);
+unsigned long mmio_length = pci_resource_length(pdev, bar);
+unsigned long mmio_flags  = pci_resource_flags(pdev, bar);</PRE></DIV><BR>This assumes that this memory is mapped to the base address register, <TT>bar</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Mark ownership of this region using the kernel's <TT>request_mem_region()</TT> regulatory mechanism:<BR><BR>
+<DIV class=docText><PRE>request_mem_region(mmio_base, mmio_length, "my_driver");</PRE></DIV><BR>You may instead use the wrapper function <TT>pci_request_region()</TT>, mentioned previously.<BR><BR></DIV></TD></TR>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText><A name=iddle1820></A><A name=iddle1823></A><A name=iddle2910></A><A name=iddle2934></A><A name=iddle2936></A><A name=iddle3417></A><A name=iddle3420></A><A name=iddle3463></A>Obtain CPU access to the device memory obtained in Step 1. Certain memory regions, such as the ones that hold registers, need to guard against side effects, so they are marked as not being prefetchable (or cacheable) by the CPU. Other regions, such as the one used in this example, can be cached. Depending on the access flag, use the appropriate function to obtain kernel virtual addresses corresponding to the mapped region:<BR><BR>
+<DIV class=docText><PRE>void __iomem *buffer;
+if (flags &amp; IORESOURCE_CACHEABLE) {
+  buffer = ioremap(mmio_base, mmio_length);
+} else {
+  buffer = ioremap_nocache(mmio_base, mmio_length);
+}</PRE></DIV><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name="the services"></A>To be safe, and to avoid performing the preceding checks, use the services of <TT>pci_iomap()</TT> defined in <SPAN class=docEmphasis>lib/iomap.c</SPAN> instead:</P>
+<DIV class=docText><PRE>buffer = pci_iomap(pdev, bar, mmio_length);</PRE></DIV>

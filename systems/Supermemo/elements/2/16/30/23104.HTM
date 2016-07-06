@@ -1,0 +1,124 @@
+<H3 id=-100000 class=docSection1Title>Storage Technologies</H3>
+<P class=docText><A name="by taking"></A>Let's start by taking a tour of the popular storage technologies found in today's computer systems. We'll also associate these technologies with the corresponding device driver subsystems in the kernel source tree.</P>
+<P class=docText><SPAN class=docEmphasis>Integrated Drive Electronics</SPAN><A name="PC environment"></A> (IDE) is the common storage interface technology used in the PC environment. ATA (short for <SPAN class=docEmphasis>Advanced Technology Attachment</SPAN><A name="the related"></A>) is the official name for the related specifications. The IDE/ATA standard began with ATA-1; the latest version is ATA-7 and supports bandwidths of up to 133MBps. Intervening versions of the specification are ATA-2, which introduced <SPAN class=docEmphasis>logical block addressing</SPAN><A name="and the"></A> (LBA); ATA-3, which enabled SMART-capable disks (discussed later); ATA-4, which brought support for Ultra DMA and the associated 33MBps throughput; ATA-5, which increased maximum transfer speeds to 66MBps; and ATA-6, which provided for 100MBps data rates.</P>
+<P class=docText><A name="to the"></A>Storage devices such as CD-ROMs and tapes connect to the standard IDE cable using a special protocol called the <SPAN class=docEmphasis>ATA Packet Interface</SPAN> (ATAPI).<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14.html#ch14fn01">[1]</A></SUP>ATAPI was introduced along with ATA-4.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn01>[1]</A></SUP> The ATAPI protocol is closer to SCSI than to IDE.</P></BLOCKQUOTE>
+<P class=docText><A name="part of"></A>The floppy disk controller in PC systems has traditionally been part of the Super I/O chipset about which we learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="given way"></A>, "Serial Drivers." These internal drives, however, have given way to faster external USB floppy drives in today's PC environment.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14.html#ch14fig01">Figure 14.1</A><A name="disk drive"></A> shows an ATA-7 disk drive connected to an IDE host adapter that's part of the South Bridge chipset on a PC system. Also shown connected are an ATAPI CD-ROM drive and a floppy drive.</P>
+<P class=docText></P><A name=ch14fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="Figure "></A>Figure 14.1. Storage media in a PC system.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzFmNGhpZ2Y-.jpg" width=400 height=510></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1258></A><A name=iddle1261></A><A name=iddle2735></A><A name=iddle3370></A><A name=iddle3391></A><A name=iddle3874></A><A name=iddle3935></A><A name=iddle4159></A><A name=iddle4163></A><A name="parallel bus"></A>IDE/ATA is a parallel bus technology (sometimes called <SPAN class=docEmphasis>Parallel ATA</SPAN><A name="and cannot"></A> or PATA) and cannot scale to high speeds, as you learned while discussing PCIe in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>, "Peripheral Component Interconnect." <SPAN class=docEmphasis>Serial ATA</SPAN><A name="supports transfer"></A> (SATA) is a modern serial bus evolution of PATA that supports transfer speeds in the realm of 300MBps and beyond. In addition to offering higher throughput than PATA, SATA brings capabilities such as hot swapping. SATA technology is steadily replacing PATA. See the sidebar "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14.html#ch14sb02">libATA</A><A name="ATA subsystem"></A>" to learn about the new ATA subsystem in the kernel that supports both SATA and PATA.</P><A name=ch14sb02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>libATA</H2>
+<P class=docText><SPAN class=docEmphasis>libATA</SPAN><A name="consists of"></A> is the new ATA subsystem in the Linux kernel. It consists of a set of ATA library routines and a collection of low-level drivers that use them. libATA supports both SATA and PATA. SATA drivers in libATA have been around for some time under <SPAN class=docEmphasis>drivers/scsi/</SPAN>, but PATA drivers and the new <SPAN class=docEmphasis>drivers/ata/</SPAN><A name="were introduced"></A> directory that now houses all libATA sources were introduced with the 2.6.19 kernel release.</P>
+<P class=docText><A name="services of"></A>If your system is enabled with SATA storage, you need the services of libATA in tandem with the SCSI subsystem. libATA support for PATA is still experimental, and by default, PATA drivers continue to use the legacy IDE drivers that live in <SPAN class=docEmphasis>drivers/ide/</SPAN>.</P>
+<P class=docText><A name="system is"></A>Assume that your system is SATA-enabled via an Intel ICH7 South Bridge chipset. You need the following libATA components to access your disk:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphStrong>The libATA core&#37413;?</SPAN><A name=set></A> To enable this, set <TT>CONFIG_ATA</TT><A name="during kernel"></A> during kernel configuration. For a list of library functions offered by the core, grep for <TT>EXPORT_SYMBOL_GPL</TT> inside the <SPAN class=docEmphasis>drivers/ata/</SPAN> directory.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphStrong><A name="Controller Interface"></A>Advanced Host Controller Interface (AHCI) support&#37413;?</SPAN><A name="specifies the"></A> AHCI specifies the register interface supported by SATA host adapters and is enabled by choosing <TT>CONFIG_AHCI</TT> at configuration time.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphStrong>The host controller adapter driver&#37413;?</SPAN> For the ICH7, enable <TT>CONFIG_ATA_PIIX</TT>.</P></DIV></LI></OL></DIV>
+<P class=docText>Additionally, you need the mid-level and upper-level SCSI drivers (<TT>CONFIG_SCSI</TT><A name="SATA disk"></A> and friends). After you have loaded all these kernel components, your SATA disk partitions appear to the system as <SPAN class=docEmphasis>/dev/sd*</SPAN><A name="mass storage"></A>, just like SCSI or USB mass storage partitions.</P>
+<P class=docText>The home page of the libATA project is <A class=docLink href="http://linux-ata.org/" target=_blank>http://linux-ata.org/</A><A name="source tree"></A>. A DocBook is available as part of the kernel source tree in <SPAN class=docEmphasis>Documentation/DocBook/libata.tmpl</SPAN>. A libATA developer's guide is available at <A class=docLink href="http://www.kernel.org/pub/linux/kernel/people/jgarzik/libata.pdf" target=_blank>www.kernel.org/pub/linux/kernel/people/jgarzik/libata.pdf</A>.</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle1065></A><A name=iddle1075></A><A name=iddle1262></A><A name=iddle3873></A><A name=iddle3900></A><A name=iddle3936></A><A name=iddle4026></A><A name=iddle4164></A><SPAN class=docEmphasis>Small Computer System Interface</SPAN><A name="servers and"></A> (SCSI) is the storage technology of choice in servers and high-end workstations. SCSI is somewhat faster than SATA and supports speeds of the order of 320MBps. SCSI has traditionally been a parallel interface standard, but, like ATA, has recently shifted to serial operation with the advent of a bus technology called <SPAN class=docEmphasis>Serial Attached SCSI</SPAN> (SAS).</P>
+<P class=docText><A name="such as"></A>The kernel's SCSI subsystem is architected into three layers: top-level drivers for media such as disks, CD-ROMs, and tapes; a middle-level layer that scans the SCSI bus and configures devices; and low-level host adapter drivers. We learned about these layers in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11lev2sec12">Mass Storage</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A><A name=to></A>, "Universal Serial Bus." Refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11fig05">Figure 11.4</A><A name="chapter to"></A> in that chapter to see how the different components of the SCSI subsystem interact with each other.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14.html#ch14fn02">[2]</A></SUP><A name="USB mass"></A> USB mass storage drives use flash memory internally but communicate with host systems using the SCSI protocol.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn02>[2]</A></SUP><A name="is discussed"></A> SCSI support is discussed in other parts of this book, too. The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec4.html#ch19lev1sec4">User Mode SCSI</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A><A name="User Space"></A>, "Drivers in User Space," discusses the <SPAN class=docEmphasis>SCSI Generic</SPAN><A name="space to"></A> (sg) interface that lets you directly dispatch commands from user space to SCSI devices. The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch20lev1sec10.html#ch20lev2sec5">iSCSI</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch20.html#ch20">Chapter 20</A><A name="the iSCSI"></A>, "More Devices and Drivers," briefly looks at the iSCSI protocol, which allows the transport of SCSI packets to a remote block device over a TCP/IP network.</P></BLOCKQUOTE>
+<P class=docText><A name=iddle1259></A><A name=iddle1260></A><A name=iddle1263></A><A name=iddle1264></A><A name=iddle1810></A><A name=iddle3000></A><A name=iddle3019></A><A name=iddle3125></A><A name=iddle3710></A><A name=iddle3759></A><A name=iddle3903></A><A name=iddle3911></A><A name=iddle4160></A><A name=iddle4162></A><A name=iddle4165></A><A name=iddle4166></A><SPAN class=docEmphasis>Redundant array of inexpensive disks</SPAN><A name="SATA controllers"></A> (RAID) is a technology built in to some SCSI and SATA controllers to achieve redundancy and reliability. Various RAID levels have been defined. RAID-1, for example, specifies <SPAN class=docEmphasis>disk mirroring</SPAN><A name="drivers are"></A>, where data is duplicated on separate disks. Linux drivers are available for several RAID-capable disk drives. The kernel also offers a multidisk (md) driver that implements most RAID levels in software.</P>
+<P class=docText><A name="embedded consumer"></A>Miniature storage is the name of the game in the embedded consumer electronics space. Transfer speeds in this domain are much lower than that offered by the technologies discussed thus far. <SPAN class=docEmphasis>Secure Digital</SPAN><A name="smaller form"></A> (SD) cards and their smaller form-factor derivatives (miniSD and microSD) are popular storage media<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14.html#ch14fn03">[3]</A></SUP><A name="such as"></A> in devices such as cameras, cell phones, and music players. Cards complying with version 1.01 of the SD card specification support transfer speeds of up to 10MBps. SD storage has evolved from an older, slower, but compatible technology called <SPAN class=docEmphasis>MultiMediaCard</SPAN><A name="that supports"></A> (MMC) that supports data rates of 2.5MBps. The kernel contains an SD/MMC subsystem in <SPAN class=docEmphasis>drivers/mmc/</SPAN>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn03>[3]</A></SUP><A name="sidebar "></A> See the sidebar "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec3.html#ch16sb04">WiFi over SDIO</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16">Chapter 16</A><A name="to learn"></A>, "Linux Without Wires," to learn about nonstorage technologies available in SD form factor.</P></BLOCKQUOTE>
+<P class=docText>The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec8.html#ch09lev1sec8">PCMCIA Storage</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09.html#ch09">Chapter 9</A><A name="and their"></A>, "PCMCIA and Compact Flash," looked at different PCMCIA/CF flavors of storage cards and their corresponding kernel drivers. PCMCIA memory cards such as microdrives support true IDE operation, whereas those that internally use solid-state memory emulate IDE and export an IDE programming model to the kernel. In both these cases, the kernel's IDE subsystem can be used to enable the card.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14.html#ch14tab01">Table 14.1</A><A name="the location"></A> summarizes important storage technologies and the location of the associated device drivers in the kernel source tree.</P><A name=ch14tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 14.1. Storage Technologies and Associated Device Drivers</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=150>
+<COL width=250>
+<COL width=150></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Storage Technology</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Source File</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>IDE/ATA</TD>
+<TD class=docTableCell vAlign=top align=left><A name="of "></A>Storage interface technology in the PC environment. Supports data rates of 133MBps for ATA-7.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/ide/ide-disk.c</SPAN>, <SPAN class=docEmphasis>driver/ide/ide-io.c</SPAN>, <SPAN class=docEmphasis>drivers/ide/ide-probe.c</SPAN> 
+<P class=docText>or</P><SPAN class=docEmphasis>drivers/ata/</SPAN> (Experimental)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>ATAPI</TD>
+<TD class=docTableCell vAlign=top align=left><A name="to the"></A>Storage devices such as CD-ROMs and tapes connect to the standard IDE cable using the ATAPI protocol.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/ide/ide-cd.c</SPAN> 
+<P class=docText>or</P><SPAN class=docEmphasis>drivers/ata/</SPAN> (Experimental)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Floppy (internal)</TD>
+<TD class=docTableCell vAlign=top align=left><A name="LPC bus"></A>The floppy controller resides in the Super I/O chip on the LPC bus in PC-compatible systems. Supports transfer rates of the order of 150KBps.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/block/floppy.c</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>SATA</TD>
+<TD class=docTableCell vAlign=top align=left><A name="Supports speeds"></A>Serial evolution of IDE/ATA. Supports speeds of 300MBps and beyond.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/ata/</SPAN>, <SPAN class=docEmphasis>drivers/scsi/</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>SCSI</TD>
+<TD class=docTableCell vAlign=top align=left><A name="popular in"></A>Storage technology popular in the server environment. Supports transfer rates of 320MBps for Ultra320 SCSI.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/scsi/</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><A name="USB Mass"></A>USB Mass Storage</TD>
+<TD class=docTableCell vAlign=top align=left><A name="to USB"></A>This refers to USB hard disks, pen drives, CD-ROMs, and floppy drives. Look at the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11lev2sec12">Mass Storage</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A><A name="devices can"></A>. USB 2.0 devices can communicate at speeds of up to 60MBps.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/usb/storage/</SPAN>, <SPAN class=docEmphasis>drivers/scsi/</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top colSpan=3 align=left>RAID:</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Hardware RAID</TD>
+<TD class=docTableCell vAlign=top align=left><A name="achieve redundancy"></A>This is a capability built into high-end SCSI/SATA disk controllers to achieve redundancy and reliability.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/scsi/</SPAN>, <SPAN class=docEmphasis>drivers/ata/</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Software RAID</TD>
+<TD class=docTableCell vAlign=top align=left><A name="several RAID"></A>On Linux, the multidisk (md) driver implements several RAID levels in software.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/md/</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>SD/miniSD/microSD</TD>
+<TD class=docTableCell vAlign=top align=left><A name="as cameras"></A>Small form-factor storage media popular in consumer electronic devices such as cameras and cell phones. Supports transfer rates of up to 10MBps.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/mmc/</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>MMC</TD>
+<TD class=docTableCell vAlign=top align=left><A name="Supports data"></A>Older removable storage standard that's compatible with SD cards. Supports data rates of 2.5MBps.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/mmc/</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>PCMCIA/ CF storage cards</TD>
+<TD class=docTableCell vAlign=top align=left><A name="See the"></A>PCMCIA/CF form factor of miniature IDE drives, or solid-state memory cards that emulate IDE. See the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec8.html#ch09lev1sec8">PCMCIA Storage</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09.html#ch09">Chapter 9</A>.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/ide/legacy/ide-cs.c</SPAN> 
+<P class=docText>or</P><SPAN class=docEmphasis>drivers/ata/pata_pcmcia.c</SPAN> (experimental)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><A name="over flash"></A>Block device emulation over flash memory</TD>
+<TD class=docTableCell vAlign=top align=left><A name="hard disk"></A>Emulates a hard disk over flash memory. See the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec6.html#ch17lev2sec2">Block Device Emulation</A><A name=in></A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17.html#ch17">Chapter 17</A>, "Memory Technology Devices."</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/mtd/mtdblock.c</SPAN>, <SPAN class=docEmphasis>drivers/mtd/mtd_blkdevs.c</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top colSpan=3 align=left><A name="devices on"></A>Virtual block devices on Linux:</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>RAM disk</TD>
+<TD class=docTableCell vAlign=top align=left><A name="support to"></A>Implements support to use a RAM region as a block device.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/block/rd.c</SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Loopback device</TD>
+<TD class=docTableCell vAlign=top align=left><A name="block device"></A>Implements support to use a regular file as a block device.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/block/loop.c</SPAN></TD></TR></TBODY></TABLE>

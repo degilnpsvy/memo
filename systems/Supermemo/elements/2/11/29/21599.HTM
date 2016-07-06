@@ -1,0 +1,279 @@
+<H1><A name=SUBSHELLS></A>Chapter 21. Subshells</H1>
+<P><A name=SUBSHELLSREF></A></P>
+<P>Running a shell script launches a new process, a <I class=FIRSTTERM>subshell</I>.</P>
+<TABLE class=SIDEBAR border=1 cellPadding=5>
+<TBODY>
+<TR>
+<TD>
+<DIV class=SIDEBAR><A name=AEN18083></A>
+<P></P>
+<P><TT class=USERINPUT><B>Definition:</B></TT> A <I class=FIRSTTERM>subshell</I> is a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CHILDREF2">child process</A> launched by a shell (or <I class=FIRSTTERM>shell script</I>).</P>
+<P></P></DIV></TD></TR></TBODY></TABLE>
+<P>A subshell is a separate instance of the command processor -- the <I class=FIRSTTERM>shell</I> that gives you the prompt at the console or in an <I class=FIRSTTERM>xterm</I> window. Just as your commands are interpreted at the command-line prompt, similarly does a script <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BATCHPROCREF">batch-process</A> a list of commands. Each shell script running is, in effect, a subprocess (<I class=FIRSTTERM>child process</I>) of the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FORKREF">parent</A> shell.</P>
+<P>A shell script can itself launch subprocesses. These <I class=FIRSTTERM>subshells</I> let the script do parallel processing, in effect executing multiple subtasks simultaneously.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# subshell-test.sh
+
+(
+# Inside parentheses, and therefore a subshell . . .
+while [ 1 ]   # Endless loop.
+do
+  echo "Subshell running . . ."
+done
+)
+
+#  Script will run forever,
+#+ or at least until terminated by a Ctl-C.
+
+exit $?  # End of script (but will never get here).
+
+
+
+Now, run the script:
+sh subshell-test.sh
+
+And, while the script is running, from a different xterm:
+ps -ef | grep subshell-test.sh
+
+UID       PID   PPID  C STIME TTY      TIME     CMD
+500       2698  2502  0 14:26 pts/4    00:00:00 sh subshell-test.sh
+500       2699  2698 21 14:26 pts/4    00:00:24 sh subshell-test.sh
+
+          ^^^^
+
+Analysis:
+PID 2698, the script, launched PID 2699, the subshell.
+
+Note: The "UID ..." line would be filtered out by the "grep" command,
+but is shown here for illustrative purposes.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>In general, an <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXTERNALREF">external command</A> in a script <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FORKREF">forks off</A> a subprocess, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN18102" name=AEN18102><SPAN class=footnote>[107]</SPAN></A> whereas a Bash <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BUILTINREF">builtin</A> does not. For this reason, builtins execute more quickly and use fewer system resources than their external command equivalents.</P>
+<P></P>
+<DIV class=VARIABLELIST>
+<P><B><A name=SUBSHELLPARENS1></A>Command List within Parentheses</B></P>
+<DL>
+<DT>( command1; command2; command3; ... ) 
+<DD>
+<P>A command list embedded between <TT class=REPLACEABLE><I>parentheses</I></TT> runs as a subshell.</P></DD></DL></DIV>
+<P><A name=PARVIS></A>Variables in a subshell are <EM>not</EM> visible outside the block of code in the subshell. They are not accessible to the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FORKREF">parent process</A>, to the shell that launched the subshell. These are, in effect, variables <A href="http://tldp.org/LDP/abs/html/abs-guide.html#LOCALREF">local</A> to the <I class=FIRSTTERM>child process</I>.</P>
+<DIV class=EXAMPLE><A name=SUBSHELL></A>
+<P><B>Example 21-1. Variable scope in a subshell</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# subshell.sh
+
+echo
+
+echo "We are outside the subshell."
+echo "Subshell level OUTSIDE subshell = $BASH_SUBSHELL"
+# Bash, version 3, adds the new         $BASH_SUBSHELL variable.
+echo; echo
+
+outer_variable=Outer
+global_variable=
+#  Define global variable for "storage" of
+#+ value of subshell variable.
+
+(
+echo "We are inside the subshell."
+echo "Subshell level INSIDE subshell = $BASH_SUBSHELL"
+inner_variable=Inner
+
+echo "From inside subshell, \"inner_variable\" = $inner_variable"
+echo "From inside subshell, \"outer\" = $outer_variable"
+
+global_variable="$inner_variable"   #  Will this allow "exporting"
+                                    #+ a subshell variable?
+)
+
+echo; echo
+echo "We are outside the subshell."
+echo "Subshell level OUTSIDE subshell = $BASH_SUBSHELL"
+echo
+
+if [ -z "$inner_variable" ]
+then
+  echo "inner_variable undefined in main body of shell"
+else
+  echo "inner_variable defined in main body of shell"
+fi
+
+echo "From main body of shell, \"inner_variable\" = $inner_variable"
+#  $inner_variable will show as blank (uninitialized)
+#+ because variables defined in a subshell are "local variables".
+#  Is there a remedy for this?
+echo "global_variable = "$global_variable""  # Why doesn't this work?
+
+echo
+
+# =======================================================================
+
+# Additionally ...
+
+echo "-----------------"; echo
+
+var=41                                                 # Global variable.
+
+( let "var+=1"; echo "\$var INSIDE subshell = $var" )  # 42
+
+echo "\$var OUTSIDE subshell = $var"                   # 41
+#  Variable operations inside a subshell, even to a GLOBAL variable
+#+ do not affect the value of the variable outside the subshell!
+
+
+exit 0
+
+#  Question:
+#  --------
+#  Once having exited a subshell,
+#+ is there any way to reenter that very same subshell
+#+ to modify or access the subshell variables?</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>See also <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BASHPIDREF">$BASHPID</A> and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SUBPIT">Example 34-2</A>.</P>
+<TABLE class=SIDEBAR border=1 cellPadding=5>
+<TBODY>
+<TR>
+<TD>
+<DIV class=SIDEBAR><A name=AEN18127></A>
+<P></P>
+<P><A name=SCOPEREF></A></P>
+<P><TT class=USERINPUT><B>Definition:</B></TT> The <I class=FIRSTTERM>scope</I> of a variable is the context in which it has meaning, in which it has a <I class=FIRSTTERM>value</I> that can be referenced. For example, the scope of a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#LOCALREF1">local variable</A> lies only within the function, block of code, or subshell within which it is defined, while the scope of a <I class=FIRSTTERM>global</I> variable is the entire script in which it appears.</P>
+<P></P></DIV></TD></TR></TBODY></TABLE>
+<P><A name=SUBSHNLEVREF></A></P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>While the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BASHSUBSHELLREF">$BASH_SUBSHELL</A> internal variable indicates the nesting level of a subshell, the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SHLVLREF">$SHLVL</A> variable <EM>shows no change</EM> within a subshell.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>echo " \$BASH_SUBSHELL outside subshell       = $BASH_SUBSHELL"           # 0
+  ( echo " \$BASH_SUBSHELL inside subshell        = $BASH_SUBSHELL" )     # 1
+  ( ( echo " \$BASH_SUBSHELL inside nested subshell = $BASH_SUBSHELL" ) ) # 2
+# ^ ^                           *** nested ***                        ^ ^
+
+echo
+
+echo " \$SHLVL outside subshell = $SHLVL"       # 3
+( echo " \$SHLVL inside subshell  = $SHLVL" )   # 3 (No change!)</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<P>Directory changes made in a subshell do not carry over to the parent shell.</P>
+<DIV class=EXAMPLE><A name=ALLPROFS></A>
+<P><B>Example 21-2. List User Profiles</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# allprofs.sh: Print all user profiles.
+
+# This script written by Heiner Steven, and modified by the document author.
+
+FILE=.bashrc  #  File containing user profile,
+              #+ was ".profile" in original script.
+
+for home in `awk -F: '{print $6}' /etc/passwd`
+do
+  [ -d "$home" ] || continue    # If no home directory, go to next.
+  [ -r "$home" ] || continue    # If not readable, go to next.
+  (cd $home; [ -e $FILE ] &amp;&amp; less $FILE)
+done
+
+#  When script terminates, there is no need to 'cd' back to original directory,
+#+ because 'cd $home' takes place in a subshell.
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>A subshell may be used to set up a <SPAN class=QUOTE>"dedicated environment"</SPAN> for a command group. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>COMMAND1
+COMMAND2
+COMMAND3
+(
+  IFS=:
+  PATH=/bin
+  unset TERMINFO
+  set -C
+  shift 5
+  COMMAND4
+  COMMAND5
+  exit 3 # Only exits the subshell!
+)
+# The parent shell has not been affected, and the environment is preserved.
+COMMAND6
+COMMAND7</PRE></FONT></TD></TR></TBODY></TABLE>As seen here, the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITREF">exit</A> command only terminates the subshell in which it is running, <EM>not</EM> the parent shell or script.</P>
+<P>One application of such a <SPAN class=QUOTE>"dedicated environment"</SPAN> is testing whether a variable is defined. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>if (set -u; : $variable) 2&gt; /dev/null
+then
+  echo "Variable is set."
+fi     #  Variable has been set in current script,
+       #+ or is an an internal Bash variable,
+       #+ or is present in environment (has been exported).
+
+# Could also be written [[ ${variable-x} != x || ${variable-y} != y ]]
+# or                    [[ ${variable-x} != x$variable ]]
+# or                    [[ ${variable+x} = x ]]
+# or                    [[ ${variable-x} != x ]]</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Another application is checking for a lock file: 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>if (set -C; : &gt; lock_file) 2&gt; /dev/null
+then
+  :   # lock_file didn't exist: no user running the script
+else
+  echo "Another user is already running that script."
+exit 65
+fi
+
+#  Code snippet by St&#233;phane Chazelas,
+#+ with modifications by Paulo Marcel Coelho Aragao.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>+</P>
+<P>Processes may execute in parallel within different subshells. This permits breaking a complex task into subcomponents processed concurrently.</P>
+<DIV class=EXAMPLE><A name=PARALLEL-PROCESSES></A>
+<P><B>Example 21-3. Running parallel processes in subshells</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>	(cat list1 list2 list3 | sort | uniq &gt; list123) &amp;
+	(cat list4 list5 list6 | sort | uniq &gt; list456) &amp;
+	# Merges and sorts both sets of lists simultaneously.
+	# Running in background ensures parallel execution.
+	#
+	# Same effect as
+	#   cat list1 list2 list3 | sort | uniq &gt; list123 &amp;
+	#   cat list4 list5 list6 | sort | uniq &gt; list456 &amp;
+	
+	wait   # Don't execute the next command until subshells finish.
+	
+	diff list123 list456</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Redirecting I/O to a subshell uses the <SPAN class=QUOTE>"|"</SPAN> pipe operator, as in <TT class=USERINPUT><B>ls -al | (command)</B></TT>.</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>A code block between <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CODEBLOCKREF">curly brackets</A> does <EM>not</EM> launch a subshell.</P>
+<P>{ command1; command2; command3; . . . commandN; }</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>var1=23
+echo "$var1"   # 23
+
+{ var1=76; }
+echo "$var1"   # 76</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>

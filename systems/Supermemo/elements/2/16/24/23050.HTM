@@ -1,0 +1,286 @@
+<H3 id=-100000 class=docSection1Title>Device Example: EEPROM</H3>
+<P class=docText><A name=iddle1900></A><A name=iddle1903></A><A name=iddle1905></A><A name=iddle2260></A><A name=iddle2263></A><A name=iddle2265></A><A name=iddle2347></A><A name=iddle2356></A><A name=iddle2971></A><A name="Our first"></A>Our first example client device is an EEPROM sitting on an I<SUP>2</SUP><A name="shown in"></A>C bus, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec1.html#ch08fig01">Figure 8.1</A><A name="all laptops"></A>. Almost all laptops and desktops have such an EEPROM for storing BIOS configuration information. The example EEPROM has two memory banks. The driver exports <SPAN class=docEmphasis>/dev</SPAN> interfaces corresponding to each bank: <SPAN class=docEmphasis>/dev/eep/0</SPAN> and <SPAN class=docEmphasis>/dev/eep/1.</SPAN><A name="the EEPROM"></A> Applications operate on these nodes to exchange data with the EEPROM.</P>
+<P class=docText>Each I<SUP>2</SUP><A name="slave address"></A>C/SMBus client device is assigned a slave address that functions as the device identifier. The EEPROM in the example answers to two slave addresses, <TT>SLAVE_ADDR1</TT> and <TT>SLAVE_ADDR2</TT>, one per bank.</P>
+<P class=docText>The example driver uses I<SUP>2</SUP><A name="with both"></A>C commands that are compatible with SMBus, so it works with both I<SUP>2</SUP>C and SMBus EEPROMs.</P><A name=ch08lev2sec1></A>
+<H4 id=title-ID0ESHPM class=docSection2Title>Initializing</H4>
+<P class=docText><A name="driver classes"></A>As is the case with all driver classes, I<SUP>2</SUP>C client drivers also own an <TT>init()</TT><A name="with the"></A> entry point. Initialization entails allocating data structures, registering the driver with the I<SUP>2</SUP><A name="and hooking"></A>C core, and hooking up with sysfs and the Linux device model. This is done in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec4.html#ch08ex02">Listing 8.2</A>.</P><A name=ch08ex02></A>
+<H5 id=title-ID0ENIPM class=docExampleTitle>Listing 8.2. Initializing the EEPROM Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Driver entry points */
+static struct file_operations eep_fops = {
+  .owner   = THIS_MODULE,
+  .llseek  = eep_llseek,
+  .read    = eep_read,
+  .ioctl   = eep_ioctl,
+  .open    = eep_open,
+  .release = eep_release,
+  .write   = eep_write,
+};
+
+static dev_t dev_number;          /* Allotted Device Number */
+static struct class *eep_class;   /* Device class */
+
+/* Per-device client data structure for each
+ * memory bank supported by the driver
+ */
+
+struct eep_bank {
+  struct i2c_client *client;      /* I<SUP>2</SUP>C client for this bank */
+  unsigned int addr;              /* Slave address of this bank */
+  unsigned short current_pointer; /* File pointer */
+  int bank_number;                /* Actual memory bank number */
+  /* ... */                       /* Spinlocks, data cache for
+                                     slow devices,.. */
+};
+
+#define NUM_BANKS 2               /* Two supported banks */
+#define BANK_SIZE 2048            /* Size of each bank */
+
+struct ee_bank *ee_bank_list;     /* List of private data
+                                     structures, one per bank */
+
+
+/*
+ * Device Initialization
+ */
+int __init
+eep_init(void)
+{
+
+  int err, i;
+
+  /* Allocate the per-device data structure, ee_bank */
+  ee_bank_list = kmalloc(sizeof(struct ee_bank)*NUM_BANKS,
+                         GFP_KERNEL);
+  memset(ee_bank_list, 0, sizeof(struct ee_bank)*NUM_BANKS);
+  /* Register and create the <SPAN class=docEmphasis>/dev</SPAN> interfaces to access the EEPROM
+     banks. Refer back to Chapter 5, "Character Drivers" for
+     more details */
+  if (alloc_chrdev_region(&amp;dev_number, 0,
+                          NUM_BANKS, "eep") &lt; 0) {
+    printk(KERN_DEBUG "Can't register device\n");
+    return -1;
+  }
+
+  eep_class = class_create(THIS_MODULE, DEVICE_NAME);
+  for (i=0; i &lt; NUM_BANKS;i++) {
+
+    /* Connect the file operations with cdev */
+    cdev_init(&amp;ee_bank[i].cdev, &amp;ee_fops);
+
+    /* Connect the major/minor number to the cdev */
+    if (cdev_add(&amp;ee_bank[i].cdev, (dev_number + i), 1)) {
+      printk("Bad kmalloc\n");
+      return 1;
+    }
+    class_device_create(eep_class, NULL, (dev_number + i),
+                           NULL, "eeprom%d", i);
+  }
+
+  /* Inform the I<SUP>2</SUP>C core about our existence. See the section
+     "Probing the Device" for the definition of eep_driver */
+  err = i2c_add_driver(&amp;eep_driver);
+
+  if (err) {
+    printk("Registering I2C driver failed, errno is %d\n", err);
+    return err;
+  }
+
+  printk("EEPROM Driver Initialized.\n");
+  return 0;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec4.html#ch08ex02">Listing 8.2</A><A name="the following"></A> initiates creation of the device nodes, but to complete their production, add the following to an appropriate rule file under <SPAN class=docEmphasis>/etc/udev/rules.d/</SPAN>:</P>
+<DIV class=docText><PRE>KERNEL:"eeprom[0-1]*", NAME="eep/%n"</PRE></DIV><BR>
+<P class=docText><A name=iddle1904></A><A name=iddle1906></A><A name=iddle2264></A><A name=iddle2266></A><A name=iddle2280></A><A name=iddle3325></A><A name=iddle3330></A><A name=iddle3640></A><A name=iddle3645></A><A name="This creates"></A>This creates <SPAN class=docEmphasis>/dev/eep/0</SPAN> and <SPAN class=docEmphasis>/dev/eep/1</SPAN><A name="to reception"></A> in response to reception of the corresponding uevents from the kernel. A user mode program that needs to read from the n<SUP>th</SUP><A name="bank can"></A> memory bank can then operate on <SPAN class=docEmphasis>/dev/eep/n</SPAN>.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec4.html#ch08ex03">Listing 8.3</A> implements the <TT>open()</TT> method for the EEPROM driver. The kernel calls <TT>eep_open()</TT> when an application opens <SPAN class=docEmphasis>/dev/eep/X.</SPAN> <TT>eep_open()</TT><A name="that it"></A> stores the per-device data structure in a private area so that it's directly accessible from the rest of the driver methods.</P><A name=ch08ex03></A>
+<H5 id=title-ID0E1NPM class=docExampleTitle>Listing 8.3. Opening the EEPROM Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE> int
+eep_open(struct inode *inode, struct file *file)
+{
+
+  /* The EEPROM bank to be opened */
+  n = MINOR(file-&gt;f_dentry-&gt;d_inode-&gt;i_rdev);
+
+  file-&gt;private_data = (struct ee_bank *)ee_bank_list[n];
+
+  /* Initialize the fields in ee_bank_list[n] such as
+     size, slave address, and the current file pointer */
+  /* ... */
+}</PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch08lev2sec2></A>
+<H4 id=title-ID0EIOPM class=docSection2Title>Probing the Device</H4>
+<P class=docText>The I<SUP>2</SUP><A name="the host"></A>C client driver, in partnership with the host controller driver and the I<SUP>2</SUP>C core, attaches itself to a slave device as follows:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>During initialization, it registers a <TT>probe()</TT> method, which the I<SUP>2</SUP><A name=In></A>C core invokes when an associated host controller is detected. In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec4.html#ch08ex02">Listing 8.2</A>, <TT>eep_init()</TT> registered <TT>eep_probe()</TT> by invoking <TT>i2c_add_driver</TT><TT>()</TT>:</P>
+<DIV class=docText><PRE>static struct i2c_driver eep_driver =
+{
+  .driver = {
+    .name         =  "EEP",           /* Name */
+  },
+  .id             = I2C_DRIVERID_EEP, /* ID */
+  .attach_adapter = eep_probe,        /* Probe Method */
+  .detach_client  = eep_detach,       /* Detach Method */
+};
+
+i2c_add_driver(&amp;eep_driver);  `</PRE></DIV>
+<P class=docList><A name=iddle1893></A><A name=iddle1894></A><A name=iddle2285></A>The driver identifier, <TT>I2C_DRIVERID_EEP</TT><A name="and should"></A>, should be unique for the device and should be defined in <SPAN class=docEmphasis>include/linux/i2c-id.h</SPAN>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>When the core calls the driver's <TT>probe()</TT><A name=invokes></A> method signifying the presence of a host adapter, it, in turn, invokes <TT>i2c_probe()</TT><A name="arguments specifying"></A> with arguments specifying the addresses of the slave devices that the driver is responsible for and an associated <TT>attach()</TT> routine.</P>
+<P class=docList><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec4.html#ch08ex04">Listing 8.4</A> implements <TT>eep_probe()</TT>, the <TT>probe()</TT> method of the EEPROM driver. <TT>normal_i2c</TT><A name="of the"></A> specifies the EEPROM bank addresses and is populated as part of the <TT>i2c_client_address_data</TT><A name="Additional fields"></A> structure. Additional fields in this structure can be used to request finer addressing control. You can ask the I<SUP>2</SUP><A name="to ignore"></A>C core to ignore a range of addresses using the <TT>ignore</TT><A name="you may"></A> field. Or you may use the <TT>probe</TT> field to specify (<SPAN class=docEmphasis>adapter, slave address</SPAN><A name="to a"></A>) pairs if you want to bind a slave address to a particular host adapter. This will be useful, for example, if your processor supports two I<SUP>2</SUP><A name="an EEPROM"></A>C host adapters, and you have an EEPROM on bus 1 and a temperature sensor on bus 2, both answering to the same slave address.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="slave devices"></A>The host controller walks the bus looking for the slave devices specified in Step 2. To do this, it generates a bus transaction such as <TT>S SLAVE_ADDR Wr</TT>, where <TT>S</TT> is the start bit, <TT>SLAVE_ADDR</TT><A name="specified in"></A> is the associated 7-bit slave address as specified in the device's datasheet, and <TT>Wr</TT> is the write command, as described in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec3.html#ch08lev1sec3">Bus Transactions</A><A name="respond by"></A>." If a working slave device exists on the bus, it'll respond by sending an acknowledgment bit (<TT>[A]</TT>).</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the host"></A>If the host adapter detects a slave in Step 3, the I<SUP>2</SUP>C core invokes the <TT>attach()</TT> routine supplied via the third argument to <TT>i2c_probe()</TT> in Step 2. For the EEPROM driver, this routine is <TT>eep_attach()</TT>, which registers a per-device client data structure, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec4.html#ch08ex05">Listing 8.5</A><A name="an I"></A>. If your device expects an initial programming sequence (for example, registers on an I<SUP>2</SUP><A name="C Digital"></A>C Digital Visual Interface transmitter chip have to be initialized before the chip can start functioning), perform those operations in this routine.</P></DIV></LI></OL></DIV><A name=ch08ex04></A>
+<H5 id=title-ID0EJTPM class=docExampleTitle>Listing 8.4. Probing the Presence of EEPROM Banks</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>#include <LINUX i2c.h="">
+
+/* The EEPROM has two memory banks having addresses SLAVE_ADDR1
+ * and SLAVE_ADDR2, respectively
+ */
+static unsigned short normal_i2c[] = {
+  SLAVE_ADDR1, SLAVE_ADDR2, I2C_CLIENT_END
+};
+
+static struct i2c_client_address_data addr_data = {
+  .normal_i2c = normal_i2c,
+  .probe      = ignore,
+  .ignore     = ignore,
+  .forces     = ignore,
+};
+
+static int
+eep_probe(struct i2c_adapter *adapter)
+{
+  /* The callback function eep_attach(), is shown
+   * in Listing 8.5
+   */
+   return i2c_probe(adapter, &amp;addr_data, eep_attach);
+}</LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText></P><A name=ch08ex05></A>
+<H5 id=title-ID0E4TPM class=docExampleTitle>Listing 8.5. Attaching a Client</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>int
+eep_attach(struct i2c_adapter *adapter, int address, int kind)
+{
+  static struct i2c_client *eep_client;
+
+  eep_client = kmalloc(sizeof(*eep_client), GFP_KERNEL);
+
+  eep_client-&gt;driver  = &amp;eep_driver; /* Registered in Listing 8.2 */
+  eep_client-&gt;addr    = address;     /* Detected Address */
+  eep_client-&gt;adapter = adapter;     /* Host Adapter */
+  eep_client-&gt;flags   = 0;
+  strlcpy(eep_client-&gt;name, "eep", I2C_NAME_SIZE);
+
+  /* Populate fields in the associated per-device data structure */
+  /* ... */
+
+  /* Attach */
+  i2c_attach_client(new_client);
+}</PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch08lev2sec3></A>
+<H4 id=title-ID0EOUPM class=docSection2Title>Checking Adapter Capabilities</H4>
+<P class=docText><A name=iddle1485></A><A name=iddle1898></A><A name=iddle2258></A><A name=iddle1016></A><A name=iddle1352></A><A name=iddle1896></A><A name=iddle1897></A><A name=iddle2249></A><A name=iddle2256></A><A name=iddle2257></A><A name=iddle2283></A><A name=iddle2293></A><A name=iddle2297></A><A name=iddle2298></A><A name=iddle2299></A><A name=iddle2301></A><A name=iddle2302></A><A name=iddle2303></A><A name=iddle2304></A><A name=iddle2305></A><A name=iddle2306></A><A name=iddle2416></A><A name=iddle4028></A><A name=iddle4029></A><A name=iddle4205></A><A name="adapter might"></A>Each host adapter might be limited by a set of constraints. An adapter might not support all the commands that <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec2.html#ch08tab01">Table 8.1</A><A name="it might"></A> contains. For example, it might allow the SMBus <TT>read_word</TT> command but not the <TT>read_block</TT><A name="is supported"></A> command. A client driver has to check whether a command is supported by the adapter before using it.</P>
+<P class=docText>The I<SUP>2</SUP><A name="to do"></A>C core provides two functions to do this:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>i2c_check_functionality()</TT> checks whether a particular function is supported.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>i2c_get_functionality()</TT> returns a mask containing all supported functions.</P></DIV></LI></OL></DIV>
+<P class=docText>See <SPAN class=docEmphasis>include/linux/i2c.h</SPAN> for the list of possible functionalities.</P><A name=ch08lev2sec4></A>
+<H4 id=title-ID0EW5PM class=docSection2Title>Accessing the Device</H4>
+<P class=docText><A name="its invocation"></A>To read data from the EEPROM, first glean information about its invocation thread from the private data field associated with the device node. Next, use SMBus-compatible data access routines provided by the I<SUP>2</SUP>C core (<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec2.html#ch08tab01">Table 8.1</A><A name="send the"></A> shows the available functions) to read the data. Finally, send the data to user space and increment the internal file pointer so that the next <TT>read()</TT>/<TT>write()</TT><A name="steps are"></A> operation starts from where the last one ended. These steps are performed by <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec4.html#ch08ex06">Listing 8.6</A><A name="listing omits"></A>. The listing omits sanity and error checks for convenience.</P>
+<P class=docText></P><A name=ch08ex06></A>
+<H5 id=title-ID0EX6PM class=docExampleTitle>Listing 8.6. Reading from the EEPROM</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>ssize_t
+eep_read(struct file *file, char *buf,
+         size_t count, loff_t *ppos)
+{
+  int i, transferred, ret, my_buf[BANK_SIZE];
+
+  /* Get the private client data structure for this bank */
+  struct ee_bank *my_bank =
+                   (struct ee_bank *)file-&gt;private_data;
+
+  /* Check whether the smbus_read_word() functionality is
+     supported */
+  if (i2c_check_functionality(my_bank-&gt;client,
+                              I2C_FUNC_SMBUS_READ_WORD_DATA)) {
+
+    /* Read the data */
+    while (transferred &lt; count) {
+      ret = i2c_smbus_read_word_data(my_bank-&gt;client,
+                                     my_bank-&gt;current_pointer+i);
+      my_buf[i++] = (u8)(ret &amp; 0xFF);
+      my_buf[i++] = (u8)(ret &gt;&gt; 8);
+      transferred += 2;
+    }
+
+    /* Copy data to user space and increment the internal
+       file pointer. Sanity checks are omitted for simplicity */
+    copy_to_user(buffer, (void *)my_buf, transferred);
+    my_bank-&gt;current_pointer += transferred;
+  }
+
+  return transferred;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1895></A>Writing to the device is done similarly, except that an <TT>i2c_smbus_write_XXX()</TT> function is used instead.</P><A name=ch08note01></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name=iddle1901></A><A name=iddle1902></A><A name=iddle1907></A><A name=iddle2261></A><A name=iddle2262></A><A name=iddle2267></A><A name=iddle2453></A><A name=iddle2832></A><A name=iddle3709></A><A name=iddle3821></A><A name="wirelessly transmit"></A>Some EEPROM chips have a Radio Frequency Identification (RFID) transmitter to wirelessly transmit stored information. This is used to automate supply-chain processes such as inventory monitoring and asset tracking. Such EEPROMs usually implement safeguards via an access protection bank that controls access permissions to the data banks. In such cases, the driver has to wiggle corresponding bits in the access protection bank before it can operate on the data banks.</P>
+<P></P></DIV><BR>
+<P class=docText><A name="To access"></A>To access the EEPROM banks from user space, develop applications that operate on <SPAN class=docEmphasis>/dev/eep/n.</SPAN><A name="the contents"></A> To dump the contents of the EEPROM banks, use od:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; od &#37413;&#25587; /dev/eep/0</SPAN>
+0000000   S   E   R   # dc4  ff soh   R   P nul nul nul nul nul nul nul
+0000020   @   1   3   R   1   1   5   3   Z   J   1   V   1   L   4   6
+0000040   5   1   0   H  sp   1   S   2   8   8   8   7   J   U   9   9
+0000060   H   0   0   6   6 nul nul nul  bs   3   8   L   5   0   0   3
+0000100   Z   J   1   N   U   B   4   6   8   6   V   7 nul nul nul nul
+0000120 nul nul nul nul nul nul nul nul nul nul nul nul nul nul nul nul
+*
+0000400</PRE></DIV><BR>
+<P class=docText><A name="an exercise"></A>As an exercise, take a stab at modifying the EEPROM driver to create <SPAN class=docEmphasis>/sys</SPAN> interfaces to the EEPROM banks rather than the <SPAN class=docEmphasis>/dev</SPAN> interfaces. You may reuse code from <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05ex07">Listing 5.7</A>, "Using Sysfs to Control the Parallel LED Board," in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A> to help you in this endeavor.</P><A name=ch08lev2sec5></A>
+<H4 id=title-ID0EPFAO class=docSection2Title>More Methods</H4>
+<P class=docText><A name="a few"></A>To obtain a fully functional driver, you need to add a few remaining entry points. These are hardly different from those of normal character drivers discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A><A name="not shown"></A>, so the code listings are not shown:</P>
+<UL>
+<LI>
+<P class=docList>To support the <TT>lseek()</TT><A name="internal file"></A> system call that assigns a new value to the internal file pointer, implement the <TT>llseek()</TT><A name="state information"></A> driver method. The internal file pointer stores state information about EEPROM access.</P></LI>
+<LI>
+<P class=docList><A name=an></A>To verify data integrity, the EEPROM driver can support an <TT>ioctl()</TT><A name="to adjust"></A> method to adjust and verify checksums of stored data.</P></LI>
+<LI>
+<P class=docList>The <TT>poll()</TT> and <TT>fsync()</TT> methods are not relevant for the EEPROM.</P></LI>
+<LI>
+<P class=docList><A name=iddle1899></A><A name=iddle2259></A><A name=iddle2271></A><A name=iddle2289></A><A name=iddle3752></A><A name=iddle3853></A><A name="have to"></A>If you choose to compile the driver as a module, you have to supply an <TT>exit()</TT><A name="method to"></A> method to unregister the device and clean up client-specific data structures. Unregistering the driver from the I<SUP>2</SUP><A name="is a"></A>C core is a one-liner:</P>
+<DIV class=docText><PRE>i2c_del_driver(&amp;eep_driver);</PRE></DIV></LI></UL>

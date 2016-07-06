@@ -1,0 +1,27 @@
+<DIV class=sect2 title="Open and Close">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=idp11403984></A><A name=idp11418256></A>File Operations</H3></DIV></DIV></DIV></DIV>
+<DIV class=sect2 title="File Operations"><PRE class=synopsis>const struct file_operations *fops</PRE>
+<DIV class=abstract title=Abstract>
+<P class=title><B>Abstract</B></P>File operations for the DRM device node.</DIV>
+<P>Drivers must define the file operations structure that forms the DRM userspace API entry point, even though most of those operations are implemented in the DRM core. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=methodname>open</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=methodname>release</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=methodname>ioctl</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>operations are handled by</P><PRE class=programlisting>	.owner = THIS_MODULE,
+	.open = drm_open,
+	.release = drm_release,
+	.unlocked_ioctl = drm_ioctl,
+  #ifdef CONFIG_COMPAT
+	.compat_ioctl = drm_compat_ioctl,
+  #endif
+        </PRE>
+<P></P>
+<P>Drivers that implement private ioctls that requires 32/64bit compatibility support must provide their own<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=methodname>compat_ioctl</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>handler that processes private ioctls and calls<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_compat_ioctl</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>for core ioctls.</P>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=methodname>read</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=methodname>poll</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>operations provide support for reading DRM events and polling them. They are implemented by</P><PRE class=programlisting>	.poll = drm_poll,
+	.read = drm_read,
+	.llseek = no_llseek,
+	</PRE>
+<P></P>
+<P>The memory mapping implementation varies depending on how the driver manages memory. Pre-GEM drivers will use<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_mmap</CODE>, while GEM-aware drivers will use<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_gem_mmap</CODE>. See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title="The Graphics Execution Manager (GEM)" href="https://www.kernel.org/doc/htmldocs/drm/drm-memory-management.html#drm-gem">the section called &#8220;The Graphics Execution Manager (GEM)&#8221;</A>.</P><PRE class=programlisting>	.mmap = drm_gem_mmap,
+	</PRE>
+<P></P>
+<P>No other file operation is supported by the DRM API.</P></DIV>

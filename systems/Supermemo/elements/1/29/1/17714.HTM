@@ -1,0 +1,44 @@
+<H3 class=section>2.7 Including Other Files Into Your Program</H3>
+<P>This section describes a feature that is specific to <CODE>gawk</CODE>. </P>
+<P>The &#8216;<SAMP>@include</SAMP>&#8217; keyword can be used to read external <CODE>awk</CODE> source files. This gives you the ability to split large <CODE>awk</CODE> source files into smaller, more manageable pieces, and also lets you reuse common <CODE>awk</CODE> code from various <CODE>awk</CODE> scripts. In other words, you can group together <CODE>awk</CODE> functions, used to carry out specific tasks, into external files. These files can be used just like function libraries, using the &#8216;<SAMP>@include</SAMP>&#8217; keyword in conjunction with the <CODE>AWKPATH</CODE> environment variable. Note that source files may also be included using the <SAMP>-i</SAMP> option. </P>
+<P>Let&#8217;s see an example. We&#8217;ll start with two (trivial) <CODE>awk</CODE> scripts, namely <SAMP>test1</SAMP> and <SAMP>test2</SAMP>. Here is the <SAMP>test1</SAMP> script: </P>
+<DIV class=example><PRE class=example>BEGIN {
+    print "This is script test1."
+}
+</PRE></DIV>
+<P>and here is <SAMP>test2</SAMP>: </P>
+<DIV class=example><PRE class=example>@include "test1"
+BEGIN {
+    print "This is script test2."
+}
+</PRE></DIV>
+<P>Running <CODE>gawk</CODE> with <SAMP>test2</SAMP> produces the following result: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk -f test2</EM></KBD>
+-| This is file test1.
+-| This is file test2.
+</PRE></DIV>
+<P><CODE>gawk</CODE> runs the <SAMP>test2</SAMP> script which includes <SAMP>test1</SAMP> using the &#8216;<SAMP>@include</SAMP>&#8217; keyword. So, to include external <CODE>awk</CODE> source files you just use &#8216;<SAMP>@include</SAMP>&#8217; followed by the name of the file to be included, enclosed in double quotes. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Keep in mind that this is a language construct and the file name cannot be a string variable, but rather just a literal string in double quotes. </P></BLOCKQUOTE>
+<P>The files to be included may be nested; e.g., given a third script, namely <SAMP>test3</SAMP>: </P>
+<DIV class=example><PRE class=example>@include "test2"
+BEGIN {
+    print "This is script test3."
+}
+</PRE></DIV>
+<P>Running <CODE>gawk</CODE> with the <SAMP>test3</SAMP> script produces the following results: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk -f test3</EM></KBD>
+-| This is file test1.
+-| This is file test2.
+-| This is file test3.
+</PRE></DIV>
+<P>The file name can, of course, be a pathname. For example: </P>
+<DIV class=example><PRE class=example>@include "../io_funcs"
+</PRE></DIV>
+<P>or: </P>
+<DIV class=example><PRE class=example>@include "/usr/awklib/network"
+</PRE></DIV>
+<P>are valid. The <CODE>AWKPATH</CODE> environment variable can be of great value when using &#8216;<SAMP>@include</SAMP>&#8217;. The same rules for the use of the <CODE>AWKPATH</CODE> variable in command-line file searches (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#AWKPATH-Variable">AWKPATH Variable</A>) apply to &#8216;<SAMP>@include</SAMP>&#8217; also. </P>
+<P>This is very helpful in constructing <CODE>gawk</CODE> function libraries. If you have a large script with useful, general purpose <CODE>awk</CODE> functions, you can break it down into library files and put those files in a special directory. You can then include those &#8220;libraries,&#8221; using either the full pathnames of the files, or by setting the <CODE>AWKPATH</CODE> environment variable accordingly and then using &#8216;<SAMP>@include</SAMP>&#8217; with just the file part of the full pathname. Of course you can have more than one directory to keep library files; the more complex the working environment is, the more directories you may need to organize the files to be included. </P>
+<P>Given the ability to specify multiple <SAMP>-f</SAMP> options, the &#8216;<SAMP>@include</SAMP>&#8217; mechanism is not strictly necessary. However, the &#8216;<SAMP>@include</SAMP>&#8217; keyword can help you in constructing self-contained <CODE>gawk</CODE> programs, thus reducing the need for writing complex and tedious command lines. In particular, &#8216;<SAMP>@include</SAMP>&#8217; is very useful for writing CGI scripts to be run from web pages. </P>
+<P>As mentioned in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#AWKPATH-Variable">AWKPATH Variable</A>, the current directory is always searched first for source files, before searching in <CODE>AWKPATH</CODE>, and this also applies to files named with &#8216;<SAMP>@include</SAMP>&#8217;.

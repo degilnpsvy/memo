@@ -1,0 +1,65 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>12.8.&nbsp;Virtual Memory</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s07.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;12.&nbsp;Memory and Arrays</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s09.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="12.8.&nbsp;Virtual Memory" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286964496></A>12.8.&nbsp;Virtual Memory</H2></DIV></DIV></DIV>
+<P>What it does, not how it works.</P>
+<DIV class=section title=12.8.1.&nbsp;Overview>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286964502></A>12.8.1.&nbsp;Overview</H3></DIV></DIV></DIV>
+<P>Modern computers use<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>virtual memory</EM>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286964514></A>In a virtual memory system, disk or other storage is used to extend the size of RAM, also known as<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>real memory</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>physical memory</EM>. Since disk is much cheaper than RAM, this offers an inexpensive way to increase the memory available to programs. The disk space used for this purpose is known as<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>swap space</EM>.<A class=indexterm name=id286964529></A></P>
+<DIV class=informalequation>virtual memory = RAM + swap space</DIV><PRE class=screen>    +---------------------------+
+    |      Virtual Memory       |
+    |            4GB            |
+    | +-----------------------+ |
+    | |                       | |
+    | |   RAM (real memory)   | |
+    | |          1GB          | |
+    | |                       | |
+    | +-----------------------+ |
+    | +-----------------------+ |
+    | |                       | |
+    | |       Swap space      | |
+    | |          3GB          | |
+    | |                       | |
+    | +-----------------------+ |
+    +---------------------------+
+    </PRE>
+<P>When the system runs out of RAM, some data in RAM (usually data that has not been accessed recently) is<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>swapped</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>out to disk. When that data is referenced again, it must be swapped back into RAM before it can be accessed.</P>
+<P>Every time a program accesses memory, the virtual memory system must check to see if the virtual address requested is in RAM or in swap space. This check is performed by the memory controller hardware, and results is a slight increase in memory access time relative to a system using only real memory. If the address requested is not in RAM, than the operating system performs a swap, which is extremely expensive. Accessing RAM takes a few nanoseconds, while accessing disk takes a few milliseconds (about 1,000,000 times longer). The full details of this system are left to courses in computer architecture and operating systems.</P>
+<P>Since disk is far slower than RAM, there are limits to how much swap space is useful in any computer system. More swap can be used in systems that don't need to access it frequently. If large amounts of memory are accessed regularly, the system will need more RAM. Generally, the amount of swap allocated is around 1 to 3 times the size of RAM. It may not be practical to use all of it, but disk is cheap, so we generally allocate more swap than we anticipate needing.</P>
+<P>User programs are unaware of the fact that they are using virtual memory. Hardware determines whether a given address is in RAM or swap, and translates from a virtual address to a physical address. If an address is not currently in RAM, the address translation fails. This condition is known as a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>page fault</EM>.</P>
+<P>When a page fault occurs, the operating system carries out the necessary steps to bring the address from swap into RAM. This usually involves swapping a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>page</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>(a block of addresses) containing the address of interest, since this is a more efficient way to access disk. If RAM is currently full, one of the pages in RAM is swapped out to free up space for the page. Then the desired page is then swapped into the free space.</P>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>hit ratio</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>for virtual memory<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286964574></A>is defined as the number of memory references satisfied by RAM divided by the total number of memory references. Since swap operations are very expensive, virtual memory systems only perform well when the hit ratio is extremely high (well above 0.99).</P>
+<P>A system that is performing excessive swapping will run very slowly, and the CPU will be idle much of the time since the programs cannot continue executing until their data or instructions are swapped in. This condition is called<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>thrashing</EM>.</P>
+<P>If the hit ratio is 0.99, main memory access take 10ns, and disk access takes 5ms, what is the average memory access time?</P><PRE class=screen>    avg access time = 0.99 * 10ns + 0.01 * 5,000,000ns
+		    = 50,009.9ns
+		    = 50.0099us
+    </PRE>
+<P>Note that even if the hit ratio is .99, this minimal amount of swapping slows down average memory access by a factor of over 5,000! Clearly, we do not want our programs to cause swapping. Swapping can be avoided by minimizing memory use, and by programming for good locality of reference, which is discussed in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title="12.10.&nbsp;Locality of Reference" href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s10.html">Section&nbsp;12.10, &#8220;Locality of Reference&#8221;</A>.</P></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s07.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s09.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">12.7.&nbsp;Dynamic Memory Allocation&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;12.9.&nbsp;Cache</TD></TR></TBODY></TABLE></DIV>

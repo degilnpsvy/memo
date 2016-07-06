@@ -1,0 +1,46 @@
+<H4 class=subsection>9.2.4 The <CODE>return</CODE> Statement</H4><A name=index-return-statement_002c-user_002ddefined-functions></A>
+<P>As seen in several earlier examples, the body of a user-defined function can contain a <CODE>return</CODE> statement. This statement returns control to the calling part of the <CODE>awk</CODE> program. It can also be used to return a value for use in the rest of the <CODE>awk</CODE> program. It looks like this: </P>
+<DIV class=example><PRE class=example>return <SPAN class=roman><FONT face=Batang>[</FONT></SPAN><VAR>expression</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>
+</PRE></DIV>
+<P>The <VAR>expression</VAR> part is optional. Due most likely to an oversight, POSIX does not define what the return value is if you omit the <VAR>expression</VAR>. Technically speaking, this make the returned value undefined, and therefore, unpredictable. In practice, though, all versions of <CODE>awk</CODE> simply return the null string, which acts like zero if used in a numeric context. </P>
+<P>A <CODE>return</CODE> statement with no value expression is assumed at the end of every function definition. So if control reaches the end of the function body, then technically, the function returns an unpredictable value. In practice, it returns the empty string. <CODE>awk</CODE> does <EM>not</EM> warn you if you use the return value of such a function. </P>
+<P>Sometimes, you want to write a function for what it does, not for what it returns. Such a function corresponds to a <CODE>void</CODE> function in C, C++ or Java, or to a <CODE>procedure</CODE> in Ada. Thus, it may be appropriate to not return any value; simply bear in mind that you should not be using the return value of such a function. </P>
+<P>The following is an example of a user-defined function that returns a value for the largest number among the elements of an array: </P>
+<DIV class=example><PRE class=example>function maxelt(vec,   i, ret)
+{
+     for (i in vec) {
+          if (ret == "" || vec[i] &gt; ret)
+               ret = vec[i]
+     }
+     return ret
+}
+</PRE></DIV><A name=index-programming-conventions_002c-function-parameters></A>
+<P>You call <CODE>maxelt()</CODE> with one argument, which is an array name. The local variables <CODE>i</CODE> and <CODE>ret</CODE> are not intended to be arguments; while there is nothing to stop you from passing more than one argument to <CODE>maxelt()</CODE>, the results would be strange. The extra space before <CODE>i</CODE> in the function parameter list indicates that <CODE>i</CODE> and <CODE>ret</CODE> are local variables. You should follow this convention when defining functions. </P>
+<P>The following program uses the <CODE>maxelt()</CODE> function. It loads an array, calls <CODE>maxelt()</CODE>, and then reports the maximum number in that array: </P>
+<DIV class=example><PRE class=example>function maxelt(vec,   i, ret)
+{
+     for (i in vec) {
+          if (ret == "" || vec[i] &gt; ret)
+               ret = vec[i]
+     }
+     return ret
+}
+
+# Load all fields of each record into nums.
+{
+     for(i = 1; i &lt;= NF; i++)
+          nums[NR, i] = $i
+}
+
+END {
+     print maxelt(nums)
+}
+</PRE></DIV>
+<P>Given the following input: </P>
+<DIV class=example><PRE class=example> 1 5 23 8 16
+44 3 5 2 8 26
+256 291 1396 2962 100
+-6 467 998 1101
+99385 11 0 225
+</PRE></DIV>
+<P>the program reports (predictably) that 99,385 is the largest value in the array.

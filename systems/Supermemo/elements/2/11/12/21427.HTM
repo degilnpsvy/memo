@@ -1,0 +1,38 @@
+# Documentation/sparse.txt
+<P></P>
+<P>Copyright 2004 Linus Torvalds<BR>Copyright 2004 Pavel Machek &lt;<A href="mailto:pavel@ucw.cz">pavel@ucw.cz</A>&gt;<BR>Copyright 2006 Bob Copeland &lt;<A href="mailto:me@bobcopeland.com">me@bobcopeland.com</A>&gt;</P>
+<P></P>
+<P>Using sparse for typechecking<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</P>
+<P>"__bitwise" is a type attribute, so you have to do something like this:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; typedef int __bitwise pm_request_t;</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; enum pm_request {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; PM_SUSPEND = (__force pm_request_t) 1,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; PM_RESUME = (__force pm_request_t) 2<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; };</P>
+<P>which makes PM_SUSPEND and PM_RESUME "bitwise" integers (the "__force" is<BR>there because sparse will complain about casting to/from a bitwise type,<BR>but in this case we really _do_ want to force the conversion). And because<BR>the enum values are all the same type, now "enum pm_request" will be that<BR>type too.</P>
+<P>And with gcc, all the __bitwise/__force stuff goes away, and it all ends<BR>up looking just like integers to gcc.</P>
+<P>Quite frankly, you don't need the enum there. The above all really just<BR>boils down to one special "int __bitwise" type.</P>
+<P>So the simpler way is to just do</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; typedef int __bitwise pm_request_t;</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; #define PM_SUSPEND ((__force pm_request_t) 1)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; #define PM_RESUME ((__force pm_request_t) 2)</P>
+<P>and you now have all the infrastructure needed for strict typechecking.</P>
+<P>One small note: the constant integer "0" is special. You can use a<BR>constant zero as a bitwise integer type without sparse ever complaining.<BR>This is because "bitwise" (as the name implies) was designed for making<BR>sure that bitwise types don't get mixed up (little-endian vs big-endian<BR>vs cpu-endian vs whatever), and there the constant "0" really _is_<BR>special.</P>
+<P>__bitwise__ - to be used for relatively compact stuff (gfp_t, etc.) that<BR>is mostly warning-free and is supposed to stay that way.&nbsp; Warnings will<BR>be generated without __CHECK_ENDIAN__.</P>
+<P>__bitwise - noisy stuff; in particular, __le*/__be* are that.&nbsp; We really<BR>don't want to drown in noise unless we'd explicitly asked for it.</P>
+<P>Using sparse for lock checking<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</P>
+<P>The following macros are undefined for gcc and defined during a sparse<BR>run to use the "context" tracking feature of sparse, applied to<BR>locking.&nbsp; These annotations tell sparse when a lock is held, with<BR>regard to the annotated function's entry and exit.</P>
+<P>__must_hold - The specified lock is held on function entry and exit.</P>
+<P>__acquires - The specified lock is held on function exit, but not entry.</P>
+<P>__releases - The specified lock is held on function entry, but not exit.</P>
+<P>If the function enters and exits without the lock held, acquiring and<BR>releasing the lock inside the function in a balanced way, no<BR>annotation is needed.&nbsp; The tree annotations above are for cases where<BR>sparse would otherwise report a context imbalance.</P>
+<P>Getting sparse<BR>~~~~~~~~~~~~~~</P>
+<P>You can get latest released versions from the Sparse homepage at<BR><A href="https://sparse.wiki.kernel.org/index.php/Main_Page">https://sparse.wiki.kernel.org/index.php/Main_Page</A></P>
+<P>Alternatively, you can get snapshots of the latest development version<BR>of sparse using git to clone..</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; git://git.kernel.org/pub/scm/devel/sparse/sparse.git</P>
+<P>DaveJ has hourly generated tarballs of the git tree available at..</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <A href="http://www.codemonkey.org.uk/projects/git-snapshots/sparse/">http://www.codemonkey.org.uk/projects/git-snapshots/sparse/</A></P>
+<P><BR>Once you have it, just do</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make install</P>
+<P>as a regular user, and it will install sparse in your ~/bin directory.</P>
+<P>Using sparse<BR>~~~~~~~~~~~~</P>
+<P>Do a kernel make with "make C=1" to run sparse on all the C files that get<BR>recompiled, or use "make C=2" to run sparse on the files whether they need to<BR>be recompiled or not.&nbsp; The latter is a fast way to check the whole tree if you<BR>have already built it.</P>
+<P>The optional make variable CF can be used to pass arguments to sparse.&nbsp; The<BR>build system passes -Wbitwise to sparse automatically.&nbsp; To perform endianness<BR>checks, you may define __CHECK_ENDIAN__:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; make C=2 CF="-D__CHECK_ENDIAN__"</P>
+<P>These checks are disabled by default as they generate a host of warnings.

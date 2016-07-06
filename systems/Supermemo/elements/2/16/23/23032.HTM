@@ -1,0 +1,217 @@
+<H3 id=-100000 class=docSection1Title>Misc Drivers</H3>
+<P class=docText><A name=iddle1080></A><A name=iddle1376></A><A name=iddle1379></A><A name=iddle1434></A><A name=iddle1447></A><A name=iddle1468></A><A name=iddle3003></A><A name=iddle3006></A><A name=iddle3162></A><A name=iddle4273></A><A name=iddle4627></A><A name="Misc "></A>Misc (or miscellaneous) drivers are simple char drivers that share certain common characteristics. The kernel abstracts these commonalities into an API (implemented in <SPAN class=docEmphasis>drivers/char/misc.c</SPAN><A name="simplifies the"></A>), and this simplifies the way these drivers are initialized. All misc devices are assigned a major number of 10, but each can choose a single minor number. So, if a char driver needs to drive multiple devices as in the CMOS example discussed earlier, it's probably not a candidate for being a misc driver.</P>
+<P class=docText><A name="the sequence"></A>Consider the sequence of initialization steps that a char driver performs:</P><A name=ch05pro03></A>
+<UL class=doclist start="">
+<LI>Allocates major/minor numbers via <TT>alloc_chrdev_region()</TT> and friends<BR><BR>
+<LI>Creates <SPAN class=docEmphasis>/dev</SPAN> and <SPAN class=docEmphasis>/sys</SPAN> nodes using <TT>class_device_create()</TT><BR><BR>
+<LI>Registers itself as a char driver using <TT>cdev_init()</TT> and <TT>cdev_add()</TT><BR><BR></LI></UL>
+<P class=docText><A name="call to"></A>A misc driver accomplishes all this with a single call to <TT>misc_register()</TT>:</P>
+<DIV class=docText><PRE>static struct miscdevice mydrv_dev = {
+  MYDRV_MINOR,
+  "mydrv",
+  &amp;mydrv_fops
+};
+
+misc_register(&amp;mydrv_dev);</PRE></DIV><BR>
+<P class=docText>In the preceding example, <TT>MYDRV_MINOR</TT><A name="you want"></A> is the minor number that you want to statically assign to your misc driver. You may also request a minor number to be dynamically assigned by specifying <TT>MISC_DYNAMIC_MINOR</TT> rather than <TT>MYDRV_MINOR</TT> in the <TT>mydrv_dev</TT> structure.</P>
+<P class=docText>Each misc driver automatically appears under <SPAN class=docEmphasis>/sys/class/misc/</SPAN><A name="are char"></A> without explicit effort from the driver writer. Because misc drivers are char drivers, the earlier discussion on char driver entry points hold for misc drivers, too. Let's now look at an example misc driver.</P><A name=ch05lev2sec9></A>
+<H4 id=title-ID0EF2OM class=docSection2Title>Device Example: Watchdog Timer</H4>
+<P class=docText><A name="unresponsive system"></A>A watchdog's function is to return an unresponsive system to operational state. It does this by periodically checking the system's pulse and issuing a reset<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05fn04">[4]</A></SUP><A name="registering this"></A> if it can't detect any. Application software is responsible for registering this pulse (or "heartbeat") by periodically strobing (or "petting") the watchdog using the services of a watchdog device driver. Most embedded controllers support internal watchdog modules. External watchdog chips are also available. An example is the Netwinder W83977AF chip.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn04>[4]</A></SUP><A name="watchdog may"></A> A watchdog may issue audible beeps rather than a system reset. An example scenario is when a timeout occurs due to a power supply problem, assuming that the watchdog circuit is backed up using a battery or a super capacitor.</P></BLOCKQUOTE>
+<P class=docText><A name=inside></A>Linux watchdog drivers are implemented as misc drivers and live inside <SPAN class=docEmphasis>drivers/char/watchdog/.</SPAN><A name="Watchdog drivers"></A> Watchdog drivers, like RTC drivers, export a standard device interface to user land, so conforming applications are rendered independent of the internals of watchdog hardware. This API is specified in <SPAN class=docEmphasis>Documentation/watchdog/watchdog-api.txt</SPAN><A name="kernel source"></A> in the kernel source tree. Programs that desire the services of a watchdog operate on <SPAN class=docEmphasis>/dev/watchdog</SPAN><A name="device node"></A>, a device node having a misc minor number of 130.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05ex09">Listing 5.9</A><A name="built in"></A> implements a device driver for a fictitious watchdog module built in to an embedded controller. The example watchdog contains two main registers as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05tab02">Table 5.2</A>: a service register (<TT>WD_SERVICE_REGISTER</TT>) and a control register (<TT>WD_CONTROL_REGISTER</TT><A name="writes a"></A>). To pet the watchdog, the driver writes a specific sequence (<TT>0xABCD</TT><A name="driver writes"></A> in this case) to the service register. To program watchdog timeout, the driver writes to specified bit positions in the control register.</P><A name=ch05tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 5.2. Register Layout on the Watchdog Module</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=200>
+<COL width=350></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Register Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>WD_SERVICE_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="register to"></A>Write a specific sequence to this register to pet the watchdog.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>WD_CONTROL_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Write the watchdog timeout to this register.</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="space because"></A>Strobing the watchdog is usually done from user space because the goal of having a watchdog is to detect and respond to both application and kernel hangs. A critical application<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05fn05">[5]</A></SUP><A name="as the"></A> such as the graphics engine in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05ex10">Listing 5.10</A> opens the watchdog driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05ex09">Listing 5.9</A><A name="watchdog timeout"></A> and periodically writes to it. If no write occurs within the watchdog timeout due to an application hang or a kernel crash, the watchdog triggers a system reset. In the case of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05ex10">Listing 5.10</A><A name="the watchdog"></A>, the watchdog will reboot the system if</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn05>[5]</A></SUP><A name="need to"></A> If you need to monitor the health of several applications, you may implement a multiplexer in the watchdog device driver. If any one of the processes that open the driver becomes unresponsive, the watchdog attempts to self-correct the system.</P></BLOCKQUOTE>
+<UL>
+<LI>
+<P class=docList><A name="application hangs"></A>The application hangs inside <TT>process_graphics()</TT></P>
+<LI>
+<P class=docList>The kernel, and consequently the application, dies</P></LI></UL>
+<P class=docText>The watchdog starts ticking when an application opens <SPAN class=docEmphasis>/dev/watchdog.</SPAN><A name=set></A> Closing this device node stops the watchdog unless you set <TT>CONFIG_WATCHDOG_NOWAYOUT</TT><A name="helps you"></A> during kernel configuration. Setting this option helps you tide over the possibility that the watchdog monitoring process (such as <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05ex10">Listing 5.10</A>) gets killed by a signal while the system continues running.</P><A name=ch05ex09></A>
+<H5 id=title-ID0EQAPM class=docExampleTitle>Listing 5.9. An Example Watchdog Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX miscdevice.h="">
+#include <LINUX watchdog.h="">
+
+#define DEFAULT_WATCHDOG_TIMEOUT 10  /* 10-second timeout */
+#define TIMEOUT_SHIFT             5  /* To get to the timeout field
+                                        in WD_CONTROL_REGISTER */
+#define WENABLE_SHIFT             3  /* To get to the
+                                        watchdog-enable field in
+                                        WD_CONTROL_REGISTER */
+
+/* Misc structure */
+static struct miscdevice my_wdt_dev = {
+ .minor = WATCHDOG_MINOR, /* defined as 130 in
+                             <SPAN class=docEmphasis>include/linux/miscdevice.h</SPAN>*/
+ .name = "watchdog",      /* <SPAN class=docEmphasis>/dev/watchdog</SPAN> */
+ .fops = &amp;my_wdt_dog  /* Watchdog driver entry points */
+};
+
+/* Driver methods */
+struct file_operations my_wdt_dog = {
+.owner = THIS_MODULE,
+.open = my_wdt_open,
+.release = my_wdt_close,
+.write = my_wdt_write,
+.ioctl = my_wdt_ioctl
+}
+
+/* Module Initialization */
+static int __init
+my_wdt_init(void)
+{
+  /* ... */
+  misc_register(&amp;my_wdt_dev);
+  /* ... */
+}
+/* Open watchdog */
+static void
+my_wdt_open(struct inode *inode, struct file *file)
+{
+  /* Set the timeout and enable the watchdog */
+  WD_CONTROL_REGISTER |= DEFAULT_WATCHDOG_TIMEOUT &lt;&lt; TIMEOUT_SHIFT;
+  WD_CONTROL_REGISTER |= 1 &lt;&lt; WENABLE_SHIFT;
+}
+
+/* Close watchdog */
+static int
+my_wdt_close(struct inode *inode, struct file *file)
+{
+  /* If CONFIG_WATCHDOG_NOWAYOUT is chosen during kernel
+     configuration, do not disable the watchdog even if the
+     application desires to close it */
+#ifndef CONFIG_WATCHDOG_NOWAYOUT
+  /* Disable watchdog */
+  WD_CONTROL_REGISTER &amp;= ~(1 &lt;&lt; WENABLE_SHIFT);
+#endif
+  return 0;
+}
+
+/* Pet the dog */
+static ssize_t
+my_wdt_write(struct file *file, const char *data,
+             size_t len, loff_t *ppose)
+{
+  /* Pet the dog by writing a specified sequence of bytes to the
+     watchdog service register */
+  WD_SERVICE_REGISTER = 0xABCD;
+}
+
+/* Ioctl method. Look at <SPAN class=docEmphasis>Documentation/watchdog/watchdog-api.txt</SPAN>
+   for the full list of ioctl commands. This is standard across
+   watchdog drivers, so conforming applications are rendered
+   hardware-independent */
+static int
+my_wdt_ioctl(struct inode *inode, struct file *file,
+             unsigned int cmd, unsigned long arg)
+{
+   /* ... */
+   switch (cmd) {
+     case WDIOC_KEEPALIVE:
+       /* Write to the watchdog. Applications can invoke
+          this ioctl instead of writing to the device */
+       WD_SERVICE_REGISTER = 0xABCD;
+       break;
+     case WDIOC_SETTIMEOUT:
+        copy_from_user(&amp;timeout, (int *)arg, sizeof(int));
+
+       /* Set the timeout that defines unresponsiveness by
+          writing to the watchdog control register */
+        WD_CONTROL_REGISTER = timeout &lt;&lt; TIMEOUT_BITS;
+       break;
+     case WDIOC_GETTIMEOUT:
+       /* Get the currently set timeout from the watchdog */
+       /* ... */
+       break;
+     default:
+       return &#37413;&#25544;NOTTY;
+   }
+}
+
+/* Module Exit */
+static void __exit
+my_wdt_exit(void)
+{
+  /* ... */
+  misc_deregister(&amp;my_wdt_dev);
+  /* ... */
+}
+
+module_init(my_wdt_init);
+module_exit(my_wdt_exit);
+
+					  </LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText></P><A name=ch05ex10></A>
+<H5 id=title-ID0ETBPM class=docExampleTitle>Listing 5.10. A Watchdog User</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>#include <FCNTL.H>
+#include <ASM types.h="">
+#include <LINUX watchdog.h="">
+
+int
+main()
+{
+  int new_timeout;
+
+  int wfd = open("/dev/watchdog", O_WRONLY);
+
+  /* Set the watchdog timeout to 20 seconds */
+  new_timeout = 20;
+  ioctl(fd, WDIOC_SETTIMEOUT, &amp;new_timeout);
+
+  while (1) {
+    /* Graphics processing */
+    process_graphics();
+    /* Pet the watchdog */
+    ioctl(fd, WDIOC_KEEPALIVE, 0);
+    /* Or instead do: write(wfd, "\0", 1); */
+    fsync(wfd);
+  }
+}</LINUX></ASM></FCNTL.H></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText></P><A name=ch05sb03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>External Watchdogs</H2>
+<P class=docText><A name=iddle4077></A><A name=iddle2040></A><A name="in the"></A>To ensure that the system attempts to recover even in the face of processor failures, some regulatory bodies stipulate the use of an external watchdog chip, even if the main processor has a sophisticated built-in watchdog module such as the one in our example. Because of this requirement, embedded devices sometimes use an inexpensive no-frill watchdog chip (such as MAX6730 from Maxim) that is based on simple hard-wired logic rather than a register interface. The watchdog asserts a <SPAN class=docEmphasis>reset</SPAN><A name="detected on"></A> pin if no voltage pulse is detected on an <SPAN class=docEmphasis>input</SPAN><A name="is connected"></A> pin within a fixed reset timeout. The reset pin is connected to the reset logic of the processor, and the input pin is wired to a processor GPIO port. All that software has to do to prevent reset is to periodically pulse the watchdog's input pin within the chip's reset timeout. If you are writing a driver for such a device, the <TT>ioctl()</TT><A name="is not"></A> method is not relevant. The driver's <TT>write()</TT><A name="the associated"></A> method pulses the watchdog's input pin whenever application software writes to the associated device node. To aid manufacturing and field diagnostics, the watchdog is wired such that it can be disabled by wiggling a processor GPIO pin.</P>
+<P class=docText><A name="Such chips"></A>Such chips usually allow a large initial timeout to account for boot time, followed by shorter reset timeouts.</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="that do"></A>For platforms that do not support a hardware watchdog module, the kernel implements a software watchdog, also called a <SPAN class=docEmphasis>softdog.</SPAN><A name="softdog driver"></A> The softdog driver, <SPAN class=docEmphasis>drivers/char/watchdog/softdog.c</SPAN><A name="operate on"></A>, is a pseudo misc driver because it does not operate on real hardware. The <A name=iddle1432></A><A name=iddle2845></A><A name=iddle3692></A><A name=iddle4083></A><A name="two tasks"></A>softdog driver has to perform two tasks that a watchdog driver doesn't have to do, which the latter accomplishes in hardware:</P>
+<UL>
+<LI>
+<P class=docList>Implement a timeout mechanism</P>
+<LI>
+<P class=docList>Initiate a soft reboot if the system isn't healthy</P></LI></UL>
+<P class=docText><A name="timer handler"></A>This is done by delaying the execution of a timer handler whenever an application writes to the softdog. If no write occurs to the softdog within a timeout, the timer handler fires and reboots the system.</P>
+<P class=docText><A name="the sensing"></A>A related support in 2.6 kernels is the sensing of <SPAN class=docEmphasis>soft lockups</SPAN><A name="for "></A>, which are instances when scheduling does not occur for 10 or more seconds. A kernel thread <SPAN class=docEmphasis>watchdog/N</SPAN>, where <SPAN class=docEmphasis>N</SPAN><A name="the CPU"></A> is the CPU number, touches a per-CPU timestamp every second. If the thread doesn't touch the timestamp for more than 10 seconds, the system is deemed to have locked up. Soft lockup detection (implemented in <SPAN class=docEmphasis>kernel/softlockup.c</SPAN><A name="section "></A>) will aid us while debugging a kernel crash in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec3.html#ch21lev2sec14">Kdump</A><A name=in></A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21">Chapter 21</A>, "Debugging Device Drivers."</P>
+<P class=docText><A name="several more"></A>There are several more misc drivers in the kernel. The Qtronix infrared keyboard driver, <SPAN class=docEmphasis>drivers/char/qtronix.c</SPAN><A name="another example"></A>, is another example of a char driver that has a misc form factor. Do a grep on <TT>misc_register()</TT> in the <SPAN class=docEmphasis>drivers/char/</SPAN><A name="the kernel"></A> directory to find other misc device drivers present in the kernel.

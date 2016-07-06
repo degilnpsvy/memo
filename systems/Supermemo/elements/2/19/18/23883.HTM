@@ -1,0 +1,40 @@
+<H4 id=title-ID0EIMOM class=docSection2Title>Long Delays</H4>
+<P class=docText><A name=of></A><FONT class=extract>In kernel terms, delays in the order of <TT>jiffies</TT></FONT><A name="long delays"></A><FONT class=extract> are considered long durations.</FONT> A possible, but nonoptimal, way to accomplish long delays is by busy-looping. A function that busy-waits has a dog-in-the-manger attitude. It neither uses the processor for doing useful work nor lets others use it. <FONT class=extract>The following code hogs the process or for 1 second:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long timeout = jiffies + HZ;
+while (time_before(jiffies, timeout)) continue;</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle1742></A><A name=iddle2353></A><A name=iddle3080></A><A name=iddle3884></A><A name=iddle4616></A><A name="better approach"></A><FONT class=extract>A better approach is to sleep-wait, instead of busy-wait. Your code yields the processor to others, while waiting for the time delay to elapse. This is done using <TT>schedule_timeout</TT><TT>()</TT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long timeout = jiffies + HZ;
+schedule_timeout(timeout);  /* Allow other parts of the
+                               kernel to run */</FONT></PRE></DIV><BR>
+<P class=docText><A name="the timeout"></A><FONT class=extract>The delay guarantee is only on the lower bound of the timeout.</FONT> <FONT class=extract>Whether from kernel space or from user space, it's difficult to get more precise control over timeouts than the granularity of <TT>HZ</TT></FONT><A name="because process"></A><FONT class=extract> because process time slices are updated by the kernel scheduler only during timer ticks. Also, even if your process is scheduled to run after the specified timeout, the scheduler can decide to pick another process from the run queue based on priorities.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec4.html#ch02fn03">[3]</A></SUP></FONT></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch02fn03><FONT class=extract>[3]</FONT></A></SUP><A name="properties have"></A><FONT class=extract> These scheduler properties have changed with the advent of the CFS scheduler in the 2.6.23 kernel. Linux process schedulers are discussed in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19"><FONT class=extract>Chapter 19</FONT></A><A name="User Space"></A><FONT class=extract>, "Drivers in User Space."</FONT></P></BLOCKQUOTE>
+<P class=docText><FONT class=extract>Two other functions that facilitate sleep-waiting are <TT>wait_event_timeout()</TT> and <TT>msleep()</TT>. Both of them are implemented with the help of <TT>schedule_timeout()</TT>. <TT>wait_event_timeout()</TT></FONT><A name="if a"></A><FONT class=extract> is used when your code desires to resume execution if a specified condition becomes true or if a timeout occurs. <TT>msleep()</TT></FONT><A name="of milliseconds"></A><FONT class=extract> sleeps for the specified number of milliseconds.</FONT></P>
+<P class=docText><A name="cannot be"></A><FONT class=extract>Such long-delay techniques are suitable for use only from process context. Sleep-waiting cannot be done from interrupt context because interrupt handlers are not allowed to <TT>schedule()</TT> or sleep. (See "</FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04lev1sec2"><FONT class=extract>Interrupt Handling</FONT></A><FONT class=extract>" in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><A name="code executing"></A><FONT class=extract> for a list of do's and don'ts for code executing in interrupt context.) Busy-waiting for a short duration is possible from interrupt context, but long busy-waiting in that context is considered a mortal sin. Equally taboo is long busy-waiting with interrupts disabled.</FONT></P>
+<P class=docText><A name="a function"></A><FONT class=extract>The kernel also provides timer APIs to execute a function at a point of time in the future. You can dynamically define a timer using <TT>init_timer()</TT></FONT><A name="statically create"></A><FONT class=extract> or statically create one with <TT>DEFINE_TIMER()</TT>. After this is done, populate a <TT>timer_list</TT> </FONT><A name=iddle1047></A><A name=iddle1487></A><A name=iddle1489></A><A name=iddle1744></A><A name=iddle3021></A><A name=iddle3989></A><A name=iddle4262></A><A name=iddle4264></A><A name="it using"></A><FONT class=extract>with the address and parameters of your handler function, and register it using <TT>add_timer()</TT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <LINUX timer.h="">
+
+struct timer_list my_timer;
+
+init_timer(&amp;my_timer);            /* Also see setup_timer() */
+my_timer.expire = jiffies + n*HZ; /* n is the timeout in number
+                                     of seconds */
+my_timer.function = timer_func;   /* Function to execute
+                                     after n seconds */
+my_timer.data = func_parameter;   /* Parameter to be passed
+                                     to timer_func */
+add_timer(&amp;my_timer);             /* Start the timer */</LINUX></FONT></PRE></DIV><BR>
+<P class=docText><A name="Note that"></A><FONT class=extract>Note that this is a one-shot timer. If you want to run <TT>timer_func()</TT></FONT><A name="need to"></A><FONT class=extract> periodically, you also need to add the preceding code inside <TT>timer_func()</TT></FONT><A name="schedule itself"></A><FONT class=extract> to schedule itself after the next timeout:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>static void timer_func(unsigned long func_parameter)
+{
+  /* Do work to be done periodically */
+  /* ... */
+
+  init_timer(&amp;my_timer);
+  my_timer.expire   = jiffies + n*HZ;
+  my_timer.data     = func_parameter;
+  my_timer.function = timer_func;
+  add_timer(&amp;my_timer);
+}</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>You may use <TT>mod_timer()</TT> to change the expiration of <TT>my_timer, del_timer()</TT> to cancel <TT>my_timer</TT>, and <TT>timer_pending()</TT> to see whether <TT>my_timer</TT> is pending at the moment. If you look at <SPAN class=docEmphasis>kernel/timer.c</SPAN>, you will find that <TT>schedule_timeout()</TT> internally uses these same APIs.</FONT></P>
+<P class=docText><FONT class=extract>User-space functions such as <TT>clock_settime()</TT> and <TT>clock_gettime()</TT></FONT><A name="A user"></A><FONT class=extract> are used to access kernel timer services from user space. A user application may use <TT>setitimer()</TT> </FONT><A name=iddle1621></A><A name=iddle1747></A><A name=iddle2142></A><A name=iddle2615></A><A name=iddle2616></A><A name=iddle2643></A><A name=iddle2644></A><A name=iddle2853></A><A name=iddle2919></A><A name=iddle3208></A><A name=iddle3553></A><A name=iddle3995></A><A name=iddle4271></A><A name=iddle4272></A><A name=iddle4274></A><A name=iddle4310></A><A name=iddle4377></A><A name=iddle4570></A><FONT class=extract>and <TT>getitimer()</TT></FONT><A name="an alarm"></A><FONT class=extract> to control the delivery of an alarm signal when a specified timeout expires.</FONT>

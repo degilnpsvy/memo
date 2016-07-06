@@ -1,0 +1,23 @@
+<H3 id=title-IDANBBWD class=docSection1Title>15.5. Additional Remote Debug Options</H3>
+<P class=docText>Sometimes you might want to use a serial port for remote debugging. For other tasks, you might find it useful to attach the debugger to a process that is already running. These simple but useful operations are detailed here.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec5.html#ch15fn6">[6]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch15fn6>[6]</A></SUP> Refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14list05">Listing 14-5</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13.html#ch13">Chapter 13</A></P></BLOCKQUOTE><A name=ch15lev2sec6></A>
+<H4 id=title-IDALCBWD class=docSection2Title>15.5.1. Debugging via Serial Port</H4>
+<P class=docText>Debugging via serial port is quite straightforward. Of course, you must have a serial port available on your target that is not being used by another process, such as a serial console. The same limitation applies to your host. A serial port must be available. If both of these conditions can be met, simply replace the <TT>IP:Port</TT> specification passed to <TT>gdbserver</TT> with a serial port specification. Use the same technique when connecting to your target from your host-based GDB.</P>
+<P class=docText>On your target:</P>
+<DIV class=docText><PRE>root@coyote:/workspace # <SPAN class=docEmphStrong>gdbserver /dev/ttyS0 ./tdemo</SPAN>
+Process ./tdemo created; pid = 698
+Remote debugging using /dev/ttyS0</PRE></DIV><BR>
+<P class=docText>From your host:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>xscale_be-gdb -q tdemo</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote /dev/ttyS1</SPAN>
+Remote debugging using /dev/ttyS1
+0x40000790 in ?? ()</PRE></DIV><BR><A name=ch15lev2sec7></A>
+<H4 id=title-IDA2DBWD class=docSection2Title>15.5.2. Attaching to a Running Process</H4>
+<P class=docText>It is often advantageous to connect to a process to examine its state while it is running instead of killing the process and starting it again. With <TT>gdbserver</TT>, it is trivial:</P>
+<DIV class=docText><PRE>root@coyote:/workspace # <SPAN class=docEmphStrong>ps ax | grep tdemo</SPAN>
+ 1030 pts/0    Sl+    0:00 ./tdemo
+root@coyote:/workspace # <SPAN class=docEmphStrong>gdbserver localhost:2001 --attach 1030</SPAN>
+Attached; pid = 1030
+Listening on port 2001</PRE></DIV><BR>
+<P class=docText>When you are finished examining the process under debug, you can issue the <TT>gdb detach</TT> command. This detaches the <TT>gdbserver</TT> from the application on the target and terminates the debug session. The application continues where it left off. This is a very useful technique for examining a running program. Be aware, though, that when you attach to the process, it halts, waiting for instructions from you. It will not resume execution until instructed to do so, using either the <TT>continue</TT> command or the <TT>detach</TT> command. Also note that you can use the <TT>detach</TT> command at almost any time to end the debug session and leave the application running on the target.

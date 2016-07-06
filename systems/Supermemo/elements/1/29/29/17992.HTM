@@ -1,0 +1,96 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>16.6.1 Using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>chdir()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE></H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This section shows how to use the new functions at the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>level once they&#8217;ve been integrated into the running<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>interpreter. Using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>chdir()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is very straightforward. It takes one argument, the new directory to change to:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>@load "filefuncs"
+&#8230;
+newdir = "/home/arnold/funstuff"
+ret = chdir(newdir)
+if (ret &lt; 0) {
+    printf("could not change to %s: %s\n",
+                   newdir, ERRNO) &gt; "/dev/stderr"
+    exit 1
+}
+&#8230;
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The return value is negative if the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>chdir()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>failed, and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ERRNO</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Built_002din-Variables">Built-in Variables</A>) is set to a string indicating the error.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a bit more complicated. The C<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function fills in a structure that has a fair amount of information. The right way to model this in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is to fill in an associative array with the appropriate information:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>file = "/home/arnold/.profile"
+ret = stat(file, fdata)
+if (ret &lt; 0) {
+    printf("could not stat %s: %s\n",
+             file, ERRNO) &gt; "/dev/stderr"
+    exit 1
+}
+printf("size of %s is %d bytes\n", file, fdata["size"])
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function always clears the data array, even if the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>fails. It fills in the following elements:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>"name"</CODE></DT>
+<DD>
+<P>The name of the file that was<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE>&#8217;ed.</P></DD>
+<DT><CODE>"dev"</CODE></DT>
+<DT><CODE>"ino"</CODE></DT>
+<DD>
+<P>The file&#8217;s device and inode numbers, respectively.</P></DD>
+<DT><CODE>"mode"</CODE></DT>
+<DD>
+<P>The file&#8217;s mode, as a numeric value. This includes both the file&#8217;s type and its permissions.</P></DD>
+<DT><CODE>"nlink"</CODE></DT>
+<DD>
+<P>The number of hard links (directory entries) the file has.</P></DD>
+<DT><CODE>"uid"</CODE></DT>
+<DT><CODE>"gid"</CODE></DT>
+<DD>
+<P>The numeric user and group ID numbers of the file&#8217;s owner.</P></DD>
+<DT><CODE>"size"</CODE></DT>
+<DD>
+<P>The size in bytes of the file.</P></DD>
+<DT><CODE>"blocks"</CODE></DT>
+<DD>
+<P>The number of disk blocks the file actually occupies. This may not be a function of the file&#8217;s size if the file has holes.</P></DD>
+<DT><CODE>"atime"</CODE></DT>
+<DT><CODE>"mtime"</CODE></DT>
+<DT><CODE>"ctime"</CODE></DT>
+<DD>
+<P>The file&#8217;s last access, modification, and inode update times, respectively. These are numeric timestamps, suitable for formatting with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>strftime()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Time-Functions">Time Functions</A>).</P></DD>
+<DT><CODE>"pmode"</CODE></DT>
+<DD>
+<P>The file&#8217;s &#8220;printable mode.&#8221; This is a string representation of the file&#8217;s type and permissions, such as is produced by &#8216;<SAMP>ls -l</SAMP>&#8217;&#8212;for example,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>"drwxr-xr-x"</CODE>.</P></DD>
+<DT><CODE>"type"</CODE></DT>
+<DD>
+<P>A printable string representation of the file&#8217;s type. The value is one of the following:</P>
+<DL compact>
+<DT><CODE>"blockdev"</CODE></DT>
+<DT><CODE>"chardev"</CODE></DT>
+<DD>
+<P>The file is a block or character device (&#8220;special file&#8221;).</P></DD>
+<DT><CODE>"directory"</CODE></DT>
+<DD>
+<P>The file is a directory.</P></DD>
+<DT><CODE>"fifo"</CODE></DT>
+<DD>
+<P>The file is a named-pipe (also known as a FIFO).</P></DD>
+<DT><CODE>"file"</CODE></DT>
+<DD>
+<P>The file is just a regular file.</P></DD>
+<DT><CODE>"socket"</CODE></DT>
+<DD>
+<P>The file is an<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AF_UNIX</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(&#8220;Unix domain&#8221;) socket in the filesystem.</P></DD>
+<DT><CODE>"symlink"</CODE></DT>
+<DD>
+<P>The file is a symbolic link.</P></DD></DL></DD>
+<DT><CODE>"devbsize"</CODE></DT>
+<DD>
+<P>The size of a block for the element indexed by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>"blocks"</CODE>. This information is derived from either the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>DEV_BSIZE</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>constant defined in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>&lt;sys/param.h&gt;</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>on most systems, or the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>S_BLKSIZE</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>constant in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>&lt;sys/stat.h&gt;</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>on BSD systems. For some other systems,<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>a priori</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>knowledge is used to provide a value. Where no value can be determined, it defaults to 512.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Several additional elements may be present depending upon the operating system and the type of the file. You can test for them in your<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>program by using the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>in</CODE>operator (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Reference-to-Elements">Reference to Elements</A>):</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>"blksize"</CODE></DT>
+<DD>
+<P>The preferred block size for I/O to the file. This field is not present on all POSIX-like systems in the C<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>structure.</P></DD>
+<DT><CODE>"linkval"</CODE></DT>
+<DD>
+<P>If the file is a symbolic link, this element is the name of the file the link points to (i.e., the value of the link).</P></DD>
+<DT><CODE>"rdev"</CODE></DT>
+<DT><CODE>"major"</CODE></DT>
+<DT><CODE>"minor"</CODE></DT>
+<DD>
+<P>If the file is a block or character device file, then these values represent the numeric device number and the major and minor components of that number, respectively.</P></DD></DL>

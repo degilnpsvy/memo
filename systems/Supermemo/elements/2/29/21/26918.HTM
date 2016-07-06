@@ -1,0 +1,352 @@
+<H1>Documentation/TCG/frontend-ops</H1>
+<DIV id=contentSub></DIV>
+<TABLE id=toc class=toc summary=Contents>
+<TBODY>
+<TR>
+<TD>
+<DIV id=toctitle>
+<H2>Contents</H2><SPAN class=toctoggle>[<A id=togglelink class=internal toggleToc()?>hide</A>]</SPAN></DIV>
+<UL>
+<LI class=toclevel-1><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Frontend_Ops"><SPAN class=tocnumber>1</SPAN> <SPAN class=toctext>Frontend Ops</SPAN></A> 
+<UL>
+<LI class=toclevel-2><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Conventions"><SPAN class=tocnumber>1.1</SPAN> <SPAN class=toctext>Conventions</SPAN></A> 
+<LI class=toclevel-2><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Non-Ops"><SPAN class=tocnumber>1.2</SPAN> <SPAN class=toctext>Non-Ops</SPAN></A> 
+<UL>
+<LI class=toclevel-3><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Registers"><SPAN class=tocnumber>1.2.1</SPAN> <SPAN class=toctext>Registers</SPAN></A> 
+<LI class=toclevel-3><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Temporaries"><SPAN class=tocnumber>1.2.2</SPAN> <SPAN class=toctext>Temporaries</SPAN></A> 
+<LI class=toclevel-3><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Labels"><SPAN class=tocnumber>1.2.3</SPAN> <SPAN class=toctext>Labels</SPAN></A></LI></UL>
+<LI class=toclevel-2><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Ops"><SPAN class=tocnumber>1.3</SPAN> <SPAN class=toctext>Ops</SPAN></A> 
+<UL>
+<LI class=toclevel-3><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Math"><SPAN class=tocnumber>1.3.1</SPAN> <SPAN class=toctext>Math</SPAN></A> 
+<LI class=toclevel-3><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Bit"><SPAN class=tocnumber>1.3.2</SPAN> <SPAN class=toctext>Bit</SPAN></A> 
+<LI class=toclevel-3><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Byte"><SPAN class=tocnumber>1.3.3</SPAN> <SPAN class=toctext>Byte</SPAN></A> 
+<LI class=toclevel-3><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Load.2FStore"><SPAN class=tocnumber>1.3.4</SPAN> <SPAN class=toctext>Load/Store</SPAN></A> 
+<LI class=toclevel-3><A href="http://wiki.qemu.org/Documentation/TCG/frontend-ops#Code_Flow"><SPAN class=tocnumber>1.3.5</SPAN> <SPAN class=toctext>Code Flow</SPAN></A></LI></UL></LI></UL></LI></UL></TD></TR></TBODY></TABLE><A id=Frontend_Ops name=Frontend_Ops></A>
+<H1><SPAN class=mw-headline>Frontend Ops </SPAN></H1>
+<P>These are the supported operations as implemented by the <FONT class=extract>TCG frontend for the target cpu (what QEMU executes; not where QEMU executes).</FONT> This information is useful for people who want to port QEMU to emulate a new processor. </P>
+<P>You can find all of the frontend helpers in <TT><A title=http://git.savannah.gnu.org/cgit/qemu.git/tree/tcg/tcg-op.h class="external text" href="http://git.savannah.gnu.org/cgit/qemu.git/tree/tcg/tcg-op.h" rel=nofollow>tcg/tcg-op.h</A></TT>. This page covers all them; it does not cover the mechanism for defining <A title="Documentation/TCG/helpers (page does not exist)" class=new href="http://wiki.qemu.org/index.php?title=Documentation/TCG/helpers&amp;action=edit&amp;redlink=1">port-specific helpers</A>(dead link). </P><A id=Conventions name=Conventions></A>
+<H2><SPAN class=mw-headline><FONT class=extract>Conventions </FONT></SPAN></H2>
+<UL>
+<LI><FONT class=extract>When the term <I>register</I> is used unqualified, it most likely is referring to a TCG register. </FONT></LI></UL>
+<UL>
+<LI><FONT class=extract>The frontend helpers for generating TCG opcodes typically take the form: <TT>tcg_gen_<I>&lt;op&gt;[i]</I>_<I>&lt;reg_size&gt;</I></TT>. </FONT>
+<UL>
+<LI><FONT class=extract>The <I>&lt;op&gt;</I> is the TCG operation that will be generated for its arguments. </FONT>
+<LI><FONT class=extract>The <I>[i]</I> suffix is used to indicate the TCG operation takes an </FONT><A title=http://en.wikipedia.org/wiki/Constant_(programming) class="external text" href="http://en.wikipedia.org/wiki/Constant_%28programming%29" rel=nofollow><FONT class=extract>immediate</FONT></A><FONT class=extract> rather than a normal register. </FONT>
+<LI><FONT class=extract>The <I>&lt;reg_size&gt;</I> refers to the size of the TCG registers in use. The vast majority of the time, this will match the native size of the emulated target, so rather than force people to type <I>i32</I> or <I>i64</I> all the time, the shorthand <I>tl</I> is made available for all helpers. e.g. to perform a 32bit register move for a 32bit target, simply use <I>tcg_gen_mov_tl</I> rather than <I>tcg_gen_mov_i32</I>. </FONT></LI></UL></LI></UL>
+<UL>
+<LI><FONT class=extract>We won't cover the immediate variants of functions as their usage should be fairly obvious once you grasp the register version. </FONT></LI></UL>
+<UL>
+<LI><FONT class=extract>To keep things simple, we'll cover the <I>tl</I> variants here. If you need to delve into explicit types, then you should probably know what you're doing anyways, so you're beyond the current scope of this wiki page. </FONT></LI></UL>
+<UL>
+<LI><FONT class=extract>Similarly, rather than using <I>TCGv_i32</I> and <I>TCGv_i64</I> everywhere, people should stick to <I>TCGv</I> and <I>TCGv_ptr</I>. </FONT></LI></UL>
+<UL>
+<LI><FONT class=extract>The <TT>tcg_gen_xxx</TT> arguments typically place the return value first followed by the operands. So to add two registers (<TT>a = b + c</TT>), the code would be <TT>tcg_gen_xxx(a, b, c);</TT>.</FONT> </LI></UL><A id=Non-Ops name=Non-Ops></A>
+<H2><SPAN class=mw-headline>Non-Ops </SPAN></H2>
+<P>Some non-ops helpers are also provided. </P><A id=Registers name=Registers></A>
+<H3><SPAN class=mw-headline><FONT class=extract>Registers </FONT></SPAN></H3>
+<P><FONT class=extract>Most of the core registers of the emulated processor should have a TCG register equivalent. For processor status flags (or similar oddities), ports will employ tricks to speed things up. This is obviously left up to the discretion of the processor port maintainer. </FONT></P>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>TCGv reg = tcg_global_mem_new(TCG_AREG0, offsetof(CPUState, reg), "reg");</TT> </FONT></TD>
+<TD><FONT class=extract>Declare a named TCG register </FONT></TD></TR></TBODY></TABLE><A id=Temporaries name=Temporaries></A>
+<H3><SPAN class=mw-headline><FONT class=extract>Temporaries </FONT></SPAN></H3>
+<P><FONT class=extract>Often times, target insns cannot be broken down into one or two simple RISC insns which means temporary registers might be necessary to store intermediate results. Rather than each frontend maintaining its own static set of temporary scratch registers, helpers are provided to manage these on the fly. </FONT></P>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>TCGv tmp = tcg_temp_new();</TT> </FONT></TD>
+<TD><FONT class=extract>Create a new temporary register </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>TCGv tmpl = tcg_temp_local_new();</TT> </FONT></TD>
+<TD><FONT class=extract>Create a local temporary register. Simple temporary register cannot carry its value across jump/brcond, only local temporary can. </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_temp_free(tmp);</TT> </FONT></TD>
+<TD><FONT class=extract>Free a temporary register </FONT></TD></TR></TBODY></TABLE>
+<P><FONT class=extract>You should not try to "hold on" to temporary registers beyond the target insn you're currently generating. If you need long lived registers, consider allocating a proper one.</FONT> </P><A id=Labels name=Labels></A>
+<H3><SPAN class=mw-headline><FONT class=extract>Labels </FONT></SPAN></H3>
+<P><FONT class=extract>Labels are used to generate conditional code. Here we'll just cover their management; later we'll get into using them in conjunction with opcodes. </FONT></P>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>int l = gen_new_label();</TT> </FONT></TD>
+<TD><FONT class=extract>Create a new label. </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>gen_set_label(l);</TT> </FONT></TD>
+<TD><FONT class=extract>Label the current location. </FONT></TD></TR></TBODY></TABLE><A id=Ops name=Ops></A>
+<H2><SPAN class=mw-headline>Ops </SPAN></H2>
+<P>These frontend ops expand into <A title=Documentation/TCG/backend-ops href="http://wiki.qemu.org/Documentation/TCG/backend-ops">backend ops</A>. Consulting that page might be useful for deeper insight into the front/back end relationship. </P><A id=Math name=Math></A>
+<H3><SPAN class=mw-headline><FONT class=extract>Math </FONT></SPAN></H3>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_add_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Addition class="external text" href="http://en.wikipedia.org/wiki/Addition" rel=nofollow><FONT class=extract>Add two registers</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 + arg2 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_div_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Division_(mathematics) class="external text" href="http://en.wikipedia.org/wiki/Division_%28mathematics%29" rel=nofollow><FONT class=extract>Divide two signed registers and return the result</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 / arg2 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_divu_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Division_(mathematics) class="external text" href="http://en.wikipedia.org/wiki/Division_%28mathematics%29" rel=nofollow><FONT class=extract>Divide two unsigned registers and return the result</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 / arg2 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_mov_tl(ret, arg1);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Assignment_(mathematical_logic) class="external text" href="http://en.wikipedia.org/wiki/Assignment_%28mathematical_logic%29" rel=nofollow><FONT class=extract>Assign one register to another</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_mul_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Multiplication class="external text" href="http://en.wikipedia.org/wiki/Multiplication" rel=nofollow><FONT class=extract>Multiply two signed registers and return the result</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 * arg2 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_mulu_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Multiplication class="external text" href="http://en.wikipedia.org/wiki/Multiplication" rel=nofollow><FONT class=extract>Multiply two unsigned registers and return the result</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 * arg2 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_neg_tl(ret, arg1);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Negation class="external text" href="http://en.wikipedia.org/wiki/Negation" rel=nofollow><FONT class=extract>Negate the sign of a register</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = -arg1 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_rem_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Division_(mathematics) class="external text" href="http://en.wikipedia.org/wiki/Division_%28mathematics%29" rel=nofollow><FONT class=extract>Divide two signed registers and return the remainder</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1&nbsp;% arg2 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_remu_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Division_(mathematics) class="external text" href="http://en.wikipedia.org/wiki/Division_%28mathematics%29" rel=nofollow><FONT class=extract>Divide two unsigned registers and return the remainder</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1&nbsp;% arg2 </FONT></TD></TR></TBODY>
+<CAPTION><FONT class=extract></FONT></CAPTION>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_sub_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Subtraction class="external text" href="http://en.wikipedia.org/wiki/Subtraction" rel=nofollow><FONT class=extract>Subtract two registers</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 - arg2 </FONT></TD></TR></TBODY></TABLE><A id=Bit name=Bit></A>
+<H3><SPAN class=mw-headline><FONT class=extract>Bit </FONT></SPAN></H3>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_and_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Logical_conjunction class="external text" href="http://en.wikipedia.org/wiki/Logical_conjunction" rel=nofollow><FONT class=extract>Logical AND two registers</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 &amp; arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_andc_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><FONT class=extract>Logical AND one register with the complement of another </FONT></TD>
+<TD><FONT class=extract>ret = arg1 &amp; ~arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_eqv_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Logical_equivalence class="external text" href="http://en.wikipedia.org/wiki/Logical_equivalence" rel=nofollow><FONT class=extract>Compute logical equivalent of two registers</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret =&nbsp;!(arg1 ^ arg2) </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_nand_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Logical_NAND class="external text" href="http://en.wikipedia.org/wiki/Logical_NAND" rel=nofollow><FONT class=extract>Logical NAND two registers</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 &#8593; arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_nor_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Logical_NOR class="external text" href="http://en.wikipedia.org/wiki/Logical_NOR" rel=nofollow><FONT class=extract>Logical NOR two registers</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 &#8595; arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_not_tl(ret, arg1);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Negation class="external text" href="http://en.wikipedia.org/wiki/Negation" rel=nofollow><FONT class=extract>Logical NOT an register</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret =&nbsp;!arg1 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_or_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Logical_disjunction class="external text" href="http://en.wikipedia.org/wiki/Logical_disjunction" rel=nofollow><FONT class=extract>Logical OR two registers</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 | arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_orc_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><FONT class=extract>Logical OR one register with the complement of another </FONT></TD>
+<TD><FONT class=extract>ret = arg1 | ~arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_rotl_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Circular_shift class="external text" href="http://en.wikipedia.org/wiki/Circular_shift" rel=nofollow><FONT class=extract>Rotate left one register by magnitude of another</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 rotl arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_rotr_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Circular_shift class="external text" href="http://en.wikipedia.org/wiki/Circular_shift" rel=nofollow><FONT class=extract>Rotate right one register by magnitude of another</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 rotr arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_sar_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Arithmetic_shift class="external text" href="http://en.wikipedia.org/wiki/Arithmetic_shift" rel=nofollow><FONT class=extract>Arithmetic shift right one operand by magnitude of another</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 &gt;&gt; arg2 /* Sign fills vacant bits */ </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_shl_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Logical_shift class="external text" href="http://en.wikipedia.org/wiki/Logical_shift" rel=nofollow><FONT class=extract>Logical shift left one registerby magnitude of another</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 &lt;&lt; arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_shr_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Logical_shift class="external text" href="http://en.wikipedia.org/wiki/Logical_shift" rel=nofollow><FONT class=extract>Logical shift right one register by magnitude of another</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 &gt;&gt; arg2 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_xor_tl(ret, arg1, arg2);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Exclusive_or class="external text" href="http://en.wikipedia.org/wiki/Exclusive_or" rel=nofollow><FONT class=extract>Logical XOR two registers</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = arg1 ^ arg2 </FONT></TD></TR></TBODY></TABLE><A id=Byte name=Byte></A>
+<H3><SPAN class=mw-headline><FONT class=extract>Byte </FONT></SPAN></H3>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_bswap16_tl(ret, arg1);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Endianness class="external text" href="http://en.wikipedia.org/wiki/Endianness" rel=nofollow><FONT class=extract>Byte swap a 16bit register</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = ((arg1 &amp; 0xff00) &gt;&gt; 8) | ((arg1 &amp; 0xff) &lt;&lt; 8) </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_bswap32_tl(ret, arg1);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Endianness class="external text" href="http://en.wikipedia.org/wiki/Endianness" rel=nofollow><FONT class=extract>Byte swap a 32bit register</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = ...see bswap16 and extend to 32bits... </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_bswap64_tl(ret, arg1);</TT> </FONT></TD>
+<TD><A title=http://en.wikipedia.org/wiki/Endianness class="external text" href="http://en.wikipedia.org/wiki/Endianness" rel=nofollow><FONT class=extract>Byte swap a 64bit register</FONT></A><FONT class=extract> </FONT></TD>
+<TD><FONT class=extract>ret = ...see bswap32 and extend to 64bits... </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ext8s_tl(ret, arg1);</TT> </FONT></TD>
+<TD><FONT class=extract>Sign extend an 8bit register </FONT></TD>
+<TD><FONT class=extract>ret = (int8_t)arg1 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ext8u_tl(ret, arg1);</TT> </FONT></TD>
+<TD><FONT class=extract>Zero extend an 8bit register </FONT></TD>
+<TD><FONT class=extract>ret = (uint8_t)arg1 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ext16s_tl(ret, arg1);</TT> </FONT></TD>
+<TD><FONT class=extract>Sign extend an 16bit register </FONT></TD>
+<TD><FONT class=extract>ret = (int16_t)arg1 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ext16u_tl(ret, arg1);</TT> </FONT></TD>
+<TD><FONT class=extract>Zero extend an 16bit register </FONT></TD>
+<TD><FONT class=extract>ret = (uint16_t)arg1 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ext32s_tl(ret, arg1);</TT> </FONT></TD>
+<TD><FONT class=extract>Sign extend an 32bit register </FONT></TD>
+<TD><FONT class=extract>ret = (int32_t)arg1 </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ext32u_tl(ret, arg1);</TT> </FONT></TD>
+<TD><FONT class=extract>Zero extend an 32bit register </FONT></TD>
+<TD><FONT class=extract>ret = (uint32_t)arg1 </FONT></TD></TR></TBODY></TABLE><A id=Load.2FStore name=Load.2FStore></A>
+<H3><SPAN class=mw-headline><FONT class=extract>Load/Store </FONT></SPAN></H3>
+<P><FONT class=extract>These are for moving data between registers and arbitrary host memory. Typically used for funky CPU state that is not represented by dedicated registers already and thus infrequently used. These are not for accessing the target's memory space; see the QEMU_XX helpers below for that. </FONT></P>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ld8s_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Load an 8bit quantity from host memory and sign extend </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ld8u_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Load an 8bit quantity from host memory and zero extend </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ld16s_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 16bit quantity from host memory and sign extend </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ld16u_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 16bit quantity from host memory and zero extend </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ld32s_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 32bit quantity from host memory and sign extend </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ld32u_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 32bit quantity from host memory and zero extend </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ld64_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 64bit quantity from host memory </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_ld_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Alias to target native sized load </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_st8_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Store a 8bit quantity to host memory </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_st16_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Store a 16bit quantity to host memory </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_st32_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Store a 32bit quantity to host memory </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_st_tl(reg, cpu_env, offsetof(CPUState, reg));</TT> </FONT></TD>
+<TD><FONT class=extract>Alias to target native sized store </FONT></TD></TR></TBODY></TABLE>
+<P><FONT class=extract>These are for moving data between registers and arbitrary target memory. The address to load/store via is always the second argument while the first argument is always the value to be loaded/stored. The third argument (memory index) only makes sense for system targets; user targets will simply specify 0 all the time. </FONT></P>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_ld8s(ret, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Load an 8bit quantity from target memory and sign extend </FONT></TD>
+<TD><FONT class=extract>ret = *(int8_t *)addr </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_ld8u(ret, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Load an 8bit quantity from target memory and zero extend </FONT></TD>
+<TD><FONT class=extract>ret = *(uint8_t *)addr </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_ld16s(ret, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 16bit quantity from target memory and sign extend </FONT></TD>
+<TD><FONT class=extract>ret = *(int8_t *)addr </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_ld16u(ret, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 16bit quantity from target memory and zero extend </FONT></TD>
+<TD><FONT class=extract>ret = *(uint8_t *)addr </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_ld32s(ret, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 32bit quantity from target memory and sign extend </FONT></TD>
+<TD><FONT class=extract>ret = *(int8_t *)addr </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_ld32u(ret, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 32bit quantity from target memory and zero extend </FONT></TD>
+<TD><FONT class=extract>ret = *(uint8_t *)addr </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_ld64(ret, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Load a 64bit quantity from target memory </FONT></TD>
+<TD><FONT class=extract>ret = *(uint64_t *)addr </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_st8(arg, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Store an 8bit quantity to target memory </FONT></TD>
+<TD><FONT class=extract>*(uint8_t *)addr = arg </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_st16(arg, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Store a 16bit quantity to target memory </FONT></TD>
+<TD><FONT class=extract>*(uint16_t *)addr = arg </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_st32(arg, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Store a 32bit quantity to target memory </FONT></TD>
+<TD><FONT class=extract>*(uint32_t *)addr = arg </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_qemu_st64(arg, addr, mem_idx);</TT> </FONT></TD>
+<TD><FONT class=extract>Store a 64bit quantity to target memory </FONT></TD>
+<TD><FONT class=extract>*(uint64_t *)addr = arg </FONT></TD></TR></TBODY></TABLE><A id=Code_Flow name=Code_Flow></A>
+<H3><SPAN class=mw-headline><FONT class=extract>Code Flow </FONT></SPAN></H3>
+<TABLE border=1>
+<TBODY>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_brcond_tl(TCG_COND_XXX, arg1, arg2, label);</TT> </FONT></TD>
+<TD><FONT class=extract>Test two operands and conditionally branch to a label </FONT></TD>
+<TD><FONT class=extract>if (arg1 &lt;condition&gt; arg2) goto label </FONT></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_goto_tb(num);</TT> </FONT></TD>
+<TD><FONT class=extract>Goto translation block (TB chaining) </FONT></TD>
+<TD><FONT class=extract>Every TB can goto_tb to max two other different destinations. There are </FONT>
+<P><FONT class=extract>two jump slots. tcg_gen_goto_tb takes a jump slot index as an arg, 0 or 1. These jumps will only take place if the TB's get chained, you need to tcg_gen_exit_tb with (tb | index) for that to ever happen. tcg_gen_goto_tb may be issued at most once with each slot index per TB. </FONT></P></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_exit_tb(num);</TT> </FONT></TD>
+<TD><FONT class=extract>Exit translation block </FONT></TD>
+<TD><FONT class=extract>num may be 0 or TB address ORed with the index of the taken jump slot. </FONT>
+<P><FONT class=extract>If you tcg_gen_exit_tb(0), chaining will not happen and a new TB will be looked up based on the CPU state. </FONT></P></TD></TR>
+<TR>
+<TD><FONT class=extract><TT>tcg_gen_setcond_tl(TCG_COND_XXX, ret, arg1, arg2);</TT> </FONT></TD>
+<TD><FONT class=extract>Compare two operands </FONT></TD>
+<TD><FONT class=extract>ret = arg1 &lt;condition&gt; arg2</FONT> </TD></TR></TBODY></TABLE>

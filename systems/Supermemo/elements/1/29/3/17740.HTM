@@ -1,0 +1,49 @@
+<H3 class=section>4.7 Defining Fields By Content</H3>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> This section discusses an advanced feature of <CODE>gawk</CODE>. If you are a novice <CODE>awk</CODE> user, you might want to skip it on the first reading. </P></BLOCKQUOTE><A name=index-advanced-features_002c-specifying-field-content></A>
+<P>Normally, when using <CODE>FS</CODE>, <CODE>gawk</CODE> defines the fields as the parts of the record that occur in between each field separator. In other words, <CODE>FS</CODE> defines what a field <EM>is not</EM>, instead of what a field <EM>is</EM>. However, there are times when you really want to define the fields by what they are, and not by what they are not. </P>
+<P>The most notorious such case is so-called <EM>comma separated value</EM> (CSV) data. Many spreadsheet programs, for example, can export their data into text files, where each record is terminated with a newline, and fields are separated by commas. If only commas separated the data, there wouldn&#8217;t be an issue. The problem comes when one of the fields contains an <EM>embedded</EM> comma. While there is no formal standard specification for CSV data<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT24" name=DOCF24><SUP>24</SUP></A>, in such cases, most programs embed the field in double quotes. So we might have data like this: </P>
+<DIV class=example><PRE class=example>Robbins,Arnold,"1234 A Pretty Street, NE",MyTown,MyState,12345-6789,USA
+</PRE></DIV><A name=index-gawk_002c-FPAT-variable-in></A><A name=index-FPAT-variable></A>
+<P>The <CODE>FPAT</CODE> variable offers a solution for cases like this. The value of <CODE>FPAT</CODE> should be a string that provides a regular expression. This regular expression describes the contents of each field. </P>
+<P>In the case of CSV data as presented above, each field is either &#8220;anything that is not a comma,&#8221; or &#8220;a double quote, anything that is not a double quote, and a closing double quote.&#8221; If written as a regular expression constant (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Regexp">Regexp</A>), we would have <CODE>/([^,]+)|("[^"]+")/</CODE>. Writing this as a string requires us to escape the double quotes, leading to: </P>
+<DIV class=example><PRE class=example>FPAT = "([^,]+)|(\"[^\"]+\")"
+</PRE></DIV>
+<P>Putting this to use, here is a simple program to parse the data: </P>
+<DIV class=example><PRE class=example>BEGIN {
+    FPAT = "([^,]+)|(\"[^\"]+\")"
+}
+
+{
+    print "NF = ", NF
+    for (i = 1; i &lt;= NF; i++) {
+        printf("$%d = &lt;%s&gt;\n", i, $i)
+    }
+}
+</PRE></DIV>
+<P>When run, we get the following: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk -f simple-csv.awk addresses.csv</EM></KBD>
+NF =  7
+$1 = &lt;Robbins&gt;
+$2 = &lt;Arnold&gt;
+$3 = &lt;"1234 A Pretty Street, NE"&gt;
+$4 = &lt;MyTown&gt;
+$5 = &lt;MyState&gt;
+$6 = &lt;12345-6789&gt;
+$7 = &lt;USA&gt;
+</PRE></DIV>
+<P>Note the embedded comma in the value of <CODE>$3</CODE>. </P>
+<P>A straightforward improvement when processing CSV data of this sort would be to remove the quotes when they occur, with something like this: </P>
+<DIV class=example><PRE class=example>if (substr($i, 1, 1) == "\"") {
+    len = length($i)
+    $i = substr($i, 2, len - 2)    # Get text within the two quotes
+}
+</PRE></DIV>
+<P>As with <CODE>FS</CODE>, the <CODE>IGNORECASE</CODE> variable (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#User_002dmodified">User-modified</A>) affects field splitting with <CODE>FPAT</CODE>. </P>
+<P>Similar to <CODE>FIELDWIDTHS</CODE>, the value of <CODE>PROCINFO["FS"]</CODE> will be <CODE>"FPAT"</CODE> if content-based field splitting is being used. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Some programs export CSV data that contains embedded newlines between the double quotes. <CODE>gawk</CODE> provides no way to deal with this. Since there is no formal specification for CSV data, there isn&#8217;t much more to be done; the <CODE>FPAT</CODE> mechanism provides an elegant solution for the majority of cases, and the <CODE>gawk</CODE> maintainer is satisfied with that. </P></BLOCKQUOTE>
+<P>As written, the regexp used for <CODE>FPAT</CODE> requires that each field have a least one character. A straightforward modification (changing changed the first &#8216;<SAMP>+</SAMP>&#8217; to &#8216;<SAMP>*</SAMP>&#8217;) allows fields to be empty: </P>
+<DIV class=example><PRE class=example>FPAT = "([^,]*)|(\"[^\"]+\")"
+</PRE></DIV>
+<P>Finally, the <CODE>patsplit()</CODE> function makes the same functionality available for splitting regular strings (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>).

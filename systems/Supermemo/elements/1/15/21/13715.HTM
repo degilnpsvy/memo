@@ -1,0 +1,14 @@
+Consider an example where your targets are to be placed in a separate directory, and that directory might not exist before <CODE>make</CODE> is run. In this situation, you want the directory to be created before any targets are placed into it but, because the timestamps on directories change whenever a file is added, removed, or renamed, we certainly don't want to rebuild all the targets whenever the directory's timestamp changes. One way to manage this is <FONT class=clozed>with order-only prerequisites: make the directory an order-only prerequisite on all the targets: </FONT><PRE class=example><FONT class=clozed>     OBJDIR := objdir
+     OBJS := $(addprefix $(OBJDIR)/,foo.o bar.o baz.o)
+     
+     $(OBJDIR)/%.o : %.c
+             $(COMPILE.c) $(OUTPUT_OPTION) $&lt;
+     
+     all: $(OBJS)
+     
+     $(OBJS): | $(OBJDIR)
+     
+     $(OBJDIR):
+             mkdir $(OBJDIR)
+</FONT></PRE>
+<P><FONT class=clozed>Now the rule to create the <SAMP><SPAN class=file>objdir</SPAN></SAMP> directory will be run, if needed, before any &#8216;<SAMP><SPAN class=samp>.o</SPAN></SAMP>&#8217; is built, but no &#8216;<SAMP><SPAN class=samp>.o</SPAN></SAMP>&#8217; will be built because the <SAMP><SPAN class=file>objdir</SPAN></SAMP> directory timestamp changed.</FONT>

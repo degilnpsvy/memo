@@ -1,0 +1,34 @@
+<TABLE width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top>
+<H2><SPAN class=refentrytitle>Compiling GLib Applications</SPAN></H2>
+<P>Compiling GLib Applications &#8212; How to compile your GLib application </P></TD>
+<TD class=gallery_image vAlign=top align=right></TD></TR></TBODY></TABLE>
+<DIV class=refsect1><A name=id-1.2.6.3></A>
+<H2>Compiling GLib Applications on UNIX</H2>
+<P>To compile a GLib application, you need to tell the compiler where to find the GLib header files and libraries. This is done with the <SPAN class=application>pkg-config</SPAN> utility. </P>
+<P>The following interactive shell session demonstrates how <SPAN class=application>pkg-config</SPAN> is used (the actual output on your system may be different): </P><PRE class=programlisting>$ pkg-config --cflags glib-2.0
+ -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
+$ pkg-config --libs glib-2.0
+ -L/usr/lib -lm -lglib-2.0
+</PRE>
+<P></P>
+<P>See the <A class=ulink href="http://www.freedesktop.org/wiki/Software/pkg-config" target=_top>pkg-config website</A> for more information about <SPAN class=application>pkg-config</SPAN>. </P>
+<P>If your application uses or <SPAN class=structname>GObject</SPAN> features, it must be compiled and linked with the options returned by the following <SPAN class=application>pkg-config</SPAN> invocation: </P><PRE class=programlisting>$ pkg-config --cflags --libs gobject-2.0
+</PRE>
+<P></P>
+<P>If your application uses modules, it must be compiled and linked with the options returned by one of the following <SPAN class=application>pkg-config</SPAN> invocations: </P><PRE class=programlisting>$ pkg-config --cflags --libs gmodule-no-export-2.0
+$ pkg-config --cflags --libs gmodule-2.0
+</PRE>
+<P>The difference between the two is that gmodule-2.0 adds <CODE class=option>--export-dynamic</CODE> to the linker flags, which is often not needed. </P>
+<P>The simplest way to compile a program is to use the "backticks" feature of the shell. If you enclose a command in backticks (<SPAN class=emphasis><EM>not single quotes</EM></SPAN>), then its output will be substituted into the command line before execution. So to compile a GLib Hello, World, you would type the following: </P><PRE class=programlisting>$ cc hello.c `pkg-config --cflags --libs glib-2.0` -o hello
+</PRE>
+<P></P>
+<DIV class=note>
+<P>Note that the name of the file must come before the other options (such as <SPAN class=emphasis><EM>pkg-config</EM></SPAN>), or else you may get an error from the linker. </P></DIV>
+<P>Deprecated GLib functions are annotated to make the compiler emit warnings when they are used (e.g. with gcc, you need to use the -Wdeprecated-declarations option). If these warnings are problematic, they can be turned off by defining the preprocessor symbol <A class=link title=GLIB_DISABLE_DEPRECATION_WARNINGS href="https://developer.gnome.org/glib/stable/glib-Version-Information.html#GLIB-DISABLE-DEPRECATION-WARNINGS:CAPS"><CODE class=literal>GLIB_DISABLE_DEPRECATION_WARNINGS</CODE></A> by using the commandline option <CODE class=literal>-DGLIB_DISABLE_DEPRECATION_WARNINGS</CODE> </P>
+<P>GLib deprecation annotations are versioned; by defining the macros <A class=link title=GLIB_VERSION_MIN_REQUIRED href="https://developer.gnome.org/glib/stable/glib-Version-Information.html#GLIB-VERSION-MIN-REQUIRED:CAPS"><CODE class=literal>GLIB_VERSION_MIN_REQUIRED</CODE></A> and <A class=link title=GLIB_VERSION_MAX_ALLOWED href="https://developer.gnome.org/glib/stable/glib-Version-Information.html#GLIB-VERSION-MAX-ALLOWED:CAPS"><CODE class=literal>GLIB_VERSION_MAX_ALLOWED</CODE></A>, you can specify the range of GLib versions whose API you want to use. APIs that were deprecated before or introduced after this range will trigger compiler warnings. </P>
+<P>The older deprecation mechanism of hiding deprecated interfaces entirely from the compiler by using the preprocessor symbol G_DISABLE_DEPRECATED is still used for deprecated macros, enumeration values, etc. To detect uses of these in your code, use the commandline option <CODE class=literal>-DG_DISABLE_DEPRECATED</CODE>. </P>
+<P>The recommended way of using GLib has always been to only include the toplevel headers <CODE class=filename>glib.h</CODE>, <CODE class=filename>glib-object.h</CODE>, <CODE class=filename>gio.h</CODE>. Starting with 2.32, GLib enforces this by generating an error when individual headers are directly included. </P>
+<P>Still, there are some exceptions; these headers have to be included separately: <CODE class=filename>gmodule.h</CODE>, <CODE class=filename>glib-unix.h</CODE>, <CODE class=filename>glib/gi18n-lib.h</CODE> or <CODE class=filename>glib/gi18n.h</CODE> (see the <A class=link title=Internationalization href="https://developer.gnome.org/glib/stable/glib-I18N.html">Internationalization section</A>), <CODE class=filename>glib/gprintf.h</CODE> and <CODE class=filename>glib/gstdio.h</CODE> (we don't want to pull in all of stdio). </P></DIV>

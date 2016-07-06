@@ -1,0 +1,50 @@
+<H3 class=section>6.2 The Two Flavors of Variables</H3>
+<P><A name=index-flavors-of-variables-479></A><A name=index-recursive-variable-expansion-480></A><A name=index-variables_002c-flavors-481></A><A name=index-recursively-expanded-variables-482></A><A name=index-variables_002c-recursively-expanded-483></A>There are two ways that a variable in GNU <CODE>make</CODE> can have a value; we call them the two <DFN>flavors</DFN> of variables. <FONT class=extract>The two flavors are distinguished in how they are defined and in what they do when expanded.</FONT> 
+<P><A name=index-g_t_003d-484></A><FONT class=extract>The first flavor of variable is a <DFN>recursively expanded</DFN> variable. Variables of this sort are defined by lines using &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Setting"><FONT class=extract>Setting Variables</FONT></A><FONT class=extract>) or by the <CODE>define</CODE> directive (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Multi_002dLine"><FONT class=extract>Defining Multi-Line Variables</FONT></A><FONT class=extract>). The value you specify is installed verbatim; if it contains references to other variables, these references are expanded whenever this variable is substituted (in the course of expanding some other string). When this happens, it is called <DFN>recursive expansion</DFN>.</FONT> 
+<P>For example, <PRE class=example>     foo = $(bar)
+     bar = $(ugh)
+     ugh = Huh?
+     
+     all:;echo $(foo)
+</PRE>
+<P class=noindent>will echo &#8216;<SAMP><SPAN class=samp>Huh?</SPAN></SAMP>&#8217;: &#8216;<SAMP><SPAN class=samp>$(foo)</SPAN></SAMP>&#8217; expands to &#8216;<SAMP><SPAN class=samp>$(bar)</SPAN></SAMP>&#8217; which expands to &#8216;<SAMP><SPAN class=samp>$(ugh)</SPAN></SAMP>&#8217; which finally expands to &#8216;<SAMP><SPAN class=samp>Huh?</SPAN></SAMP>&#8217;. 
+<P>This flavor of variable is the only sort supported by most other versions of <CODE>make</CODE>. It has its advantages and its disadvantages. An advantage (most would say) is that: <PRE class=example>     CFLAGS = $(include_dirs) -O
+     include_dirs = -Ifoo -Ibar
+</PRE>
+<P class=noindent>will do what was intended: when &#8216;<SAMP><SPAN class=samp>CFLAGS</SPAN></SAMP>&#8217; is expanded in a recipe, it will expand to &#8216;<SAMP><SPAN class=samp>-Ifoo -Ibar -O</SPAN></SAMP>&#8217;. A major disadvantage is that you cannot append something on the end of a variable, as in <PRE class=example>     CFLAGS = $(CFLAGS) -O
+</PRE>
+<P class=noindent>because it will cause an infinite loop in the variable expansion. (Actually <CODE>make</CODE> detects the infinite loop and reports an error.) <A name=index-loops-in-variable-expansion-485></A><A name=index-variables_002c-loops-in-expansion-486></A>Another disadvantage is that any functions (see <A href="https://www.gnu.org/software/make/manual/make.html#Functions">Functions for Transforming Text</A>) referenced in the definition will be executed every time the variable is expanded. This makes <CODE>make</CODE> run slower; worse, it causes the <CODE>wildcard</CODE> and <CODE>shell</CODE> functions to give unpredictable results because you cannot easily control when they are called, or even how many times. 
+<P>To avoid all the problems and inconveniences of recursively expanded variables, there is another flavor: simply expanded variables. 
+<P><A name=index-simply-expanded-variables-487></A><A name=index-variables_002c-simply-expanded-488></A><A name=index-g_t_003a_003d-489></A><A name=index-g_t_003a_003a_003d-490></A><FONT class=extract><DFN>Simply expanded variables</DFN> are defined by lines using &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217; (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Setting"><FONT class=extract>Setting Variables</FONT></A><FONT class=extract>). Both forms are equivalent in GNU <CODE>make</CODE>; however only the &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217; form is described by the POSIX standard (support for &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217; was added to the POSIX standard in 2012, so older versions of <CODE>make</CODE> won't accept this form either).</FONT> 
+<P><FONT class=extract>The value of a simply expanded variable is scanned once and for all, expanding any references to other variables and functions, when the variable is defined. The actual value of the simply expanded variable is the result of expanding the text that you write. It does not contain any references to other variables; it contains their values <EM>as of the time this variable was defined</EM>. Therefore, </FONT><PRE class=example><FONT class=extract>     x := foo
+     y := $(x) bar
+     x := later
+</FONT></PRE>
+<P class=noindent><FONT class=extract>is equivalent to </FONT><PRE class=example><FONT class=extract>     y := foo bar
+     x := later
+</FONT></PRE>
+<P><FONT class=extract>When a simply expanded variable is referenced, its value is substituted verbatim.</FONT> 
+<P>Here is a somewhat more complicated example, illustrating the use of &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; in conjunction with the <CODE>shell</CODE> function. (See <A href="https://www.gnu.org/software/make/manual/make.html#Shell-Function">The <CODE>shell</CODE> Function</A>.) This example also shows use of the variable <CODE>MAKELEVEL</CODE>, which is changed when it is passed down from level to level. (See <A href="https://www.gnu.org/software/make/manual/make.html#Variables_002fRecursion">Communicating Variables to a Sub-<CODE>make</CODE></A>, for information about <CODE>MAKELEVEL</CODE>.) 
+<P><A name=index-MAKELEVEL-491></A><A name=index-MAKE-492></A><PRE class=example>     ifeq (0,${MAKELEVEL})
+     whoami    := $(shell whoami)
+     host-type := $(shell arch)
+     MAKE := ${MAKE} host-type=${host-type} whoami=${whoami}
+     endif
+</PRE>
+<P class=noindent>An advantage of this use of &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; is that a typical `descend into a directory' recipe then looks like this: <PRE class=example>     ${subdirs}:
+             ${MAKE} -C $@ all
+</PRE>
+<P><FONT class=extract>Simply expanded variables generally make complicated makefile programming more predictable because they work like variables in most programming languages. They allow you to redefine a variable using its own value (or its value processed in some way by one of the expansion functions) and to use the expansion functions much more efficiently (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Functions"><FONT class=extract>Functions for Transforming Text</FONT></A><FONT class=extract>).</FONT> 
+<P><A name=index-spaces_002c-in-variable-values-493></A><A name=index-whitespace_002c-in-variable-values-494></A><A name=index-variables_002c-spaces-in-values-495></A>You can also use them to introduce controlled leading whitespace into variable values. Leading whitespace characters are discarded from your input before substitution of variable references and function calls; this means you can include leading spaces in a variable value by protecting them with variable references, like this: <PRE class=example>     nullstring :=
+     space := $(nullstring) # end of the line
+</PRE>
+<P class=noindent>Here the value of the variable <CODE>space</CODE> is precisely one space. The comment &#8216;<SAMP><SPAN class=samp>#&nbsp;end&nbsp;of&nbsp;the&nbsp;line</SPAN></SAMP>&#8217;<!-- /@w --> is included here just for clarity. Since trailing space characters are <EM>not</EM> stripped from variable values, just a space at the end of the line would have the same effect (but be rather hard to read). If you put whitespace at the end of a variable value, it is a good idea to put a comment like that at the end of the line to make your intent clear. Conversely, if you do <EM>not</EM> want any whitespace characters at the end of your variable value, you must remember not to put a random comment on the end of the line after some whitespace, such as this: <PRE class=example>     dir := /foo/bar    # directory to put the frobs in
+</PRE>
+<P class=noindent>Here the value of the variable <CODE>dir</CODE> is &#8216;<SAMP><SPAN class=samp>/foo/bar&nbsp;&nbsp;&nbsp;&nbsp;</SPAN></SAMP>&#8217;<!-- /@w --> (with four trailing spaces), which was probably not the intention. (Imagine something like &#8216;<SAMP><SPAN class=samp>$(dir)/file</SPAN></SAMP>&#8217;<!-- /@w --> with this definition!) 
+<P><A name=index-conditional-variable-assignment-496></A><A name=index-variables_002c-conditional-assignment-497></A><A name=index-g_t_003f_003d-498></A><FONT class=extract>There is another assignment operator for variables, &#8216;<SAMP><SPAN class=samp>?=</SPAN></SAMP>&#8217;. This is called a conditional variable assignment operator, because it only has an effect if the variable is not yet defined. This statement: </FONT><PRE class=example><FONT class=extract>     FOO ?= bar
+</FONT></PRE>
+<P class=noindent><FONT class=extract>is exactly equivalent to this (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Origin-Function"><FONT class=extract>The <CODE>origin</CODE> Function</FONT></A><FONT class=extract>): </FONT><PRE class=example><FONT class=extract>     ifeq ($(origin FOO), undefined)
+       FOO = bar
+     endif
+</FONT></PRE>
+<P><FONT class=extract>Note that a variable set to an empty value is still defined, so &#8216;<SAMP><SPAN class=samp>?=</SPAN></SAMP>&#8217; will not set that variable.</FONT>

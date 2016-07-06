@@ -1,0 +1,699 @@
+<TABLE width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top>
+<H2><SPAN class=refentrytitle>GVariant Format Strings</SPAN></H2>
+<P>GVariant Format Strings &#8212; varargs conversion of GVariants</P></TD>
+<TD class=gallery_image vAlign=top align=right></TD></TR></TBODY></TABLE>
+<DIV class=refsect1><A name=id-1.6.20.3></A>
+<H2>Variable Argument Conversions</H2>
+<P>This page attempts to document how to perform variable argument conversions with GVariant. </P>
+<P>Conversions occur according to format strings. A format string is a two-way mapping between a single <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> value and one or more C values. </P>
+<P>A conversion from C values into a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> value is made using the <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> function. A conversion from a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> into C values is made using the <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> function. </P></DIV>
+<DIV class=refsect1><A name=id-1.6.20.4></A>
+<H2>Syntax</H2>
+<P>This section exhaustively describes all possibilities for GVariant format strings. There are no valid forms of format strings other than those described here. Please note that the format string syntax is likely to expand in the future. </P>
+<P>Valid format strings have one of the following forms: </P>
+<DIV class=itemizedlist>
+<UL style="LIST-STYLE-TYPE: disc" class=itemizedlist>
+<LI class=listitem>
+<P>any type string</P></LI>
+<LI class=listitem>
+<P>a type string prefixed with a '<CODE class=literal>@</CODE>' </P></LI>
+<LI class=listitem>
+<P>'<CODE class=literal>&amp;s</CODE>' '<CODE class=literal>&amp;o</CODE>', '<CODE class=literal>&amp;g</CODE>', '<CODE class=literal>^as</CODE>', '<CODE class=literal>^a&amp;s</CODE>', '<CODE class=literal>^ao</CODE>', '<CODE class=literal>^a&amp;o</CODE>','<CODE class=literal>^ay</CODE>', '<CODE class=literal>^&amp;ay</CODE>', '<CODE class=literal>^aay</CODE>' or '<CODE class=literal>^a&amp;ay</CODE>'. </P></LI>
+<LI class=listitem>
+<P>any format string, prefixed with an '<CODE class=literal>m</CODE>' </P></LI>
+<LI class=listitem>
+<P>a sequence of zero or more format strings, concatenated and enclosed in parentheses </P></LI>
+<LI class=listitem>
+<P>an opening brace, followed by two format strings, followed by a closing brace (subject to the constraint that the first format string correspond to a type valid for use as the key type of a dictionary) </P></LI></UL></DIV></DIV>
+<DIV class=refsect1><A name=id-1.6.20.5></A>
+<H2>Symbols</H2>
+<P>The following table describes the rough meaning of symbols that may appear inside a GVariant format string. Each symbol is described in detail in its own section, including usage examples. </P>
+<DIV class=informaltable>
+<TABLE border=1>
+<COLGROUP>
+<COL class=col_0></COL>
+<COL class=col_1></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG>Symbol</STRONG></SPAN> </P></TD>
+<TD>
+<P><SPAN class=strong><STRONG>Meaning</STRONG></SPAN> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>b</CODE>, <CODE class=literal>y</CODE>, <CODE class=literal>n</CODE>, <CODE class=literal>q</CODE>, <CODE class=literal>i</CODE>, <CODE class=literal>u</CODE>, <CODE class=literal>x</CODE>, <CODE class=literal>t</CODE>, <CODE class=literal>h</CODE>, <CODE class=literal>d</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>Used for building or deconstructing boolean, byte and numeric types. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-numeric-types">Numeric Types</A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>s</CODE>, <CODE class=literal>o</CODE>, <CODE class=literal>g</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>Used for building or deconstructing string types. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-strings">Strings</A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>v</CODE></STRONG></SPAN> </P></TD>
+<TD>
+<P>Used for building or deconstructing variant types. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-variants">Variants</A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>a</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>Used for building or deconstructing arrays. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-arrays">Arrays</A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>m</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>Used for building or deconstructing maybe types. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-maybe-types">Maybe Types</A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>()</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>Used for building or deconstructing tuples. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-tuples">Tuples</A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>{}</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>Used for building or deconstructing dictionary entries. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-dictionaries">Dictionaries</A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>@</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>Used as a prefix for a GVariant type string (not a prefix for a format string, so <CODE class=literal>@as</CODE> is a valid format string but <CODE class=literal>@^as</CODE> is not). Denotes that a pointer to a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> should be used in place of the normal C type or types. For <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> this means that you must pass a non-<A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> <CODE class=code>(<A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> *)</CODE>; if it is a floating reference, ownership will be taken, as if by using <A class=link title=g_variant_ref_sink&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-ref-sink"><CODE class=function>g_variant_ref_sink()</CODE></A>. For <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> this means that you must pass a pointer to a <CODE class=code>(<A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> *)</CODE> for the value to be returned by reference or <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> to ignore the value. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-gvariant"><CODE class=code>GVariant *</CODE></A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>*</CODE>, <CODE class=literal>?</CODE>, <CODE class=literal>r</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>Exactly equivalent to <CODE class=literal>@*</CODE>, <CODE class=literal>@?</CODE> and <CODE class=literal>@r</CODE>. Provided only for completeness so that all GVariant type strings can be used also as format strings. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-gvariant"><CODE class=code>GVariant *</CODE></A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>&amp;</CODE></STRONG></SPAN> </P></TD>
+<TD>
+<P>Used as a prefix for a GVariant type string (not a prefix for a format string, so <CODE class=literal>&amp;s</CODE> is a valid format string but <CODE class=literal>&amp;@s</CODE> is not). Denotes that a C pointer to serialised data should be used in place of the normal C type. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-pointers">Pointers</A> below. </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^</CODE></STRONG></SPAN> </P></TD>
+<TD>
+<P>Used as a prefix on some specific types of format strings. See <A href="https://developer.gnome.org/glib/stable/gvariant-format-strings.html#gvariant-format-strings-convenience">Convenience Conversions</A> below. </P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=refsect2><A name=gvariant-format-strings-numeric-types></A>
+<H3>Numeric Types</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=literal>b</CODE>, <CODE class=literal>y</CODE>, <CODE class=literal>n</CODE>, <CODE class=literal>q</CODE>, <CODE class=literal>i</CODE>, <CODE class=literal>u</CODE>, <CODE class=literal>x</CODE>, <CODE class=literal>t</CODE>, <CODE class=literal>h</CODE>, <CODE class=literal>d</CODE> </STRONG></SPAN></P>
+<P>Variable argument conversions from numeric types work in the most obvious way possible. Upon encountering one of these characters, <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> takes the equivalent C type as an argument. <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> takes a pointer to the equivalent C type (or <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> to ignore the value). </P>
+<P>The equivalent C types are as follows: </P>
+<DIV class=informaltable>
+<TABLE border=1>
+<COLGROUP>
+<COL class=col_0></COL>
+<COL class=col_1></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG>Character</STRONG></SPAN> </P></TD>
+<TD>
+<P><SPAN class=strong><STRONG>Equivalent C type</STRONG></SPAN> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>b</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=gboolean href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gboolean"><SPAN class=type>gboolean</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>y</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=guchar href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guchar"><SPAN class=type>guchar</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>n</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=gint16 href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gint16"><SPAN class=type>gint16</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>q</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=guint16 href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guint16"><SPAN class=type>guint16</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>i</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=gint32 href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gint32"><SPAN class=type>gint32</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>u</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=guint32 href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guint32"><SPAN class=type>guint32</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>x</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=gint64 href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gint64"><SPAN class=type>gint64</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>t</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=guint64 href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guint64"><SPAN class=type>guint64</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>h</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=gint32 href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gint32"><SPAN class=type>gint32</SPAN></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>d</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P><A class=link title=gdouble href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gdouble"><SPAN class=type>gdouble</SPAN></A> </P></TD></TR></TBODY></TABLE></DIV><A name=gvariant-varargs></A>
+<P>Note that in C, small integer types in variable argument lists are promoted up to <A class=link title=gint href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gint"><SPAN class=type>int</SPAN></A> or <A class=link title=guint href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guint"><SPAN class=type>unsigned int</SPAN></A> as appropriate, and read back accordingly. <A class=link title=gint href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gint"><SPAN class=type>int</SPAN></A> is 32 bits on every platform on which GLib is currently supported. This means that you can use C expressions of type <A class=link title=gint href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gint"><SPAN class=type>int</SPAN></A> with <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> and format characters '<CODE class=literal>b</CODE>', '<CODE class=literal>y</CODE>', '<CODE class=literal>n</CODE>', '<CODE class=literal>q</CODE>', '<CODE class=literal>i</CODE>', '<CODE class=literal>u</CODE>' and '<CODE class=literal>h</CODE>'. Specifically, you can use integer literals with these characters. </P>
+<P>When using the '<CODE class=literal>x</CODE>' and '<CODE class=literal>t</CODE>' characters, you must ensure that the value that you provide is 64 bit. This means that you should use a cast or make use of the <A class=link title=G_GINT64_CONSTANT() href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#G-GINT64-CONSTANT:CAPS"><CODE class=literal>G_GINT64_CONSTANT</CODE></A> or <A class=link title=G_GUINT64_CONSTANT() href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#G-GUINT64-CONSTANT:CAPS"><CODE class=literal>G_GUINT64_CONSTANT</CODE></A> macros. </P>
+<P>No type promotion occurs when using <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> since it operates with pointers. The pointers must always point to a memory region of exactly the correct size. </P>
+<DIV class=refsect3><A name=id-1.6.20.5.4.10></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GVariant <SPAN class="gtkdoc opt">*</SPAN>value1<SPAN class="gtkdoc opt">, *</SPAN>value2<SPAN class="gtkdoc opt">, *</SPAN>value3<SPAN class="gtkdoc opt">, *</SPAN>value4<SPAN class="gtkdoc opt">;</SPAN>
+
+value1 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"y"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>200</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+value2 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"b"</SPAN><SPAN class="gtkdoc opt">,</SPAN> TRUE<SPAN class="gtkdoc opt">);</SPAN>
+value3 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"d"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>37.5</SPAN><SPAN class="gtkdoc opt">):</SPAN>
+value4 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"x"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#G-GINT64-CONSTANT:CAPS">G_GINT64_CONSTANT</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=number>998877665544332211</SPAN><SPAN class="gtkdoc opt">));</SPAN>
+
+<SPAN class="gtkdoc opt">{</SPAN>
+  gdouble floating<SPAN class="gtkdoc opt">;</SPAN>
+  gboolean truth<SPAN class="gtkdoc opt">;</SPAN>
+  gint64 bignum<SPAN class="gtkdoc opt">;</SPAN>
+
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value1<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"y"</SPAN><SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>      <SPAN class=comment>/* ignore the value. */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value2<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"b"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>truth<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value3<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"d"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>floating<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value4<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"x"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>bignum<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-strings></A>
+<H3>Strings</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=literal>s</CODE>, <CODE class=literal>o</CODE>, <CODE class=literal>g</CODE> </STRONG></SPAN></P>
+<P>String conversions occur to and from standard nul-terminated C strings. Upon encountering an '<CODE class=literal>s</CODE>', '<CODE class=literal>o</CODE>' or '<CODE class=literal>g</CODE>' in a format string, <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> takes a <CODE class=code>(const <A class=link title=gchar href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gchar">gchar</A> *)</CODE> and makes a copy of it. <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> is not a valid string. If the '<CODE class=literal>o</CODE>' or '<CODE class=literal>g</CODE>' characters are used, care must be taken to ensure that the passed string is a valid DBus object path or DBus type signature, respectively. </P>
+<P>Upon encounting '<CODE class=literal>s</CODE>', '<CODE class=literal>o</CODE>' or '<CODE class=literal>g</CODE>', <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> takes a pointer to a <CODE class=code>(<A class=link title=gchar href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gchar">gchar</A> *)</CODE> (ie: <CODE class=code>(<A class=link title=gchar href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gchar">gchar</A> **)</CODE>) and sets it to a newly-allocated copy of the string. It is appropriate to free this copy using <A class=link title=g_free&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-free"><CODE class=function>g_free()</CODE></A>. <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> may also be passed to indicate that the value of the string should be ignored (in which case no copy is made). </P>
+<DIV class=refsect3><A name=id-1.6.20.5.5.5></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GVariant <SPAN class="gtkdoc opt">*</SPAN>value1<SPAN class="gtkdoc opt">, *</SPAN>value2<SPAN class="gtkdoc opt">, *</SPAN>value3<SPAN class="gtkdoc opt">;</SPAN>
+
+value1 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"hello world!"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+value2 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"o"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"/must/be/a/valid/path"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+value3 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"g"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"iias"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class="gtkdoc ppc">#if 0</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>      <SPAN class=comment>/* not valid: NULL is not a string. */</SPAN>
+<SPAN class="gtkdoc ppc">#endif</SPAN>
+
+<SPAN class="gtkdoc opt">{</SPAN>
+  gchar <SPAN class="gtkdoc opt">*</SPAN>result<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value1<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"s"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>result<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"It was '%s'</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> result<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-free">g_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>result<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-variants></A>
+<H3>Variants</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=literal>v</CODE> </STRONG></SPAN></P>
+<P>Upon encountering a '<CODE class=literal>v</CODE>', <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> takes a <CODE class=code>(<A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> *)</CODE>. The value of the <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant"><SPAN class=type>GVariant</SPAN></A> is used as the contents of the variant value. </P>
+<P>Upon encountering a '<CODE class=literal>v</CODE>', <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> takes a pointer to a <CODE class=code>(<A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> *)</CODE> (ie: <CODE class=code>(<A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> **) </CODE>). It is set to a new reference to a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant"><SPAN class=type>GVariant</SPAN></A> instance containing the contents of the variant value. It is appropriate to free this reference using <A class=link title=g_variant_unref&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-unref"><CODE class=function>g_variant_unref()</CODE></A>. <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> may also be passed to indicate that the value should be ignored (in which case no new reference is created). </P>
+<DIV class=refsect3><A name=id-1.6.20.5.6.5></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GVariant <SPAN class="gtkdoc opt">*</SPAN>x<SPAN class="gtkdoc opt">, *</SPAN>y<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class=comment>/* the following two lines are equivalent: */</SPAN>
+x <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"v"</SPAN><SPAN class="gtkdoc opt">,</SPAN> y<SPAN class="gtkdoc opt">);</SPAN>
+x <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-variant">g_variant_new_variant</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>y<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class=comment>/* as are these: */</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>x<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"v"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>y<SPAN class="gtkdoc opt">);</SPAN>
+y <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get-variant">g_variant_get_variant</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>x<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-arrays></A>
+<H3>Arrays</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=literal>a</CODE> </STRONG></SPAN></P>
+<P>Upon encountering an '<CODE class=literal>a</CODE>' character followed by a type string, <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> will take a <CODE class=code>(<A class=link title="struct GVariantBuilder" href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariantBuilder">GVariantBuilder</A> *)</CODE> that has been created as an array builder for an array of the type given in the type string. The builder will have <A class=link title=g_variant_builder_end&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-end"><CODE class=function>g_variant_builder_end()</CODE></A> called on it and the result will be used as the value. As a special exception, if the given type string is a definite type, then <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> may be given to mean an empty array of that type. </P>
+<P>Upon encountering an '<CODE class=literal>a</CODE>' character followed by a type string, <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> will take a pointer to a <CODE class=code>(<A class=link title="struct GVariantIter" href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariantIter">GVariantIter</A> *)</CODE> (ie: <CODE class=code>(<A class=link title="struct GVariantIter" href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariantIter">GVariantIter</A> **)</CODE>). A new heap-allocated iterator is created and returned, initialised for iterating over the elements of the array. This iterator should be freed when you are done with it, using <A class=link title=g_variant_iter_free&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-iter-free"><CODE class=function>g_variant_iter_free()</CODE></A>. <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> may also be given to indicate that the value of the array should be ignored. </P>
+<DIV class=refsect3><A name=id-1.6.20.5.7.5></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GVariantBuilder <SPAN class="gtkdoc opt">*</SPAN>builder<SPAN class="gtkdoc opt">;</SPAN>
+GVariant <SPAN class="gtkdoc opt">*</SPAN>value<SPAN class="gtkdoc opt">;</SPAN>
+
+builder <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-new">g_variant_builder_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariantType.html#G-VARIANT-TYPE:CAPS">G_VARIANT_TYPE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"as"</SPAN><SPAN class="gtkdoc opt">));</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-add">g_variant_builder_add</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>builder<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"when"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-add">g_variant_builder_add</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>builder<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"in"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-add">g_variant_builder_add</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>builder<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"the"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-add">g_variant_builder_add</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>builder<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"course"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+value <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"as"</SPAN><SPAN class="gtkdoc opt">,</SPAN> builder<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-unref">g_variant_builder_unref</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>builder<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class="gtkdoc opt">{</SPAN>
+  GVariantIter <SPAN class="gtkdoc opt">*</SPAN>iter<SPAN class="gtkdoc opt">;</SPAN>
+  gchar <SPAN class="gtkdoc opt">*</SPAN>str<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"as"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>iter<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>while</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-iter-loop">g_variant_iter_loop</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>iter<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"s"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>str<SPAN class="gtkdoc opt">))</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"%s</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> str<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-iter-free">g_variant_iter_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>iter<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-unref">g_variant_unref</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-maybe-types></A>
+<H3>Maybe Types</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=literal>m</CODE> </STRONG></SPAN></P>
+<P>Maybe types are handled in two separate ways depending on the format string that follows the '<CODE class=literal>m</CODE>'. The method that is used currently depends entirely on the character immediately following the '<CODE class=literal>m</CODE>'. </P>
+<P>The first way is used with format strings starting with '<CODE class=literal>a</CODE>', '<CODE class=literal>s</CODE>', '<CODE class=literal>o</CODE>', '<CODE class=literal>g</CODE>', '<CODE class=literal>v</CODE>', '<CODE class=literal>@</CODE>', '<CODE class=literal>*</CODE>', '<CODE class=literal>?</CODE>', '<CODE class=literal>r</CODE>', '<CODE class=literal>&amp;</CODE>', or '<CODE class=literal>^</CODE>'. In all of these cases, for non-maybe types, <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> takes a pointer to a non-<A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> value and <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> returns (by reference) a non-<A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> pointer. When any of these format strings are prefixed with an '<CODE class=literal>m</CODE>', the type of arguments that are collected does not change in any way, but <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> becomes a permissable value, to indicate the Nothing case. </P>
+<P>Note that the "special exception" introduced in the array section for constructing empty arrays is ignored here. Using a <CODE class=literal>NULL</CODE> pointer with the format string '<CODE class=literal>mas</CODE>' constructs the Nothing value -- not an empty array. </P>
+<P>The second way is used with all other format strings. For <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> an additional <A class=link title=gboolean href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gboolean"><SPAN class=type>gboolean</SPAN></A> argument is collected and for <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> an additional <CODE class=code>(<A class=link title=gboolean href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gboolean">gboolean</A> *)</CODE>. Following this argument, the arguments that are normally collected for the equivalent non-maybe type will be collected. </P>
+<P>If <A class=link title=FALSE href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#FALSE:CAPS"><CODE class=literal>FALSE</CODE></A> is given to <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> then the Nothing value is constructed and the collected arguments are ignored. Otherwise (if <A class=link title=TRUE href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#TRUE:CAPS"><CODE class=literal>TRUE</CODE></A> was given), the arguments are used in the normal way to create the Just value. </P>
+<P>If <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> is given to <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> then the value is ignored. If a non-<A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> pointer is given then it is used to return by reference whether the value was Just. In the case that the value was Just, the <A class=link title=gboolean href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gboolean"><SPAN class=type>gboolean</SPAN></A> will be set to <A class=link title=TRUE href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#TRUE:CAPS"><CODE class=literal>TRUE</CODE></A> and the value will be stored in the arguments in the usual way. In the case that the value was Nothing, the <A class=link title=gboolean href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gboolean"><SPAN class=type>gboolean</SPAN></A> will be set to <A class=link title=FALSE href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#FALSE:CAPS"><CODE class=literal>FALSE</CODE></A> and the arguments will be collected in the normal way but have their values set to binary zero. </P>
+<DIV class=refsect3><A name=id-1.6.20.5.8.9></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GVariant <SPAN class="gtkdoc opt">*</SPAN>value1<SPAN class="gtkdoc opt">, *</SPAN>value2<SPAN class="gtkdoc opt">, *</SPAN>value3<SPAN class="gtkdoc opt">, *</SPAN>value4<SPAN class="gtkdoc opt">, *</SPAN>value5<SPAN class="gtkdoc opt">, *</SPAN>value6<SPAN class="gtkdoc opt">;</SPAN>
+value1 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"ms"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"Hello world"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+value2 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"ms"</SPAN><SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+value3 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"(m(ii)s)"</SPAN><SPAN class="gtkdoc opt">,</SPAN> TRUE<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>123</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>456</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"Done"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+value4 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"(m(ii)s)"</SPAN><SPAN class="gtkdoc opt">,</SPAN> FALSE<SPAN class="gtkdoc opt">, -</SPAN><SPAN class=number>1</SPAN><SPAN class="gtkdoc opt">, -</SPAN><SPAN class=number>1</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"Done"</SPAN><SPAN class="gtkdoc opt">);</SPAN>          <SPAN class=comment>/* both '-1' are ignored. */</SPAN>
+value5 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"(m@(ii)s)"</SPAN><SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"Done"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class="gtkdoc opt">{</SPAN>
+  GVariant <SPAN class="gtkdoc opt">*</SPAN>contents<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc kwb">const</SPAN> gchar <SPAN class="gtkdoc opt">*</SPAN>cstr<SPAN class="gtkdoc opt">;</SPAN>
+  gboolean just<SPAN class="gtkdoc opt">;</SPAN>
+  gint32 x<SPAN class="gtkdoc opt">,</SPAN> y<SPAN class="gtkdoc opt">;</SPAN>
+  gchar <SPAN class="gtkdoc opt">*</SPAN>str<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value1<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"ms"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>str<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>str <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">)</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"str: %s</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> str<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>else</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"it was null</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-free">g_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>str<SPAN class="gtkdoc opt">);</SPAN>
+
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value2<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"m&amp;s"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>cstr<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>cstr <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">)</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"str: %s</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> cstr<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>else</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"it was null</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=comment>/* don't free 'cstr' */</SPAN>
+
+
+  <SPAN class=comment>/* NULL passed for the gboolean *, but two 'gint32 *' still collected */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value3<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"(m(ii)s)"</SPAN><SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">, &amp;</SPAN>str<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"string is %s</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> str<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-free">g_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>str<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* note: &amp;s used, so g_free() not needed */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value4<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"(m(ii)&amp;s)"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>just<SPAN class="gtkdoc opt">, &amp;</SPAN>x<SPAN class="gtkdoc opt">, &amp;</SPAN>y<SPAN class="gtkdoc opt">, &amp;</SPAN>cstr<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>just<SPAN class="gtkdoc opt">)</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"it was (%d, %d)</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> x<SPAN class="gtkdoc opt">,</SPAN> y<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>else</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"it was null</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"string is %s</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> cstr<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=comment>/* don't free 'cstr' */</SPAN>
+
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value5<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"(m*s)"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>contents<SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN> <SPAN class=comment>/* ignore the string. */</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>contents <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">)</SPAN>
+    <SPAN class="gtkdoc opt">{</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>contents<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"(ii)"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>x<SPAN class="gtkdoc opt">, &amp;</SPAN>y<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"it was (%d, %d)</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> x<SPAN class="gtkdoc opt">,</SPAN> y<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-unref">g_variant_unref</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>contents<SPAN class="gtkdoc opt">);</SPAN>
+    <SPAN class="gtkdoc opt">}</SPAN>
+  <SPAN class=keyword>else</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"it was null</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-tuples></A>
+<H3>Tuples</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=code>()</CODE> </STRONG></SPAN></P>
+<P>Tuples are handled by handling each item in the tuple, in sequence. Each item is handled in the usual way. </P>
+<DIV class=refsect3><A name=id-1.6.20.5.9.4></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GVariant <SPAN class="gtkdoc opt">*</SPAN>value1<SPAN class="gtkdoc opt">, *</SPAN>value2<SPAN class="gtkdoc opt">;</SPAN>
+
+value1 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"(s(ii))"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"Hello"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>55</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>77</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+value2 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"()"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class="gtkdoc opt">{</SPAN>
+  gchar <SPAN class="gtkdoc opt">*</SPAN>string<SPAN class="gtkdoc opt">;</SPAN>
+  gint x<SPAN class="gtkdoc opt">,</SPAN> y<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value1<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"(s(ii))"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>string<SPAN class="gtkdoc opt">, &amp;</SPAN>x<SPAN class="gtkdoc opt">, &amp;</SPAN>y<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"%s, %d, %d</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> string<SPAN class="gtkdoc opt">,</SPAN> x<SPAN class="gtkdoc opt">,</SPAN> y<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-free">g_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>string<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value2<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"()"</SPAN><SPAN class="gtkdoc opt">);</SPAN>   <SPAN class=comment>/* do nothing... */</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-dictionaries></A>
+<H3>Dictionaries</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=code>{}</CODE> </STRONG></SPAN></P>
+<P>Dictionary entries are handled by handling first the key, then the value. Each is handled in the usual way. </P>
+<DIV class=refsect3><A name=id-1.6.20.5.10.4></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GVariantBuilder <SPAN class="gtkdoc opt">*</SPAN>b<SPAN class="gtkdoc opt">;</SPAN>
+GVariant <SPAN class="gtkdoc opt">*</SPAN>dict<SPAN class="gtkdoc opt">;</SPAN>
+
+b <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-new">g_variant_builder_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariantType.html#G-VARIANT-TYPE:CAPS">G_VARIANT_TYPE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"a{sv}"</SPAN><SPAN class="gtkdoc opt">));</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-add">g_variant_builder_add</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>b<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"{sv}"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"name"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-string">g_variant_new_string</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"foo"</SPAN><SPAN class="gtkdoc opt">));</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-add">g_variant_builder_add</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>b<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"{sv}"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"timeout"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-int32">g_variant_new_int32</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=number>10</SPAN><SPAN class="gtkdoc opt">));</SPAN>
+dict <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-builder-end">g_variant_builder_end</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>b<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-gvariant></A>
+<H3>GVariant *</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=literal>@</CODE>, <CODE class=literal>*</CODE>, <CODE class=literal>?</CODE>, <CODE class=literal>r</CODE> </STRONG></SPAN></P>
+<P>Upon encountering a '<CODE class=literal>@</CODE>' in front of a type string, <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> takes a non-<A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> pointer to a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant"><SPAN class=type>GVariant</SPAN></A> and uses its value directly instead of collecting arguments to create the value. The provided <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant"><SPAN class=type>GVariant</SPAN></A> must have a type that matches the type string following the '<CODE class=literal>@</CODE>'. '<CODE class=literal>*</CODE>' is the same as '<CODE class=literal>@*</CODE>' (ie: take a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant"><SPAN class=type>GVariant</SPAN></A> of any type). '<CODE class=literal>?</CODE>' is the same as '<CODE class=literal>@?</CODE>' (ie: take a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant"><SPAN class=type>GVariant</SPAN></A> of any basic type). '<CODE class=literal>r</CODE>' is the same as '<CODE class=literal>@r</CODE>' (ie: take a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant"><SPAN class=type>GVariant</SPAN></A> of any tuple type). </P>
+<P>Upon encountering a '<CODE class=literal>@</CODE>' in front of a type string, <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> takes a pointer to a <CODE class=code>(<A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> *)</CODE> (ie: a <CODE class=code>(<A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant">GVariant</A> **)</CODE>) and sets it to a new reference to a <A class=link title=GVariant href="https://developer.gnome.org/glib/stable/glib-GVariant.html#GVariant"><SPAN class=type>GVariant</SPAN></A> containing the value (instead of deconstructing the value into C types in the usual way). <A class=link title=NULL href="https://developer.gnome.org/glib/stable/glib-Standard-Macros.html#NULL:CAPS"><CODE class=literal>NULL</CODE></A> can be given to ignore the value. '<CODE class=literal>*</CODE>', '<CODE class=literal>?</CODE>' and '<CODE class=literal>r</CODE>' are handled in a way analogous to what is stated above. </P>
+<P>You can always use '<CODE class=literal>*</CODE>' as an alternative to '<CODE class=literal>?</CODE>', '<CODE class=literal>r</CODE>' or any use of '<CODE class=literal>@</CODE>'. Using the other characters where possible is recommended, however, due to the improvements in type safety and code self-documentation. </P>
+<DIV class=refsect3><A name=id-1.6.20.5.11.6></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GVariant <SPAN class="gtkdoc opt">*</SPAN>value1<SPAN class="gtkdoc opt">, *</SPAN>value2<SPAN class="gtkdoc opt">;</SPAN>
+
+value1 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"(i@ii)"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>44</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-int32">g_variant_new_int32</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=number>55</SPAN><SPAN class="gtkdoc opt">),</SPAN> <SPAN class=number>66</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class=comment>/* note: consumes floating reference count on 'value1' */</SPAN>
+value2 <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"(@(iii)*)"</SPAN><SPAN class="gtkdoc opt">,</SPAN> value1<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-string">g_variant_new_string</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"foo"</SPAN><SPAN class="gtkdoc opt">));</SPAN>
+
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class="gtkdoc kwb">const</SPAN> gchar <SPAN class="gtkdoc opt">*</SPAN>string<SPAN class="gtkdoc opt">;</SPAN>
+  GVariant <SPAN class="gtkdoc opt">*</SPAN>tmp<SPAN class="gtkdoc opt">;</SPAN>
+  gsize length<SPAN class="gtkdoc opt">;</SPAN>
+  gint x<SPAN class="gtkdoc opt">,</SPAN> y<SPAN class="gtkdoc opt">,</SPAN> z<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value2<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"((iii)*)"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>x<SPAN class="gtkdoc opt">, &amp;</SPAN>y<SPAN class="gtkdoc opt">, &amp;</SPAN>z<SPAN class="gtkdoc opt">, &amp;</SPAN>tmp<SPAN class="gtkdoc opt">);</SPAN>
+  string <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get-string">g_variant_get_string</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>tmp<SPAN class="gtkdoc opt">, &amp;</SPAN>length<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"it is %d %d %d %s (length=%d)</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> x<SPAN class="gtkdoc opt">,</SPAN> y<SPAN class="gtkdoc opt">,</SPAN> z<SPAN class="gtkdoc opt">,</SPAN> string<SPAN class="gtkdoc opt">, (</SPAN><SPAN class="gtkdoc kwb">int</SPAN><SPAN class="gtkdoc opt">)</SPAN> length<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-unref">g_variant_unref</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>tmp<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* quick way to skip all the values in a tuple */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value2<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"(rs)"</SPAN><SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">, &amp;</SPAN>string<SPAN class="gtkdoc opt">);</SPAN> <SPAN class=comment>/* or "(@(iii)s)" */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"i only got the string: %s</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> string<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-free">g_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>string<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-pointers></A>
+<H3>Pointers</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=code>&amp;</CODE> </STRONG></SPAN></P>
+<P>The '<CODE class=code>&amp;</CODE>' character is used to indicate that serialised data should be directly exchanged via a pointer. </P>
+<P>Currently, the only use for this character is when it is applied to a string (ie: '<CODE class=literal>&amp;s</CODE>', '<CODE class=literal>&amp;o</CODE>' or '<CODE class=code>&amp;g</CODE>'). For <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> this has absolutely no effect. The string is collected and duplicated normally. For <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> it means that instead of creating a newly allocated copy of the string, a pointer to the serialised data is returned. This pointer should not be freed. Validity checks are performed to ensure that the string data will always be properly nul-terminated. </P>
+<DIV class=refsect3><A name=id-1.6.20.5.12.5></A>
+<H4>Examples</H4>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9</PRE></TD>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class="gtkdoc kwb">const</SPAN> gchar <SPAN class="gtkdoc opt">*</SPAN>str<SPAN class="gtkdoc opt">;</SPAN>
+  GVariant <SPAN class="gtkdoc opt">*</SPAN>value<SPAN class="gtkdoc opt">;</SPAN>
+
+  value <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new">g_variant_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"&amp;s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"hello world"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  str <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get">g_variant_get</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"&amp;s"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>str<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"string is: %s</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> str<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=comment>/* no need to free str */</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=gvariant-format-strings-convenience></A>
+<H3>Convenience Conversions</H3>
+<P><SPAN class=strong><STRONG>Characters: <CODE class=literal>^</CODE> </STRONG></SPAN></P>
+<P>The '<CODE class=literal>^</CODE>' character currently supports conversion to and from bytestrings or to and from arrays of strings or bytestrings. It has a number of forms. </P>
+<P>In all forms, when used with <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> one pointer value is collected from the variable arguments and passed to a function (as given in the table below). The result of that function is used as the value for this position. When used with <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> one pointer value is produced by using the function (given in the table) and returned by reference. </P>
+<DIV class=informaltable>
+<TABLE border=1>
+<COLGROUP>
+<COL class=col_0></COL>
+<COL class=col_1></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG>Conversion</STRONG></SPAN> </P></TD>
+<TD>
+<P><SPAN class=strong><STRONG>Used with <A class=link title=g_variant_new&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new"><CODE class=function>g_variant_new()</CODE></A> </STRONG></SPAN></P></TD>
+<TD>
+<P><SPAN class=strong><STRONG>Used with <A class=link title=g_variant_get&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get"><CODE class=function>g_variant_get()</CODE></A> </STRONG></SPAN></P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^as</CODE> </STRONG></SPAN></P></TD>
+<TD rowSpan=2>
+<P>equivalent to <A class=link title=g_variant_new_strv&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-strv"><CODE class=function>g_variant_new_strv()</CODE></A> </P></TD>
+<TD>
+<P>equivalent to <A class=link title=g_variant_dup_strv&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-dup-strv"><CODE class=function>g_variant_dup_strv()</CODE></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^a&amp;s</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>equivalent to <A class=link title=g_variant_get_strv&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get-strv"><CODE class=function>g_variant_get_strv()</CODE></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^ao</CODE> </STRONG></SPAN></P></TD>
+<TD rowSpan=2>
+<P>equivalent to <A class=link title=g_variant_new_objv&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-objv"><CODE class=function>g_variant_new_objv()</CODE></A> </P></TD>
+<TD>
+<P>equivalent to <A class=link title=g_variant_dup_objv&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-dup-objv"><CODE class=function>g_variant_dup_objv()</CODE></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^a&amp;o</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>equivalent to <A class=link title=g_variant_get_objv&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get-objv"><CODE class=function>g_variant_get_objv()</CODE></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^ay</CODE> </STRONG></SPAN></P></TD>
+<TD rowSpan=2>
+<P>equivalent to <A class=link title=g_variant_new_bytestring&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-bytestring"><CODE class=function>g_variant_new_bytestring()</CODE></A> </P></TD>
+<TD>
+<P>equivalent to <A class=link title=g_variant_dup_bytestring&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-dup-bytestring"><CODE class=function>g_variant_dup_bytestring()</CODE></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^&amp;ay</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>equivalent to <A class=link title=g_variant_get_bytestring&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get-bytestring"><CODE class=function>g_variant_get_bytestring()</CODE></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^aay</CODE> </STRONG></SPAN></P></TD>
+<TD rowSpan=2>
+<P>equivalent to <A class=link title=g_variant_new_bytestring_array&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-new-bytestring-array"><CODE class=function>g_variant_new_bytestring_array()</CODE></A> </P></TD>
+<TD>
+<P>equivalent to <A class=link title=g_variant_dup_bytestring_array&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-dup-bytestring-array"><CODE class=function>g_variant_dup_bytestring_array()</CODE></A> </P></TD></TR>
+<TR>
+<TD>
+<P><SPAN class=strong><STRONG><CODE class=literal>^a&amp;ay</CODE> </STRONG></SPAN></P></TD>
+<TD>
+<P>equivalent to <A class=link title=g_variant_get_bytestring_array&nbsp;() href="https://developer.gnome.org/glib/stable/glib-GVariant.html#g-variant-get-bytestring-array"><CODE class=function>g_variant_get_bytestring_array()</CODE></A> </P></TD></TR></TBODY></TABLE></DIV></DIV></DIV>

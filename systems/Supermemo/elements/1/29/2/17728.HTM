@@ -1,0 +1,97 @@
+<H3 class=section>4.1 How Input Is Split into Records</H3><A name=index-input_002c-splitting-into-records></A><A name=index-records_002c-splitting-input-into></A><A name=index-NR-variable></A><A name=index-FNR-variable></A>
+<P>The <CODE>awk</CODE> utility divides the input for your <CODE>awk</CODE> program into records and fields. <CODE>awk</CODE> keeps track of the number of records that have been read so far from the current input file. This value is stored in a built-in variable called <CODE>FNR</CODE>. It is reset to zero when a new file is started. Another built-in variable, <CODE>NR</CODE>, records the total number of input records read so far from all data files. It starts at zero, but is never automatically reset to zero. </P><A name=index-separators_002c-for-records></A><A name=index-record-separators></A>
+<P>Records are separated by a character called the <EM>record separator</EM>. By default, the record separator is the newline character. This is why records are, by default, single lines. A different character can be used for the record separator by assigning the character to the built-in variable <CODE>RS</CODE>. </P><A name=index-newlines_002c-as-record-separators></A><A name=index-RS-variable></A>
+<P>Like any other variable, the value of <CODE>RS</CODE> can be changed in the <CODE>awk</CODE> program with the assignment operator, &#8216;<SAMP>=</SAMP>&#8217; (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Assignment-Ops">Assignment Ops</A>). The new record-separator character should be enclosed in quotation marks, which indicate a string constant. Often the right time to do this is at the beginning of execution, before any input is processed, so that the very first record is read with the proper separator. To do this, use the special <CODE>BEGIN</CODE> pattern (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#BEGIN_002fEND">BEGIN/END</A>). For example: </P>
+<DIV class=example><PRE class=example>awk 'BEGIN { RS = "u" }
+     { print $0 }' mail-list
+</PRE></DIV>
+<P>changes the value of <CODE>RS</CODE> to &#8216;<SAMP>u</SAMP>&#8217;, before reading any input. This is a string whose first character is the letter &#8220;u;&#8221; as a result, records are separated by the letter &#8220;u.&#8221; Then the input file is read, and the second rule in the <CODE>awk</CODE> program (the action with no pattern) prints each record. Because each <CODE>print</CODE> statement adds a newline at the end of its output, this <CODE>awk</CODE> program copies the input with each &#8216;<SAMP>u</SAMP>&#8217; changed to a newline. Here are the results of running the program on <SAMP>mail-list</SAMP>: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN { RS = "u" }</EM></KBD>
+&gt;      <KBD><EM>{ print $0 }' mail-list</EM></KBD>
+-| Amelia       555-5553     amelia.zodiac
+-| sq
+-| e@gmail.com    F
+-| Anthony      555-3412     anthony.assert
+-| ro@hotmail.com   A
+-| Becky        555-7685     becky.algebrar
+-| m@gmail.com      A
+-| Bill         555-1675     bill.drowning@hotmail.com       A
+-| Broderick    555-0542     broderick.aliq
+-| otiens@yahoo.com R
+-| Camilla      555-2912     camilla.inf
+-| sar
+-| m@skynet.be     R
+-| Fabi
+-| s       555-1234     fabi
+-| s.
+-| ndevicesim
+-| s@
+-| cb.ed
+-|     F
+-| J
+-| lie        555-6699     j
+-| lie.perscr
+-| tabor@skeeve.com   F
+-| Martin       555-6480     martin.codicib
+-| s@hotmail.com    A
+-| Sam
+-| el       555-3430     sam
+-| el.lanceolis@sh
+-| .ed
+-|         A
+-| Jean-Pa
+-| l    555-2127     jeanpa
+-| l.campanor
+-| m@ny
+-| .ed
+-|      R
+-| 
+</PRE></DIV>
+<P>Note that the entry for the name &#8216;<SAMP>Bill</SAMP>&#8217; is not split. In the original data file (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Sample-Data-Files">Sample Data Files</A>), the line looks like this: </P>
+<DIV class=example><PRE class=example>Bill         555-1675     bill.drowning@hotmail.com       A
+</PRE></DIV>
+<P>It contains no &#8216;<SAMP>u</SAMP>&#8217; so there is no reason to split the record, unlike the others which have one or more occurrences of the &#8216;<SAMP>u</SAMP>&#8217;. In fact, this record is treated as part of the previous record; the newline separating them in the output is the original newline in the data file, not the one added by <CODE>awk</CODE> when it printed the record! </P><A name=index-record-separators_002c-changing></A><A name=index-separators_002c-for-records-1></A>
+<P>Another way to change the record separator is on the command line, using the variable-assignment feature (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Other-Arguments">Other Arguments</A>): </P>
+<DIV class=example><PRE class=example>awk '{ print $0 }' RS="u" mail-list
+</PRE></DIV>
+<P>This sets <CODE>RS</CODE> to &#8216;<SAMP>u</SAMP>&#8217; before processing <SAMP>mail-list</SAMP>. </P>
+<P>Using an alphabetic character such as &#8216;<SAMP>u</SAMP>&#8217; for the record separator is highly likely to produce strange results. Using an unusual character such as &#8216;<SAMP>/</SAMP>&#8217; is more likely to produce correct behavior in the majority of cases, but there are no guarantees. The moral is: Know Your Data. </P>
+<P>There is one unusual case, that occurs when <CODE>gawk</CODE> is being fully POSIX-compliant (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). Then, the following (extreme) pipeline prints a surprising &#8216;<SAMP>1</SAMP>&#8217;: </P>
+<DIV class=example><PRE class=example>$ echo | gawk --posix 'BEGIN { RS = "a" } ; { print NF }'
+-| 1
+</PRE></DIV>
+<P>There is one field, consisting of a newline. The value of the built-in variable <CODE>NF</CODE> is the number of fields in the current record. (In the normal case, <CODE>gawk</CODE> treats the newline as whitespace, printing &#8216;<SAMP>0</SAMP>&#8217; as the result. Most other versions of <CODE>awk</CODE> also act this way.) </P><A name=index-dark-corner_002c-input-files></A>
+<P>Reaching the end of an input file terminates the current input record, even if the last character in the file is not the character in <CODE>RS</CODE>. (d.c.) </P><A name=index-empty-strings></A><A name=index-null-strings></A><A name=index-strings_002c-empty_002c-See-null-strings></A>
+<P>The empty string <CODE>""</CODE> (a string without any characters) has a special meaning as the value of <CODE>RS</CODE>. It means that records are separated by one or more blank lines and nothing else. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Multiple-Line">Multiple Line</A>, for more details. </P>
+<P>If you change the value of <CODE>RS</CODE> in the middle of an <CODE>awk</CODE> run, the new value is used to delimit subsequent records, but the record currently being processed, as well as records already processed, are not affected. </P><A name=index-gawk_002c-RT-variable-in></A><A name=index-RT-variable></A><A name=index-records_002c-terminating></A><A name=index-terminating-records></A><A name=index-differences-in-awk-and-gawk_002c-record-separators></A><A name=index-regular-expressions_002c-as-record-separators></A><A name=index-record-separators_002c-regular-expressions-as></A><A name=index-separators_002c-for-records_002c-regular-expressions-as></A>
+<P>After the end of the record has been determined, <CODE>gawk</CODE> sets the variable <CODE>RT</CODE> to the text in the input that matched <CODE>RS</CODE>. </P><A name=index-common-extensions_002c-RS-as-a-regexp></A><A name=index-extensions_002c-common_002c-RS-as-a-regexp></A>
+<P>When using <CODE>gawk</CODE>, the value of <CODE>RS</CODE> is not limited to a one-character string. It can be any regular expression (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Regexp">Regexp</A>). (c.e.) In general, each record ends at the next string that matches the regular expression; the next record starts at the end of the matching string. This general rule is actually at work in the usual case, where <CODE>RS</CODE> contains just a newline: a record ends at the beginning of the next matching string (the next newline in the input), and the following record starts just after the end of this string (at the first character of the following line). The newline, because it matches <CODE>RS</CODE>, is not part of either record. </P>
+<P>When <CODE>RS</CODE> is a single character, <CODE>RT</CODE> contains the same single character. However, when <CODE>RS</CODE> is a regular expression, <CODE>RT</CODE> contains the actual input text that matched the regular expression. </P>
+<P>If the input file ended without any text that matches <CODE>RS</CODE>, <CODE>gawk</CODE> sets <CODE>RT</CODE> to the null string. </P>
+<P>The following example illustrates both of these features. It sets <CODE>RS</CODE> equal to a regular expression that matches either a newline or a series of one or more uppercase letters with optional leading and/or trailing whitespace: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo record 1 AAAA record 2 BBBB record 3 |</EM></KBD>
+&gt; <KBD><EM>gawk 'BEGIN { RS = "\n|( *[[:upper:]]+ *)" }</EM></KBD>
+&gt;             <KBD><EM>{ print "Record =", $0, "and RT =", RT }'</EM></KBD>
+-| Record = record 1 and RT =  AAAA
+-| Record = record 2 and RT =  BBBB
+-| Record = record 3 and RT =
+-|
+</PRE></DIV>
+<P>The final line of output has an extra blank line. This is because the value of <CODE>RT</CODE> is a newline, and the <CODE>print</CODE> statement supplies its own terminating newline. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Simple-Sed">Simple Sed</A>, for a more useful example of <CODE>RS</CODE> as a regexp and <CODE>RT</CODE>. </P>
+<P>If you set <CODE>RS</CODE> to a regular expression that allows optional trailing text, such as &#8216;<SAMP>RS = "abc(XYZ)?"</SAMP>&#8217; it is possible, due to implementation constraints, that <CODE>gawk</CODE> may match the leading part of the regular expression, but not the trailing part, particularly if the input text that could match the trailing part is fairly long. <CODE>gawk</CODE> attempts to avoid this problem, but currently, there&#8217;s no guarantee that this will never happen. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Remember that in <CODE>awk</CODE>, the &#8216;<SAMP>^</SAMP>&#8217; and &#8216;<SAMP>$</SAMP>&#8217; anchor metacharacters match the beginning and end of a <EM>string</EM>, and not the beginning and end of a <EM>line</EM>. As a result, something like &#8216;<SAMP>RS = "^[[:upper:]]"</SAMP>&#8217; can only match at the beginning of a file. This is because <CODE>gawk</CODE> views the input file as one long string that happens to contain newline characters in it. It is thus best to avoid anchor characters in the value of <CODE>RS</CODE>. </P></BLOCKQUOTE><A name=index-differences-in-awk-and-gawk_002c-RS_002fRT-variables></A>
+<P>The use of <CODE>RS</CODE> as a regular expression and the <CODE>RT</CODE> variable are <CODE>gawk</CODE> extensions; they are not available in compatibility mode (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). In compatibility mode, only the first character of the value of <CODE>RS</CODE> is used to determine the end of the record. </P><A name=index-sidebar_002c-RS-_003d-_0022_005c0_0022-Is-Not-Portable></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B><CODE>RS = "\0"</CODE> Is Not Portable</B> </DIV><A name=index-portability_002c-data-files-as-single-record></A>
+<P>There are times when you might want to treat an entire data file as a single record. The only way to make this happen is to give <CODE>RS</CODE> a value that you know doesn&#8217;t occur in the input file. This is hard to do in a general way, such that a program always works for arbitrary input files. </P>
+<P>You might think that for text files, the <SMALL>NUL</SMALL> character, which consists of a character with all bits equal to zero, is a good value to use for <CODE>RS</CODE> in this case: </P>
+<DIV class=example><PRE class=example>BEGIN { RS = "\0" }  # whole file becomes one record?
+</PRE></DIV><A name=index-differences-in-awk-and-gawk_002c-strings_002c-storing></A>
+<P><CODE>gawk</CODE> in fact accepts this, and uses the <SMALL>NUL</SMALL> character for the record separator. However, this usage is <EM>not</EM> portable to most other <CODE>awk</CODE> implementations. </P><A name=index-dark-corner_002c-strings_002c-storing></A>
+<P>Almost all other <CODE>awk</CODE> implementations<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT20" name=DOCF20><SUP>20</SUP></A> store strings internally as C-style strings. C strings use the <SMALL>NUL</SMALL> character as the string terminator. In effect, this means that &#8216;<SAMP>RS = "\0"</SAMP>&#8217; is the same as &#8216;<SAMP>RS = ""</SAMP>&#8217;. (d.c.) </P>
+<P>It happens that recent versions of <CODE>mawk</CODE> can use the <SMALL>NUL</SMALL> character as a record separator. However, this is a special case: <CODE>mawk</CODE> does not allow embedded <SMALL>NUL</SMALL> characters in strings. </P><A name=index-records_002c-treating-files-as></A><A name=index-treating-files_002c-as-single-records></A>
+<P>The best way to treat a whole file as a single record is to simply read the file in, one record at a time, concatenating each record onto the end of the previous ones. </P></TD></TR></TBODY></TABLE>

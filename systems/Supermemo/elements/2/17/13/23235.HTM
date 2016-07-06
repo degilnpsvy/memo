@@ -1,0 +1,42 @@
+<H3 id=title-IDAXGNWC class=docSection1Title>5.4. Subsystem Initialization</H3>
+<P class=docText>Many kernel subsystems are initialized by the code found in <TT>main.c</TT>. Some are initialized explicitly, as with the calls to <TT>init_timers()</TT> and <TT>console_init()</TT>, which need to be called very early. Others are initialized using a technique very similar to that described earlier for the <TT>__setup</TT> macro. In short, the linker builds lists of function pointers to various initialization routines, and a simple loop is used to execute each in turn. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec4.html#ch05list07">Listing 5-7</A> shows how this works.</P><A name=ch05list07></A>
+<H5 id=title-IDAUHNWC class=docExampleTitle>Listing 5-7. Example Initialization Routine</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>static int __init customize_machine(void)
+{
+    /* customizes platform devices, or adds new ones */
+    if (init_machine)
+        init_machine();
+    return 0;
+}
+arch_initcall(customize_machine);</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1620></A><A name=iddle1928></A>This code snippet comes from <TT>.../arch/arm/kernel/setup.c</TT>. It is a simple routine designed to provide a customization hook for a particular board.</P><A name=ch05lev2sec9></A>
+<H4 id=title-IDA5QNWC class=docSection2Title>5.4.1. The *__initcall Macros</H4>
+<P class=docText>Notice two important things about the initialization routine in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec4.html#ch05list07">Listing 5-7</A>. First, it is defined with the <TT>__init</TT> macro. As we saw earlier, this macro applies the <SPAN class=docEmphasis>section</SPAN> attribute to declare that this function gets placed into a section called <TT>.init.text</TT> in the <TT>vmlinux</TT> ELF file. Recall that the purpose of placing this function into a special section of the object file is so the memory space that it occupies can be reclaimed when it is no longer needed.</P>
+<P class=docText>The second thing to notice is the macro immediately following the definition of the function: <TT>arch_initcall(customize_machine)</TT>. This macro is part of a family of macros defined in <TT>.../include/linux/init.h</TT>. These macros are reproduced here as <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec4.html#ch05list08">Listing 5-8</A>.</P><A name=ch05list08></A>
+<H5 id=title-IDAJSNWC class=docExampleTitle>Listing 5-8. initcall Family of Macros</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>#define __define_initcall(level,fn) \
+    static initcall_t __initcall_##fn __attribute_used__ \
+    __attribute__((__section__(".initcall" level ".init"))) = fn
+
+#define core_initcall(fn)         __define_initcall("1",fn)
+#define postcore_initcall(fn)     __define_initcall("2",fn)
+#define arch_initcall(fn)         __define_initcall("3",fn)
+#define subsys_initcall(fn)       __define_initcall("4",fn)
+#define fs_initcall(fn)           __define_initcall("5",fn)
+#define device_initcall(fn)       __define_initcall("6",fn)
+#define late_initcall(fn)         __define_initcall("7",fn)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>In a similar fashion to the <TT>__setup</TT> macro previously detailed, these macros declare a data item based on the name of the function, and use the <SPAN class=docEmphasis>section</SPAN> attribute to place this data item into a uniquely named section of the <TT>vmlinux</TT> ELF file. The benefit of this approach is that <TT>main.c</TT> can call an arbitrary initialization function for a subsystem that it has no knowledge of. The only other option, as mentioned earlier, is to pollute <TT>main.c</TT> with knowledge of every subsystem in the kernel.</P>
+<P class=docText>As you can see from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec4.html#ch05list08">Listing 5-8</A>, the name of the section is <TT>.initcallN.init</TT>, where <SPAN class=docEmphasis>N</SPAN> is the level defined between 1 and 7. The data item is assigned the address <A name=iddle1617></A><A name=iddle1625></A><A name=iddle1749></A><A name=iddle2520></A><A name=iddle2521></A>of the function being named in the macro. In the example defined by <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec4.html#ch05list07">Listings 5-7</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec4.html#ch05list08">5-8</A>, the data item would be as follows (simplified by omitting the section attribute):</P>
+<DIV class=docText><PRE>static initcall_t __initcall_customize_machine = customize_machine;</PRE></DIV><BR>
+<P class=docText>This data item is placed in the kernel's object file in a section called <TT>.initcall1.init</TT>.</P>
+<P class=docText>The level (<SPAN class=docEmphasis>N</SPAN>) is used to provide an ordering of initialization calls. Functions declared using the <TT>core_initcall()</TT> macro are called before all others. Functions declared using the <TT>postcore_initcall()</TT> macros are called next, and so on, while those declared with <TT>late_initcall()</TT> are the last initialization functions to be called.</P>
+<P class=docText>In a fashion similar to the <TT>__setup</TT> macro, you can think of this family of <TT>*_initcall</TT> macros as registration functions for kernel subsystem initialization routines that need to be run once at kernel startup and then never used again. These macros provide a mechanism for causing the initialization routine to be executed during system startup, and a mechanism to discard the code and reclaim the memory after the routine has been executed. The developer is also provided up to seven levels of <SPAN class=docEmphasis>when</SPAN> to perform the initialization routines. Therefore, if you have a subsystem that relies on another being available, you can enforce this ordering using these levels. If you <TT>grep</TT> the kernel for the string <TT>[a-z]*_initcall</TT>, you will see that this family of macros is used extensively.</P>
+<P class=docText>One final note about the <TT>*_initcall</TT> family of macros: The use of multiple levels was introduced during the development of the 2.6 kernel series. Earlier kernel versions used the <TT>__initcall()</TT> macro for this purpose. This macro is still in widespread use, especially in device drivers. To maintain backward compatibility, this macro has been defined to <TT>device_initcall()</TT>, which has been defined as a level 6 <TT>initcall</TT>.

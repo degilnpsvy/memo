@@ -1,0 +1,39 @@
+# Documentation/driver-model/class.txt 
+<P></P>
+<P>Device Classes</P>
+<P></P>
+<P><BR>Introduction<BR>~~~~~~~~~~~~<BR>A device class describes a type of device, like an audio or network<BR>device. The following device classes have been identified:</P>
+<P>&lt;Insert List of Device Classes Here&gt;</P>
+<P><BR><FONT class=extract>Each device class defines a set of semantics and a programming interface<BR>that devices of that class adhere to. Device drivers are the<BR>implementation of that programming interface for a particular device on<BR>a particular bus. </FONT></P>
+<P><FONT class=extract>Device classes are agnostic with respect to what bus a device resides<BR>on. </FONT></P>
+<P><BR><FONT class=extract>Programming Interface<BR>~~~~~~~~~~~~~~~~~~~~~<BR>The device class structure looks like: </FONT></P>
+<P><BR><FONT class=extract>typedef int (*devclass_add)(struct device *);<BR>typedef void (*devclass_remove)(struct device *);</FONT></P>
+<P><FONT class=extract>See the kerneldoc for the struct class.</FONT></P>
+<P><FONT class=extract>A typical device class definition would look like: </FONT></P>
+<P><FONT class=extract>struct device_class input_devclass = {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .name&nbsp;&nbsp;= "input",<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .add_device&nbsp;= input_add_device,<BR>&nbsp;.remove_device&nbsp;= input_remove_device,<BR>};</FONT></P>
+<P><FONT class=extract>Each device class structure should be exported in a header file so it<BR>can be used by drivers, extensions and interfaces.</FONT></P>
+<P><FONT class=extract>Device classes are registered and unregistered with the core using: </FONT></P>
+<P><FONT class=extract>int devclass_register(struct device_class * cls);<BR>void devclass_unregister(struct device_class * cls);</FONT></P>
+<P><BR><FONT class=extract>Devices<BR>~~~~~~~<BR>As devices are bound to drivers, they are added to the device class<BR>that the driver belongs to. Before the driver model core, this would<BR>typically happen during the driver's probe() callback, once the device<BR>has been initialized. It now happens after the probe() callback<BR>finishes from the core. </FONT></P>
+<P><FONT class=extract>The device is enumerated in the class. Each time a device is added to<BR>the class, the class's devnum field is incremented and assigned to the<BR>device. The field is never decremented, so if the device is removed<BR>from the class and re-added, it will receive a different enumerated<BR>value. </FONT></P>
+<P><FONT class=extract>The class is allowed to create a class-specific structure for the<BR>device and store it in the device's class_data pointer. </FONT></P>
+<P><FONT class=extract>There is no list of devices in the device class. Each driver has a<BR>list of devices that it supports. The device class has a list of<BR>drivers of that particular class. To access all of the devices in the<BR>class, iterate over the device lists of each driver in the class.</FONT></P>
+<P><BR>Device Drivers<BR>~~~~~~~~~~~~~~<BR><FONT class=extract>Device drivers are added to device classes when they are registered<BR>with the core. A driver specifies the class it belongs to by setting<BR>the struct device_driver::devclass field. </FONT></P>
+<P><BR><FONT class=extract>sysfs directory structure<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~<BR>There is a top-level sysfs directory named 'class'. </FONT></P>
+<P><FONT class=extract>Each class gets a directory in the class directory, along with two<BR>default subdirectories:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; class/<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `-- input<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |-- devices<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `-- drivers</FONT></P>
+<P><BR><FONT class=extract>Drivers registered with the class get a symlink in the drivers/ directory <BR>that points to the driver's directory (under its bus directory):</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; class/<BR>&nbsp;&nbsp; `-- input<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |-- devices<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `-- drivers<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `-- usb:usb_mouse -&gt; ../../../bus/drivers/usb_mouse/</FONT></P>
+<P><BR><FONT class=extract>Each device gets a symlink in the devices/ directory that points to the <BR>device's directory in the physical hierarchy:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; class/<BR>&nbsp;&nbsp; `-- input<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |-- devices<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |&nbsp;&nbsp; `-- 1 -&gt; ../../../root/pci0/00:1f.0/usb_bus/00:1f.2-1:0/<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; `-- drivers</FONT></P>
+<P><BR><FONT class=extract>Exporting Attributes<BR>~~~~~~~~~~~~~~~~~~~~<BR>struct devclass_attribute {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct attribute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; attr;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*show)(struct device_class *, char * buf, size_t count, loff_t off);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*store)(struct device_class *, const char * buf, size_t count, loff_t off);<BR>};</FONT></P>
+<P><FONT class=extract>Class drivers can export attributes using the DEVCLASS_ATTR macro that works<BR>similarly to the DEVICE_ATTR macro for devices. For example, a definition <BR>like this:</FONT></P>
+<P><FONT class=extract>static DEVCLASS_ATTR(debug,0644,show_debug,store_debug);</FONT></P>
+<P><FONT class=extract>is equivalent to declaring:</FONT></P>
+<P><FONT class=extract>static devclass_attribute devclass_attr_debug;</FONT></P>
+<P><FONT class=extract>The bus driver can add and remove the attribute from the class's<BR>sysfs directory using:</FONT></P>
+<P><FONT class=extract>int devclass_create_file(struct device_class *, struct devclass_attribute *);<BR>void devclass_remove_file(struct device_class *, struct devclass_attribute *);</FONT></P>
+<P><FONT class=extract>In the example above, the file will be named 'debug' in placed in the<BR>class's directory in sysfs. </FONT></P>
+<P><BR><FONT class=extract>Interfaces<BR>~~~~~~~~~~<BR>There may exist multiple mechanisms for accessing the same device of a<BR>particular class type. Device interfaces describe these mechanisms. </FONT></P>
+<P><FONT class=extract>When a device is added to a device class, the core attempts to add it<BR>to every interface that is registered with the device class.</FONT></P>
+<P>&nbsp;

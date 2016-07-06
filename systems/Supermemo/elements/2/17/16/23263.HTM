@@ -1,0 +1,49 @@
+<H3 id=title-IDAHCGCD class=docSection1Title>9.3. ext3</H3>
+<P class=docText>The ext3 file system has become a powerful, high-performance, and robust journaling file system. It is currently the default file system for many popular desktop Linux distributions such as Red Hat and the Fedora Core series.</P>
+<P class=docText>The ext3 file system is basically an extension of the ext2 file system with added journaling capability. Journaling is a technique in which each change to the file system is logged in a special file so that recovery is possible from known journaling points. One of the primary advantages of the ext3 file system is its capability to be mounted directly after an unclean shutdown. As stated in the previous section, <A name=iddle1238></A><A name=iddle1239></A><A name=iddle1425></A><A name=iddle1432></A><A name=iddle1445></A><A name=iddle1450></A><A name=iddle1466></A><A name=iddle1697></A><A name=iddle1698></A><A name=iddle1699></A><A name=iddle1869></A><A name=iddle2083></A>when a system shuts down unexpectedly, such as during a power failure, the system forces a file system consistency check, which can be a lengthy operation. With ext3 file systems, there is no need for a consistency check because the journal can simply be played back to ensure consistency of the file system.</P>
+<P class=docText>Without going into design details that are beyond the scope of this book, it is worth a quick explanation of how a journaling file system works. A journaling file system contains a special file, often hidden from the user, that is used to store file system metadata <SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec3.html#ch094">[4]</A></SUP> and file data itself. This special file is referred to as the journal. Whenever the file system is subject to a change (such as a write operation) the changes are first written to the journal. The file system drivers make sure that this write is committed to the journal before the actual changes are posted and committed to the storage media (disk or Flash, for example). After the changes have been logged in the journal, the driver posts the changes to the actual file and metadata on the media. If a power failure occurs during the media write and a reboot occurs, all that is necessary to restore consistency to the file system is to replay the changes in the journal.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch094>[4]</A></SUP> Metadata is data about the file, as opposed to the file's data itself. Examples include a file's date, time, size, blocks used, and so on.</P></BLOCKQUOTE>
+<P class=docText>One of the most significant design goals for the ext3 file system was that it be both backward and forward compatible with the ext2 file system. It is possible to convert an ext2 file system to ext3 file system and back again without reformatting or rewriting all the data on the disk. Let's see how this is done.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec3.html#ch095">[5]</A></SUP> <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec3.html#ch09list06">Listing 9-6</A> details the procedure.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch095>[5]</A></SUP> Converting a file system in this manner should be considered a development activity only.</P></BLOCKQUOTE><A name=ch09list06></A>
+<H5 id=title-IDALHGCD class=docExampleTitle>Listing 9-6. Converting ext2 File System to ext3 File System</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>mount /dev/sdb1 /mnt/flash</SPAN>     &lt;&lt;&lt; Mount the ext2 file system
+# <SPAN class=docEmphStrong>tune2fs -j /dev/sdb1</SPAN>           &lt;&lt;&lt; Create the journal
+tune2fs 1.37 (21-Mar-2005)
+Creating journal inode: done
+This filesystem will be automatically checked every 23 mounts or
+180 days, whichever comes first.  Use tune2fs -c or -i to override.
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice that we first mounted the file system on <TT>/mnt/flash</TT> for illustrative purposes only. Normally, we would execute this command on an unmounted ext2 <A name=iddle1005></A><A name=iddle1434></A><A name=iddle1452></A><A name=iddle1496></A><A name=iddle1497></A><A name=iddle1498></A><A name=iddle1592></A><A name=iddle1696></A><A name=iddle1701></A><A name=iddle1840></A><A name=iddle1902></A><A name=iddle2051></A><A name=iddle2197></A><A name=iddle2547></A><A name=iddle2598></A><A name=iddle2610></A>partition. The design behavior for <TT>tune2fs</TT> when the file system is mounted is to create the journal file called <TT>.journal</TT>, a hidden file. A file in Linux preceded with the period (<TT>.</TT>) is considered a hidden file; most Linux command line file utilities silently ignore files of this type. From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec3.html#ch09list07">Listing 9-7</A>, we can see that the <TT>ls</TT> command was invoked with the <TT>-a</TT> flag, which tells the ls utility to list all files.</P><A name=ch09list07></A>
+<H5 id=title-IDAXNGCD class=docExampleTitle>Listing 9-7. ext3 Journal File</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ls -al /mnt/flash</SPAN>
+total 1063
+drwxr-xr-x  15 root root    1024 Aug 25 19:25 .
+drwxrwxrwx   5 root root    4096 Jul 18 19:49 ..
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 bin
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 boot
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 dev
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 etc
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 home
+-rw-------   1 root root 1048576 Aug 25 19:25 .journal
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 lib
+drwx------   2 root root   12288 Aug 14 11:27 lost+found
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 proc
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 root
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 sbin
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 tmp
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 usr
+drwxr-xr-x   2 root root    1024 Aug 14 11:27 var</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Now that we have created the journal file on our Flash module, it is effectively formatted as an ext3 file system. The next time the system is rebooted or the <TT>e2fsck</TT> utility is run on the partition containing the newly created ext3 file system, the journal file is automatically made invisible. Its metadata is stored in a reserved <TT>inode</TT> set aside for this purpose. As long as you can see the <TT>.journal</TT> file, it is dangerous to modify or delete this file.</P>
+<P class=docText>It is possible and sometimes advantageous to create the journal file on a different device. For example, if you have more than one physical device on your system, you can place your ext3 journaling file system on the first drive and have the journal file on the second drive. This method works regardless of whether your physical storage is based on Flash or rotational media. To create the journaling file system from an existing ext2 file system with the journal file in a separate partition, invoke <TT>tune2fs</TT> in the following manner:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>tune2fs -J device=/dev/sda1 -j /dev/sdb1</SPAN></PRE></DIV><BR>
+<P class=docText><A name=iddle1479></A><A name=iddle1708></A><A name=iddle2365></A>For this to work, you must have already formatted the device where the journal is to reside with a journal fileit must be an ext3 file system.

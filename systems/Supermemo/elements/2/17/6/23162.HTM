@@ -1,0 +1,37 @@
+<H3 id=-100000 class=docSection1Title>Frequency Scaling</H3>
+<P class=docText><A name="The CPU"></A>The CPU frequency (<SPAN class=docEmphasis>cpufreq</SPAN><A name="aids power"></A>) driver subsystem aids power management by scaling CPU frequencies on-the-fly. If you use a suitable scaling algorithm (called a <SPAN class=docEmphasis>governor</SPAN><A name="last longer"></A>), your device's battery can potentially last longer. Cpufreq supports several architectures such as x86, ARM, and PowerPC. To obtain cpufreq capabilities, you also need to enable a suitable processor driver (say, the Intel Enhanced SpeedStep driver if you are using a SpeedStep-enabled CPU such as Pentium M).</P>
+<P class=docText><A name="behavior via"></A>You can control cpufreq's behavior via files in the <SPAN class=docEmphasis>/sys/devices/system/cpu/cpuX/cpufreq/</SPAN> directory, where <SPAN class=docEmphasis>X</SPAN><A name="write desired"></A> is the CPU number. To set maximum and minimum frequency scaling limits, write desired values to <TT>scaling_max_freq</TT> and <TT>scaling_min_freq</TT><A name="of supported"></A>, respectively. To see a list of supported cpufreq governors, look at the contents of <TT>scaling_available_governors</TT>. The kernel supports several governors:</P>
+<UL>
+<LI>
+<P class=docList>The <SPAN class=docEmphasis>performance</SPAN> governor statically sets the CPU frequency to <TT>scaling_max_freq</TT>.</P></LI>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Powersave</SPAN> sets the CPU frequency to <TT>scaling_min_freq</TT>.</P></LI>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Ondemand</SPAN> adjusts the frequency depending on CPU load.</P></LI>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Conservative</SPAN><A name="speed change"></A> is a variant of ondemand where the speed change occurs smoothly in gradual steps.</P></LI>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Userspace</SPAN><A name="Some distributions"></A> lets applications dictate the scaling technique. Some distributions set the governor to userspace and implement the scaling algorithm via a daemon called <SPAN class=docEmphasis>cpuspeed</SPAN>, which is spawned during boot.</P></LI>
+<LI>
+<P class=docList><A name="using the"></A>You may also implement your own kernel governor using the <TT>cpufreq_register_governor()</TT> interface.</P></LI></UL>
+<P class=docText><A name="kernel module"></A>Each supported governor is implemented as a kernel module. To see cpufreq in action, assign a governor and vary the system load:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cd /sys/devices/system/cpu/cpu0/cpufreq</SPAN>
+<SPAN class=docEmphStrong>bash&gt;cat scaling_max_freq</SPAN>         <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Maximum frequency
+1700000
+<SPAN class=docEmphStrong>bash&gt; cat scaling_min_freq</SPAN>        <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Minimum frequency
+600000
+<SPAN class=docEmphStrong>bash&gt; cat cpuinfo_cur_freq</SPAN>        <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Current frequency
+600000
+<SPAN class=docEmphStrong>bash&gt; cat scaling_governor</SPAN>        <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Scaling algorithm in use
+powersave
+<SPAN class=docEmphStrong>bash&gt; cat scaling_available_frequencies</SPAN>
+1700000 1400000 1200000 1000000 800000 600000
+<SPAN class=docEmphStrong>bash&gt; cat scaling_available_governors</SPAN>
+conservative ondemand powersave userspace performance
+<SPAN class=docEmphStrong>bash&gt; echo conservative &gt; scaling_governor</SPAN>
+                                  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Assign 'conservative' governor
+<SPAN class=docEmphStrong>bash&gt; ls -lR /</SPAN>                    <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Switch to another terminal and
+                                    load your system by recursively
+                                    traversing all directories.</PRE></DIV><BR>
+<P class=docText><A name=iddle1878></A><A name=iddle1921></A><A name=iddle3299></A><A name="If you"></A>If you now monitor the running frequency by looking at <SPAN class=docEmphasis>/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq</SPAN><A name="see it"></A>, you will see it dancing to the tune of the CPU load.</P>
+<P class=docText><A name="lives in"></A>The CPU scaling code lives in the <SPAN class=docEmphasis>drivers/cpufreq/</SPAN> directory. Look at <SPAN class=docEmphasis>Documentation/cpu-freq/*</SPAN><A name="semantics of"></A> for the detailed semantics of cpufreq sysfs nodes.

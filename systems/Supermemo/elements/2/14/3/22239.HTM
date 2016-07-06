@@ -1,0 +1,81 @@
+<DIV class=navheader>
+<TABLE summary="Navigation header" width="100%">
+<TBODY>
+<TR>
+<TH colSpan=3 align=middle><SPAN class=phrase>struct fence</SPAN></TH></TR>
+<TR>
+<TD width="20%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/re395.html">Prev</A>&nbsp;</TD>
+<TH width="60%" align=middle>Device Drivers DMA Management</TH>
+<TD width="20%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-struct-fence-cb.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=refentry><A name=API-struct-fence></A>
+<DIV class=titlepage></DIV>
+<DIV class=refnamediv>
+<H2>Name</H2>
+<P>struct fence &#8212; software synchronization primitive </P></DIV>
+<DIV class=refsynopsisdiv>
+<H2>Synopsis</H2><PRE class=programlisting>struct fence {
+  struct kref refcount;
+  const struct fence_ops * ops;
+  struct rcu_head rcu;
+  struct list_head cb_list;
+  spinlock_t * lock;
+  unsigned context;
+  unsigned seqno;
+  unsigned long flags;
+  ktime_t timestamp;
+  int status;
+};  </PRE></DIV>
+<DIV class=refsect1><A name=idp44915492></A>
+<H2>Members</H2>
+<DIV class=variablelist>
+<DL class=variablelist>
+<DT><SPAN class=term>refcount</SPAN> 
+<DD>
+<P>refcount for this fence </P>
+<DT><SPAN class=term>ops</SPAN> 
+<DD>
+<P>fence_ops associated with this fence </P>
+<DT><SPAN class=term>rcu</SPAN> 
+<DD>
+<P>used for releasing fence with kfree_rcu </P>
+<DT><SPAN class=term>cb_list</SPAN> 
+<DD>
+<P>list of all callbacks to call </P>
+<DT><SPAN class=term>lock</SPAN> 
+<DD>
+<P>spin_lock_irqsave used for locking </P>
+<DT><SPAN class=term>context</SPAN> 
+<DD>
+<P>execution context this fence belongs to, returned by <CODE class=function>fence_context_alloc</CODE> </P>
+<DT><SPAN class=term>seqno</SPAN> 
+<DD>
+<P>the sequence number of this fence inside the execution context, can be compared to decide which fence would be signaled later. </P>
+<DT><SPAN class=term>flags</SPAN> 
+<DD>
+<P>A mask of FENCE_FLAG_* defined below </P>
+<DT><SPAN class=term>timestamp</SPAN> 
+<DD>
+<P>Timestamp when the fence was signaled. </P>
+<DT><SPAN class=term>status</SPAN> 
+<DD>
+<P>Optional, only valid if &lt; 0, must be set before calling fence_signal, indicates that the fence has completed with an error. </P></DD></DL></DIV></DIV>
+<DIV class=refsect1><A name=idp44923860></A>
+<H2>Description</H2>
+<P>the flags member must be manipulated and read using the appropriate atomic ops (bit_*), so taking the spinlock will not be needed most of the time. </P>
+<P>FENCE_FLAG_SIGNALED_BIT - fence is already signaled FENCE_FLAG_ENABLE_SIGNAL_BIT - enable_signaling might have been called* FENCE_FLAG_USER_BITS - start of the unused bits, can be used by the implementer of the fence for its own purposes. Can be used in different ways by different fence implementers, so do not rely on this. </P>
+<P>*) Since atomic bitops are used, this is not guaranteed to be the case. Particularly, if the bit was set, but fence_signal was called right before this bit was set, it would have been able to set the FENCE_FLAG_SIGNALED_BIT, before enable_signaling was called. Adding a check for FENCE_FLAG_SIGNALED_BIT after setting FENCE_FLAG_ENABLE_SIGNAL_BIT closes this race, and makes sure that after fence_signal was called, any enable_signaling call will have either been completed, or never called at all. </P></DIV></DIV>
+<DIV class=navfooter>
+<HR>
+
+<TABLE summary="Navigation footer" width="100%">
+<TBODY>
+<TR>
+<TD width="40%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/re395.html">Prev</A>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=u href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/ch02s03.html">Up</A></TD>
+<TD width="40%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-struct-fence-cb.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top width="40%" align=left>.//drivers/dma-buf/seqno-fence.c &nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=h href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/index.html">Home</A></TD>
+<TD vAlign=top width="40%" align=right>&nbsp;<SPAN class=phrase>struct fence_cb</SPAN></TD></TR></TBODY></TABLE></DIV>

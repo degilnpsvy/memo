@@ -1,0 +1,14 @@
+<P class=docText>Another specialized concurrency regulation mechanism is a reader-writer variant of spinlocks. If the usage of a critical section is such that separate threads either read from or write to a shared data structure, but don't do both, these locks are a natural fit. Multiple reader threads are allowed inside a critical region simultaneously. <FONT class=extract>Reader spinlocks are defined as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>rwlock_t myrwlock = RW_LOCK_UNLOCKED;
+
+read_lock(&amp;myrwlock);     /* Acquire reader lock */
+/* ... Critical Region ... */
+read_unlock(&amp;myrwlock);   /* Release lock */</FONT></PRE></DIV><BR>
+<P class=docText><A name="a critical"></A><FONT class=extract>However, if a writer thread enters a critical section, other reader or writer threads are not allowed inside. To use writer spinlocks, you would write this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>rwlock_t myrwlock = RW_LOCK_UNLOCKED;
+
+write_lock(&amp;myrwlock);    /* Acquire writer lock */
+/* ... Critical Region ... */
+write_unlock(&amp;myrwlock);  /* Release lock */</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Look at the IPX routing code present in <SPAN class=docEmphasis>net/ipx/ipx_route.c</SPAN> for a real-life example of a reader-writer spinlock. A reader-writer lock called <TT>ipx_routes_lock</TT></FONT><A name="need to"></A><FONT class=extract> protects the IPX routing table from simultaneous access. Threads that need to look up the routing table to forward packets request reader locks. Threads that need to add or delete entries from the routing table acquire writer locks. This improves performance because there are usually far more instances of routing table lookups than routing table updates.</FONT></P>
+<P class=docText><A name="irq variants"></A><FONT class=extract>Like regular spinlocks, reader-writer locks also have corresponding irq variants&#37413;&#25871;amely, <TT>read_lock_irqsave()</TT>, <TT>read_lock_irqrestore()</TT>, <TT>write_lock_irqsave()</TT>, </FONT><A name=iddle3719></A><A name=iddle3724></A><A name=iddle3931></A><A name=iddle3932></A><A name=iddle4652></A><FONT class=extract>and <TT>write_lock_irqrestore()</TT></FONT><A name="those of"></A><FONT class=extract>. The semantics of these functions are similar to those of regular spinlocks.</FONT>

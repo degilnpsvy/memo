@@ -1,0 +1,187 @@
+<H1 class=SECT1><A name=AEN17837></A>19.1. Here Strings</H1>
+<P><A name=HERESTRINGSREF></A></P><A name=AEN17841></A>
+<BLOCKQUOTE class=BLOCKQUOTE>
+<P class=LITERALLAYOUT>A&nbsp;<I class=FIRSTTERM>here string</I>&nbsp;can&nbsp;be&nbsp;considered&nbsp;as&nbsp;a&nbsp;stripped-down&nbsp;form&nbsp;of&nbsp;a&nbsp;<I class=FIRSTTERM>here document</I>.<BR>It&nbsp;consists&nbsp;of&nbsp;nothing&nbsp;more&nbsp;than&nbsp;<B class=COMMAND>COMMAND &lt;&lt;&lt; $WORD</B>,<BR>where&nbsp;<TT class=VARNAME>$WORD</TT>&nbsp;is&nbsp;expanded&nbsp;and&nbsp;fed&nbsp;to&nbsp;the&nbsp;<TT class=FILENAME>stdin</TT>&nbsp;of&nbsp;<B class=COMMAND>COMMAND</B>.<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</P></BLOCKQUOTE>
+<P>As a simple example, consider this alternative to the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ECHOGREPREF">echo-grep</A> construction.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># Instead of:
+if echo "$VAR" | grep -q txt   # if [[ $VAR = *txt* ]]
+# etc.
+
+# Try:
+if grep -q "txt" &lt;&lt;&lt; "$VAR"
+then   #         ^^^
+   echo "$VAR contains the substring sequence \"txt\""
+fi
+# Thank you, Sebastian Kaminski, for the suggestion.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=HSREAD></A></P>
+<P>Or, in combination with <A href="http://tldp.org/LDP/abs/html/abs-guide.html#READREF">read</A>:</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>String="This is a string of words."
+
+read -r -a Words &lt;&lt;&lt; "$String"
+#  The -a option to "read"
+#+ assigns the resulting values to successive members of an array.
+
+echo "First word in String is:    ${Words[0]}"   # This
+echo "Second word in String is:   ${Words[1]}"   # is
+echo "Third word in String is:    ${Words[2]}"   # a
+echo "Fourth word in String is:   ${Words[3]}"   # string
+echo "Fifth word in String is:    ${Words[4]}"   # of
+echo "Sixth word in String is:    ${Words[5]}"   # words.
+echo "Seventh word in String is:  ${Words[6]}"   # (null)
+                                                 # Past end of $String.
+
+# Thank you, Francisco Lobo, for the suggestion.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=HSLOOP></A>It is, of course, possible to feed the output of a <I class=FIRSTTERM>here string</I> into the <TT class=FILENAME>stdin</TT> of a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#LOOPREF00">loop</A>.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># As Seamus points out . . .
+
+ArrayVar=( element0 element1 element2 {A..D} )
+
+while read element ; do
+  echo "$element" 1&gt;&amp;2
+done &lt;&lt;&lt; $(echo ${ArrayVar[*]})
+
+# element0 element1 element2 A B C D</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=HSPRE></A></P>
+<DIV class=EXAMPLE><A name=PREPENDEX></A>
+<P><B>Example 19-13. Prepending a line to a file</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# prepend.sh: Add text at beginning of file.
+#
+#  Example contributed by Kenny Stauffer,
+#+ and slightly modified by document author.
+
+
+E_NOSUCHFILE=85
+
+read -p "File: " file   # -p arg to 'read' displays prompt.
+if [ ! -e "$file" ]
+then   # Bail out if no such file.
+  echo "File $file not found."
+  exit $E_NOSUCHFILE
+fi
+
+read -p "Title: " title
+cat - $file &lt;&lt;&lt;$title &gt; $file.new
+
+echo "Modified file is $file.new"
+
+exit  # Ends script execution.
+
+  from 'man bash':
+  Here Strings
+  	A variant of here documents, the format is:
+  
+  		&lt;&lt;&lt;word
+  
+  	The word is expanded and supplied to the command on its standard input.
+
+
+  Of course, the following also works:
+   sed -e '1i\
+   Title: ' $file</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<DIV class=EXAMPLE><A name=MAILBOXGREP></A>
+<P><B>Example 19-14. Parsing a mailbox</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+#  Script by Francisco Lobo,
+#+ and slightly modified and commented by ABS Guide author.
+#  Used in ABS Guide with permission. (Thank you!)
+
+# This script will not run under Bash versions -lt 3.0.
+
+
+E_MISSING_ARG=87
+if [ -z "$1" ]
+then
+  echo "Usage: $0 mailbox-file"
+  exit $E_MISSING_ARG
+fi
+
+mbox_grep()  # Parse mailbox file.
+{
+    declare -i body=0 match=0
+    declare -a date sender
+    declare mail header value
+
+
+    while IFS= read -r mail
+#         ^^^^                 Reset $IFS.
+#  Otherwise "read" will strip leading &amp; trailing space from its input.
+
+   do
+       if [[ $mail =~ ^From  ]]   # Match "From" field in message.
+       then
+          (( body  = 0 ))           # "Zero out" variables.
+          (( match = 0 ))
+          unset date
+
+       elif (( body ))
+       then
+            (( match ))
+            #  echo "$mail"
+            #  Uncomment above line if you want entire body
+            #+ of message to display.
+
+   elif [[ $mail ]]; then
+      IFS=: read -r header value &lt;&lt;&lt; "$mail"
+      #                          ^^^  "here string"
+
+      case "$header" in
+      [Ff][Rr][Oo][Mm] ) [[ $value =~ "$2" ]] &amp;&amp; (( match++ )) ;;
+      # Match "From" line.
+      [Dd][Aa][Tt][Ee] ) read -r -a date &lt;&lt;&lt; "$value" ;;
+      #                                  ^^^
+      # Match "Date" line.
+      [Rr][Ee][Cc][Ee][Ii][Vv][Ee][Dd] ) read -r -a sender &lt;&lt;&lt; "$value" ;;
+      #                                                    ^^^
+      # Match IP Address (may be spoofed).
+      esac
+
+       else
+          (( body++ ))
+          (( match  )) &amp;&amp;
+          echo "MESSAGE ${date:+of: ${date[*]} }"
+       #    Entire $date array             ^
+          echo "IP address of sender: ${sender[1]}"
+       #    Second field of "Received" line    ^
+
+       fi
+
+
+    done &lt; "$1" # Redirect stdout of file into loop.
+}
+
+
+mbox_grep "$1"  # Send mailbox file to function.
+
+exit $?
+
+# Exercises:
+# ---------
+# 1) Break the single function, above, into multiple functions,
+#+   for the sake of readability.
+# 2) Add additional parsing to the script, checking for various keywords.
+
+
+
+$ mailbox_grep.sh scam_mail
+  MESSAGE of Thu, 5 Jan 2006 08:00:56 -0500 (EST) 
+  IP address of sender: 196.3.62.4</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Exercise: Find other uses for <I class=FIRSTTERM>here strings</I>, such as, for example, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#GOLDENRATIO">feeding input to <I class=FIRSTTERM>dc</I></A>.

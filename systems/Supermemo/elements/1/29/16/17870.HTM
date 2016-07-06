@@ -1,0 +1,37 @@
+<H4 class=subsection>10.2.8 Reading A Whole File At Once</H4>
+<P>Often, it is convenient to have the entire contents of a file available in memory as a single string. A straightforward but naive way to do that might be as follows: </P>
+<DIV class=example><PRE class=example>function readfile(file,    tmp, contents)
+{
+    if ((getline tmp &lt; file) &lt; 0)
+        return
+
+    contents = tmp
+    while (getline tmp &lt; file) &gt; 0)
+        contents = contents RT tmp
+
+    close(file)
+    return contents
+}
+</PRE></DIV>
+<P>This function reads from <CODE>file</CODE> one record at a time, building up the full contents of the file in the local variable <CODE>contents</CODE>. It works, but is not necessarily efficient. </P>
+<P>The following function, based on a suggestion by Denis Shirokov, reads the entire contents of the named file in one shot: </P><A name=index-readfile_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example># readfile.awk --- read an entire file at once
+
+function readfile(file,     tmp, save_rs)
+{
+    save_rs = RS
+    RS = "^$"
+    getline tmp &lt; file
+    close(file)
+    RS = save_rs
+
+    return tmp
+}
+</PRE></DIV>
+<P>It works by setting <CODE>RS</CODE> to &#8216;<SAMP>^$</SAMP>&#8217;, a regular expression that will never match if the file has contents. <CODE>gawk</CODE> reads data from the file into <CODE>tmp</CODE> attempting to match <CODE>RS</CODE>. The match fails after each read, but fails quickly, such that <CODE>gawk</CODE> fills <CODE>tmp</CODE> with the entire contents of the file. (See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Records">Records</A>, for information on <CODE>RT</CODE> and <CODE>RS</CODE>.) </P>
+<P>In the case that <CODE>file</CODE> is empty, the return value is the null string. Thus calling code may use something like: </P>
+<DIV class=example><PRE class=example>contents = readfile("/some/path")
+if (length(contents) == 0)
+    # file was empty &#8230;
+</PRE></DIV>
+<P>This tests the result to see if it is empty or not. An equivalent test would be &#8216;<SAMP>contents == ""</SAMP>&#8217;.

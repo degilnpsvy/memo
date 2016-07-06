@@ -1,0 +1,10 @@
+Downstream Access<BR>~~~~~~~~~~~~~~~~~ 
+<P></P>
+<P><FONT class=extract>Common data fields have been moved out of individual bus layers into a common<BR>data structure. These fields must still be accessed by the bus layers,<BR>and sometimes by the device-specific drivers.</FONT></P>
+<P>Other bus layers are encouraged to do what has been done for the PCI layer.<BR><FONT class=extract>struct pci_dev now looks like this:</FONT></P>
+<P><FONT class=extract>struct pci_dev {<BR>&nbsp;...</FONT></P>
+<P><FONT class=extract>&nbsp;struct device dev;&nbsp;&nbsp;&nbsp;&nbsp; /* Generic device interface */<BR>&nbsp;...<BR>};</FONT></P>
+<P><FONT class=extract>Note first that the struct device dev within the struct pci_dev is<BR>statically allocated. This means only one allocation on device discovery.</FONT></P>
+<P><FONT class=extract>Note also that that struct device dev is not necessarily defined at the<BR>front of the pci_dev structure.&nbsp; This is to make people think about what<BR>they're doing when switching between the bus driver and the global driver,<BR>and to discourage meaningless and incorrect casts between the two.</FONT></P>
+<P><FONT class=extract>The PCI bus layer freely accesses the fields of struct device. It knows about<BR>the structure of struct pci_dev, and it should know the structure of struct<BR>device. Individual PCI device drivers that have been converted to the current<BR>driver model generally do not and should not touch the fields of struct device,<BR>unless there is a compelling reason to do so.</FONT></P>
+<P><FONT class=extract>The above abstraction prevents unnecessary pain during transitional phases.<BR>If it were not done this way, then when a field was renamed or removed, every<BR>downstream driver would break.&nbsp; On the other hand, if only the bus layer<BR>(and not the device layer) accesses the struct device, it is only the bus<BR>layer that needs to change.</FONT>

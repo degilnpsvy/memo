@@ -1,0 +1,325 @@
+# Documentation/ioctl/cdrom.txt
+<P></P>
+<P>&nbsp;&nbsp;Summary of CDROM ioctl calls.<BR>&nbsp;&nbsp;============================</P>
+<P></P>
+<P>&nbsp;&nbsp;Edward A. Falk &lt;<A href="mailto:efalk@google.com">efalk@google.com</A>&gt;</P>
+<P>&nbsp;&nbsp;November, 2004</P>
+<P>This document attempts to describe the ioctl(2) calls supported by<BR>the CDROM layer.&nbsp; These are by-and-large implemented (as of Linux 2.6)<BR>in drivers/cdrom/cdrom.c and drivers/block/scsi_ioctl.c</P>
+<P>ioctl values are listed in &lt;linux/cdrom.h&gt;.&nbsp; As of this writing, they<BR>are as follows:</P>
+<P>&nbsp;CDROMPAUSE&nbsp;&nbsp;Pause Audio Operation<BR>&nbsp;CDROMRESUME&nbsp;&nbsp;Resume paused Audio Operation<BR>&nbsp;CDROMPLAYMSF&nbsp;&nbsp;Play Audio MSF (struct cdrom_msf)<BR>&nbsp;CDROMPLAYTRKIND&nbsp;&nbsp;Play Audio Track/index (struct cdrom_ti)<BR>&nbsp;CDROMREADTOCHDR&nbsp;&nbsp;Read TOC header (struct cdrom_tochdr)<BR>&nbsp;CDROMREADTOCENTRY&nbsp;Read TOC entry (struct cdrom_tocentry)<BR>&nbsp;CDROMSTOP&nbsp;&nbsp;Stop the cdrom drive<BR>&nbsp;CDROMSTART&nbsp;&nbsp;Start the cdrom drive<BR>&nbsp;CDROMEJECT&nbsp;&nbsp;Ejects the cdrom media<BR>&nbsp;CDROMVOLCTRL&nbsp;&nbsp;Control output volume (struct cdrom_volctrl)<BR>&nbsp;CDROMSUBCHNL&nbsp;&nbsp;Read subchannel data (struct cdrom_subchnl)<BR>&nbsp;CDROMREADMODE2&nbsp;&nbsp;Read CDROM mode 2 data (2336 Bytes)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_read)<BR>&nbsp;CDROMREADMODE1&nbsp;&nbsp;Read CDROM mode 1 data (2048 Bytes)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_read)<BR>&nbsp;CDROMREADAUDIO&nbsp;&nbsp;(struct cdrom_read_audio)<BR>&nbsp;CDROMEJECT_SW&nbsp;&nbsp;enable(1)/disable(0) auto-ejecting<BR>&nbsp;CDROMMULTISESSION&nbsp;Obtain the start-of-last-session<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; address of multi session disks<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_multisession)<BR>&nbsp;CDROM_GET_MCN&nbsp;&nbsp;Obtain the "Universal Product Code"<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if available (struct cdrom_mcn)<BR>&nbsp;CDROM_GET_UPC&nbsp;&nbsp;Deprecated, use CDROM_GET_MCN instead.<BR>&nbsp;CDROMRESET&nbsp;&nbsp;hard-reset the drive<BR>&nbsp;CDROMVOLREAD&nbsp;&nbsp;Get the drive's volume setting<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_volctrl)<BR>&nbsp;CDROMREADRAW&nbsp;&nbsp;read data in raw mode (2352 Bytes)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_read)<BR>&nbsp;CDROMREADCOOKED&nbsp;&nbsp;read data in cooked mode<BR>&nbsp;CDROMSEEK&nbsp;&nbsp;seek msf address<BR>&nbsp;CDROMPLAYBLK&nbsp;&nbsp;scsi-cd only, (struct cdrom_blk)<BR>&nbsp;CDROMREADALL&nbsp;&nbsp;read all 2646 bytes<BR>&nbsp;CDROMGETSPINDOWN&nbsp;return 4-bit spindown value<BR>&nbsp;CDROMSETSPINDOWN&nbsp;set 4-bit spindown value<BR>&nbsp;CDROMCLOSETRAY&nbsp;&nbsp;pendant of CDROMEJECT<BR>&nbsp;CDROM_SET_OPTIONS&nbsp;Set behavior options<BR>&nbsp;CDROM_CLEAR_OPTIONS&nbsp;Clear behavior options<BR>&nbsp;CDROM_SELECT_SPEED&nbsp;Set the CD-ROM speed<BR>&nbsp;CDROM_SELECT_DISC&nbsp;Select disc (for juke-boxes)<BR>&nbsp;CDROM_MEDIA_CHANGED&nbsp;Check is media changed<BR>&nbsp;CDROM_DRIVE_STATUS&nbsp;Get tray position, etc.<BR>&nbsp;CDROM_DISC_STATUS&nbsp;Get disc type, etc.<BR>&nbsp;CDROM_CHANGER_NSLOTS&nbsp;Get number of slots<BR>&nbsp;CDROM_LOCKDOOR&nbsp;&nbsp;lock or unlock door<BR>&nbsp;CDROM_DEBUG&nbsp;&nbsp;Turn debug messages on/off<BR>&nbsp;CDROM_GET_CAPABILITY&nbsp;get capabilities<BR>&nbsp;CDROMAUDIOBUFSIZ&nbsp;set the audio buffer size<BR>&nbsp;DVD_READ_STRUCT&nbsp;&nbsp;Read structure<BR>&nbsp;DVD_WRITE_STRUCT&nbsp;Write structure<BR>&nbsp;DVD_AUTH&nbsp;&nbsp;Authentication<BR>&nbsp;CDROM_SEND_PACKET&nbsp;send a packet to the drive<BR>&nbsp;CDROM_NEXT_WRITABLE&nbsp;get next writable block<BR>&nbsp;CDROM_LAST_WRITTEN&nbsp;get last block written on disc</P>
+<P><BR>The information that follows was determined from reading kernel source<BR>code.&nbsp; It is likely that some corrections will be made over time.</P>
+<P>&nbsp;</P>
+<P>&nbsp;</P>
+<P>&nbsp;</P>
+<P>General:</P>
+<P>&nbsp;Unless otherwise specified, all ioctl calls return 0 on success<BR>&nbsp;and -1 with errno set to an appropriate value on error.&nbsp; (Some<BR>&nbsp;ioctls return non-negative data values.)</P>
+<P>&nbsp;Unless otherwise specified, all ioctl calls return -1 and set<BR>&nbsp;errno to EFAULT on a failed attempt to copy data to or from user<BR>&nbsp;address space.</P>
+<P>&nbsp;Individual drivers may return error codes not listed here.</P>
+<P>&nbsp;Unless otherwise specified, all data structures and constants<BR>&nbsp;are defined in &lt;linux/cdrom.h&gt;</P>
+<P>&nbsp;</P>
+<P><BR>CDROMPAUSE&nbsp;&nbsp;&nbsp;Pause Audio Operation</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROMPAUSE, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P><BR>CDROMRESUME&nbsp;&nbsp;&nbsp;Resume paused Audio Operation</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROMRESUME, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P><BR>CDROMPLAYMSF&nbsp;&nbsp;&nbsp;Play Audio MSF (struct cdrom_msf)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_msf msf;<BR>&nbsp;&nbsp; ioctl(fd, CDROMPLAYMSF, &amp;msf);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_msf structure, describing a segment of music to play</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; MSF stands for minutes-seconds-frames<BR>&nbsp;&nbsp; LBA stands for logical block address</P>
+<P>&nbsp;&nbsp; Segment is described as start and end times, where each time<BR>&nbsp;&nbsp; is described as minutes:seconds:frames.&nbsp; A frame is 1/75 of<BR>&nbsp;&nbsp; a second.</P>
+<P><BR>CDROMPLAYTRKIND&nbsp;&nbsp;&nbsp;Play Audio Track/index (struct cdrom_ti)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_ti ti;<BR>&nbsp;&nbsp; ioctl(fd, CDROMPLAYTRKIND, &amp;ti);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_ti structure, describing a segment of music to play</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Segment is described as start and end times, where each time<BR>&nbsp;&nbsp; is described as a track and an index.</P>
+<P>&nbsp;</P>
+<P>CDROMREADTOCHDR&nbsp;&nbsp;&nbsp;Read TOC header (struct cdrom_tochdr)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; cdrom_tochdr header;<BR>&nbsp;&nbsp; ioctl(fd, CDROMREADTOCHDR, &amp;header);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_tochdr structure</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; cdrom_tochdr structure</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P>&nbsp;</P>
+<P>CDROMREADTOCENTRY&nbsp;&nbsp;Read TOC entry (struct cdrom_tocentry)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_tocentry entry;<BR>&nbsp;&nbsp; ioctl(fd, CDROMREADTOCENTRY, &amp;entry);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_tocentry structure</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; cdrom_tocentry structure</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.<BR>&nbsp;&nbsp; EINVAL&nbsp;entry.cdte_format not CDROM_MSF or CDROM_LBA<BR>&nbsp;&nbsp; EINVAL&nbsp;requested track out of bounds<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;I/O error reading TOC</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; TOC stands for Table Of Contents<BR>&nbsp;&nbsp; MSF stands for minutes-seconds-frames<BR>&nbsp;&nbsp; LBA stands for logical block address</P>
+<P>&nbsp;</P>
+<P>CDROMSTOP&nbsp;&nbsp;&nbsp;Stop the cdrom drive</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROMSTOP, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Exact interpretation of this ioctl depends on the device,<BR>&nbsp;&nbsp; but most seem to spin the drive down.</P>
+<P><BR>CDROMSTART&nbsp;&nbsp;&nbsp;Start the cdrom drive</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROMSTART, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Exact interpretation of this ioctl depends on the device,<BR>&nbsp;&nbsp; but most seem to spin the drive up and/or close the tray.<BR>&nbsp;&nbsp; Other devices ignore the ioctl completely.</P>
+<P><BR>CDROMEJECT&nbsp;&nbsp;&nbsp;Ejects the cdrom media</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROMEJECT, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not capable of ejecting<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;other processes are accessing drive, or door is locked</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; See CDROM_LOCKDOOR, below.</P>
+<P>&nbsp;</P>
+<P>CDROMCLOSETRAY&nbsp;&nbsp;&nbsp;pendant of CDROMEJECT</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROMCLOSETRAY, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not capable of closing the tray<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;other processes are accessing drive, or door is locked</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; See CDROM_LOCKDOOR, below.</P>
+<P>&nbsp;</P>
+<P>CDROMVOLCTRL&nbsp;&nbsp;&nbsp;Control output volume (struct cdrom_volctrl)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_volctrl volume;<BR>&nbsp;&nbsp; ioctl(fd, CDROMVOLCTRL, &amp;volume);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_volctrl structure containing volumes for up to 4<BR>&nbsp;&nbsp; channels.</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P>&nbsp;</P>
+<P>CDROMVOLREAD&nbsp;&nbsp;&nbsp;Get the drive's volume setting<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_volctrl)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_volctrl volume;<BR>&nbsp;&nbsp; ioctl(fd, CDROMVOLREAD, &amp;volume);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The current volume settings.</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.</P>
+<P>&nbsp;</P>
+<P>CDROMSUBCHNL&nbsp;&nbsp;&nbsp;Read subchannel data (struct cdrom_subchnl)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_subchnl q;<BR>&nbsp;&nbsp; ioctl(fd, CDROMSUBCHNL, &amp;q);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_subchnl structure</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; cdrom_subchnl structure</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;cd drive not audio-capable.<BR>&nbsp;&nbsp; EINVAL&nbsp;format not CDROM_MSF or CDROM_LBA</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Format is converted to CDROM_MSF on return</P>
+<P>&nbsp;</P>
+<P>CDROMREADRAW&nbsp;&nbsp;&nbsp;read data in raw mode (2352 Bytes)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_read)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; union {<BR>&nbsp;&nbsp;&nbsp;&nbsp; struct cdrom_msf msf;&nbsp;&nbsp;/* input */<BR>&nbsp;&nbsp;&nbsp;&nbsp; char buffer[CD_FRAMESIZE_RAW];&nbsp;/* return */<BR>&nbsp;&nbsp; } arg;<BR>&nbsp;&nbsp; ioctl(fd, CDROMREADRAW, &amp;arg);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_msf structure indicating an address to read.<BR>&nbsp;&nbsp; Only the start values are significant.</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; Data written to address provided by user.</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;address less than 0, or msf less than 0:2:0<BR>&nbsp;&nbsp; ENOMEM&nbsp;out of memory</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; As of 2.6.8.1, comments in &lt;linux/cdrom.h&gt; indicate that this<BR>&nbsp;&nbsp; ioctl accepts a cdrom_read structure, but actual source code<BR>&nbsp;&nbsp; reads a cdrom_msf structure and writes a buffer of data to<BR>&nbsp;&nbsp; the same address.</P>
+<P>&nbsp;&nbsp; MSF values are converted to LBA values via this formula:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; lba = (((m * CD_SECS) + s) * CD_FRAMES + f) - CD_MSF_OFFSET;</P>
+<P>&nbsp;</P>
+<P><BR>CDROMREADMODE1&nbsp;&nbsp;&nbsp;Read CDROM mode 1 data (2048 Bytes)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_read)</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Identical to CDROMREADRAW except that block size is<BR>&nbsp;&nbsp; CD_FRAMESIZE (2048) bytes</P>
+<P>&nbsp;</P>
+<P>CDROMREADMODE2&nbsp;&nbsp;&nbsp;Read CDROM mode 2 data (2336 Bytes)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_read)</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Identical to CDROMREADRAW except that block size is<BR>&nbsp;&nbsp; CD_FRAMESIZE_RAW0 (2336) bytes</P>
+<P>&nbsp;</P>
+<P>CDROMREADAUDIO&nbsp;&nbsp;&nbsp;(struct cdrom_read_audio)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_read_audio ra;<BR>&nbsp;&nbsp; ioctl(fd, CDROMREADAUDIO, &amp;ra);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_read_audio structure containing read start<BR>&nbsp;&nbsp; point and length</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; audio data, returned to buffer indicated by ra</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;format not CDROM_MSF or CDROM_LBA<BR>&nbsp;&nbsp; EINVAL&nbsp;nframes not in range [1 75]<BR>&nbsp;&nbsp; ENXIO&nbsp;&nbsp;drive has no queue (probably means invalid fd)<BR>&nbsp;&nbsp; ENOMEM&nbsp;out of memory</P>
+<P><BR>CDROMEJECT_SW&nbsp;&nbsp;&nbsp;enable(1)/disable(0) auto-ejecting</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int val;<BR>&nbsp;&nbsp; ioctl(fd, CDROMEJECT_SW, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; Flag specifying auto-eject flag.</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;Drive is not capable of ejecting.<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Door is locked</P>
+<P>&nbsp;</P>
+<P><BR>CDROMMULTISESSION&nbsp;&nbsp;Obtain the start-of-last-session<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; address of multi session disks<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (struct cdrom_multisession)<BR>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_multisession ms_info;<BR>&nbsp;&nbsp; ioctl(fd, CDROMMULTISESSION, &amp;ms_info);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_multisession structure containing desired<BR>&nbsp;&nbsp; format.</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; cdrom_multisession structure is filled with last_session<BR>&nbsp;&nbsp; information.</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;format not CDROM_MSF or CDROM_LBA</P>
+<P><BR>CDROM_GET_MCN&nbsp;&nbsp;&nbsp;Obtain the "Universal Product Code"<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if available (struct cdrom_mcn)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_mcn mcn;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_GET_MCN, &amp;mcn);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; Universal Product Code</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;Drive is not capable of reading MCN data.</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Source code comments state:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; The following function is implemented, although very few<BR>&nbsp;&nbsp;&nbsp;&nbsp; audio discs give Universal Product Code information, which<BR>&nbsp;&nbsp;&nbsp;&nbsp; should just be the Medium Catalog Number on the box.&nbsp; Note,<BR>&nbsp;&nbsp;&nbsp;&nbsp; that the way the code is written on the CD is /not/ uniform<BR>&nbsp;&nbsp;&nbsp;&nbsp; across all discs!</P>
+<P>&nbsp;</P>
+<P><BR>CDROM_GET_UPC&nbsp;&nbsp;&nbsp;CDROM_GET_MCN&nbsp; (deprecated)</P>
+<P>&nbsp;Not implemented, as of 2.6.8.1</P>
+<P>&nbsp;</P>
+<P>CDROMRESET&nbsp;&nbsp;&nbsp;hard-reset the drive</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROMRESET, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; ENOSYS&nbsp;Drive is not capable of resetting.</P>
+<P>&nbsp;</P>
+<P><BR>CDROMREADCOOKED&nbsp;&nbsp;&nbsp;read data in cooked mode</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; u8 buffer[CD_FRAMESIZE]<BR>&nbsp;&nbsp; ioctl(fd, CDROMREADCOOKED, buffer);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; 2048 bytes of data, "cooked" mode.</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Not implemented on all drives.</P>
+<P>&nbsp;</P>
+<P><BR>CDROMREADALL&nbsp;&nbsp;&nbsp;read all 2646 bytes</P>
+<P>&nbsp;Same as CDROMREADCOOKED, but reads 2646 bytes.</P>
+<P>&nbsp;</P>
+<P>CDROMSEEK&nbsp;&nbsp;&nbsp;seek msf address</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_msf msf;<BR>&nbsp;&nbsp; ioctl(fd, CDROMSEEK, &amp;msf);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; MSF address to seek to.</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;</P>
+<P>CDROMPLAYBLK&nbsp;&nbsp;&nbsp;scsi-cd only, (struct cdrom_blk)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_blk blk;<BR>&nbsp;&nbsp; ioctl(fd, CDROMPLAYBLK, &amp;blk);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; Region to play</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;</P>
+<P>CDROMGETSPINDOWN</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; char spindown;<BR>&nbsp;&nbsp; ioctl(fd, CDROMGETSPINDOWN, &amp;spindown);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current 4-bit spindown value.</P>
+<P>&nbsp;</P>
+<P><BR>CDROMSETSPINDOWN</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; char spindown<BR>&nbsp;&nbsp; ioctl(fd, CDROMSETSPINDOWN, &amp;spindown);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; 4-bit value used to control spindown (TODO: more detail here)</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;</P>
+<P>&nbsp;</P>
+<P>CDROM_SET_OPTIONS&nbsp;&nbsp;Set behavior options</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int options;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_SET_OPTIONS, options);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New values for drive options.&nbsp; The logical 'or' of:<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDO_AUTO_CLOSE&nbsp;close tray on first open(2)<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDO_AUTO_EJECT&nbsp;open tray on last release<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDO_USE_FFLAGS&nbsp;use O_NONBLOCK information on open<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDO_LOCK&nbsp;&nbsp;lock tray on open files<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDO_CHECK_TYPE&nbsp;check type on open for data</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; Returns the resulting options settings in the<BR>&nbsp;&nbsp; ioctl return value.&nbsp; Returns -1 on error.</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;selected option(s) not supported by drive.</P>
+<P>&nbsp;</P>
+<P><BR>CDROM_CLEAR_OPTIONS&nbsp;&nbsp;Clear behavior options</P>
+<P>&nbsp;Same as CDROM_SET_OPTIONS, except that selected options are<BR>&nbsp;turned off.</P>
+<P>&nbsp;</P>
+<P>CDROM_SELECT_SPEED&nbsp;&nbsp;Set the CD-ROM speed</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int speed;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_SELECT_SPEED, speed);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New drive speed.</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;speed selection not supported by drive.</P>
+<P>&nbsp;</P>
+<P>CDROM_SELECT_DISC&nbsp;&nbsp;Select disc (for juke-boxes)</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int disk;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_SELECT_DISC, disk);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; Disk to load into drive.</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;Disk number beyond capacity of drive</P>
+<P>&nbsp;</P>
+<P>CDROM_MEDIA_CHANGED&nbsp;&nbsp;Check is media changed</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int slot;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_MEDIA_CHANGED, slot);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; Slot number to be tested, always zero except for jukeboxes.<BR>&nbsp;&nbsp; May also be special values CDSL_NONE or CDSL_CURRENT</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; Ioctl return value is 0 or 1 depending on whether the media<BR>&nbsp;&nbsp; has been changed, or -1 on error.</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; ENOSYS&nbsp;Drive can't detect media change<BR>&nbsp;&nbsp; EINVAL&nbsp;Slot number beyond capacity of drive<BR>&nbsp;&nbsp; ENOMEM&nbsp;Out of memory</P>
+<P>&nbsp;</P>
+<P>CDROM_DRIVE_STATUS&nbsp;&nbsp;Get tray position, etc.</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int slot;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_DRIVE_STATUS, slot);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; Slot number to be tested, always zero except for jukeboxes.<BR>&nbsp;&nbsp; May also be special values CDSL_NONE or CDSL_CURRENT</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; Ioctl return value will be one of the following values<BR>&nbsp;&nbsp; from &lt;linux/cdrom.h&gt;:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; CDS_NO_INFO&nbsp;&nbsp;Information not available.<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_NO_DISC<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_TRAY_OPEN<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_DRIVE_NOT_READY<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_DISC_OK<BR>&nbsp;&nbsp;&nbsp;&nbsp; -1&nbsp;&nbsp;&nbsp;error</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; ENOSYS&nbsp;Drive can't detect drive status<BR>&nbsp;&nbsp; EINVAL&nbsp;Slot number beyond capacity of drive<BR>&nbsp;&nbsp; ENOMEM&nbsp;Out of memory</P>
+<P>&nbsp;</P>
+<P><BR>CDROM_DISC_STATUS&nbsp;&nbsp;Get disc type, etc.</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROM_DISC_STATUS, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; Ioctl return value will be one of the following values<BR>&nbsp;&nbsp; from &lt;linux/cdrom.h&gt;:<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_NO_INFO<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_AUDIO<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_MIXED<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_XA_2_2<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_XA_2_1<BR>&nbsp;&nbsp;&nbsp;&nbsp; CDS_DATA_1</P>
+<P>&nbsp;error returns:&nbsp;none at present</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Source code comments state:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Ok, this is where problems start.&nbsp; The current interface for<BR>&nbsp;&nbsp;&nbsp;&nbsp; the CDROM_DISC_STATUS ioctl is flawed.&nbsp; It makes the false<BR>&nbsp;&nbsp;&nbsp;&nbsp; assumption that CDs are all CDS_DATA_1 or all CDS_AUDIO, etc.<BR>&nbsp;&nbsp;&nbsp;&nbsp; Unfortunately, while this is often the case, it is also<BR>&nbsp;&nbsp;&nbsp;&nbsp; very common for CDs to have some tracks with data, and some<BR>&nbsp;&nbsp;&nbsp;&nbsp; tracks with audio.&nbsp;Just because I feel like it, I declare<BR>&nbsp;&nbsp;&nbsp;&nbsp; the following to be the best way to cope.&nbsp; If the CD has<BR>&nbsp;&nbsp;&nbsp;&nbsp; ANY data tracks on it, it will be returned as a data CD.<BR>&nbsp;&nbsp;&nbsp;&nbsp; If it has any XA tracks, I will return it as that.&nbsp;Now I<BR>&nbsp;&nbsp;&nbsp;&nbsp; could simplify this interface by combining these returns with<BR>&nbsp;&nbsp;&nbsp;&nbsp; the above, but this more clearly demonstrates the problem<BR>&nbsp;&nbsp;&nbsp;&nbsp; with the current interface.&nbsp; Too bad this wasn't designed<BR>&nbsp;&nbsp;&nbsp;&nbsp; to use bitmasks...&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -Erik</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; Well, now we have the option CDS_MIXED: a mixed-type CD.<BR>&nbsp;&nbsp;&nbsp;&nbsp; User level programmers might feel the ioctl is not very<BR>&nbsp;&nbsp;&nbsp;&nbsp; useful.<BR>&nbsp;&nbsp;&nbsp;---david</P>
+<P>&nbsp;</P>
+<P><BR>CDROM_CHANGER_NSLOTS&nbsp;&nbsp;Get number of slots</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROM_CHANGER_NSLOTS, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The ioctl return value will be the number of slots in a<BR>&nbsp;&nbsp; CD changer.&nbsp; Typically 1 for non-multi-disk devices.</P>
+<P>&nbsp;error returns:&nbsp;none</P>
+<P>&nbsp;</P>
+<P>CDROM_LOCKDOOR&nbsp;&nbsp;&nbsp;lock or unlock door</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int lock;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_LOCKDOOR, lock);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; Door lock flag, 1=lock, 0=unlock</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EDRIVE_CANT_DO_THIS&nbsp;Door lock function not supported.<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;&nbsp;Attempt to unlock when multiple users<BR>&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;have the drive open and not CAP_SYS_ADMIN</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; As of 2.6.8.1, the lock flag is a global lock, meaning that<BR>&nbsp;&nbsp; all CD drives will be locked or unlocked together.&nbsp; This is<BR>&nbsp;&nbsp; probably a bug.</P>
+<P>&nbsp;&nbsp; The EDRIVE_CANT_DO_THIS value is defined in &lt;linux/cdrom.h&gt;<BR>&nbsp;&nbsp; and is currently (2.6.8.1) the same as EOPNOTSUPP</P>
+<P>&nbsp;</P>
+<P>CDROM_DEBUG&nbsp;&nbsp;&nbsp;Turn debug messages on/off</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int debug;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_DEBUG, debug);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; Cdrom debug flag, 0=disable, 1=enable</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The ioctl return value will be the new debug flag.</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN</P>
+<P>&nbsp;</P>
+<P>CDROM_GET_CAPABILITY&nbsp;&nbsp;get capabilities</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; ioctl(fd, CDROM_GET_CAPABILITY, 0);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The ioctl return value is the current device capability<BR>&nbsp;&nbsp; flags.&nbsp; See CDC_CLOSE_TRAY, CDC_OPEN_TRAY, etc.</P>
+<P>&nbsp;</P>
+<P>CDROMAUDIOBUFSIZ&nbsp;&nbsp;set the audio buffer size</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int arg;<BR>&nbsp;&nbsp; ioctl(fd, CDROMAUDIOBUFSIZ, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New audio buffer size</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The ioctl return value is the new audio buffer size, or -1<BR>&nbsp;&nbsp; on error.</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOSYS&nbsp;Not supported by this driver.</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; Not supported by all drivers.</P>
+<P>&nbsp;</P>
+<P>DVD_READ_STRUCT&nbsp;&nbsp;&nbsp;Read structure</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; dvd_struct s;<BR>&nbsp;&nbsp; ioctl(fd, DVD_READ_STRUCT, &amp;s);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; dvd_struct structure, containing:<BR>&nbsp;&nbsp;&nbsp;&nbsp; type&nbsp;&nbsp;specifies the information desired, one of<BR>&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;DVD_STRUCT_PHYSICAL, DVD_STRUCT_COPYRIGHT,<BR>&nbsp;&nbsp;&nbsp;&nbsp;DVD_STRUCT_DISCKEY, DVD_STRUCT_BCA,<BR>&nbsp;&nbsp;&nbsp;&nbsp;DVD_STRUCT_MANUFACT<BR>&nbsp;&nbsp;&nbsp;&nbsp; physical.layer_num&nbsp;desired layer, indexed from 0<BR>&nbsp;&nbsp;&nbsp;&nbsp; copyright.layer_num&nbsp;desired layer, indexed from 0<BR>&nbsp;&nbsp;&nbsp;&nbsp; disckey.agid</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; dvd_struct structure, containing:<BR>&nbsp;&nbsp;&nbsp;&nbsp; physical&nbsp;&nbsp;for type == DVD_STRUCT_PHYSICAL<BR>&nbsp;&nbsp;&nbsp;&nbsp; copyright&nbsp;&nbsp;for type == DVD_STRUCT_COPYRIGHT<BR>&nbsp;&nbsp;&nbsp;&nbsp; disckey.value&nbsp;for type == DVD_STRUCT_DISCKEY<BR>&nbsp;&nbsp;&nbsp;&nbsp; bca.{len,value}&nbsp;for type == DVD_STRUCT_BCA<BR>&nbsp;&nbsp;&nbsp;&nbsp; manufact.{len,valu}&nbsp;for type == DVD_STRUCT_MANUFACT</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EINVAL&nbsp;physical.layer_num exceeds number of layers<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;Received invalid response from drive</P>
+<P>&nbsp;</P>
+<P>DVD_WRITE_STRUCT&nbsp;&nbsp;Write structure</P>
+<P>&nbsp;Not implemented, as of 2.6.8.1</P>
+<P>&nbsp;</P>
+<P>DVD_AUTH&nbsp;&nbsp;&nbsp;Authentication</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; dvd_authinfo ai;<BR>&nbsp;&nbsp; ioctl(fd, DVD_AUTH, &amp;ai);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; dvd_authinfo structure.&nbsp; See &lt;linux/cdrom.h&gt;</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; dvd_authinfo structure.</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; ENOTTY&nbsp;ai.type not recognized.</P>
+<P>&nbsp;</P>
+<P>CDROM_SEND_PACKET&nbsp;&nbsp;send a packet to the drive</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct cdrom_generic_command cgc;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_SEND_PACKET, &amp;cgc);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; cdrom_generic_command structure containing the packet to send.</P>
+<P>&nbsp;outputs:&nbsp;none<BR>&nbsp;&nbsp; cdrom_generic_command structure containing results.</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;command failed.<BR>&nbsp;&nbsp; EPERM&nbsp;&nbsp;Operation not permitted, either because a<BR>&nbsp;&nbsp;&nbsp;write command was attempted on a drive which<BR>&nbsp;&nbsp;&nbsp;is opened read-only, or because the command<BR>&nbsp;&nbsp;&nbsp;requires CAP_SYS_RAWIO<BR>&nbsp;&nbsp; EINVAL&nbsp;cgc.data_direction not set</P>
+<P>&nbsp;</P>
+<P>CDROM_NEXT_WRITABLE&nbsp;&nbsp;get next writable block</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long next;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_NEXT_WRITABLE, &amp;next);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The next writable block.</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; If the device does not support this ioctl directly, the<BR>&nbsp;&nbsp; ioctl will return CDROM_LAST_WRITTEN + 7.</P>
+<P>&nbsp;</P>
+<P>CDROM_LAST_WRITTEN&nbsp;&nbsp;get last block written on disc</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long last;<BR>&nbsp;&nbsp; ioctl(fd, CDROM_LAST_WRITTEN, &amp;last);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The last block written on disc</P>
+<P>&nbsp;notes:<BR>&nbsp;&nbsp; If the device does not support this ioctl directly, the<BR>&nbsp;&nbsp; result is derived from the disc's table of contents.&nbsp; If the<BR>&nbsp;&nbsp; table of contents can't be read, this ioctl returns an<BR>&nbsp;&nbsp; error.

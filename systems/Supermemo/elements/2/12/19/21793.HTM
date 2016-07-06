@@ -1,0 +1,26 @@
+# Documentation/driver-model/binding.txt 
+<P></P>
+<P>Driver Binding</P>
+<P></P>
+<P><FONT class=extract>Driver binding is the process of associating a device with a device<BR>driver that can control it. Bus drivers have typically handled this<BR>because there have been bus-specific structures to represent the<BR>devices and the drivers. With generic device and device driver<BR>structures, most of the binding can take place using common code.</FONT></P>
+<P><BR><FONT class=extract>Bus<BR>~~~</FONT></P>
+<P><FONT class=extract>The bus type structure contains a list of all devices that are on that bus<BR>type in the system. When device_register is called for a device, it is<BR>inserted into the end of this list. The bus object also contains a<BR>list of all drivers of that bus type. When driver_register is called<BR>for a driver, it is inserted at the end of this list. These are the<BR>two events which trigger driver binding.</FONT></P>
+<P><BR><FONT class=extract>device_register<BR>~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>When a new device is added, the bus's list of drivers is iterated over<BR>to find one that supports it. In order to determine that, the device<BR>ID of the device must match one of the device IDs that the driver<BR>supports. The format and semantics for comparing IDs is bus-specific. <BR>Instead of trying to derive a complex state machine and matching<BR>algorithm, it is up to the bus driver to provide a callback to compare<BR>a device against the IDs of a driver. The bus returns 1 if a match was<BR>found; 0 otherwise.</FONT></P>
+<P><FONT class=extract>int match(struct device * dev, struct device_driver * drv);</FONT></P>
+<P><FONT class=extract>If a match is found, the device's driver field is set to the driver<BR>and the driver's probe callback is called. This gives the driver a<BR>chance to verify that it really does support the hardware, and that<BR>it's in a working state. </FONT></P>
+<P><FONT class=extract>Device Class<BR>~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>Upon the successful completion of probe, the device is registered with<BR>the class to which it belongs. Device drivers belong to one and only one<BR>class, and that is set in the driver's devclass field. <BR>devclass_add_device is called to enumerate the device within the class<BR>and actually register it with the class, which happens with the<BR>class's register_dev callback.</FONT></P>
+<P><BR><FONT class=extract>Driver<BR>~~~~~~</FONT></P>
+<P><FONT class=extract>When a driver is attached to a device, the device is inserted into the<BR>driver's list of devices. </FONT></P>
+<P><BR><FONT class=extract>sysfs<BR>~~~~~</FONT></P>
+<P><FONT class=extract>A symlink is created in the bus's 'devices' directory that points to<BR>the device's directory in the physical hierarchy.</FONT></P>
+<P><FONT class=extract>A symlink is created in the driver's 'devices' directory that points<BR>to the device's directory in the physical hierarchy.</FONT></P>
+<P><FONT class=extract>A directory for the device is created in the class's directory. A<BR>symlink is created in that directory that points to the device's<BR>physical location in the sysfs tree. </FONT></P>
+<P><FONT class=extract>A symlink can be created (though this isn't done yet) in the device's<BR>physical directory to either its class directory, or the class's<BR>top-level directory. One can also be created to point to its driver's<BR>directory also. </FONT></P>
+<P><BR><FONT class=extract>driver_register<BR>~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>The process is almost identical for when a new driver is added. <BR>The bus's list of devices is iterated over to find a match. Devices<BR>that already have a driver are skipped. All the devices are iterated<BR>over, to bind as many devices as possible to the driver.</FONT></P>
+<P><BR><FONT class=extract>Removal<BR>~~~~~~~</FONT></P>
+<P><FONT class=extract>When a device is removed, the reference count for it will eventually<BR>go to 0. When it does, the remove callback of the driver is called. It<BR>is removed from the driver's list of devices and the reference count<BR>of the driver is decremented. All symlinks between the two are removed.</FONT></P>
+<P><FONT class=extract>When a driver is removed, the list of devices that it supports is<BR>iterated over, and the driver's remove callback is called for each<BR>one. The device is removed from that list and the symlinks removed.</FONT> </P>
+<P>&nbsp;

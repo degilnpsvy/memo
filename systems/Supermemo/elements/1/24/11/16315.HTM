@@ -1,0 +1,93 @@
+<H3 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=section>7.13 Streams</H3><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-streams></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This section documents Guile&#8217;s legacy stream module. For a more complete and portable stream library, see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#SRFI_002d41">SRFI-41</A>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A stream represents a sequence of values, each of which is calculated only when required. This allows large or even infinite sequences to be represented and manipulated with familiar operations like &#8220;car&#8221;, &#8220;cdr&#8221;, &#8220;map&#8221; or &#8220;fold&#8221;. In such manipulations only as much as needed is actually held in memory at any one time. The functions in this section are available from</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(use-modules (ice-9 streams))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Streams are implemented using promises (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Delayed-Evaluation">Delayed Evaluation</A>), which is how the underlying calculation of values is made only when needed, and the values then retained so the calculation is not repeated.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here is a simple example producing a stream of all odd numbers,</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define odds (make-stream (lambda (state)
+                            (cons state (+ state 2)))
+                          1))
+(stream-car odds)              &#8658; 1
+(stream-car (stream-cdr odds)) &#8658; 3
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><CODE>stream-map</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>could be used to derive a stream of odd squares,</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define (square n) (* n n))
+(define oddsquares (stream-map square odds))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">These are infinite sequences, so it&#8217;s not possible to convert them to a list, but they could be printed (infinitely) with for example</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(stream-for-each (lambda (n sq)
+                   (format #t "~a squared is ~a\n" n sq))
+                 odds oddsquares)
+-|
+1 squared is 1
+3 squared is 9
+5 squared is 25
+7 squared is 49
+&#8230;
+</PRE></DIV><BR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-make_002dstream></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>make-stream</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>proc initial-state</EM></DT>
+<DD>
+<P>Return a new stream, formed by calling<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>successively.</P>
+<P>Each call is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(<VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>state</VAR>)</CODE>, it should return a pair, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>car</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>being the value for the stream, and the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>cdr</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>being the new<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>state</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>for the next call. For the first call<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>state</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is the given<VAR>initial-state</VAR>. At the end of the stream,<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>should return some non-pair object.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002dcar-1></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-car</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>stream</EM></DT>
+<DD>
+<P>Return the first element from<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>must not be empty.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002dcdr-1></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-cdr</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>stream</EM></DT>
+<DD>
+<P>Return a stream which is the second and subsequent elements of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>must not be empty.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002dnull_003f-1></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-null?</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>stream</EM></DT>
+<DD>
+<P>Return true if<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is empty.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-list_002d_003estream-1></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>list-&gt;stream</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>list</EM></DT>
+<DT><A name=index-vector_002d_003estream></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>vector-&gt;stream</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>vector</EM></DT>
+<DD>
+<P>Return a stream with the contents of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>list</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>vector</VAR>.</P>
+<P><VAR>list</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>vector</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>should not be modified subsequently, since it&#8217;s unspecified whether changes there will be reflected in the stream returned.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-port_002d_003estream-1></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>port-&gt;stream</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>port readproc</EM></DT>
+<DD>
+<P>Return a stream which is the values obtained by reading from<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>port</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>using<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>readproc</VAR>. Each read call is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(<VAR>readproc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>port</VAR>)</CODE>, and it should return an EOF object (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Reading">Reading</A>) at the end of input.</P>
+<P>For example a stream of characters from a file,</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(port-&gt;stream (open-input-file "/foo/bar.txt") read-char)
+</PRE></DIV></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002d_003elist-1></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-&gt;list</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>stream</EM></DT>
+<DD>
+<P>Return a list which is the entire contents of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002d_003ereversed_002dlist></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-&gt;reversed-list</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>stream</EM></DT>
+<DD>
+<P>Return a list which is the entire contents of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>, but in reverse order.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002d_003elist_0026length></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-&gt;list&amp;length</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>stream</EM></DT>
+<DD>
+<P>Return two values (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Multiple-Values">Multiple Values</A>), being firstly a list which is the entire contents of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>, and secondly the number of elements in that list.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002d_003ereversed_002dlist_0026length></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-&gt;reversed-list&amp;length</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>stream</EM></DT>
+<DD>
+<P>Return two values (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Multiple-Values">Multiple Values</A>) being firstly a list which is the entire contents of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>, but in reverse order, and secondly the number of elements in that list.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002d_003evector></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-&gt;vector</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>stream</EM></DT>
+<DD>
+<P>Return a vector which is the entire contents of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002dfold-1></A>Function:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-fold</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>proc init stream1 stream2 &#8230;</EM></DT>
+<DD>
+<P>Apply<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>successively over the elements of the given streams, from first to last until the end of the shortest stream is reached. Return the result from the last<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>call.</P>
+<P>Each call is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(<VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>elem1 elem2 &#8230; prev)</CODE>, where each<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>elem</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is from the corresponding<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>prev</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is the return from the previous<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>call, or the given<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>init</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>for the first call.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002dfor_002deach-1></A>Function:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-for-each</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>proc stream1 stream2 &#8230;</EM></DT>
+<DD>
+<P>Call<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>on the elements from the given<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>s. The return value is unspecified.</P>
+<P>Each call is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(<VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>elem1 elem2 &#8230;)</CODE>, where each<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>elem</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is from the corresponding<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stream-for-each</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>stops when it reaches the end of the shortest<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-stream_002dmap-1></A>Function:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>stream-map</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>proc stream1 stream2 &#8230;</EM></DT>
+<DD>
+<P>Return a new stream which is the results of applying<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>to the elements of the given<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>s.</P>
+<P>Each call is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(<VAR>proc</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>elem1 elem2 &#8230;)</CODE>, where each<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>elem</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is from the corresponding<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR>. The new stream ends when the end of the shortest given<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>stream</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is reached.</P></DD></DL>

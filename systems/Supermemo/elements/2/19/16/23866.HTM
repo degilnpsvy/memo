@@ -1,0 +1,49 @@
+<H4 id=title-ID0E45OM class=docSection2Title>Kernel Command Line: ro root=/dev/hda1</H4>
+<P class=docText><A name="line to"></A>Linux bootloaders usually pass a command line to the kernel. Arguments in the command line are similar to the <TT>argv[]</TT> list passed to the <TT>main()</TT><A name="to the"></A> function in C programs, except that they are passed to the kernel instead. You may add command-line arguments to the bootloader configuration file or supply them from the bootloader prompt at runtime.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02.html#ch02fn01">[1]</A></SUP><A name="you are"></A> If you are using the GRUB bootloader, the configuration file is either <SPAN class=docEmphasis>/boot/grub/grub.conf</SPAN> or <SPAN class=docEmphasis>/boot/grub/menu.lst</SPAN><A name="file is"></A> depending on your distribution. If you are a LILO user, the configuration file is <SPAN class=docEmphasis>/etc/lilo.conf.</SPAN><A name="An example"></A> An example <SPAN class=docEmphasis>grub.conf</SPAN><A name="is listed"></A> file (with comments added) is listed here. You can figure out the genesis of the preceding boot message if you look at the line following <TT><A name="kernel "></A>title kernel 2.6.23</TT>:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch02fn01>[1]</A></SUP><A name="support configuration"></A> <FONT class=extract>Bootloaders on embedded devices are usually "slim" and do not support configuration files or equivalent mechanisms. Because of this, many non-x86 architectures support a kernel configuration option called <TT>CONFIG_CMDLINE</TT></FONT><A name="supply the"></A><FONT class=extract> that you can use to supply the kernel command line at build time.</FONT></P></BLOCKQUOTE>
+<DIV class=docText><PRE>default 0  #Boot the 2.6.23 kernel by default
+timeout 5  #5 second to alter boot order or parameters
+
+title kernel 2.6.23     #Boot Option 1
+  #The boot image resides in the first partition of the first disk
+  #under the /boot/ directory and is named vmlinuz-2.6.23. 'ro'
+  #indicates that the root partition should be mounted read-only.
+  kernel (hd0,0)/boot/vmlinuz-2.6.23 <SPAN class=docEmphStrong>ro root=/dev/hda1</SPAN>
+
+  #Look under section "Freeing initrd memory:387k freed"
+  initrd (hd0,0)/boot/initrd
+
+#...</PRE></DIV><BR>
+<P class=docText><A name="simple example"></A><FONT class=extract>Command-line arguments affect the code path traversed during boot. As a simple example, assume that the command-line argument of interest is called <TT>bootmode</TT>. If this parameter is set to <TT>1</TT></FONT><A name="debug messages"></A><FONT class=extract>, you would like to print some debug messages during boot and switch to a runlevel of <TT>3</TT></FONT><A name="messages are"></A><FONT class=extract> at the end of the boot. (Wait until the boot messages are printed out by the init process to learn the semantics of runlevels.) If <TT>bootmode</TT></FONT><A name="instead set"></A><FONT class=extract> is instead set to <TT>0</TT></FONT><A name="runlevel set"></A><FONT class=extract>, you would prefer the boot to be relatively laconic, and the runlevel set to <TT>2</TT></FONT><A name="Because you"></A><FONT class=extract>. Because you are already familiar with <SPAN class=docEmphasis>init/main.c</SPAN></FONT><A name="following modification"></A><FONT class=extract>, let's add the following modification to it:</FONT></P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>static unsigned int bootmode = 1;
+static int __init
+is_bootmode_setup(char *str)
+{
+  get_option(&amp;str, &amp;bootmode);
+  return 1;
+}
+
+/* Handle parameter "bootmode=" */
+__setup("bootmode=", is_bootmode_setup);
+
+if (bootmode) {
+  /* Print verbose output */
+  /* ... */
+}
+
+/* ... */
+
+/* If bootmode is 1, choose an init runlevel of 3, else
+   switch to a run level of 2 */
+if (bootmode) {
+  argv_init[++args] = "3";
+} else {
+  argv_init[++args] = "2";
+}
+
+/* ... */
+
+					  </FONT></PRE></DIV><BR>
+<P class=docText><A name="the kernel"></A><FONT class=extract>Rebuild the kernel as you did earlier and try out the change. We discuss more about kernel command-line arguments in the section "</FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18lev1sec5.html#ch18lev1sec5"><FONT class=extract>Memory Layout</FONT></A><FONT class=extract>" in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18.html#ch18"><FONT class=extract>Chapter 18</FONT></A><FONT class=extract>, "Embedding Linux."</FONT>

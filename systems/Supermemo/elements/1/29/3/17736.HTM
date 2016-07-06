@@ -1,0 +1,30 @@
+<H4 class=subsection>4.5.4 Setting <CODE>FS</CODE> from the Command Line</H4><A name=index-_002dF-option_002c-command-line></A><A name=index-field-separator_002c-on-command-line></A><A name=index-command-line_002c-FS-on_002c-setting></A><A name=index-FS-variable_002c-setting-from-command-line></A>
+<P><CODE>FS</CODE> can be set on the command line. Use the <SAMP>-F</SAMP> option to do so. For example: </P>
+<DIV class=example><PRE class=example>awk -F, '<VAR>program</VAR>' <VAR>input-files</VAR>
+</PRE></DIV>
+<P>sets <CODE>FS</CODE> to the &#8216;<SAMP>,</SAMP>&#8217; character. Notice that the option uses an uppercase &#8216;<SAMP>F</SAMP>&#8217; instead of a lowercase &#8216;<SAMP>f</SAMP>&#8217;. The latter option (<SAMP>-f</SAMP>) specifies a file containing an <CODE>awk</CODE> program. Case is significant in command-line options: the <SAMP>-F</SAMP> and <SAMP>-f</SAMP> options have nothing to do with each other. You can use both options at the same time to set the <CODE>FS</CODE> variable <EM>and</EM> get an <CODE>awk</CODE> program from a file. </P>
+<P>The value used for the argument to <SAMP>-F</SAMP> is processed in exactly the same way as assignments to the built-in variable <CODE>FS</CODE>. Any special characters in the field separator must be escaped appropriately. For example, to use a &#8216;<SAMP>\</SAMP>&#8217; as the field separator on the command line, you would have to type: </P>
+<DIV class=example><PRE class=example># same as FS = "\\"
+awk -F\\\\ '&#8230;' files &#8230;
+</PRE></DIV><A name=index-_005c-_0028backslash_0029_002c-as-field-separator></A><A name=index-backslash-_0028_005c_0029_002c-as-field-separator></A>
+<P>Because &#8216;<SAMP>\</SAMP>&#8217; is used for quoting in the shell, <CODE>awk</CODE> sees &#8216;<SAMP>-F\\</SAMP>&#8217;. Then <CODE>awk</CODE> processes the &#8216;<SAMP>\\</SAMP>&#8217; for escape characters (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Escape-Sequences">Escape Sequences</A>), finally yielding a single &#8216;<SAMP>\</SAMP>&#8217; to use for the field separator. </P>
+<P>As a special case, in compatibility mode (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>), if the argument to <SAMP>-F</SAMP> is &#8216;<SAMP>t</SAMP>&#8217;, then <CODE>FS</CODE> is set to the TAB character. If you type &#8216;<SAMP>-F\t</SAMP>&#8217; at the shell, without any quotes, the &#8216;<SAMP>\</SAMP>&#8217; gets deleted, so <CODE>awk</CODE> figures that you really want your fields to be separated with TABs and not &#8216;<SAMP>t</SAMP>&#8217;s. Use &#8216;<SAMP>-v FS="t"</SAMP>&#8217; or &#8216;<SAMP>-F"[t]"</SAMP>&#8217; on the command line if you really do want to separate your fields with &#8216;<SAMP>t</SAMP>&#8217;s. </P>
+<P>As an example, let&#8217;s use an <CODE>awk</CODE> program file called <SAMP>edu.awk</SAMP> that contains the pattern <CODE>/edu/</CODE> and the action &#8216;<SAMP>print $1</SAMP>&#8217;: </P>
+<DIV class=example><PRE class=example>/edu/   { print $1 }
+</PRE></DIV>
+<P>Let&#8217;s also set <CODE>FS</CODE> to be the &#8216;<SAMP>-</SAMP>&#8217; character and run the program on the file <SAMP>mail-list</SAMP>. The following command prints a list of the names of the people that work at or attend a university, and the first three digits of their phone numbers: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk -F- -f edu.awk mail-list</EM></KBD>
+-| Fabius       555
+-| Samuel       555
+-| Jean
+</PRE></DIV>
+<P>Note the third line of output. The third line in the original file looked like this: </P>
+<DIV class=example><PRE class=example>Jean-Paul    555-2127     jeanpaul.campanorum@nyu.edu     R
+</PRE></DIV>
+<P>The &#8216;<SAMP>-</SAMP>&#8217; as part of the person&#8217;s name was used as the field separator, instead of the &#8216;<SAMP>-</SAMP>&#8217; in the phone number that was originally intended. This demonstrates why you have to be careful in choosing your field and record separators. </P><A name=index-Unix-awk_002c-password-files_002c-field-separators-and></A>
+<P>Perhaps the most common use of a single character as the field separator occurs when processing the Unix system password file. On many Unix systems, each user has a separate entry in the system password file, one line per user. The information in these lines is separated by colons. The first field is the user&#8217;s login name and the second is the user&#8217;s encrypted or shadow password. (A shadow password is indicated by the presence of a single &#8216;<SAMP>x</SAMP>&#8217; in the second field.) A password file entry might look like this: </P><A name=index-Robbins_002c-Arnold></A>
+<DIV class=example><PRE class=example>arnold:x:2076:10:Arnold Robbins:/home/arnold:/bin/bash
+</PRE></DIV>
+<P>The following program searches the system password file and prints the entries for users whose full name is not indicated: </P>
+<DIV class=example><PRE class=example>awk -F: '$5 == ""' /etc/passwd
+</PRE></DIV>

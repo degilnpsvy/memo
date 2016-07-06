@@ -1,0 +1,82 @@
+<H3 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=section>15.2 Understanding Floating-point Programming</H3>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Numerical programming is an extensive area; if you need to develop sophisticated numerical algorithms then<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>may not be the ideal tool, and this documentation may not be sufficient. It might require digesting a book or two<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT91" name=DOCF91><SUP>91</SUP></A><SPAN class=Apple-converted-space>&nbsp;</SPAN>to really internalize how to compute with ideal accuracy and precision, and the result often depends on the particular application.</P>
+<BLOCKQUOTE style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<P><B>NOTE:</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>A floating-point calculation&#8217;s<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>accuracy</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>is how close it comes to the real value. This is as opposed to the<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>precision</EM>, which usually refers to the number of bits used to represent the number (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://en.wikipedia.org/wiki/Accuracy_and_precision">the Wikipedia article</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>for more information).</P></BLOCKQUOTE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">There are two options for doing floating-point calculations: hardware floating-point (as used by standard<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and the default for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>), and<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>arbitrary-precision</EM>floating-point, which is software based. From this point forward, this chapter aims to provide enough information to understand both, and then will focus on<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>&#8217;s facilities for the latter.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT92" name=DOCF92><SUP>92</SUP></A></P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Binary floating-point representations and arithmetic are inexact. Simple values like 0.1 cannot be precisely represented using binary floating-point numbers, and the limited precision of floating-point numbers means that slight changes in the order of operations or the precision of intermediate storage can change the result. To make matters worse, with arbitrary precision floating-point, you can set the precision before starting a computation, but then you cannot be sure of the number of significant decimal places in the final result.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Sometimes, before you start to write any code, you should think more about what you really want and what&#8217;s really happening. Consider the two numbers in the following example:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>x = 0.875             # 1/2 + 1/4 + 1/8
+y = 0.425
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Unlike the number in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>y</CODE>, the number stored in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>x</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is exactly representable in binary since it can be written as a finite sum of one or more fractions whose denominators are all powers of two. When<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>reads a floating-point number from program source, it automatically rounds that number to whatever precision your machine supports. If you try to print the numeric content of a variable using an output format string of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>"%.17g"</CODE>, it may not produce the same number as you assigned to it:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">gawk 'BEGIN { x = 0.875; y = 0.425</KBD>
+&gt; <KBD style="FONT-STYLE: oblique">              printf("%0.17g, %0.17g\n", x, y) }'</KBD>
+-| 0.875, 0.42499999999999999
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Often the error is so small you do not even notice it, and if you do, you can always specify how much precision you would like in your output. Usually this is a format string like<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>"%.15g"</CODE>, which when used in the previous example, produces an output identical to the input.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Because the underlying representation can be a little bit off from the exact value, comparing floating-point values to see if they are equal is generally not a good idea. Here is an example where it does not work like you expect:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">gawk 'BEGIN { print (0.1 + 12.2 == 12.3) }'</KBD>
+-| 0
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The loss of accuracy during a single computation with floating-point numbers usually isn&#8217;t enough to worry about. However, if you compute a value which is the result of a sequence of floating point operations, the error can accumulate and greatly affect the computation itself. Here is an attempt to compute the value of the constant<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>pi</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>using one of its many series representations:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>BEGIN {
+    x = 1.0 / sqrt(3.0)
+    n = 6
+    for (i = 1; i &lt; 30; i++) {
+        n = n * 2.0
+        x = (sqrt(x * x + 1) - 1) / x
+        printf("%.15f\n", n * x)
+    }
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When run, the early errors propagating through later computations cause the loop to terminate prematurely after an attempt to divide by zero.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">gawk -f pi.awk</KBD>
+-| 3.215390309173475
+-| 3.159659942097510
+-| 3.146086215131467
+-| 3.142714599645573
+&#8230;
+-| 3.224515243534819
+-| 2.791117213058638
+-| 0.000000000000000
+error&#8594; gawk: pi.awk:6: fatal: division by zero attempted
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here is an additional example where the inaccuracies in internal representations yield an unexpected result:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">gawk 'BEGIN {</KBD>
+&gt;   <KBD style="FONT-STYLE: oblique">for (d = 1.1; d &lt;= 1.5; d += 0.1)    # loop five times (?)</KBD>
+&gt;       <KBD style="FONT-STYLE: oblique">i++</KBD>
+&gt;   <KBD style="FONT-STYLE: oblique">print i</KBD>
+&gt; <KBD style="FONT-STYLE: oblique">}'</KBD>
+-| 4
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Can computation using arbitrary precision help with the previous examples? If you are impatient to know, see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Exact-Arithmetic">Exact Arithmetic</A>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Instead of arbitrary precision floating-point arithmetic, often all you need is an adjustment of your logic or a different order for the operations in your calculation. The stability and the accuracy of the computation of the constant<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>pi</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>in the earlier example can be enhanced by using the following simple algebraic transformation:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(sqrt(x * x + 1) - 1) / x = x / (sqrt(x * x + 1) + 1)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">After making this, change the program does converge to<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>pi</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>in under 30 iterations:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">gawk -f pi2.awk</KBD>
+-| 3.215390309173473
+-| 3.159659942097501
+-| 3.146086215131436
+-| 3.142714599645370
+-| 3.141873049979825
+&#8230;
+-| 3.141592653589797
+-| 3.141592653589797
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">There is no need to be unduly suspicious about the results from floating-point arithmetic. The lesson to remember is that floating-point arithmetic is always more complex than arithmetic using pencil and paper. In order to take advantage of the power of computer floating-point, you need to know its limitations and work within them. For most casual use of floating-point arithmetic, you will often get the expected result in the end if you simply round the display of your final results to the correct number of significant decimal digits.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">As general advice, avoid presenting numerical data in a manner that implies better precision than is actually the case.</P>
+<TABLE style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=menu border=0 cellSpacing=0>
+<TBODY>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=1 href="http://www.gnu.org/software/gawk/manual/gawk.html#Floating_002dpoint-Representation">Floating-point Representation</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Binary floating-point representation.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=2 href="http://www.gnu.org/software/gawk/manual/gawk.html#Floating_002dpoint-Context">Floating-point Context</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Floating-point context.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=3 href="http://www.gnu.org/software/gawk/manual/gawk.html#Rounding-Mode">Rounding Mode</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Floating-point rounding mode.</TD></TR></TBODY></TABLE><BR class=Apple-interchange-newline>

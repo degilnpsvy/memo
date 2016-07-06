@@ -1,0 +1,8 @@
+/**<BR>&nbsp;* input_open_device - open input device<BR>&nbsp;* @handle: handle through which device is being accessed<BR>&nbsp;*<BR>&nbsp;* This function should be called by input handlers when they<BR>&nbsp;* want to start receive events from given input device.<BR>&nbsp;*/<BR>int input_open_device(struct input_handle *handle)<BR>{<BR>&nbsp;struct input_dev *dev = handle-&gt;dev;<BR>&nbsp;int retval;
+<P></P>
+<P>&nbsp;retval = mutex_lock_interruptible(&amp;dev-&gt;mutex);<BR>&nbsp;if (retval)<BR>&nbsp;&nbsp;return retval;</P>
+<P>&nbsp;if (dev-&gt;going_away) {<BR>&nbsp;&nbsp;retval = -ENODEV;<BR>&nbsp;&nbsp;goto out;<BR>&nbsp;}</P>
+<P>&nbsp;handle-&gt;open++;</P>
+<P>&nbsp;if (!dev-&gt;users++ &amp;&amp; dev-&gt;open)<BR>&nbsp;&nbsp;retval = dev-&gt;open(dev);</P>
+<P>&nbsp;if (retval) {<BR>&nbsp;&nbsp;dev-&gt;users--;<BR>&nbsp;&nbsp;if (!--handle-&gt;open) {<BR>&nbsp;&nbsp;&nbsp;/*<BR>&nbsp;&nbsp;&nbsp; * Make sure we are not delivering any more events<BR>&nbsp;&nbsp;&nbsp; * through this handle<BR>&nbsp;&nbsp;&nbsp; */<BR>&nbsp;&nbsp;&nbsp;synchronize_rcu();<BR>&nbsp;&nbsp;}<BR>&nbsp;}</P>
+<P>&nbsp;out:<BR>&nbsp;mutex_unlock(&amp;dev-&gt;mutex);<BR>&nbsp;return retval;<BR>}<BR>EXPORT_SYMBOL(input_open_device);

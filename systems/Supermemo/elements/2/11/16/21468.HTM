@@ -1,0 +1,9 @@
+<FONT class=extract># Things we need to do before we recursively start building the kernel<BR># or the modules are listed in "prepare".<BR># A multi level approach is used. prepareN is processed before prepareN-1.<BR># archprepare is used in arch Makefiles and when processed asm symlink,<BR># version.h and scripts_basic is processed / created.</FONT> 
+<P></P>
+<P># Listed in dependency order<BR>PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3</P>
+<P># prepare3 is used to check if we are building in a separate output directory,<BR># and if so do:<BR># 1) Check that make has not been executed in the kernel src $(srctree)<BR>prepare3: include/config/kernel.release<BR>ifneq ($(KBUILD_SRC),)<BR>&nbsp;@$(kecho) '&nbsp; Using $(srctree) as source for kernel'<BR>&nbsp;$(Q)if [ -f $(srctree)/.config -o -d $(srctree)/include/config ]; then \<BR>&nbsp;&nbsp;echo &gt;&amp;2 "&nbsp; $(srctree) is not clean, please run 'make mrproper'"; \<BR>&nbsp;&nbsp;echo &gt;&amp;2 "&nbsp; in the '$(srctree)' directory.";\<BR>&nbsp;&nbsp;/bin/false; \<BR>&nbsp;fi;<BR>endif</P>
+<P># prepare2 creates a makefile if using a separate output directory<BR>prepare2: prepare3 outputmakefile asm-generic</P>
+<P>prepare1: prepare2 $(version_h) include/generated/utsrelease.h \<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; include/config/auto.conf<BR>&nbsp;$(cmd_crmodverdir)</P>
+<P>archprepare: archheaders archscripts prepare1 scripts_basic</P>
+<P>prepare0: archprepare FORCE<BR>&nbsp;$(Q)$(MAKE) $(build)=.</P>
+<P># All the preparing..<BR>prepare: prepare0

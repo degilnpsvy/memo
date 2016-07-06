@@ -1,0 +1,143 @@
+<H3 id=700181-947 class=docSection1Title>17.3. Real-Time Kernel Patch</H3>
+<P class=docText>Support for hard real time is not in the mainline <TT>kernel.org</TT> source tree. To enable hard real time, a patch must be applied. The real-time kernel patch is the cumulative result of several initiatives to reduce Linux kernel latency. The patch had many contributors, and it is currently maintained by Ingo Molnar; you can find it at <A class=docLink href="http://people.redhat.com/~mingo/realtime-preempt" target=_blank>http://people.redhat.com/~mingo/realtime-preempt</A>. The soft real-time performance of the 2.6 Linux kernel has improved significantly since the early 2.6 kernel <A name=iddle2231></A><A name=iddle2236></A><A name=iddle2238></A>releases. When 2.6 was first released, the 2.4 Linux kernel was substantially better in soft real-time performance. Since about Linux 2.6.12, soft real-time performance in the single-digit milliseconds on a reasonably fast x86 processor is readily achieved. To get repeatable performance beyond this requires the real-time patch.</P>
+<P class=docText>The real-time patch adds several important features to the Linux kernel. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch17fig04">Figure 17-4</A> displays the configuration options for Preemption mode when the real-time patch has been applied.</P><A name=ch17fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 17-4. Preemption modes with real-time patch</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/17elp04_alt.jpg" target=_self>[View full size image]</A></DIV><IMG id=195131084202 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/17elp04.jpg" width=500 height=375>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText>The real-time patch adds a fourth preemption mode called <TT>PREEMPT_RT</TT>, or Preempt Real Time. The four preemption modes are as follows:</P>
+<UL>
+<LI>
+<P class=docList><TT>PREEMPT_NONE</TT>: No forced preemption. Overall latency is, on average, good, but there can be some occasional long delays. Best suited for applications for which overall throughput is the top design criteria.</P></LI>
+<LI>
+<P class=docList><TT>PREEMPT_VOLUNTARY</TT>: First stage of latency reduction. Additional explicit preemption points are placed at strategic locations in the kernel to reduce latency. Some loss of overall throughput is traded for lower latency.</P></LI>
+<LI>
+<P class=docList><A name=iddle1240></A><A name=iddle1688></A><A name=iddle1776></A><A name=iddle1779></A><A name=iddle2142></A><A name=iddle2235></A><A name=iddle2237></A><A name=iddle2328></A><A name=iddle2331></A><A name=iddle2348></A><A name=iddle2351></A><A name=iddle2430></A><A name=iddle2524></A><TT>PREEMPT_DESKTOP</TT>: This mode enables preemption everywhere in the kernel except when processing within critical sections. This mode is useful for soft real-time applications such as audio and multimedia. Overall throughput is traded for further reductions in latency.</P></LI>
+<LI>
+<P class=docList><TT>PREEMPT_RT</TT>: Features from the real-time patch are added, including replacing spinlocks with preemptable mutexes. This enables involuntary preemption everywhere within the kernel except for those areas protected by <TT>preempt_disable()</TT>. This mode significantly smoothes out the variation in latency (jitter) and allows a low and predictable latency for time-critical real-time applications.</P></LI></UL>
+<P class=docText>If kernel preemption is enabled in your kernel configuration, it can be disabled at boot time by adding the following kernel parameter to the kernel command line:</P>
+<DIV class=docText><PRE>preempt=0</PRE></DIV><BR><A name=ch17lev2sec9></A>
+<H4 id=title-IDA3R31C class=docSection2Title>17.3.1. Real-Time Features</H4>
+<P class=docText>Several new Linux kernel features are enabled with <TT>CONFIG_PREEMPT_RT</TT>. From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch17fig04">Figure 17-4</A>, we see several new configuration settings. These and other features of the real-time Linux kernel patch are described here.</P><A name=ch17lev3sec1></A>
+<H5 id=title-IDARS31C class=docSection3Title>17.3.1.1. Spinlock Converted to Mutex</H5>
+<P class=docText>The real-time patch converts most spinlocks in the system to mutexes. This reduces overall latency at the cost of slightly reduced throughput. The benefit of converting spinlocks to mutexes is that they can be preempted. If Process A is holding a lock, and Process B at a higher priority needs the same lock, Process A can preempt Process B in the case where it is holding a mutex.</P><A name=ch17lev3sec2></A>
+<H5 id=title-IDA3S31C class=docSection3Title>17.3.1.2. ISRs as Kernel Tasks</H5>
+<P class=docText>With <TT>CONFIG_PREEMPT_HARDIRQ</TT> selected, interrupt service routines<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch174">[4]</A></SUP> (ISRs) are forced to run in process context. This gives the developer control over the priority of ISRs because they become schedulable entities. As such, they also become preemptable to allow higher-priority hardware interrupts to be handled first.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch174>[4]</A></SUP> Also called HARDIRQs.</P></BLOCKQUOTE>
+<P class=docText><A name=iddle1782></A><A name=iddle1809></A><A name=iddle2334></A><A name=iddle2354></A><A name=iddle2424></A><A name=iddle2526></A>This is a powerful feature. Some hardware architectures do not enforce interrupt priorities. Those that do might not enforce the priorities consistent with your specified real-time design goals. Using <TT>CONFIG_PREEMPT_HARDIRQ</TT>, you are free to define the priorities at which each IRQ will run.</P>
+<P class=docText>Conversion of ISRs to threads can be disabled at runtime through the <TT>/proc</TT> file system or at boot time by entering a parameter on the kernel command line. When enabled in the configuration, unless you specify otherwise, ISR threading is enabled by default.</P>
+<P class=docText>To disable ISR threading at runtime, issue the following command as root:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>echo '0' &gt;/proc/sys/kernel/hardirq_preemption</SPAN></PRE></DIV><BR>
+<P class=docText>To verify the setting, display it as follows:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>cat /proc/sys/kernel/hardirq_preemption</SPAN>
+1</PRE></DIV><BR>
+<P class=docText>To disable ISR threading at boot time, add the following parameter to the kernel command line:</P>
+<DIV class=docText><PRE>hardirq-preempt=0</PRE></DIV><BR><A name=ch17lev3sec3></A>
+<H5 id=title-IDA5W31C class=docSection3Title>17.3.1.3. Preemptable Softirqs</H5>
+<P class=docText><TT>CONFIG_PREEMPT_SOFTIRQ</TT> reduces latency by running <TT>softirqs</TT> within the context of the kernel's <TT>softirq</TT> daemon (<TT>ksoftirqd</TT>). <TT>ksoftirqd</TT> is a proper Linux task (process). As such, it can be prioritized and scheduled along with other tasks. If your kernel is configured for real time, and <TT>CONFIG_PREEMPT_SOFTIRQ</TT> is enabled, the <TT>ksoftirqd</TT> kernel task is elevated to real-time priority to handle the softirq processing.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch175">[5]</A></SUP> <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch17list03">Listing 17-3</A> shows the code responsible for this from a recent Linux kernel, found in <TT>.../kernel/softirq.c</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch175>[5]</A></SUP> See <SPAN class=docEmphasis>Linux Kernel Development</SPAN>, referenced at the end of this chapter, to learn more about <TT>softirqs</TT>.</P></BLOCKQUOTE>
+<P class=docText></P><A name=ch17list03></A>
+<H5 id=title-IDASY31C class=docExampleTitle>Listing 17-3. Promoting <TT>ksoftirq</TT> to Real-Time Status</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>static int ksoftirqd(void * __bind_cpu)
+{
+      struct sched_param param = { .sched_priority = 24 };
+
+      printk("ksoftirqd started up.\n");
+
+#ifdef CONFIG_PREEMPT_SOFTIRQS
+       printk("softirq RT prio: %d.\n", param.sched_priority);
+       sys_sched_setscheduler(current-&gt;pid, SCHED_FIFO, &amp;param);
+#else
+       set_user_nice(current, -10);
+#endif
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1781></A><A name=iddle2001></A><A name=iddle2305></A><A name=iddle2333></A><A name=iddle2353></A>Here we see that if <TT>CONFIG_PREEMPT_SOFTIRQS</TT> is enabled in the kernel configuration, the <TT>ksoftirqd</TT> kernel task is promoted to a real-time task (<TT>SCHED_FIFO</TT>) at a real-time priority of 24 using the <TT>sys_sched_setscheduler()</TT> kernel function.</P>
+<P class=docText>SoftIRQ threading can be disabled at runtime through the <TT>/proc</TT> file system, as well as through the kernel command line at boot time. When enabled in the configuration, unless you specify otherwise, SoftIRQ threading is enabled by default. To disable SoftIRQ threading at runtime, issue the following command as root:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>echo '0' &gt;/proc/sys/kernel/softirq_preemption</SPAN></PRE></DIV><BR>
+<P class=docText>To verify the setting, display it as follows:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>cat /proc/sys/kernel/softirq_preemption</SPAN>
+1</PRE></DIV><BR>
+<P class=docText>To disable SoftIRQ threading at boot time, add the following parameter to the kernel command line:</P>
+<DIV class=docText><PRE>softirq-preempt=0</PRE></DIV><BR><A name=ch17lev3sec4></A>
+<H5 id=title-IDAN231C class=docSection3Title>17.3.1.4. Preempt RCU</H5>
+<P class=docText>RCU (Read-Copy-Update)<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch176">[6]</A></SUP> is a special form of synchronization primitive in the Linux kernel designed for data that is read frequently but updated infrequently. You can think of RCU as an optimized reader lock. The real-time patch adds <TT>CONFIG_PREEMPT_RCU</TT>, which improves latency by making certain RCU sections preemptable.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch176>[6]</A></SUP> See <A class=docLink href="http://www.rdrop.com/users/paulmck/RCU/" target=_blank>www.rdrop.com/users/paulmck/RCU/</A> for an in-depth discussion of RCU.</P></BLOCKQUOTE><A name=ch17lev2sec10></A>
+<H4 id=title-IDAK331C class=docSection2Title>17.3.2. O(1) Scheduler</H4>
+<P class=docText><A name=iddle1777></A><A name=iddle1780></A><A name=iddle1875></A><A name=iddle2163></A><A name=iddle2258></A><A name=iddle2329></A><A name=iddle2332></A><A name=iddle2349></A><A name=iddle2352></A><A name=iddle2355></A>The O(1) scheduler has been around since the days of Linux 2.5. It is mentioned here because it is a critical component of a real-time solution. The O(1) scheduler is a significant improvement over the previous Linux scheduler. It scales better for systems with many processes and helps produce lower overall latency.</P>
+<P class=docText>In case you are wondering, O(1) is a mathematical designation for a system of the first order. In this context, it means that the time it takes to make a scheduling decision is not dependent on the number of processes on a given runqueue. The old Linux scheduler did not have this characteristic, and its performance degraded with the number of processes.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch177">[7]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch177>[7]</A></SUP> We refer you again to Robert Love's book for an excellent discussion of the O(1) scheduler, and a delightful diatribe on algorithmic complexity, from which the notation O(1) derives.</P></BLOCKQUOTE><A name=ch17lev2sec11></A>
+<H4 id=title-IDANRLWD class=docSection2Title>17.3.3. Creating a Real-Time Process</H4>
+<P class=docText>You can designate a process as real time by setting a process attribute that the scheduler uses as part of its scheduling algorithm. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch17list04">Listing 17-4</A> shows the general method.</P><A name=ch17list04></A>
+<H5 id=title-IDACSLWD class=docExampleTitle>Listing 17-4. Creating a Real-Time Process</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>#include &lt;sched.h&gt;
+
+#define MY_RT_PRIORITY MAX_USER_RT_PRIO /* Highest possible */
+
+int main(int argc, char **argv)
+{
+      ...
+      int rc, old_scheduler_policy;
+      struct sched_param my_params;
+      ...
+
+      /* Passing zero specifies caller's (our) policy */
+      old_scheduler_policy = sched_getscheduler(0);
+      my_params.sched_priority = MY_RT_PRIORITY;
+      /* Passing zero specifies callers (our) pid */
+      rc = sched_setscheduler(0, SCHED_RR, &amp;my_params);
+      if ( rc == -1 )
+           handle_error();
+      ...
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1251></A><A name=iddle1252></A><A name=iddle1778></A><A name=iddle2002></A><A name=iddle2330></A><A name=iddle2350></A><A name=iddle2397></A><A name=iddle2398></A><A name=iddle2399></A><A name=iddle2400></A>This code snippet does two things in the call to <TT>sched_setscheduler()</TT>. It changes the scheduling policy to <TT>SCHED_RR</TT> and raises its priority to the maximum possible on the system. Linux supports three scheduling policies:</P>
+<UL>
+<LI>
+<P class=docList><TT>SCHED_OTHER</TT>: Normal Linux process, fairness scheduling</P></LI>
+<LI>
+<P class=docList><TT>SCHED_RR</TT>: Real-time process with a time slicethat is, if it does not block, it is allowed to run for a given period of time determined by the scheduler</P></LI>
+<LI>
+<P class=docList><TT>SCHED_FIFO</TT>: Real-time process that runs until it either blocks or explicitly yields the processor, or until another higher-priority <TT>SCHED_FIFO</TT> process becomes runnable</P></LI></UL>
+<P class=docText>The man page for <TT>sched_setscheduler</TT> provides more detail on the three different scheduling policies.</P><A name=ch17lev2sec12></A>
+<H4 id=title-IDAWWLWD class=docSection2Title>17.3.4. Critical Section Management</H4>
+<P class=docText>When writing kernel code, such as a custom device driver, you will encounter data structures that you must protect from concurrent access. The easiest way to protect critical data is to disable preemption around the critical section. Keep the critical path as short as possible to maintain a low maximum latency for your system. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch17list05">Listing 17-5</A> shows an example.</P><A name=ch17list05></A>
+<H5 id=title-IDALXLWD class=docExampleTitle>Listing 17-5. Protecting Critical Section in Kernel Code</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+/*
+ * Declare and initialize a global lock for your
+ * critical data
+ */
+DEFINE_SPINLOCK(my_lock);
+...
+
+int operate_on_critical_data()
+{
+    ...
+    spin_lock(&amp;my_lock);
+    ...
+    /* Update critical/shared data */
+    ...
+    spin_unlock(&amp;my_lock);
+    ...
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1301></A><A name=iddle1308></A><A name=iddle1765></A><A name=iddle1772></A><A name=iddle1810></A><A name=iddle2309></A><A name=iddle2310></A><A name=iddle2317></A><A name=iddle2337></A><A name=iddle2344></A><A name=iddle2422></A><A name=iddle2431></A>When a task successfully acquires a spinlock, preemption is disabled and the task that acquired the spinlock is allowed into the critical section. No task switches can occur until a <TT>spin_unlock</TT> operation takes place. The <TT>spin_lock()</TT> function is actually a macro that has several forms, depending on the kernel configuration. They are defined at the top level (architecture-independent definitions) in <TT>.../include/linux/spinlock.h</TT>. When the kernel is patched with the real-time patch, these spinlocks are promoted to mutexes to allow preemption of higher-priority processes when a spinlock is held.</P>
+<P class=docText>Because the real-time patch is largely transparent to the device driver and kernel developer, the familiar constructs can be used to protect critical sections, as described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch17list05">Listing 17-5</A>. This is a major advantage of the real-time patch for real-time applications; it preserves the well-known semantics for locking and interrupt service routines.</P>
+<P class=docText>Using the macro <TT>DEFINE_SPINLOCK</TT> as in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch17lev1sec3.html#ch17list05">Listing 17-5</A> preserves future compatibility. These macros are defined in <TT>.../include/linux/spinlock_types.h</TT>.

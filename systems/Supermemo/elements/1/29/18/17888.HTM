@@ -1,0 +1,58 @@
+<H4 class=subsection>11.2.5 Duplicating Output into Multiple Files</H4><A name=index-files_002c-multiple_002c-duplicating-output-into></A><A name=index-output_002c-duplicating-into-files></A><A name=index-tee-utility></A>
+<P>The <CODE>tee</CODE> program is known as a &#8220;pipe fitting.&#8221; <CODE>tee</CODE> copies its standard input to its standard output and also duplicates it to the files named on the command line. Its usage is as follows: </P>
+<DIV class=example><PRE class=example>tee <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>-a<SPAN class=roman><FONT face=Batang>]</FONT></SPAN> file &#8230;
+</PRE></DIV>
+<P>The <SAMP>-a</SAMP> option tells <CODE>tee</CODE> to append to the named files, instead of truncating them and starting over. </P>
+<P>The <CODE>BEGIN</CODE> rule first makes a copy of all the command-line arguments into an array named <CODE>copy</CODE>. <CODE>ARGV[0]</CODE> is not copied, since it is not needed. <CODE>tee</CODE> cannot use <CODE>ARGV</CODE> directly, since <CODE>awk</CODE> attempts to process each file name in <CODE>ARGV</CODE> as input data. </P><A name=index-flag-variables-1></A>
+<P>If the first argument is <SAMP>-a</SAMP>, then the flag variable <CODE>append</CODE> is set to true, and both <CODE>ARGV[1]</CODE> and <CODE>copy[1]</CODE> are deleted. If <CODE>ARGC</CODE> is less than two, then no file names were supplied and <CODE>tee</CODE> prints a usage message and exits. Finally, <CODE>awk</CODE> is forced to read the standard input by setting <CODE>ARGV[1]</CODE> to <CODE>"-"</CODE> and <CODE>ARGC</CODE> to two: </P><A name=index-tee_002eawk-program></A>
+<DIV class=example><PRE class=example># tee.awk --- tee in awk
+#
+# Copy standard input to all named output files.
+# Append content if -a option is supplied.
+#
+BEGIN    \
+{
+    for (i = 1; i &lt; ARGC; i++)
+        copy[i] = ARGV[i]
+
+    if (ARGV[1] == "-a") {
+        append = 1
+        delete ARGV[1]
+        delete copy[1]
+        ARGC--
+    }
+    if (ARGC &lt; 2) {
+        print "usage: tee [-a] file ..." &gt; "/dev/stderr"
+        exit 1
+    }
+    ARGV[1] = "-"
+    ARGC = 2
+}
+</PRE></DIV>
+<P>The following single rule does all the work. Since there is no pattern, it is executed for each line of input. The body of the rule simply prints the line into each file on the command line, and then to the standard output: </P>
+<DIV class=example><PRE class=example>{
+    # moving the if outside the loop makes it run faster
+    if (append)
+        for (i in copy)
+            print &gt;&gt; copy[i]
+    else
+        for (i in copy)
+            print &gt; copy[i]
+    print
+}
+</PRE></DIV>
+<P>It is also possible to write the loop this way: </P>
+<DIV class=example><PRE class=example>for (i in copy)
+    if (append)
+        print &gt;&gt; copy[i]
+    else
+        print &gt; copy[i]
+</PRE></DIV>
+<P>This is more concise but it is also less efficient. The &#8216;<SAMP>if</SAMP>&#8217; is tested for each record and for each output file. By duplicating the loop body, the &#8216;<SAMP>if</SAMP>&#8217; is only tested once for each input record. If there are <VAR>N</VAR> input records and <VAR>M</VAR> output files, the first method only executes <VAR>N</VAR> &#8216;<SAMP>if</SAMP>&#8217; statements, while the second executes <VAR>N</VAR><CODE>*</CODE><VAR>M</VAR> &#8216;<SAMP>if</SAMP>&#8217; statements. </P>
+<P>Finally, the <CODE>END</CODE> rule cleans up by closing all the output files: </P>
+<DIV class=example><PRE class=example>END    \
+{
+    for (i in copy)
+        close(copy[i])
+}
+</PRE></DIV>

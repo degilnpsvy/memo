@@ -1,0 +1,18 @@
+So, how do we unbind fbcon from the console? Part of the answer is in<BR>Documentation/console/console.txt. To summarize:
+<P></P>
+<P>Echo a value to the bind file that represents the framebuffer console<BR>driver. So assuming vtcon1 represents fbcon, then:</P>
+<P>echo 1 &gt; sys/class/vtconsole/vtcon1/bind - attach framebuffer console to<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; console layer<BR>echo 0 &gt; sys/class/vtconsole/vtcon1/bind - detach framebuffer console from<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; console layer</P>
+<P>If fbcon is detached from the console layer, your boot console driver (which is<BR>usually VGA text mode) will take over.&nbsp; A few drivers (rivafb and i810fb) will<BR>restore VGA text mode for you.&nbsp; With the rest, before detaching fbcon, you<BR>must take a few additional steps to make sure that your VGA text mode is<BR>restored properly. The following is one of the several methods that you can do:</P>
+<P>1. Download or install vbetool.&nbsp; This utility is included with most<BR>&nbsp;&nbsp; distributions nowadays, and is usually part of the suspend/resume tool.</P>
+<P>2. In your kernel configuration, ensure that CONFIG_FRAMEBUFFER_CONSOLE is set<BR>&nbsp;&nbsp; to 'y' or 'm'. Enable one or more of your favorite framebuffer drivers.</P>
+<P>3. Boot into text mode and as root run:</P>
+<P>&nbsp;vbetool vbestate save &gt; &lt;vga state file&gt;</P>
+<P>&nbsp;The above command saves the register contents of your graphics<BR>&nbsp;hardware to &lt;vga state file&gt;.&nbsp; You need to do this step only once as<BR>&nbsp;the state file can be reused.</P>
+<P>4. If fbcon is compiled as a module, load fbcon by doing:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; modprobe fbcon</P>
+<P>5. Now to detach fbcon:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vbetool vbestate restore &lt; &lt;vga state file&gt; &amp;&amp; \<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo 0 &gt; /sys/class/vtconsole/vtcon1/bind</P>
+<P>6. That's it, you're back to VGA mode. And if you compiled fbcon as a module,<BR>&nbsp;&nbsp; you can unload it by 'rmmod fbcon'</P>
+<P>7. To reattach fbcon:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo 1 &gt; /sys/class/vtconsole/vtcon1/bind</P>
+<P>8. Once fbcon is unbound, all drivers registered to the system will also<BR>become unbound.&nbsp; This means that fbcon and individual framebuffer drivers<BR>can be unloaded or reloaded at will. Reloading the drivers or fbcon will<BR>automatically bind the console, fbcon and the drivers together. Unloading<BR>all the drivers without unloading fbcon will make it impossible for the<BR>console to bind fbcon.

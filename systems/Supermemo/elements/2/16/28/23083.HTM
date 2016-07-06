@@ -1,0 +1,545 @@
+<H3 id=-100000 class=docSection1Title>Device Example: Telemetry Card</H3>
+<P class=docText><A name="Now that"></A>Now that you know the basics of Linux-USB, it's time to look at an example device. Consider a system equipped with a telemetry card connected to the processor via internal USB, as shown in bus 2 of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec1.html#ch11fig02">Figure 11.2</A><A name="acquires data"></A>. The card acquires data from a remote device and ferries it to the processor over USB. An example telemetry card is a medical-grade board that monitors or programs an implanted device.</P>
+<P class=docText><A name="that our"></A>Let's assume that our example telemetry card has the following endpoints having the semantics described in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11tab02">Table 11.2</A>:</P>
+<UL>
+<LI>
+<P class=docList><A name=iddle3450></A><A name=iddle4239></A><A name=iddle4242></A><A name=iddle4441></A><A name=iddle4444></A>A control endpoint attached to an on-card configuration register</P></LI>
+<LI>
+<P class=docList>A bulk <TT>IN</TT><A name="card to"></A> endpoint that passes remote telemetry information collected by the card to the processor</P></LI>
+<LI>
+<P class=docList>A bulk <TT>OUT</TT><A name="the reverse"></A> endpoint that transfers data in the reverse direction</P></LI></UL><A name=ch11tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 11.2. Register Space in the Telemetry Card</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=250>
+<COL width=300></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Register</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Associated Endpoint</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Telemetry Configuration Register</TD>
+<TD class=docTableCell vAlign=top align=left>Control endpoint <TT>0</TT> (register offset <TT>0xA</TT>).</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Telemetry Data-In Register</TD>
+<TD class=docTableCell vAlign=top align=left>Bulk <TT>IN</TT> endpoint. The endpoint address is assigned during device enumeration.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Telemetry Data-Out Register</TD>
+<TD class=docTableCell vAlign=top align=left>Bulk <TT>OUT</TT> endpoint. The endpoint address is assigned during device enumeration.</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="on the"></A>Let's build a minimal driver for this card partly based on the USB skeleton driver, <SPAN class=docEmphasis>drivers/usb/usb-skeleton.c</SPAN>.</P>
+<P class=docText><A name="such as"></A>Because PCMCIA, PCI, and USB devices have similar characteristics such as hotplug support, some driver methods and data structures belonging to these subsystems resemble each other. This is especially true for the portions responsible for initializing and probing. As we progress through the telemetry driver and notice parallels with what we learned for PCI drivers in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>, we will pause and take note.</P><A name=ch11lev2sec9></A>
+<H4 id=title-ID0ETYPM class=docSection2Title>Initializing and Probing</H4>
+<P class=docText>Like PCI and PCMCIA drivers, USB drivers have <TT>probe()/disconnect()</TT><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11fn02">[2]</A></SUP><A name="of devices"></A> methods to support hotplugging, and a table that contains the identity of devices they support. A USB device is identified by the <TT>usb_device_id</TT> structure defined in <SPAN class=docEmphasis>include/linux/mod_devicetable.h</SPAN><A name="from the"></A>. You may recall from the previous chapter that the <TT>pci_device_id</TT><A name="in the"></A> structure, also defined in the same header file, identifies PCI devices.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch11fn02>[2]</A></SUP> <TT>disconnect()</TT><A name="is called"></A> is called <TT>remove()</TT><A name="and PCMCIA"></A> in PCI and PCMCIA parlance.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>struct usb_device_id {
+  /* ... */
+  __u16         idVendor;        /* Vendor ID */
+  __u16         idProduct;       /* Device ID */
+  /* ... */
+  __u8          bDeviceClass;    /* Device class */
+  __u8          bDeviceSubClass; /* Device subclass */
+  __u8          bDeviceProtocol; /* Device protocol */
+ /* ... */
+};</PRE></DIV><BR>
+<P class=docText><A name=iddle2359></A><A name=iddle4238></A><A name=iddle4440></A><A name=iddle4514></A><TT>idVendor</TT> and <TT>idProduct</TT><A name="the manufacturer"></A>, respectively, hold the manufacturer ID and product ID, whereas <TT>bDeviceClass</TT>, <TT>bDeviceSubClass</TT>, and <TT>bDeviceProtocol</TT><A name="the USB"></A> categorize the device based on its functionality. This classification, determined by the USB specification, allows implementation of generic client drivers as discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11lev1sec6">Class Drivers</A>" later.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex01">Listing 11.2</A> implements the telemetry driver's initialization routine, <TT>usb_tele_init</TT><TT>()</TT>, which calls on <TT>usb_register()</TT> to register its <TT>usb_driver</TT><A name="shown in"></A> structure with the USB core. As shown in the listing, <TT>usb_driver</TT> ties the driver's <TT>probe()</TT> method, <TT>disconnect()</TT> method, and <TT>usb_device_id</TT> table together. <TT>usb_driver</TT> is similar to <TT>pci_driver</TT>, except that the <TT>disconnect()</TT> method in the former is named <TT>remove()</TT> in the latter.</P><A name=ch11ex01></A>
+<H5 id=title-ID0EU3PM class=docExampleTitle>Listing 11.2. Initializing the Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#define USB_TELE_VENDOR_ID    0xABCD  /* Manufacturer's Vendor ID */
+#define USB_TELE_PRODUCT_ID   0xCDEF  /* Device's Product ID */
+
+/* USB ID Table specifying the devices that this driver supports */
+static struct usb_device_id tele_ids[] = {
+  { USB_DEVICE(USB_TELE_VENDOR_ID, USB_TELE_PRODUCT_ID) },
+  { } /* Terminate */
+};
+
+MODULE_DEVICE_TABLE(usb, tele_ids);
+
+/* The usb_driver structure for this driver */
+static struct usb_driver tele_driver
+{
+  .name       =  "tele",           /* Unique name */
+  .probe      =  tele_probe,       /* See Listing 11.3 */
+  .disconnect =  tele_disconnect,  /* See Listing 11.3 */
+  .id_table   =  tele_ids,         /* See above */
+};
+
+/* Module Initialization */
+static int __init
+usb_tele_init(void)
+{
+  /* Register with the USB core */
+  result = usb_register(&amp;tele_driver);
+
+  /* ... */
+  return 0;
+}
+
+/* Module Exit */
+static void __exit
+usb_tele_exit(void)
+{
+  /* Unregister from the USB core */
+  usb_deregister(&amp;tele_driver);
+  return;
+}
+
+module_init(usb_tele_init);
+module_exit(usb_tele_exit);
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1807></A><A name=iddle3033></A><A name=iddle3447></A><A name=iddle3648></A><A name=iddle4240></A><A name=iddle4442></A><A name=iddle4471></A>The <TT>USB_DEVICE()</TT> macro creates a <TT>usb_device_id</TT><A name="is analogous"></A> from the vendor and product IDs supplied to it. This is analogous to the <TT>PCI_DEVICE()</TT> macro discussed in the previous chapter. The <TT>MODULE_DEVICE_TABLE()</TT> macro marks <TT>tele_ids</TT><A name="module can"></A> in the module image so that the module can be loaded on demand if the card is hotplugged. This is again similar to what we discussed for PCMCIA and PCI devices in the previous two chapters.</P>
+<P class=docText><A name="the ones"></A>When the USB core detects a device with properties matching the ones declared in the <TT>usb_device_id</TT><A name="a client"></A> table belonging to a client driver, it invokes the <TT>probe()</TT><A name="by that"></A> method registered by that driver. When the device is unplugged or if the module is unloaded, the USB core invokes the driver's <TT>disconnect()</TT> method.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex02">Listing 11.3</A><A name="implements the"></A> implements the <TT>probe()</TT> and <TT>disconnect()</TT><A name="the telemetry"></A> methods of the telemetry driver. It starts by defining a device-specific structure, <TT>tele_device_t</TT><A name="contains the"></A>, which contains the following fields:</P>
+<UL>
+<LI>
+<P class=docList>A pointer to the associated <TT>usb_device</TT>.</P></LI>
+<LI>
+<P class=docList>A pointer to the <TT>usb_interface</TT>. Revisit <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec3.html#ch11fig04">Listing 11.1</A> to see this structure in use.</P></LI>
+<LI>
+<P class=docList>A control URB (<TT>ctrl_urb</TT>) to communicate with the telemetry configuration register, and a <TT>ctrl_req</TT><A name="described in"></A> to formulate programming requests to this register. These fields are described in the next section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11lev2sec10">Accessing Registers</A>."</P></LI>
+<LI>
+<P class=docList>The card has a bulk <TT>IN</TT><A name="glean the"></A> endpoint through which you can glean the collected telemetry information. Associated with this endpoint are three fields: <TT>bulk_in_addr</TT>, which holds the endpoint address; <TT>bulk_in_buf</TT>, which stores received data; and <TT>bulk_in_len</TT>, which contains the size of the receive data buffer.</P></LI>
+<LI>
+<P class=docList><A name=iddle4229></A><A name=iddle4232></A><A name=iddle4497></A><A name=iddle4510></A>The card has a bulk <TT>OUT</TT> endpoint to facilitate downstream data transfer. <TT>tele_device_t</TT> has a field called <TT>bulk_out_addr</TT><A name="data structures"></A> to store the address of this endpoint. There are fewer data structures in the <TT>OUT</TT><A name="use a"></A> direction because in this simple case we use a synchronous URB submission interface that hides several implementation details.</P></LI></UL>
+<P class=docText>Khubd invokes the card's <TT>probe()</TT> method, <TT>tele_probe()</TT>, soon after enumeration. <TT>tele_probe()</TT> performs three tasks:</P><A name=ch11pro02></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Allocates memory for the device-specific structure, <TT>tele_device_t</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Initializes the following fields in <TT>tele_device_t</TT> related to the device's bulk endpoints: <TT>bulk_in_buf</TT>, <TT>bulk_in_len</TT>, <TT>bulk_in_addr</TT>, and <TT>bulk_out_addr</TT>. For this, it uses the data collected by the hub driver during enumeration. This data is available in descriptor structures discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec3.html#ch11lev2sec8">Descriptor Structures</A>."<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Exports the character device <SPAN class=docEmphasis>/dev/tele</SPAN> to user space. Applications operate over <SPAN class=docEmphasis>/dev/tele</SPAN> to exchange data with the telemetry card. <TT>tele_probe()</TT> invokes <TT>usb_register_dev()</TT> and supplies it the <TT>file_operations</TT> that form the underlying pillars of the <SPAN class=docEmphasis>/dev/tele</SPAN> interface via the <TT>usb_class_driver</TT> structure.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name="be saved"></A>The address of the device-specific structure allocated in Step 1 has to be saved so that other methods can access it. To achieve this, the telemetry driver uses a threefold strategy depending on the function arguments available to various driver routines. To save this structure pointer between the <TT>probe()</TT> and <TT>open()</TT><A name="uses the"></A> invocation threads, the driver uses the device's <TT>driver_data</TT><A name="the pair"></A> field via the pair of functions, <TT>usb_set_intfdata()</TT><A name=and></A> and <TT>usb_get_intfdata()</TT><A name="the address"></A>. To save the address of the structure pointer between the <TT>open()</TT><A name="and other"></A> thread and other entry points, <TT>open()</TT> stores it in the <SPAN class=docEmphasis>/dev/tele</SPAN>'s <TT>file-&gt;private_data</TT><A name="points with"></A> field. This is because the kernel supplies these char entry points with <SPAN class=docEmphasis>/dev/tele</SPAN>'s <TT>inode</TT><A name=the></A> pointer as argument rather than the <TT>usb_interface</TT><A name="callback functions"></A> pointer. To glean the address of the device-specific structure from URB callback functions, the associated submission threads use the URB's <TT>context</TT> field as the storage area. Look at <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex02">Listings 11.3</A>, <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex03">11.4</A>, and <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex04">11.5</A> to see these mechanisms in action.</P>
+<P class=docText><A name=number></A>All USB character devices answer to major number <TT>180</TT>. If you enable <TT>CONFIG_USB_DYNAMIC_MINORS</TT><A name="from the"></A> during kernel configuration, the USB core dynamically selects a minor number from the available pool. This behavior is similar to registering misc drivers after specifying <TT>MISC_DYNAMIC_MINOR</TT> in the <TT>miscdevice</TT><A name="the section"></A> structure (as discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05lev1sec7">Misc Drivers</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A><A name="choose not"></A>, "Character Drivers"). If you choose not to enable <TT>CONFIG_USB_DYNAMIC_MINORS</TT><A name="the USB"></A>, the USB subsystem selects an available minor number starting at the minor base set in the <TT>usb_class_driver</TT> structure.</P><A name=ch11ex02></A>
+<H5 id=title-ID0EWHAO class=docExampleTitle>Listing 11.3. Probing and Disconnecting</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Device-specific structure */
+typedef struct {
+  struct usb_device      *usbdev;         /* Device representation */
+  struct usb_interface   *interface;      /* Interface representation*/
+  struct urb             *ctrl_urb;       /* Control URB for
+                                             register access */
+  struct usb_ctrlrequest  ctrl_req;       /* Control request
+                                             as per the spec */
+  unsigned char          *bulk_in_buf;    /* Receive data buffer */
+  size_t                  bulk_in_len;    /* Receive buffer size */
+  __u8                    bulk_in_addr;   /* IN endpoint address */
+  __u8                    bulk_out_addr;  /* OUT endpoint address */
+  /* ... */                               /* Locks, waitqueues,
+                                             statistics.. */
+} tele_device_t;
+
+#define TELE_MINOR_BASE 0xAB    /* Assigned by the Linux-USB
+                                   subsystem maintainer */
+
+/* Conventional char driver entry points.
+   See Chapter 5, "Character Drivers." */
+static struct file_operations tele_fops =
+{
+  .owner   =  THIS_MODULE,  /* Owner */
+  .read    =  tele_read,    /* Read method */
+  .write   =  tele_write,   /* Write method */
+  .ioctl   =  tele_ioctl,   /* Ioctl method */
+  .open    =  tele_open,    /* Open method */
+  .release =  tele_release, /* Close method */
+};
+
+
+static struct usb_class_driver tele_class = {
+  .name       = "tele",
+  .fops       = &amp;tele_fops,      /* Connect with <SPAN class=docEmphasis>/dev/tele</SPAN> */
+  .minor_base = TELE_MINOR_BASE, /* Minor number start */
+};
+/* The probe() method is invoked by khubd after device
+   enumeration. The first argument, <SPAN class=docEmphasis>interface</SPAN>, contains information
+   gleaned during the enumeration process. <SPAN class=docEmphasis>id</SPAN> is the entry in the
+   driver's <SPAN class=docEmphasis>usb_device_id table</SPAN> that matches the values read from
+   the telemetry card. tele_probe() is based on skel_probe()
+   defined in <SPAN class=docEmphasis>drivers/usb/usb-skeleton.c</SPAN> */
+static int
+tele_probe(struct usb_interface *interface,
+           const struct usb_device_id *id)
+{
+  struct usb_host_interface *iface_desc;
+  struct usb_endpoint_descriptor *endpoint;
+  tele_device_t *tele_device;
+  int retval = -ENOMEM;
+
+  /* Allocate the device-specific structure */
+  tele_device = kzalloc(sizeof(tele_device_t), GFP_KERNEL);
+
+  /* Fill the usb_device and usb_interface */
+  tele_device-&gt;usbdev =
+                 usb_get_dev(interface_to_usbdev(interface));
+  tele_device-&gt;interface = interface;
+
+  /* Set up endpoint information from the data gleaned
+     during device enumeration */
+  iface_desc = interface-&gt;cur_altsetting;
+  for (int i = 0; i &lt; iface_desc-&gt;desc.bNumEndpoints; ++i) {
+    endpoint = &amp;iface_desc-&gt;endpoint[i].desc;
+
+    if (!tele_device-&gt;bulk_in_addr &amp;&amp;
+        usb_endpoint_is_bulk_in(endpoint)) {
+      /* Bulk IN endpoint */
+      tele_device-&gt;bulk_in_len =
+                       le16_to_cpu(endpoint-&gt;wMaxPacketSize);
+      tele_device-&gt;bulk_in_addr = endpoint-&gt;bEndpointAddress;
+      tele_device-&gt;bulk_in_buf =
+                kmalloc(tele_device-&gt;bulk_in_len, GFP_KERNEL);
+    }
+
+    if (!tele_device-&gt;bulk_out_addr &amp;&amp;
+       usb_endpoint_is_bulk_out(endpoint)) {
+      /* Bulk OUT endpoint */
+      tele_device-&gt;bulk_out_addr = endpoint-&gt;bEndpointAddress;
+    }
+   }
+
+   if (!(tele_device-&gt;bulk_in_addr &amp;&amp; tele_device-&gt;bulk_out_addr)) {
+     return retval;
+   }
+
+   /* Attach the device-specific structure to this interface.
+      We will retrieve it from tele_open() */
+   usb_set_intfdata(interface, tele_device);
+
+   /* Register the device */
+   retval = usb_register_dev(interface, &amp;tele_class);
+   if (retval) {
+     usb_set_intfdata(interface, NULL);
+     return retval;
+   }
+
+   printk("Telemetry device now attached to /dev/tele\n");
+   return 0;
+}
+
+/* Disconnect method. Called when the device is unplugged or when the module is
+   unloaded */
+static void
+tele_disconnect(struct usb_interface *interface)
+{
+  tele_device_t *tele_device;
+  /* ... */
+
+  /* Reverse of usb_set_intfdata() invoked from tele_probe() */
+  tele_device = usb_get_intfdata(interface);
+
+  /* Zero out interface data */
+  usb_set_intfdata(interface, NULL);
+
+  /* Release <SPAN class=docEmphasis>/dev/tele</SPAN> */
+  usb_deregister_dev(interface, &amp;tele_class);
+
+  /* NULL the interface. In the real world, protect this
+     operation using locks */
+  tele_device-&gt;interface = NULL;
+  /* ... */
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;<A name=iddle4230></A></P><A name=ch11lev2sec10></A>
+<H4 id=title-ID0EFJAO class=docSection2Title>Accessing Registers</H4>
+<P class=docText><A name=iddle1022></A><A name=iddle4231></A><A name=iddle4241></A><A name=iddle4443></A><A name=iddle4467></A>The <TT>open()</TT><A name="the on"></A> method initializes the on-card telemetry configuration register when an application opens <SPAN class=docEmphasis>/dev/tele.</SPAN><A name="set the"></A> To set the contents of this register, <TT>tele_open()</TT> submits a control URB attached to the default endpoint <TT>0</TT><A name="an associated"></A>. When you submit a control URB, you have to supply an associated control request. The structure that sends a control request to a USB device has to conform to <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09.html#ch09">Chapter 9</A><A name="is defined"></A> of the USB specification and is defined as follows in <SPAN class=docEmphasis>include/linux/usb/ch9.h</SPAN>:</P>
+<DIV class=docText><PRE>struct usb_ctrlrequest {
+  __u8 bRequestType;
+  __u8 bRequest;
+  __le16 wValue;
+  __le16 wIndex;
+  __le16 wLength;
+} __attribute__ ((packed));</PRE></DIV><BR>
+<P class=docText><A name=a></A>Let's take a look at the components that make up a <TT>usb_ctrlrequest</TT>. The <TT>bRequest</TT> field identifies the control request. <TT>bRequestType</TT><A name="transfer direction"></A> qualifies the request by encoding the data transfer direction, the request category, and whether the recipient is a device, interface, endpoint, or something else. <TT>bRequest</TT><A name="be vendor"></A> can either belong to a set of standard values or be vendor-defined. In our example, the <TT>bRequest</TT><A name="the telemetry"></A> for writing to the telemetry configuration register is a vendor-defined one. <TT>wValue</TT><A name="data to"></A> holds the data to be written to the register, <TT>wIndex</TT><A name="is the"></A> is the desired offset into the register space, and <TT>wLength</TT><A name="number of"></A> is the number of bytes to be transferred.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex03">Listing 11.4</A> implements <TT>tele_open()</TT><A name="main task"></A>. Its main task is to program the telemetry configuration register with appropriate values. Before browsing the listing, revisit the <TT>tele_device_t</TT> structure defined in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex02">Listing 11.3</A> focusing on two fields: <TT>ctrl_urb</TT> and <TT>ctrl_req</TT><A name="the configuration"></A>. The former is a control URB for communicating with the configuration register, whereas the latter is the associated <TT>usb_ctrlrequest</TT>.</P>
+<P class=docText>To program the telemetry configuration register, <TT>tele_open()</TT> does the following:</P><A name=ch11pro03></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Allocates a control URB to prepare for the register write.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Creates a <TT>usb_ctrlrequest</TT> and populates it with the request identifier, request type, register offset, and the value to be programmed.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Creates a control pipe attached to endpoint <TT>0</TT> of the telemetry card to carry the control URB.<BR><BR></DIV></TD></TR>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>4. </B></DIV></TD>
+<TD>
+<DIV class=docText><A name=iddle2358></A><A name=iddle4484></A>Because <TT>tele_open()</TT> submits the URB asynchronously, it needs to wait for the associated callback function to finish before returning to its caller. To this end, <TT>tele_open()</TT> calls on the kernel's completion API for assistance using <TT>init_completion()</TT>. Step 7 calls the matching <TT>wait_for_completion()</TT> that waits until the callback function invokes <TT>complete()</TT>. We discussed the completion API in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03lev2sec8">Completion Interface</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03">Chapter 3</A>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>5. </B></DIV></TD>
+<TD>
+<DIV class=docText>Initializes fields in the control URB using <TT>usb_fill_control_urb()</TT>. This includes the <TT>usb_ctrlrequest</TT> populated in Step 2.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>6. </B></DIV></TD>
+<TD>
+<DIV class=docText>Submits the URB to the USB core using <TT>usb_submit_urb()</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>7. </B></DIV></TD>
+<TD>
+<DIV class=docText>Waits until the callback function signals that the register programming is complete.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>8. </B></DIV></TD>
+<TD>
+<DIV class=docText>Returns the status.<BR><BR></DIV></TD></TR></TBODY></TABLE><A name=ch11ex03></A>
+<H5 id=title-ID0EXQAO class=docExampleTitle>Listing 11.4. Initialize the Telemetry Configuration Register</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Offset of the Telemetry configuration register
+   within the on-card register space */
+#define TELEMETRY_CONFIG_REG_OFFSET      0x0A
+
+/* Value to program in the configuration register */
+#define TELEMETRY_CONFIG_REG_VALUE       0xBC
+
+/* The vendor-defined bRequest for programming the
+   configuration register */
+#define TELEMETRY_REQUEST_WRITE          0x0D
+
+/* The vendor-defined bRequestType */
+#define TELEMETRY_REQUEST_WRITE_REGISTER 0x0E
+
+/* Open method */
+static int
+tele_open(struct inode *inode, struct file *file)
+{
+  struct completion tele_config_done;
+  tele_device_t *tele_device;
+  void *tele_ctrl_context;
+  char *tmp;
+  __le16 tele_config_index = TELEMETRY_CONFIG_REG_OFFSET;
+  unsigned int tele_ctrl_pipe;
+  struct usb_interface *interface;
+
+  /* Obtain the pointer to the device-specific structure.
+     We saved it using usb_set_intfdata() in tele_probe() */
+  interface = usb_find_interface(&amp;tele_driver, iminor(inode));
+  tele_device = usb_get_intfdata(interface);
+
+  /* Allocate a URB for the control transfer */
+  tele_device-&gt;ctrl_urb = usb_alloc_urb(0, GFP_KERNEL);
+  if (!tele_device-&gt;ctrl_urb) {
+    return -EIO;
+  }
+
+  /* Populate the Control Request */
+  tele_device-&gt;ctrl_req.bRequestType = TELEMETRY_REQUEST_WRITE;
+  tele_device-&gt;ctrl_req.bRequest =
+                        TELEMETRY_REQUEST_WRITE_REGISTER;
+  tele_device-&gt;ctrl_req.wValue =
+                        cpu_to_le16(TELEMETRY_CONFIG_REG_VALUE);
+  tele_device-&gt;ctrl_req.wIndex =
+                        cpu_to_le16p(&amp;tele_config_index);
+  tele_device-&gt;ctrl_req.wLength = cpu_to_le16(1);
+  tele_device-&gt;ctrl_urb-&gt;transfer_buffer_length = 1;
+  tmp = kmalloc(1, GFP_KERNEL);
+  *tmp = TELEMETRY_CONFIG_REG_VALUE;
+
+  /* Create a control pipe attached to endpoint 0 */
+  tele_ctrl_pipe = usb_sndctrlpipe(tele_device-&gt;usbdev, 0);
+
+  /* Initialize the completion mechanism */
+  init_completion(&amp;tele_config_done);
+
+  /* Set URB context. The context is part of the URB that is passed
+     to the callback function as an argument. In this case, the
+     context is the completion structure, tele_config_done */
+  tele_ctrl_context = (void *)&amp;tele_config_done;
+
+  /* Initialize the fields in the control URB */
+  usb_fill_control_urb(tele_device-&gt;ctrl_urb, tele_device-&gt;usbdev,
+                       tele_ctrl_pipe,
+                       (char *) &amp;tele_device-&gt;ctrl_req,
+                       tmp, 1, tele_ctrl_callback,
+                       tele_ctrl_context);
+  /* Submit the URB */
+  usb_submit_urb(tele_device-&gt;ctrl_urb, GFP_ATOMIC);
+
+  /* Wait until the callback returns indicating that the telemetry
+     configuration register has been successfully initialized */
+  wait_for_completion(&amp;tele_config_done);
+
+  /* Release our reference to the URB */
+  usb_free_urb(urb);
+
+  kfree(tmp);
+
+  /* Save the device-specific object to the file's private_data
+     so that you can directly retrieve it from other entry points
+     such as tele_read() and tele_write() */
+  file-&gt;private_data = tele_device;
+
+  /* Return the URB transfer status */
+  return(tele_device-&gt;ctrl_urb-&gt;status);
+}
+
+
+/* Callback function */
+static void
+tele_ctrl_callback(struct urb *urb)
+{
+  complete((struct completion *)urb-&gt;context);
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A name=iddle1671></A><A name=iddle4233></A><A name=iddle4234></A><A name=iddle4237></A><A name=iddle4439></A><A name=iddle4464></A>You can render <TT>tele_open()</TT> simpler using <TT>usb_control_msg()</TT>, a blocking version of <TT>usb_submit_urb()</TT><A name="callback details"></A> that internally hides synchronization and callback details for control URBs. We preferred the asynchronous approach for learning purposes.</P><A name=ch11lev2sec11></A>
+<H4 id=title-ID0ERTAO class=docSection2Title>Data Transfer</H4>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex04">Listing 11.5</A> implements the <TT>read()</TT> and <TT>write()</TT><A name="real work"></A> entry points of the telemetry driver. These methods perform the real work when an application reads or writes to <SPAN class=docEmphasis>/dev/tele.</SPAN> <TT>tele_read()</TT><A name="process wants"></A> performs synchronous URB submission because the calling process wants to block until telemetry data is available. <TT>tele_write()</TT><A name="waiting for"></A>, however, uses asynchronous submission and returns to the calling thread without waiting for a confirmation that the data accepted by the driver has been successfully transferred to the device.</P>
+<P class=docText><A name=iddle4235></A><A name="go hand"></A>Because asynchronous transfers go hand in hand with a callback routine, <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec5.html#ch11ex04">Listing 11.5</A> implements <TT>tele_write_callback()</TT><A name=examines></A>. This routine examines <TT>urb-&gt;status</TT><A name="to decipher"></A> to decipher the submission status. It also frees the transfer buffer allocated by <TT>tele_write()</TT>.</P><A name=ch11ex04></A>
+<H5 id=title-ID0EGVAO class=docExampleTitle>Listing 11.5. Data Exchange with the Telemetry Card</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Read entry point */
+static ssize_t
+tele_read(struct file *file, char *buffer,
+          size_t count, loff_t *ppos)
+{
+  int retval, bytes_read;
+  tele_device_t *tele_device;
+
+  /* Get the address of tele_device */
+  tele_device = (tele_device_t *)file-&gt;private_data;
+
+  /* ... */
+
+  /* Synchronous read */
+  retval = usb_bulk_msg(tele_device-&gt;usbdev, /* usb_device */
+       usb_rcvbulkpipe(tele_device-&gt;usbdev,
+                tele_device-&gt;bulk_in_addr),  /* Pipe */
+       tele_device-&gt;bulk_in_buf,             /* Read buffer */
+       min(tele_device-&gt;bulk_in_len, count), /* Bytes to read */
+       &amp;bytes_read,                          /* Bytes read */
+       5000);                                /* Timeout in 5 sec */
+
+  /* Copy telemetry data to user space */
+  if (!retval) {
+    if (copy_to_user(buffer, tele_device-&gt;bulk_in_buf,
+                     bytes_read)) {
+      return -EFAULT;
+    } else {
+      return bytes_read;
+    }
+  }
+  return retval;
+}
+
+/* Write entry point */
+static ssize_t
+tele_write(struct file *file, const char *buffer,
+           size_t write_count, loff_t *ppos)
+{
+  char *tele_buf = NULL;
+  struct urb *urb = NULL;
+  tele_device_t *tele_device;
+
+  /* Get the address of tele_device */
+  tele_device = (tele_device_t *)file-&gt;private_data;
+
+  /* ... */
+
+  /* Allocate a bulk URB */
+  urb = usb_alloc_urb(0, GFP_KERNEL);
+  if (!urb) {
+    return -ENOMEM;
+  }
+
+  /* Allocate a DMA-consistent transfer buffer and copy in
+     data from user space. On return, tele_buf contains
+     the buffer's CPU address, while urb-&gt;transfer_dma
+     contains the DMA address */
+  tele_buf = usb_buffer_alloc(tele_dev-&gt;usbdev, write_count,
+                              GFP_KERNEL, &amp;urb-&gt;transfer_dma);
+  if (copy_from_user(tele_buf, buffer, write_count)) {
+    usb_buffer_free(tele_device-&gt;usbdev, write_count,
+                    tele_buf, urb-&gt;transfer_dma);
+    usb_free_urb(urb);
+    return -EFAULT
+  }
+
+  /* Populate bulk URB fields */
+  usb_fill_bulk_urb(urb, tele_device-&gt;usbdev,
+                    usb_sndbulkpipe(tele_device-&gt;usbdev,
+                    tele_device-&gt;bulk_out_addr),
+                    tele_buf, write_count, tele_write_callback,
+                    tele_device);
+  /* urb-&gt;transfer_dma is valid, so preferably utilize
+     that for data transfer */
+  urb-&gt;transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+
+  /* Submit URB asynchronously */
+  usb_submit_urb(urb, GFP_KERNEL);
+  /* Release URB reference */
+  usb_free_urb(urb);
+
+  return(write_count);
+}
+
+/* Write callback */
+static void
+tele_write_callback(struct urb *urb)
+{
+  tele_device_t *tele_device;
+
+  /* Get the address of tele_device */
+  tele_device = (tele_device_t *)urb-&gt;context;
+
+  /* urb-&gt;status contains the submission status. It's 0 if
+     successful. Resubmit the URB in case of errors other than
+     -ENOENT, -ECONNRESET, and -ESHUTDOWN */
+  /* ... */
+
+  /* Free the transfer buffer. usb_buffer_free() is the
+     release-counterpart of usb_buffer_alloc() called
+     from tele_write() */
+  usb_buffer_free(urb-&gt;dev, urb-&gt;transfer_buffer_length,
+                  urb-&gt;transfer_buffer, urb-&gt;transfer_dma);
+
+}
+
+					  </PRE></TD></TR></TBODY></TABLE>

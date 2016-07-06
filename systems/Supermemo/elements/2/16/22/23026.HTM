@@ -1,0 +1,34 @@
+<H3 id=-100000 class=docSection1Title>Char Driver Basics</H3>
+<P class=docText><A name="with a"></A>Let's start with a top-down view. To access a char device, a system user invokes a suitable application program. The application is responsible for talking to the device, but to do that, it needs to elicit the identity of a suitable driver. The contact details of the driver are exported to user space via the <SPAN class=docEmphasis>/dev</SPAN> directory:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ls -l /dev</SPAN>
+total 0
+crw-------   1 root root     5,   1 Jul 16 10:02 console
+...
+lrwxrwxrwx   1 root root          3 Oct 6 10:02  cdrom -&gt; hdc
+...
+brw-rw----   1 root disk     3,   0 Oct 6 2007   hda
+brw-rw----   1 root disk     3,   1 Oct 6 2007   hda1
+...
+crw-------   1 root tty      4,   1 Oct 6 10:20  tty1
+crw-------   1 root tty      4,   2 Oct 6 10:02  tty2</PRE></DIV><BR>
+<P class=docText>The first character in each line of the <TT>ls</TT> output denotes the driver type: <TT>c</TT> signifies a char driver, <TT>b</TT> stands for a block driver, and <TT>l</TT><A name="are called"></A> denotes a symbolic link. The numbers in the fifth column are called <SPAN class=docEmphasis>major</SPAN><A name="column are"></A> numbers, and those in the sixth column are <SPAN class=docEmphasis>minor</SPAN><A name="number pinpoints"></A> numbers. A major number broadly identifies the driver, whereas a minor number pinpoints the exact device serviced by the driver. For example, the IDE block storage driver <SPAN class=docEmphasis>/dev/hda</SPAN><A name="is in"></A> owns a major number of 3 and is in charge of handling the hard disk on your system, but when you further specify a minor number of 1 <A name=iddle1381></A><A name=iddle1427></A><A name=iddle1431></A><A name=iddle1433></A><A name=iddle1502></A><A name=iddle2055></A><A name=iddle2058></A><A name=iddle2345></A>(<SPAN class=docEmphasis>/dev/hda1</SPAN><A name="Char and"></A>), that narrows it down to the first disk partition. Char and block drivers occupy different spaces, so you can have same major number assigned to a char as well as a block driver.</P>
+<P class=docText><A name="a step"></A>Let's take a step further and peek inside a char driver. From a code-flow perspective, char drivers have the following:</P><A name=ch05pro01></A>
+<UL class=doclist start="">
+<LI>An initialization (or <TT>init()</TT>) routine that is responsible for initializing the device and seamlessly tying the driver to the rest of the kernel via registration functions.<BR><BR>
+<LI>A set of entry points (or methods) such as <TT>open()</TT>, <TT>read()</TT>, <TT>ioctl()</TT>, <TT>llseek()</TT>, and <TT>write()</TT>, which directly correspond to I/O system calls invoked by user applications over the associated <SPAN class=docEmphasis>/dev</SPAN> node.<BR><BR>
+<LI>Interrupt routines, bottom halves, timer handlers, helper kernel threads, and other support infrastructure. These are largely transparent to user applications.<BR><BR></LI></UL>
+<P class=docText>From a data-flow perspective, char drivers own the following key data structures:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>A per-device structure. This is the information repository around which the driver revolves.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct cdev</TT><A name="inside the"></A>, a kernel abstraction for character drivers. This structure is usually embedded inside the per-device structure referred previously.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT><A name="struct file"></A>struct file_operations</TT><A name="the addresses"></A>, which contains the addresses of all driver entry points.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct file</TT><A name="contains information"></A>, which contains information about the associated <SPAN class=docEmphasis>/dev</SPAN> node.</P></DIV></LI></OL></DIV>

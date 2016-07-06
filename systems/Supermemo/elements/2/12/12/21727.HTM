@@ -1,0 +1,93 @@
+<H1><A name=IOREDIRINTRO></A>Appendix F. A Detailed Introduction to I/O and I/O Redirection</H1>
+<P><EM>written by St&#233;phane Chazelas, and revised by the document author</EM></P>
+<P><A name=STDINOUTDEF></A></P>
+<P>A command expects the first three <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FDREF">file descriptors</A> to be available. The first, <I class=FIRSTTERM>fd 0</I> (standard input, <TT class=FILENAME>stdin</TT>), is for reading. The other two (<I class=FIRSTTERM>fd 1</I>, <TT class=FILENAME>stdout</TT> and <I class=FIRSTTERM>fd 2</I>, <TT class=FILENAME>stderr</TT>) are for writing.</P>
+<P>There is a <TT class=FILENAME>stdin</TT>, <TT class=FILENAME>stdout</TT>, and a <TT class=FILENAME>stderr</TT> associated with each command. <TT class=USERINPUT><B>ls 2&gt;&amp;1</B></TT> means temporarily connecting the <TT class=FILENAME>stderr</TT> of the <B class=COMMAND>ls</B> command to the same <SPAN class=QUOTE>"resource"</SPAN> as the shell's <TT class=FILENAME>stdout</TT>.</P>
+<P>By convention, a command reads its input from fd 0 (<TT class=FILENAME>stdin</TT>), prints normal output to fd 1 (<TT class=FILENAME>stdout</TT>), and error ouput to fd 2 (<TT class=FILENAME>stderr</TT>). If one of those three fd's is not open, you may encounter problems:</P>
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>cat /etc/passwd &gt;&amp;-</B></TT>
+<TT class=COMPUTEROUTPUT>cat: standard output: Bad file descriptor</TT>
+      </PRE></FONT></TD></TR></TBODY></TABLE>
+<P>For example, when <B class=COMMAND>xterm</B> runs, it first initializes itself. Before running the user's shell, <B class=COMMAND>xterm</B> opens the terminal device (/dev/pts/&lt;n&gt; or something similar) three times.</P>
+<P>At this point, Bash inherits these three file descriptors, and each command (child process) run by Bash inherits them in turn, except when you redirect the command. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#IOREDIRREF">Redirection</A> means reassigning one of the file descriptors to another file (or a pipe, or anything permissible). File descriptors may be reassigned locally (for a command, a command group, a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SUBSHELLSREF">subshell</A>, a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#REDIRREF">while or if or case or for loop</A>...), or globally, for the remainder of the shell (using <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXECREF">exec</A>).</P>
+<P><TT class=USERINPUT><B>ls &gt; /dev/null</B></TT> means running <B class=COMMAND>ls</B> with its fd 1 connected to <TT class=FILENAME>/dev/null</TT>.</P>
+<P>
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>lsof -a -p $$ -d0,1,2</B></TT>
+<TT class=COMPUTEROUTPUT>COMMAND PID     USER   FD   TYPE DEVICE SIZE NODE NAME
+ bash    363 bozo        0u   CHR  136,1         3 /dev/pts/1
+ bash    363 bozo        1u   CHR  136,1         3 /dev/pts/1
+ bash    363 bozo        2u   CHR  136,1         3 /dev/pts/1</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>exec 2&gt; /dev/null</B></TT>
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>lsof -a -p $$ -d0,1,2</B></TT>
+<TT class=COMPUTEROUTPUT>COMMAND PID     USER   FD   TYPE DEVICE SIZE NODE NAME
+ bash    371 bozo        0u   CHR  136,1         3 /dev/pts/1
+ bash    371 bozo        1u   CHR  136,1         3 /dev/pts/1
+ bash    371 bozo        2w   CHR    1,3       120 /dev/null</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>bash -c 'lsof -a -p $$ -d0,1,2' | cat</B></TT>
+<TT class=COMPUTEROUTPUT>COMMAND PID USER   FD   TYPE DEVICE SIZE NODE NAME
+ lsof    379 root    0u   CHR  136,1         3 /dev/pts/1
+ lsof    379 root    1w  FIFO    0,0      7118 pipe
+ lsof    379 root    2u   CHR  136,1         3 /dev/pts/1</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>echo "$(bash -c 'lsof -a -p $$ -d0,1,2' 2&gt;&amp;1)"</B></TT>
+<TT class=COMPUTEROUTPUT>COMMAND PID USER   FD   TYPE DEVICE SIZE NODE NAME
+ lsof    426 root    0u   CHR  136,1         3 /dev/pts/1
+ lsof    426 root    1w  FIFO    0,0      7520 pipe
+ lsof    426 root    2w  FIFO    0,0      7520 pipe</TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>This works for different types of redirection.</P>
+<P><TT class=USERINPUT><B>Exercise:</B></TT> Analyze the following script. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#! /usr/bin/env bash
+
+mkfifo /tmp/fifo1 /tmp/fifo2
+while read a; do echo "FIFO1: $a"; done &lt; /tmp/fifo1 &amp; exec 7&gt; /tmp/fifo1
+exec 8&gt; &gt;(while read a; do echo "FD8: $a, to fd7"; done &gt;&amp;7)
+
+exec 3&gt;&amp;1
+(
+ (
+  (
+   while read a; do echo "FIFO2: $a"; done &lt; /tmp/fifo2 | tee /dev/stderr \
+   | tee /dev/fd/4 | tee /dev/fd/5 | tee /dev/fd/6 &gt;&amp;7 &amp; exec 3&gt; /tmp/fifo2
+
+   echo 1st, to stdout
+   sleep 1
+   echo 2nd, to stderr &gt;&amp;2
+   sleep 1
+   echo 3rd, to fd 3 &gt;&amp;3
+   sleep 1
+   echo 4th, to fd 4 &gt;&amp;4
+   sleep 1
+   echo 5th, to fd 5 &gt;&amp;5
+   sleep 1
+   echo 6th, through a pipe | sed 's/.*/PIPE: &amp;, to fd 5/' &gt;&amp;5
+   sleep 1
+   echo 7th, to fd 6 &gt;&amp;6
+   sleep 1
+   echo 8th, to fd 7 &gt;&amp;7
+   sleep 1
+   echo 9th, to fd 8 &gt;&amp;8
+
+  ) 4&gt;&amp;1 &gt;&amp;3 3&gt;&amp;- | while read a; do echo "FD4: $a"; done 1&gt;&amp;3 5&gt;&amp;- 6&gt;&amp;-
+ ) 5&gt;&amp;1 &gt;&amp;3 | while read a; do echo "FD5: $a"; done 1&gt;&amp;3 6&gt;&amp;-
+) 6&gt;&amp;1 &gt;&amp;3 | while read a; do echo "FD6: $a"; done 3&gt;&amp;-
+
+rm -f /tmp/fifo1 /tmp/fifo2
+
+
+# For each command and subshell, figure out which fd points to what.
+# Good luck!
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE>

@@ -1,0 +1,17 @@
+Attributes<BR>~~~~~~~~~~<BR>struct device_attribute {<BR>&nbsp;struct attribute&nbsp;attr;<BR>&nbsp;ssize_t (*show)(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;char *buf);<BR>&nbsp;ssize_t (*store)(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp; const char *buf, size_t count);<BR>};</P>
+<P>Attributes of devices can be exported by a device driver through sysfs.</P>
+<P>Please see Documentation/filesystems/sysfs.txt for more information<BR>on how sysfs works.</P>
+<P>As explained in Documentation/kobject.txt, device attributes must be be<BR>created before the KOBJ_ADD uevent is generated. The only way to realize<BR>that is by defining an attribute group.</P>
+<P>Attributes are declared using a macro called DEVICE_ATTR:</P>
+<P>#define DEVICE_ATTR(name,mode,show,store)</P>
+<P>Example:</P>
+<P>static DEVICE_ATTR(type, 0444, show_type, NULL);<BR>static DEVICE_ATTR(power, 0644, show_power, store_power);</P>
+<P>This declares two structures of type struct device_attribute with respective<BR>names 'dev_attr_type' and 'dev_attr_power'. These two attributes can be<BR>organized as follows into a group:</P>
+<P>static struct attribute *dev_attrs[] = {<BR>&nbsp;&amp;dev_attr_type.attr,<BR>&nbsp;&amp;dev_attr_power.attr,<BR>&nbsp;NULL,<BR>};</P>
+<P>static struct attribute_group dev_attr_group = {<BR>&nbsp;.attrs = dev_attrs,<BR>};</P>
+<P>static const struct attribute_group *dev_attr_groups[] = {<BR>&nbsp;&amp;dev_attr_group,<BR>&nbsp;NULL,<BR>};</P>
+<P>This array of groups can then be associated with a device by setting the<BR>group pointer in struct device before device_register() is invoked:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; dev-&gt;groups = dev_attr_groups;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; device_register(dev);</P>
+<P>The device_register() function will use the 'groups' pointer to create the<BR>device attributes and the device_unregister() function will use this pointer<BR>to remove the device attributes.</P>
+<P>Word of warning:&nbsp; While the kernel allows device_create_file() and<BR>device_remove_file() to be called on a device at any time, userspace has<BR>strict expectations on when attributes get created.&nbsp; When a new device is<BR>registered in the kernel, a uevent is generated to notify userspace (like<BR>udev) that a new device is available.&nbsp; If attributes are added after the<BR>device is registered, then userspace won't get notified and userspace will<BR>not know about the new attributes.</P>
+<P>This is important for device driver that need to publish additional<BR>attributes for a device at driver probe time.&nbsp; If the device driver simply<BR>calls device_create_file() on the device structure passed to it, then<BR>userspace will never be notified of the new attributes.

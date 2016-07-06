@@ -1,0 +1,18 @@
+include/kernel/err.h 
+<P></P>
+<P>#ifndef _LINUX_ERR_H<BR>#define _LINUX_ERR_H</P>
+<P></P>
+<P>#include &lt;linux/compiler.h&gt;<BR>#include &lt;linux/types.h&gt;</P>
+<P>#include &lt;asm/errno.h&gt;</P>
+<P><FONT class=extract>/*<BR>&nbsp;* Kernel pointers have redundant information, so we can use a<BR>&nbsp;* scheme where we can return either an error code or a normal<BR>&nbsp;* pointer with the same return value.<BR>&nbsp;*<BR>&nbsp;* This should be a per-architecture thing, to allow different<BR>&nbsp;* error and pointer decisions.<BR>&nbsp;*/</FONT><BR><FONT class=extract>#define MAX_ERRNO&nbsp;4095</FONT></P>
+<P>#ifndef __ASSEMBLY__</P>
+<P><FONT class=extract>#define IS_ERR_VALUE(x) unlikely((x) &gt;= (unsigned long)-MAX_ERRNO)</FONT></P>
+<P><FONT class=extract>static inline void * __must_check ERR_PTR(long error)<BR>{<BR>&nbsp;return (void *) error;<BR>}</FONT></P>
+<P><FONT class=extract>static inline long __must_check PTR_ERR(__force const void *ptr)<BR>{<BR>&nbsp;return (long) ptr;<BR>}</FONT></P>
+<P>static inline bool __must_check IS_ERR(__force const void *ptr)<BR>{<BR>&nbsp;return IS_ERR_VALUE((unsigned long)ptr);<BR>}</P>
+<P>static inline bool __must_check IS_ERR_OR_NULL(__force const void *ptr)<BR>{<BR>&nbsp;return !ptr || IS_ERR_VALUE((unsigned long)ptr);<BR>}</P>
+<P><FONT class=extract>/**<BR>&nbsp;* ERR_CAST - Explicitly cast an error-valued pointer to another pointer type<BR>&nbsp;* @ptr: The pointer to cast.<BR>&nbsp;*<BR>&nbsp;* Explicitly cast an error-valued pointer to another pointer type in such a<BR>&nbsp;* way as to make it clear that's what's going on.<BR>&nbsp;*/<BR>static inline void * __must_check ERR_CAST(__force const void *ptr)<BR>{<BR>&nbsp;/* cast away the const */<BR>&nbsp;return (void *) ptr;<BR>}</FONT></P>
+<P><FONT class=extract>static inline int __must_check PTR_ERR_OR_ZERO(__force const void *ptr)<BR>{<BR>&nbsp;if (IS_ERR(ptr))<BR>&nbsp;&nbsp;return PTR_ERR(ptr);<BR>&nbsp;else<BR>&nbsp;&nbsp;return 0;<BR>}</FONT></P>
+<P>/* Deprecated */<BR>#define PTR_RET(p) PTR_ERR_OR_ZERO(p)</P>
+<P>#endif</P>
+<P>#endif /* _LINUX_ERR_H */

@@ -1,0 +1,73 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>11.4.&nbsp;Recursion</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s03.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;11.&nbsp;Reentrant and Recursive Subprograms</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s05.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title=11.4.&nbsp;Recursion style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286963968></A>11.4.&nbsp;Recursion</H2></DIV></DIV></DIV>
+<P>A<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>recursive</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>algorithm is one that is<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286963976></A>defined in terms of itself. There are many mathematical functions and common data processing algorithms that are more elegant and easier to understand when defined recursively.</P>
+<P>Algorithms and functions cannot be defined<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>entirely</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>recursively. There must be at least one special case that is defined independently. Such a case is called the<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>base case</EM>.<A class=indexterm name=id286963991></A>Once we have a base case, we can define a second case with respect to the base case, a third case with respect to the second, and so on.</P>
+<P>A simple and classic example of recursion is the factorial function. The factorial of an integer N is sometimes defined as the product of all integers from 1 to N, and is written as<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=quote>&#8220;<SPAN class=quote>N!</SPAN>&#8221;</SPAN>. In addition, 0!, which does not fit the first part of the definition, is independently defined as 1.</P>
+<P>A factorial can easily be computed<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>iteratively</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>by looping from 1 to N and multiplying by each number along the way:</P><PRE class=programlisting>	static long factorial(long n)
+	{
+	    long    nfactorial = 1;
+	    
+	    if ( n &lt; 0 ) // Return error code for invalid argument
+		return INVALID_ARGUMENT;
+	    
+	    while ( n &gt; 1 )
+		nfactorial *= n--;
+	    return nfactorial;
+	}
+	</PRE>
+<P>However, the factorial function can also be defined recursively. Since (N-1)! is the product of all numbers from 1 to N-1, it follows that N! = N * (N-1)!, which is a recursive definition. Again, we cannot get by on this definition alone, because it requires knowing (N-1)!. If (N-1)! is defined as (N-1) * (N-2)!, we still don't have any answers. However, the factorial function has a built-in base case where 0! is independently defined as 1. Hence 1! = 0! * 1 = 1, 2! = 1! * 2 = 2, 3! = 2! * 3 = 6, and so on.</P>
+<P>A recursive algorithm can be implemented using a subprogram that calls itself.</P><PRE class=programlisting>	static long factorial(long n)
+	{
+	    if ( n &lt; 0 ) // Return error code for invalid argument
+		return INVALID_ARGUMENT;
+		
+	    if ( n &lt; 2 )
+		return 1;
+	    else
+		return factorial(n-1) * n;
+	}
+	</PRE>
+<P>If this function receives an argument of 0 or 1, it will return 1. If it receives an argument greater than 1, it will call itself with an argument of n-1 repeatedly until it receives n=1, and then return (n-1)! * n repeatedly until it returns from the original invocation.</P>
+<P>A recursive function must be reentrant, since each invocation may call itself before it completes. For example, the first invocation of factorial(4) will set the formal argument variable n to 4. Since n is not less than 2, this invocation will invoke factorial(4-1), setting n to 3. This must not be the same address for n holding the 4, since the 4 is still needed after returning from factorial(4-1) to compute factorial(4-1) * 4. Since n is a local variable allocated on the stack when the function is called, each invocation has its own space for another copy of n.</P><PRE class=screen>	+-------------------+
+	| n = 4             | Frame for 1st invocation
+	| Return address    |
+	+-------------------+
+	| n = 3             | Frame for 2nd invocation
+	| Return address    |
+	+-------------------+
+	| n = 2             | Frame for 3rd invocation
+	| Return address    |
+	+-------------------+
+	| n = 1             | Frame for 4th invocation
+	| Return address    |
+	+-------------------+
+	</PRE>
+<P>While reentrance is necessary for recursion, it is not sufficient. Recursive subprograms have some additional requirements, such as preserving all register values across recursive calls, because recursive reentry is caused by the same process. Non-recursive reentry is caused by a different process or thread on the same system. When the operating system switches between processes or threads, it performs a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>context switch</EM>, which saves the current CPU stage, including all the registers, so that the process can be resumed where it left off when it was preempted.</P>
+<P>Note that neither of these implementations for a factorial function is efficient. This factorial function is defined only for non-negative integers and has a very limited domain. Since factorials grow very fast, the largest factorial we can compute in a 64-bit integer is 19!. These properties make the factorial function ideal for a lookup table. Lookup tables are discussed in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title="12.5.&nbsp;Lookup Tables" href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s05.html">Section&nbsp;12.5, &#8220;Lookup Tables&#8221;</A>.</P></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s03.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s05.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">11.3.&nbsp;Reentrance in Assembly Language&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;11.5.&nbsp;A Recursive MAL Subprogram</TD></TR></TBODY></TABLE></DIV>

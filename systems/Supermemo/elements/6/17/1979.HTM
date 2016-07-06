@@ -1,0 +1,245 @@
+<H3 class=docSection1Title>9.2. Writing Code</H3>
+<P class=docText>We have already seen various examples of Emacs modes, including text mode (see <A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-2.html#gnu3-chp-2">Chapter 2</A>) and shell mode (see <A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-5.html#gnu3-chp-5">Chapter 5</A>). Special functionality like the buffer list (see <A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-4.html#gnu3-chp-4">Chapter 4</A>) and Dired (see <A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-5.html#gnu3-chp-5">Chapter 5</A>) are actually modes as well. <FONT class=extract>All modes have two basic components: an Emacs Lisp <SPAN class=docEmphasis>package</SPAN> that implements the mode and a <SPAN class=docEmphasis>function</SPAN> that invokes it.</FONT></P><A name=gnu3-CHP-9-SECT-2.1></A>
+<H4 class=docSection2Title>9.2.1 Language Modes</H4>
+<P class=docText>The version of Emacs on <A name=gnu3-CHP-9-ITERM-2531></A><A name=gnu3-CHP-9-ITERM-2532></A><A name=gnu3-CHP-9-ITERM-2533></A><A name=gnu3-CHP-9-ITERM-2534></A><A name=gnu3-CHP-9-ITERM-2535></A><A name=gnu3-CHP-9-ITERM-2536></A><A name=gnu3-CHP-9-ITERM-2537></A><A name=gnu3-CHP-9-ITERM-2538></A><A name=gnu3-CHP-9-ITERM-2539></A>which <A name=gnu3-CHP-9-ITERM-2540></A><A name=gnu3-CHP-9-ITERM-2541></A><A name=gnu3-CHP-9-ITERM-2542></A><A name=gnu3-CHP-9-ITERM-2543></A><A name=gnu3-CHP-9-ITERM-2544></A>this book is based (21.3.5) comes with language modes for Ada, assembly, awk, C, C++, Common Lisp, Fortran, ICON, Java, Lisp, MIM, Modula-2, Objective-C, Pascal, Pike, Perl, PROLOG, Python, Scheme, SGML, Simula, and SQL; future versions will undoubtedly add more. Many&#8212;but not all&#8212;of the language modes are "hooked" into Emacs so that if you visit a file with the proper filename suffix, you will automatically be put in the correct mode. To find out whether Emacs does this for the language you use, look up your language in the table of Emacs Lisp packages in Appendix B. If one or more suffixes is listed in the right-hand column, Emacs invokes the mode for files with those suffixes.</P>
+<P class=docText>However, if no suffix is listed (or if your compiler supports a different suffix than the ones listed), you can set up Emacs to invoke the mode automatically when you visit your source files. You need to do two things: first, look again at the right-hand column in the package table entry for your language, and you will find the name of the function that invokes the mode (e.g., <SPAN class=docEmphBold>ada-mode</SPAN>, <SPAN class=docEmphBold>modula-2-mode</SPAN>). Second, you insert code in your <SPAN class=docEmphasis>.emacs</SPAN> file that tells Emacs to automatically load the proper package whenever you visit a file with the suffix for the language in question.</P>
+<P class=docText>You need to write two lines of code for this customization. The first uses the <SPAN class=docEmphBold>autoload</SPAN> function, which tells Emacs where to look for commands it doesn't already know about. It sets up an association between a function and the package that implements the function so that when the function is invoked for the first time, Emacs loads the package to get the code. In our case, we need to create an association between a function that invokes a language mode and the package that implements the mode. This shows the format of <SPAN class=docEmphBold>autoload</SPAN>:</P><PRE>(autoload '<TT><I>function</I></TT> "<TT><I>filename</I></TT>"<TT><I> </I></TT>"<TT><I>description</I></TT>" t)
+</PRE><BR>
+<P class=docText>Note the single quote preceding <TT>function</TT> and the double quotes around <TT>filename</TT> and <TT>description</TT>; for more details on this Lisp syntax, see <A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-11.html#gnu3-chp-11">Chapter 11</A>. If you are a PHP programmer, for example, you can grab the latest Emacs PHP mode from <A class=docLink href="http://sourceforge.net/projects/php-mode/" target=_blank>http://sourceforge.net/projects/php-mode/</A> online. You would then put the following line in your <SPAN class=docEmphasis>.emacs</SPAN> file:</P><PRE>(autoload 'php-mode "php-mode" "PHP editing mode." t)
+</PRE><BR>
+<P class=docText>This tells Emacs to load the <SPAN class=docEmphasis>PHP</SPAN> package when the function <SPAN class=docEmphBold>php-mode</SPAN> is invoked for the first time.</P>
+<P class=docText>The second line of code completes the picture by creating an association between the suffix for source files in your language and the mode-invoking function so that the function is automatically invoked when you visit a file with the proper suffix. This involves the Emacs global variable <SPAN class=docEmphBold>auto-mode-alist</SPAN>, covered in <A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-10.html#gnu3-chp-10">Chapter 10</A>; it is a list of associations that Emacs uses to put visited files in modes according to their names. To create such an association for PHP mode so that Emacs puts all files with the suffix <SPAN class=docEmphasis>.php</SPAN> in that mode, add this line to your <SPAN class=docEmphasis>.emacs</SPAN> file:</P><PRE>(setq auto-mode-alist (cons '("\\.php$" . php-mode) auto-mode-alist))
+</PRE><BR>
+<P class=docText>This Lisp code sets up the following chain of events when you visit a file whose suffix indicates source code in your programming language. Let's say you visit the file <SPAN class=docEmphasis>pgm.php</SPAN>. Emacs reads the file, then finds an entry corresponding to the <SPAN class=docEmphasis>.php</SPAN> suffix in the <SPAN class=docEmphBold>auto-mode-alist</SPAN> and tries to invoke the associated function <SPAN class=docEmphBold>php-mode</SPAN>. It notices that the function <SPAN class=docEmphBold>php-mode</SPAN> doesn't exist, but that there is an <SPAN class=docEmphBold>autoload</SPAN> association between it and the <SPAN class=docEmphasis>PHP</SPAN> package. It loads that package and, finding the <SPAN class=docEmphBold>php-mode</SPAN> command, runs it. After this, your buffer is in PHP mode.</P>
+<P class=docText>For some interpreted languages like Perl and Python, you will also want to update the <SPAN class=docEmphBold>interpreter-mode-alist global</SPAN> variable:</P><PRE>(setq interpreter-mode-alist
+
+
+      (cons '("python" . python-mode)
+
+
+            interpreter-mode-alist))
+</PRE><BR>
+<P class=docText>If your script file begins with the Unix interpreter prefix <SPAN class=docEmphBold>#!</SPAN>, Emacs checks that line to determine what language you are using. That can be especially helpful when the script file does not have a telltale extension like <SPAN class=docEmphasis>.py</SPAN> or <SPAN class=docEmphasis>.pl</SPAN>.</P><A name=gnu3-CHP-9-SECT-2.1.1></A>
+<H5 class=docSection3Title>9.2.1.1 Syntax</H5>
+<P class=docText>Although language modes differ in exact <A name=gnu3-CHP-9-ITERM-2545></A><A name=gnu3-CHP-9-ITERM-2546></A>functionality, they all support the same basic concepts. The most important of these involves knowledge of the <SPAN class=docEmphasis>syntax</SPAN> of the language in question&#8212;its characters, vocabulary, and certain aspects of its grammar. We have already seen that Emacs handles some syntactic aspects of human language. When you edit regular text, Emacs knows about words, sentences, and paragraphs: you can move the cursor and delete text with respect to those units. It also knows about certain kinds of punctuation, such as parentheses: when you type a right parenthesis, it "flashes" the matching left parenthesis by moving the cursor there for a second and then returning.<SUP class=docFootnote><A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-9-sect-2.html#gnu3-chp-9-fnote-4">[4]</A></SUP> This is a convenient way of ensuring that your parentheses match correctly.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=gnu3-CHP-9-FNOTE-4>[4]</A></SUP> Actually, there is a limit to how far back (in characters) Emacs searches for a matching open parenthesis: this is the value of the variable <SPAN class=docEmphBold>blink-matching-paren-distance</SPAN>, which defaults to 25,600. The duration of the "flash" is also configurable: it's the value (in seconds) of <SPAN class=docEmphBold>blink-matching-delay</SPAN>, whose default value is 1.</P></BLOCKQUOTE>
+<P class=docText>Emacs has knowledge about programming language syntax that is analogous to its knowledge of human language syntax. In general, it keeps track of the following basic syntactic elements:</P>
+<UL>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Words</SPAN>, which correspond to <SPAN class=docEmphasis>identifiers</SPAN> and <SPAN class=docEmphasis>numbers</SPAN> in most programming languages.</P>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Punctuation</SPAN>, which includes such things as <SPAN class=docEmphasis>operators</SPAN> (e.g., <SPAN class=docEmphBold>+</SPAN>, <SPAN class=docEmphBold>-</SPAN>, <SPAN class=docEmphBold>&lt;</SPAN>, and <SPAN class=docEmphBold>&gt;</SPAN>) and <SPAN class=docEmphasis>statement separators</SPAN> (e.g., semicolons).</P>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Strings</SPAN>, which are strings of characters to be taken literally and surrounded by <SPAN class=docEmphasis>delimiters</SPAN> (such as quotation marks).</P>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Parentheses</SPAN>, which can include such things as square brackets (<SPAN class=docEmphBold>[</SPAN> and <SPAN class=docEmphBold>]</SPAN>) and curly braces (<SPAN class=docEmphBold>{</SPAN> and <SPAN class=docEmphBold>}</SPAN>) as well as regular parentheses.</P>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Whitespace</SPAN>, such as spaces and tabs, which are to be ignored.</P>
+<LI>
+<P class=docList><SPAN class=docEmphasis>Comments</SPAN>, which are <A name=gnu3-CHP-9-ITERM-2547></A><A name=gnu3-CHP-9-ITERM-2548></A><A name=gnu3-CHP-9-ITERM-2549></A><A name=gnu3-CHP-9-ITERM-2550></A><A name=gnu3-CHP-9-ITERM-2551></A><A name=gnu3-CHP-9-ITERM-2552></A>strings of characters to be ignored and surrounded by delimiters that depend on the language (e.g., <SPAN class=docEmphBold>/*</SPAN> and <SPAN class=docEmphBold>*/</SPAN> for C, <SPAN class=docEmphBold>//</SPAN> and a newline for C++ and Java, or semicolon (<SPAN class=docEmphBold>;</SPAN>) and a newline for Lisp).</P></LI></UL>
+<P class=docText>Emacs keeps this information internally in the form of <SPAN class=docEmphasis>syntax tables</SPAN>; like keymaps (as described in <A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-10.html#gnu3-chp-10">Chapter 10</A>), Emacs has a <SPAN class=docEmphasis>global</SPAN> syntax table used for all buffers, as well a <SPAN class=docEmphasis>local</SPAN> table for each buffer, which varies according to the mode the buffer is in. You can view the syntax table for the current buffer by typing <SPAN class=docEmphBold>C-h s</SPAN> (for <SPAN class=docEmphBold>describe-syntax</SPAN>). In addition, language modes know about more advanced language-dependent syntactic concepts like statements, statement blocks, functions, subroutines, Lisp syntactic expressions, and so on.</P><A name=gnu3-CHP-9-SECT-2.2></A>
+<H4 class=docSection2Title>9.2.2 Comments</H4>
+<P class=docText>All programming <A name=gnu3-CHP-9-ITERM-2553></A><A name=gnu3-CHP-9-ITERM-2554></A>languages have comment syntax, so Emacs provides a few features that deal with comments in general; these are made language-specific in each language mode. The universal comment command for all language modes is <SPAN class=docEmphBold>M-;</SPAN> (for <SPAN class=docEmphBold>indent-for-comment</SPAN>).<SUP class=docFootnote><A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-9-sect-2.html#gnu3-chp-9-fnote-5">[5]</A></SUP> When you type <SPAN class=docEmphBold>M-;</SPAN>, Emacs moves to a column equal to the value of the variable <SPAN class=docEmphBold>comment-column</SPAN>; if the text on the line goes past that column, it moves to one space past the last text character. It then inserts a comment delimiter (or a pair of opening and closing delimiters, as in /* and */ for C) and puts the cursor after the opening delimiter.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=gnu3-CHP-9-FNOTE-5>[5]</A></SUP> The key binding is mnemonic for Lisp programmers because comments in Lisp start with semicolons.</P></BLOCKQUOTE>
+<P class=docText>For example, if you want to add a comment to a statement, put the cursor anywhere on the line containing that statement and type <SPAN class=docEmphBold>M-;</SPAN>. The result is</P><PRE>      result += y;              /* <SPAN class=docEmphCursor> </SPAN>*/
+</PRE><BR>
+<P class=docText>You can then type your comment in between the delimiters. If you were to do the same thing on a longer line of code, say,</P><PRE>      q_i = term_arr[i].num_docs / total_docs;
+</PRE><BR>
+<P class=docText>the result would be</P><PRE>      q_i = term_arr[i].num_docs / total_docs; /* <SPAN class=docEmphCursor> </SPAN>*/
+</PRE><BR>
+<P class=docText>You can customize the variable <SPAN class=docEmphBold>comment-column</SPAN>, of course, by putting the appropriate code in your <SPAN class=docEmphasis>.emacs</SPAN> file. This is the most useful way if you want to do it permanently. But if you want to reset <SPAN class=docEmphBold>comment-column</SPAN> temporarily within the current buffer, you can just move the cursor to where you want the comment column to be and type <SPAN class=docEmphBold>C-x ;</SPAN> (for <SPAN class=docEmphBold>set-comment-column</SPAN>). Note that this command affects only the value of <SPAN class=docEmphBold>comment-column</SPAN> in the current buffer; its value in other buffers&#8212;even other buffers in the same mode&#8212;is not changed.</P>
+<P class=docText>When you are typing a comment and want to continue it on the next line, <SPAN class=docEmphBold>M-j</SPAN> (for <SPAN class=docEmphBold>indent-new-comment-line</SPAN>) does it. This command starts a new comment on the next line (though some language modes allow you to customize it so that it continues the same comment instead). Say you have typed in the text of the comment for this statement, and the cursor is at the end of the text:</P><PRE>      result += y;              /* add the multiplicand<SPAN class=docEmphCursor> </SPAN>*/
+</PRE><BR>
+<P class=docText>You want to extend the comment to another line. If you type <SPAN class=docEmphBold>M-j</SPAN>, you get the following:</P><PRE>      result += y;              /* add the multiplicand*/
+
+
+                                /* <SPAN class=docEmphCursor>*</SPAN>/
+</PRE><BR>
+<P class=docText>You can type the second line of your comment. You can also use <SPAN class=docEmphBold>M-j</SPAN> to split existing comment text into two lines. Assume your cursor is positioned like this:</P><PRE>      result += y;              /* add the<SPAN class=docEmphCursor> </SPAN>multiplicand */
+</PRE><BR>
+<P class=docText>If you type <SPAN class=docEmphBold>M-j</SPAN> now, the result is:</P><PRE>      result += y;              /* add the */
+
+
+                                /* <SPAN class=docEmphCursor>m</SPAN>ultiplicand */
+</PRE><BR>
+<P class=docText>If you want to comment out a section of your code, you can use the <SPAN class=docEmphBold>comment-region</SPAN> command (not bound to keystrokes except in certain language modes). Assume you have code that looks like this:</P><PRE>    this = is (a);
+
+
+    section (of, source, code);
+
+
+    that += (takes[up]-&gt;a * number);
+
+
+    of (lines);
+</PRE><BR>
+<P class=docText>If you define a region in the usual way and type <SPAN class=docEmphBold>M-x comment-region</SPAN>, the result is:</P><PRE>/*     this = is (a); */
+
+
+/*     section (of, source, code); */
+
+
+/*     that += (takes[up]-&gt;a * number); */
+
+
+/*     of (lines); */
+</PRE><BR>
+<P class=docText>You can easily get rid of <SPAN class=docEmphasis>single-line</SPAN> comments by typing <SPAN class=docEmphBold>M-x kill-comment Enter</SPAN>, which deletes any comment on the current line. The cursor does not have to be within the comment. Each language mode has special features relating to comments in the particular language, usually including variables that let you customize commenting style.</P><A name=gnu3-CHP-9-SECT-2.3></A>
+<H4 class=docSection2Title>9.2.3 Indenting Code</H4>
+<P class=docText>In addition to syntactic knowledge, <A name=gnu3-CHP-9-ITERM-2555></A><A name=gnu3-CHP-9-ITERM-2556></A>Emacs language modes contain various features to help you produce nicely formatted code. These features implement standards of indentation, commenting, and other aspects of programming style, thus ensuring consistency and readability, getting comments to line up, and so on. Perhaps more importantly, they relieve you of the tiresome burden of supplying correct indentation and even of remembering what the current indentation is. The nicest thing about these standards is that they are usually customizable.</P>
+<P class=docText>We have already seen that, in text mode, <FONT class=extract>you can type <SPAN class=docEmphBold>C-j</SPAN> instead of <SPAN class=docEmphBold>Enter</SPAN>, at the end of a line, and Emacs indents the next line properly for you. This indentation is controlled by the variable <SPAN class=docEmphBold>left-margin</SPAN>, whose value is the column to indent to. Much the same thing happens in programming language modes, but the process is more flexible and complex.</FONT></P>
+<P class=docText>As in text mode, <SPAN class=docEmphBold>C-j</SPAN> indents the next line properly in language modes. You can also indent any line properly after it has been typed by pressing <SPAN class=docEmphBold>Tab</SPAN> with the cursor anywhere on the line.</P>
+<P class=docText>Some language modes have extra functionality attached to characters that terminate statements&#8212;like semicolons or right curly braces&#8212;so that when you type them, Emacs automatically indents the current line. Emacs documentation calls this behavior <SPAN class=docEmphasis>electric</SPAN>. Most language modes also have sets of variables that control indentation style (and that you can customize).</P>
+<P class=docText><A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-9-sect-2.html#gnu3-chp-9-table-2">Table 9-2</A> lists a few other commands relating to indentation that work according to the rules set up for the language <A name=gnu3-CHP-9-ITERM-2557></A><A name=gnu3-CHP-9-ITERM-2558></A><A name=gnu3-CHP-9-ITERM-2559></A>in question.</P><A name=gnu3-CHP-9-TABLE-2></A>
+<H5 class=docTableTitle>Table 9-2.<FONT class=extract> Basic indentation commands</FONT></H5>
+<TABLE cellSpacing=0 cellPadding=4 rules=all width="100%" border=1>
+<COLGROUP><FONT class=extract>
+<COL>
+<COL>
+<COL></FONT></COLGROUP>
+<THEAD>
+<TR>
+<TH class=thead scope=col>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>Keystrokes</SPAN> </FONT></P></TH>
+<TH class=thead scope=col>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>Command name</SPAN> </FONT></P></TH>
+<TH class=thead scope=col>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>Action</SPAN> </FONT></P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>C-M-\</SPAN> </FONT></P></TD>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>indent-region</SPAN> </FONT></P></TD>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract>Indent each line between the cursor and mark.</FONT></P></TD></TR>
+<TR>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>M-m</SPAN> </FONT></P></TD>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>back-to-indentation</SPAN> </FONT></P></TD>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract>Move to the first nonblank character on the line.</FONT></P></TD></TR>
+<TR>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>M-^</SPAN> </FONT></P></TD>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>delete-indentation</SPAN> </FONT></P></TD>
+<TD class=docTableCell>
+<P class=docText><FONT class=extract>Join this line to the previous one.</FONT></P></TD></TR></TBODY></TABLE><BR>
+<P class=docText>The following is an example of what <SPAN class=docEmphBold>C-M-\</SPAN> does. This example is in C, and subsequent examples refer to it. The concepts in all examples in this section are applicable to most other languages; we cover analogous Lisp and Java features in the sections on modes for those languages.</P>
+<P class=docText>Suppose you have the following C code:</P><PRE>int times (x, y)
+
+
+int x, y;
+
+
+{
+
+
+int i;
+
+
+int result = 0;
+
+
+
+
+
+for (i = 0; i &lt; x; i++) 
+
+
+{
+
+
+result += y;
+
+
+}
+
+
+}
+</PRE><BR>
+<P class=docText>If you set mark at the beginning of this code, put the cursor at the end, and type <SPAN class=docEmphBold>C-M-\</SPAN>, Emacs formats it like this:</P><PRE>int times (x, y)
+
+
+     int x, y;
+
+
+{
+
+
+  int i;
+
+
+  int result = 0;
+
+
+  
+
+
+  for (i = 0; i &lt; x; i++) 
+
+
+    {
+
+
+      result += y;
+
+
+    }
+
+
+}
+</PRE><BR>
+<P class=docText><SPAN class=docEmphBold>C-M-\</SPAN> is also handy for indenting an entire file according to your particular indentation style: you can just type <SPAN class=docEmphBold>C-x h</SPAN> (for <SPAN class=docEmphBold>mark-whole-buffer</SPAN>) followed by <SPAN class=docEmphBold>C-M-\</SPAN>.</P>
+<P class=docText><SPAN class=docEmphBold>M-m</SPAN> is handy for moving to the beginning of the actual code on a line. For example, assume your cursor is positioned like this:</P><PRE>  int resul<SPAN class=docEmphCursor>t</SPAN> = 0;
+</PRE><BR>
+<P class=docText>If you type <SPAN class=docEmphBold>M-m</SPAN>, it moves to the beginning of the <SPAN class=docEmphBold>int</SPAN>:</P><PRE>  <SPAN class=docEmphCursor>i</SPAN>nt result = 0;
+</PRE><BR>
+<P class=docText>As an example of <SPAN class=docEmphBold>M-^</SPAN>, let's say you want the opening curly brace for the <SPAN class=docEmphBold>for</SPAN> statement to appear on the same line as the <SPAN class=docEmphBold>for</SPAN>. Put the cursor anywhere on the line with the opening curly brace, type <SPAN class=docEmphBold>M-^</SPAN>, and the code looks like this:</P><PRE>  for (i = 0; i &lt; x; i++) {
+
+
+      result += y;
+
+
+    }
+</PRE><BR>
+<P class=docText>Language modes usually provide additional indentation commands that relate to specific features of the language. Having covered the general language mode concepts, we want to show you a few other general utilities: <SPAN class=docEmphBold>etags</SPAN> and font-lock mode. The <SPAN class=docEmphBold>etags</SPAN> facility helps programmers who work on large, multifile programs. All language modes can also take advantage of font-lock mode to make development more efficient.</P><A name=gnu3-CHP-9-SECT-2.4></A>
+<H4 class=docSection2Title><FONT class=extract>9.2.4 etags</FONT></H4>
+<P class=docText><FONT class=extract>Another general feature of </FONT><A name=gnu3-CHP-9-ITERM-2560></A><FONT class=extract>Emacs that applies to programmers is the <SPAN class=docEmphBold>etags</SPAN> facility.<SUP class=docFootnote><A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-9-sect-2.html#gnu3-chp-9-fnote-6">[6]</A></SUP> <SPAN class=docEmphBold>etags</SPAN> works with code in many other languages as well, including Fortran, Java, Perl, Pascal, LATEX,, Lisp, and many assembly languages. If you work on large, multifile projects, you will find <SPAN class=docEmphBold>etags</SPAN> to be an enormous help.</FONT></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=gnu3-CHP-9-FNOTE-6><FONT class=extract>[6]</FONT></A></SUP><FONT class=extract> <SPAN class=docEmphBold>etags</SPAN> is also a platform-specific feature. The <SPAN class=docEmphBold>etags</SPAN> facility is available on Unix platforms, including Mac OS X.</FONT></P></BLOCKQUOTE>
+<P class=docText><FONT class=extract><SPAN class=docEmphBold>etags</SPAN> is basically a multifile search facility </FONT><A name=gnu3-CHP-9-ITERM-2561></A><FONT class=extract>that knows about C and Perl function definitions as well as searching in general. With it, you can find a function anywhere in an entire directory without having to remember in which file the function is defined, and you can do searches and query-replaces that span multiple files. <SPAN class=docEmphBold>etags</SPAN> uses <SPAN class=docEmphasis>tag tables</SPAN>, which contain lists of function names for each file in a directory along with information on where the functions' definitions are located within the files. Many of the commands associated with <SPAN class=docEmphBold>etags</SPAN> involve regular expressions (see </FONT><A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-11.html#gnu3-chp-11"><FONT class=extract>Chapter 11</FONT></A><FONT class=extract>) in search strings.</FONT></P>
+<P class=docText><FONT class=extract>To use <SPAN class=docEmphBold>etags</SPAN>, you must first invoke the separate <SPAN class=docEmphBold>etags</SPAN> program in your current directory to create the tag table. Its arguments are the files for which you want tag information. The usual way to invoke it is <SPAN class=docEmphBold>etags *.[ch]</SPAN>, that is, building a tag table from all files ending in <SPAN class=docEmphasis>.c</SPAN> or <SPAN class=docEmphasis>.h</SPAN>. (That's for you C programmers; other languages would use their appropriate extensions, of course.) You can run <SPAN class=docEmphBold>etags</SPAN> from shell mode or with the command <SPAN class=docEmphBold>M-!</SPAN> (for <SPAN class=docEmphBold>shell-command</SPAN>). The output of <SPAN class=docEmphBold>etags</SPAN> is the file <SPAN class=docEmphasis>TAGS</SPAN>, which is the tag table. When you are writing code, you can update your tag table to reflect new files and function definitions by invoking <SPAN class=docEmphBold>etags</SPAN> again.</FONT></P>
+<P class=docText><FONT class=extract>After you have created the tag table, you need to make it known to Emacs. To do this, type <SPAN class=docEmphBold>M-x visit-tags-table Enter</SPAN>. This prompts you for the name of the tag table file; the default is <SPAN class=docEmphasis>TAGS</SPAN> in the current directory, as you would expect. After you execute this step, you can use the various Emacs tags commands.</FONT></P>
+<P class=docText><FONT class=extract>The most important tag command is <SPAN class=docEmphBold>M-</SPAN>. (for <SPAN class=docEmphBold>find-tag</SPAN>). This command prompts you for a string to use in searching the tag table for a function whose name contains the string. Supply the search string, and Emacs visits the file containing the matching function name in the current window and goes to the first line of the function's definition. A variation of <SPAN class=docEmphBold>M-</SPAN>. is <SPAN class=docEmphBold>C-x 4</SPAN> . (for <SPAN class=docEmphBold>find-tag-other-window</SPAN>), which uses another window instead of replacing the text in your current window.</FONT></P>
+<P class=docText><FONT class=extract>A nice feature of <SPAN class=docEmphBold>M-</SPAN>. is that it picks up the word the cursor is on and uses it as the default search string. For example, if your cursor is anywhere on the string <SPAN class=docEmphBold>my_function</SPAN>, <SPAN class=docEmphBold>M-</SPAN>. uses <SPAN class=docEmphBold>my_function</SPAN> as the default. Thus, when you are looking at a C statement that calls a function, you can type <SPAN class=docEmphBold>M-</SPAN>. to see the code for that function.</FONT></P>
+<P class=docText><FONT class=extract>If you have multiple functions with the same name, <SPAN class=docEmphBold>M-</SPAN>. finds the function in the file whose name comes first in alphabetical order. To find the others, you can use the command <SPAN class=docEmphBold>M-</SPAN>, (for <SPAN class=docEmphBold>tags-loop-continue</SPAN>) to find the next one (or complain if there are no more). This feature is especially useful if your directory contains more than one program, that is, if there is more than one function called <SPAN class=docEmphasis>main</SPAN>. <SPAN class=docEmphBold>M-</SPAN>, also has other uses, as we will see.</FONT></P>
+<P class=docText><FONT class=extract>You can use the tag table to search for more than just function definitions. The command <SPAN class=docEmphBold>M-x tags-search Enter</SPAN> prompts for a regular expression; it searches through all files listed in the tag table (such as, all <SPAN class=docEmphasis>.c</SPAN> and <SPAN class=docEmphasis>.h</SPAN> files) for any occurrence of the regular expression, whether it is a function name or not. This capability is similar to the <SPAN class=docEmphBold>grep</SPAN> facility discussed earlier in this chapter. After you have invoked <SPAN class=docEmphBold>tags-search</SPAN>, you can find additional matches by typing <SPAN class=docEmphBold>M-</SPAN>,.</FONT></P>
+<P class=docText><FONT class=extract>There is also an analogous query-replace capability. The command <SPAN class=docEmphBold>M-x tags-query-replace Enter</SPAN> does a regular expression query-replace (see </FONT><A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-3.html#gnu3-chp-3"><FONT class=extract>Chapter 3</FONT></A><FONT class=extract>) on all files listed in the tag table. As with the regular <SPAN class=docEmphBold>query-replace-regexp</SPAN> command, if you precede <SPAN class=docEmphBold>tags-query-replace</SPAN> with a prefix argument (i.e., <SPAN class=docEmphBold>C-u M-x tags-query-replace Enter</SPAN>), Emacs replaces only matches that are whole words. This feature is useful, for example, if you want to replace occurrences of <SPAN class=docEmphBold>printf</SPAN> without disturbing occurrences of <SPAN class=docEmphBold>fprintf</SPAN>. If you exit a <SPAN class=docEmphBold>tags-query-replace</SPAN> with <SPAN class=docEmphBold>Esc</SPAN> or <SPAN class=docEmphBold>C-g</SPAN>, you can resume it later by typing <SPAN class=docEmphBold>M-</SPAN>,.</FONT></P>
+<P class=docText><FONT class=extract>The command <SPAN class=docEmphBold>M-x tags-apropos</SPAN> rounds out the search facilities of <SPAN class=docEmphBold>etags</SPAN>. If you give it a regular expression argument, it opens a <TT>*Tags List*</TT> buffer that contains a list of all tags in the tag table (including names of files as well as functions) that match the regular expression. For example, if you want to find out the names of output routines in a multiple-file C program, you could invoke <SPAN class=docEmphBold>tags-apropos</SPAN> with the argument <SPAN class=docEmphBold>print</SPAN> or <SPAN class=docEmphBold>write</SPAN>.</FONT></P>
+<P class=docText><FONT class=extract>Finally, you can type <SPAN class=docEmphBold>M-x list-tags Enter</SPAN> to list all the tags in the table&#8212;that is, all the functions&#8212;for a given C file. Supply the filename at the prompt, and you get a <TT>*Tags List*</TT> buffer showing the names of functions defined in that file along with their return types (if any). Note that if you move your cursor to this list, you can use <SPAN class=docEmphBold>M-</SPAN>. to look at the actual code for the function. <SPAN class=docEmphBold>M-</SPAN>. picks up the word the cursor is on as the default function name, so you can just move the cursor to the name of the function you want to see and press <SPAN class=docEmphBold>M-</SPAN>. followed by <SPAN class=docEmphBold>Enter</SPAN> to see it.</FONT></P><A name=gnu3-CHP-9-SECT-2.5></A>
+<H4 class=docSection2Title>9.2.5 Fonts and Font-lock Mode</H4>
+<P class=docText>There's one last common feature <A name=gnu3-CHP-9-ITERM-2562></A><A name=gnu3-CHP-9-ITERM-2563></A><A name=gnu3-CHP-9-ITERM-2564></A>to mention. The use of fonts to help present code is very popular&#8212;so popular, in fact, that it is now universal. Unlike the indentation and formatting supported by the various language modes, nothing in the code itself changes. But when you're in font-lock mode, your program certainly <SPAN class=docEmphasis>looks</SPAN> different.</P>
+<P class=docText>You can turn on this feature for any language mode with <SPAN class=docEmphBold>M-x font-lock-mode</SPAN> to see for yourself. Keywords get a particular color; comments get a different color and are often italicized; strings and literals get yet another color. It can aid quick browsing of code. Many people come to depend on it much the way they rely on proper indentation. If you become one of those people, you'll want to make it the default for all language sessions. You can add the following line to your <SPAN class=docEmphasis>.emacs</SPAN> file to achieve this aim:</P><PRE>;; Turn on font-locking globally
+
+
+(global-font-lock-mode t)
+</PRE><BR>
+<P class=docText>The colors and styles used are customizable if you don't like the defaults. <SPAN class=docEmphBold>M-x list-faces-display</SPAN> produces a list of the named faces Emacs knows about. You'll see something similar to the screen shown in <A class=docLink href="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/gnu3-chp-9-sect-2.html#gnu3-chp-9-fig-1">Figure 9-1</A>.</P><A name=gnu3-CHP-9-FIG-1></A>
+<CENTER>
+<H5 class=docFigureTitle>Figure 9-1. Fonts available for customization in Emacs</H5><IMG height=339 alt="" src="file:///D:/&#25105;&#30340;&#37239;&#30424;/&#24037;&#20316;&#30446;&#24405;/Now/learning-gnu-emacs-3rd/0596006489/images/0596006489/figs/ge3_fig0901.gif" width=431 border=0> </CENTER><BR>
+<P class=docText>Of course, in real life, the colors and bold and whatnot should be more pronounced. You'll also see quite a few more faces. You can modify any of those faces with either <SPAN class=docEmphBold>M-x modify-face</SPAN> (a simple prompted "wizard" approach) or <SPAN class=docEmphBold>M-x customize-face</SPAN> (the big fancy interactive approach). You can also add lines to your <SPAN class=docEmphasis>.emacs</SPAN> file for your favorite customizations. Here's an example:</P><PRE> '(font-lock-comment-face 
+
+
+   ((((class color) (background light)) 
+
+
+     (:foreground "Firebrick" :slant italic)))))
+</PRE><BR>
+<P class=docText>Note that not all displays support all of the possible variations of bold, italic, underline, colors, and so on. This is a classic case of "your mileage may vary." Still, with the ability to customize it all yourself, you should be able to find a combination that works well on your system.</P>
+<P class=docText>The remaining sections in this chapter deal with several of the language-specific modes including JDEE, a suite of packages devoted to the world of Java development in Emacs.</P>
+<P class=docText>You need not read all of these sections if you are interested in only one or two of the languages. If you program in another language for which Emacs has a mode, you may want to read one of the following sections to get the "flavor" of a language mode; all language modes have the same basic concepts, so this should get you off to a good start. Indeed, many language modes use another mode as a base. For example, Java mode is really just an extension of C mode.

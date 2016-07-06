@@ -1,0 +1,46 @@
+<H4 class=subsection>6.2.2 String Concatenation</H4><A name=index-Kernighan_002c-Brian-4></A>
+<BLOCKQUOTE>
+<P><I>It seemed like a good idea at the time.</I> </P></BLOCKQUOTE>
+<DIV align=center>&#8212; <EM>Brian Kernighan</EM> </DIV><A name=index-string-operators></A><A name=index-operators_002c-string></A><A name=index-concatenating></A>
+<P>There is only one string operation: concatenation. It does not have a specific operator to represent it. Instead, concatenation is performed by writing expressions next to one another, with no operator. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk '{ print "Field number one: " $1 }' mail-list</EM></KBD>
+-| Field number one: Amelia
+-| Field number one: Anthony
+&#8230;
+</PRE></DIV>
+<P>Without the space in the string constant after the &#8216;<SAMP>:</SAMP>&#8217;, the line runs together. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk '{ print "Field number one:" $1 }' mail-list</EM></KBD>
+-| Field number one:Amelia
+-| Field number one:Anthony
+&#8230;
+</PRE></DIV><A name=index-troubleshooting_002c-string-concatenation></A>
+<P>Because string concatenation does not have an explicit operator, it is often necessary to insure that it happens at the right time by using parentheses to enclose the items to concatenate. For example, you might expect that the following code fragment concatenates <CODE>file</CODE> and <CODE>name</CODE>: </P>
+<DIV class=example><PRE class=example>file = "file"
+name = "name"
+print "something meaningful" &gt; file name
+</PRE></DIV><A name=index-Brian-Kernighan_0027s-awk-6></A><A name=index-mawk-utility-2></A>
+<P>This produces a syntax error with some versions of Unix <CODE>awk</CODE>.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT33" name=DOCF33><SUP>33</SUP></A> It is necessary to use the following: </P>
+<DIV class=example><PRE class=example>print "something meaningful" &gt; (file name)
+</PRE></DIV><A name=index-order-of-evaluation_002c-concatenation></A><A name=index-evaluation-order_002c-concatenation></A><A name=index-side-effects></A>
+<P>Parentheses should be used around concatenation in all but the most common contexts, such as on the righthand side of &#8216;<SAMP>=</SAMP>&#8217;. Be careful about the kinds of expressions used in string concatenation. In particular, the order of evaluation of expressions used for concatenation is undefined in the <CODE>awk</CODE> language. Consider this example: </P>
+<DIV class=example><PRE class=example>BEGIN {
+    a = "don't"
+    print (a " " (a = "panic"))
+}
+</PRE></DIV>
+<P>It is not defined whether the assignment to <CODE>a</CODE> happens before or after the value of <CODE>a</CODE> is retrieved for producing the concatenated value. The result could be either &#8216;<SAMP>don't panic</SAMP>&#8217;, or &#8216;<SAMP>panic panic</SAMP>&#8217;. </P>
+<P>The precedence of concatenation, when mixed with other operators, is often counter-intuitive. Consider this example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN { print -12 " " -24 }'</EM></KBD>
+-| -12-24
+</PRE></DIV>
+<P>This &#8220;obviously&#8221; is concatenating -12, a space, and -24. But where did the space disappear to? The answer lies in the combination of operator precedences and <CODE>awk</CODE>&#8217;s automatic conversion rules. To get the desired result, write the program this way: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN { print -12 " " (-24) }'</EM></KBD>
+-| -12 -24
+</PRE></DIV>
+<P>This forces <CODE>awk</CODE> to treat the &#8216;<SAMP>-</SAMP>&#8217; on the &#8216;<SAMP>-24</SAMP>&#8217; as unary. Otherwise, it&#8217;s parsed as follows: </P>
+<DIV class=display><PRE class=display>    -12 (<CODE>"&nbsp;"</CODE> - 24)
+&#8658; -12 (0 - 24)
+&#8658; -12 (-24)
+&#8658; -12-24
+</PRE></DIV>
+<P>As mentioned earlier, when doing concatenation, <EM>parenthesize</EM>. Otherwise, you&#8217;re never quite sure what you&#8217;ll get.

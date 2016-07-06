@@ -1,0 +1,487 @@
+<H2 class=chapter>6 How to Use Variables</H2>
+<P><A name=index-variable-470></A><A name=index-value-471></A><A name=index-recursive-variable-expansion-472></A><A name=index-simple-variable-expansion-473></A>A <DFN>variable</DFN> is a name defined in a makefile to represent a string of text, called the variable's <DFN>value</DFN>. These values are substituted by explicit request into targets, prerequisites, recipes, and other parts of the makefile. (In some other versions of <CODE>make</CODE>, variables are called <DFN>macros</DFN>.) <A name=index-macro-474></A><FONT class=extract>Variables and functions in all parts of a makefile are expanded when read, except for in recipes, the right-hand sides of variable definitions using &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;, and the bodies of variable definitions using the <CODE>define</CODE> directive.</FONT> 
+<P>Variables can represent lists of file names, options to pass to compilers, programs to run, directories to look in for source files, directories to write output in, or anything else you can imagine. 
+<P><FONT class=extract>A variable name may be any sequence of characters not containing &#8216;<SAMP><SPAN class=samp>:</SPAN></SAMP>&#8217;, &#8216;<SAMP><SPAN class=samp>#</SPAN></SAMP>&#8217;, &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;, or whitespace. However, variable names containing characters other than letters, numbers, and underscores should be considered carefully, as in some shells they cannot be passed through the environment to a sub-<CODE>make</CODE> (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Variables_002fRecursion"><FONT class=extract>Communicating Variables to a Sub-<CODE>make</CODE></FONT></A><FONT class=extract>). Variable names beginning with &#8216;<SAMP><SPAN class=samp>.</SPAN></SAMP>&#8217; and an uppercase letter may be given special meaning in future versions of <CODE>make</CODE>.</FONT> 
+<P>Variable names are case-sensitive. The names &#8216;<SAMP><SPAN class=samp>foo</SPAN></SAMP>&#8217;, &#8216;<SAMP><SPAN class=samp>FOO</SPAN></SAMP>&#8217;, and &#8216;<SAMP><SPAN class=samp>Foo</SPAN></SAMP>&#8217; all refer to different variables. 
+<P><FONT class=extract>It is traditional to use upper case letters in variable names, but we recommend using lower case letters for variable names that serve internal purposes in the makefile, and reserving upper case for parameters that control implicit rules or for parameters that the user should override with command options (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Overriding"><FONT class=extract>Overriding Variables</FONT></A><FONT class=extract>).</FONT> 
+<P>A few variables have names that are a single punctuation character or just a few characters. These are the <DFN>automatic variables</DFN>, and they have particular specialized uses. See <A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables">Automatic Variables</A>. 
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#Reference">Reference</A>: How to use the value of a variable. 
+<LI><A accessKey=2 href="https://www.gnu.org/software/make/manual/make.html#Flavors">Flavors</A>: Variables come in two flavors. 
+<LI><A accessKey=3 href="https://www.gnu.org/software/make/manual/make.html#Advanced">Advanced</A>: Advanced features for referencing a variable. 
+<LI><A accessKey=4 href="https://www.gnu.org/software/make/manual/make.html#Values">Values</A>: All the ways variables get their values. 
+<LI><A accessKey=5 href="https://www.gnu.org/software/make/manual/make.html#Setting">Setting</A>: How to set a variable in the makefile. 
+<LI><A accessKey=6 href="https://www.gnu.org/software/make/manual/make.html#Appending">Appending</A>: How to append more text to the old value of a variable. 
+<LI><A accessKey=7 href="https://www.gnu.org/software/make/manual/make.html#Override-Directive">Override Directive</A>: How to set a variable in the makefile even if the user has set it with a command argument. 
+<LI><A accessKey=8 href="https://www.gnu.org/software/make/manual/make.html#Multi_002dLine">Multi-Line</A>: An alternate way to set a variable to a multi-line string. 
+<LI><A accessKey=9 href="https://www.gnu.org/software/make/manual/make.html#Undefine-Directive">Undefine Directive</A>: How to undefine a variable so that it appears as if it was never set. 
+<LI><A href="https://www.gnu.org/software/make/manual/make.html#Environment">Environment</A>: Variable values can come from the environment. 
+<LI><A href="https://www.gnu.org/software/make/manual/make.html#Target_002dspecific">Target-specific</A>: Variable values can be defined on a per-target basis. 
+<LI><A href="https://www.gnu.org/software/make/manual/make.html#Pattern_002dspecific">Pattern-specific</A>: Target-specific variable values can be applied to a group of targets that match a pattern. 
+<LI><A href="https://www.gnu.org/software/make/manual/make.html#Suppressing-Inheritance">Suppressing Inheritance</A>: Suppress inheritance of variables. 
+<LI><A href="https://www.gnu.org/software/make/manual/make.html#Special-Variables">Special Variables</A>: Variables with special meaning or behavior. </LI></UL>
+<DIV class=node><A name=Reference></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Flavors" rel=next>Flavors</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=previous>Using Variables</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.1 Basics of Variable References</FONT></H3>
+<P><A name=index-variables_002c-how-to-reference-475></A><A name=index-reference-to-variables-476></A><A name=index-g_t_0040code_007b_0024_007d_002c-in-variable-reference-477></A><A name=index-dollar-sign-_0028_0040code_007b_0024_007d_0029_002c-in-variable-reference-478></A><FONT class=extract>To substitute a variable's value, write a dollar sign followed by the name of the variable in parentheses or braces: either &#8216;<SAMP><SPAN class=samp>$(foo)</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>${foo}</SPAN></SAMP>&#8217; is a valid reference to the variable <CODE>foo</CODE>. This special significance of &#8216;<SAMP><SPAN class=samp>$</SPAN></SAMP>&#8217; is why you must write &#8216;<SAMP><SPAN class=samp>$$</SPAN></SAMP>&#8217; to have the effect of a single dollar sign in a file name or recipe. </FONT>
+<P><FONT class=extract>Variable references can be used in any context: targets, prerequisites, recipes, most directives, and new variable values. Here is an example of a common case, where a variable holds the names of all the object files in a program: </FONT><PRE class=example><FONT class=extract>     objects = program.o foo.o utils.o
+     program : $(objects)
+             cc -o program $(objects)
+     
+     $(objects) : defs.h
+</FONT></PRE>
+<P><FONT class=extract>Variable references work by strict textual substitution. Thus, the rule </FONT><PRE class=example><FONT class=extract>     foo = c
+     prog.o : prog.$(foo)
+             $(foo)$(foo) -$(foo) prog.$(foo)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>could be used to compile a C program <SAMP><SPAN class=file>prog.c</SPAN></SAMP>. Since spaces before the variable value are ignored in variable assignments, the value of <CODE>foo</CODE> is precisely &#8216;<SAMP><SPAN class=samp>c</SPAN></SAMP>&#8217;. (Don't actually write your makefiles this way!) </FONT>
+<P><FONT class=extract>A dollar sign followed by a character other than a dollar sign, open-parenthesis or open-brace treats that single character as the variable name. Thus, you could reference the variable <CODE>x</CODE> with &#8216;<SAMP><SPAN class=samp>$x</SPAN></SAMP>&#8217;. However, this practice is strongly discouraged, except in the case of the automatic variables (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables"><FONT class=extract>Automatic Variables</FONT></A><FONT class=extract>). </FONT>
+<DIV class=node><A name=Flavors></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Advanced" rel=next>Advanced</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Reference" rel=previous>Reference</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.2 The Two Flavors of Variables</FONT></H3>
+<P><A name=index-flavors-of-variables-479></A><A name=index-recursive-variable-expansion-480></A><A name=index-variables_002c-flavors-481></A><A name=index-recursively-expanded-variables-482></A><A name=index-variables_002c-recursively-expanded-483></A><FONT class=extract>There are two ways that a variable in GNU <CODE>make</CODE> can have a value; we call them the two <DFN>flavors</DFN> of variables. The two flavors are distinguished in how they are defined and in what they do when expanded. </FONT>
+<P><A name=index-g_t_003d-484></A><FONT class=extract>The first flavor of variable is a <DFN>recursively expanded</DFN> variable. Variables of this sort are defined by lines using &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Setting"><FONT class=extract>Setting Variables</FONT></A><FONT class=extract>) or by the <CODE>define</CODE> directive (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Multi_002dLine"><FONT class=extract>Defining Multi-Line Variables</FONT></A><FONT class=extract>). The value you specify is installed verbatim; if it contains references to other variables, these references are expanded whenever this variable is substituted (in the course of expanding some other string). When this happens, it is called <DFN>recursive expansion</DFN>. </FONT>
+<P><FONT class=extract>For example, </FONT><PRE class=example><FONT class=extract>     foo = $(bar)
+     bar = $(ugh)
+     ugh = Huh?
+     
+     all:;echo $(foo)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>will echo &#8216;<SAMP><SPAN class=samp>Huh?</SPAN></SAMP>&#8217;: &#8216;<SAMP><SPAN class=samp>$(foo)</SPAN></SAMP>&#8217; expands to &#8216;<SAMP><SPAN class=samp>$(bar)</SPAN></SAMP>&#8217; which expands to &#8216;<SAMP><SPAN class=samp>$(ugh)</SPAN></SAMP>&#8217; which finally expands to &#8216;<SAMP><SPAN class=samp>Huh?</SPAN></SAMP>&#8217;. </FONT>
+<P><FONT class=extract>This flavor of variable is the only sort supported by most other versions of <CODE>make</CODE>. It has its advantages and its disadvantages. An advantage (most would say) is that: </FONT><PRE class=example><FONT class=extract>     CFLAGS = $(include_dirs) -O
+     include_dirs = -Ifoo -Ibar
+</FONT></PRE>
+<P class=noindent><FONT class=extract>will do what was intended: when &#8216;<SAMP><SPAN class=samp>CFLAGS</SPAN></SAMP>&#8217; is expanded in a recipe, it will expand to &#8216;<SAMP><SPAN class=samp>-Ifoo -Ibar -O</SPAN></SAMP>&#8217;. A major disadvantage is that you cannot append something on the end of a variable, as in </FONT><PRE class=example><FONT class=extract>     CFLAGS = $(CFLAGS) -O
+</FONT></PRE>
+<P class=noindent><FONT class=extract>because it will cause an infinite loop in the variable expansion. (Actually <CODE>make</CODE> detects the infinite loop and reports an error.) </FONT><A name=index-loops-in-variable-expansion-485></A><A name=index-variables_002c-loops-in-expansion-486></A><FONT class=extract>Another disadvantage is that any functions (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Functions"><FONT class=extract>Functions for Transforming Text</FONT></A><FONT class=extract>) referenced in the definition will be executed every time the variable is expanded. This makes <CODE>make</CODE> run slower; worse, it causes the <CODE>wildcard</CODE> and <CODE>shell</CODE> functions to give unpredictable results because you cannot easily control when they are called, or even how many times. </FONT>
+<P><FONT class=extract>To avoid all the problems and inconveniences of recursively expanded variables, there is another flavor: simply expanded variables. </FONT>
+<P><A name=index-simply-expanded-variables-487></A><A name=index-variables_002c-simply-expanded-488></A><A name=index-g_t_003a_003d-489></A><A name=index-g_t_003a_003a_003d-490></A><FONT class=extract><DFN>Simply expanded variables</DFN> are defined by lines using &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217; (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Setting"><FONT class=extract>Setting Variables</FONT></A><FONT class=extract>). Both forms are equivalent in GNU <CODE>make</CODE>; however only the &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217; form is described by the POSIX standard (support for &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217; was added to the POSIX standard in 2012, so older versions of <CODE>make</CODE> won't accept this form either). </FONT>
+<P><FONT class=extract>The value of a simply expanded variable is scanned once and for all, expanding any references to other variables and functions, when the variable is defined. The actual value of the simply expanded variable is the result of expanding the text that you write. It does not contain any references to other variables; it contains their values <EM>as of the time this variable was defined</EM>. Therefore, </FONT><PRE class=example><FONT class=extract>     x := foo
+     y := $(x) bar
+     x := later
+</FONT></PRE>
+<P class=noindent><FONT class=extract>is equivalent to </FONT><PRE class=example><FONT class=extract>     y := foo bar
+     x := later
+</FONT></PRE>
+<P><FONT class=extract>When a simply expanded variable is referenced, its value is substituted verbatim. </FONT>
+<P><FONT class=extract>Here is a somewhat more complicated example, illustrating the use of &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; in conjunction with the <CODE>shell</CODE> function. (See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Shell-Function"><FONT class=extract>The <CODE>shell</CODE> Function</FONT></A><FONT class=extract>.) This example also shows use of the variable <CODE>MAKELEVEL</CODE>, which is changed when it is passed down from level to level. (See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Variables_002fRecursion"><FONT class=extract>Communicating Variables to a Sub-<CODE>make</CODE></FONT></A><FONT class=extract>, for information about <CODE>MAKELEVEL</CODE>.) </FONT>
+<P><A name=index-MAKELEVEL-491><FONT class=extract></FONT></A><A name=index-MAKE-492></A><PRE class=example><FONT class=extract>     ifeq (0,${MAKELEVEL})
+     whoami    := $(shell whoami)
+     host-type := $(shell arch)
+     MAKE := ${MAKE} host-type=${host-type} whoami=${whoami}
+     endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>An advantage of this use of &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; is that a typical `descend into a directory' recipe then looks like this: </FONT><PRE class=example><FONT class=extract>     ${subdirs}:
+             ${MAKE} -C $@ all
+</FONT></PRE>
+<P><FONT class=extract>Simply expanded variables generally make complicated makefile programming more predictable because they work like variables in most programming languages. They allow you to redefine a variable using its own value (or its value processed in some way by one of the expansion functions) and to use the expansion functions much more efficiently (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Functions"><FONT class=extract>Functions for Transforming Text</FONT></A><FONT class=extract>). </FONT>
+<P><A name=index-spaces_002c-in-variable-values-493></A><A name=index-whitespace_002c-in-variable-values-494></A><A name=index-variables_002c-spaces-in-values-495></A><FONT class=extract>You can also use them to introduce controlled leading whitespace into variable values. Leading whitespace characters are discarded from your input before substitution of variable references and function calls; this means you can include leading spaces in a variable value by protecting them with variable references, like this: </FONT><PRE class=example><FONT class=extract>     nullstring :=
+     space := $(nullstring) # end of the line
+</FONT></PRE>
+<P class=noindent><FONT class=extract>Here the value of the variable <CODE>space</CODE> is precisely one space. The comment &#8216;<SAMP><SPAN class=samp>#&nbsp;end&nbsp;of&nbsp;the&nbsp;line</SPAN></SAMP>&#8217;<!-- /@w --> is included here just for clarity. Since trailing space characters are <EM>not</EM> stripped from variable values, just a space at the end of the line would have the same effect (but be rather hard to read). If you put whitespace at the end of a variable value, it is a good idea to put a comment like that at the end of the line to make your intent clear. Conversely, if you do <EM>not</EM> want any whitespace characters at the end of your variable value, you must remember not to put a random comment on the end of the line after some whitespace, such as this: </FONT><PRE class=example><FONT class=extract>     dir := /foo/bar    # directory to put the frobs in
+</FONT></PRE>
+<P class=noindent><FONT class=extract>Here the value of the variable <CODE>dir</CODE> is &#8216;<SAMP><SPAN class=samp>/foo/bar&nbsp;&nbsp;&nbsp;&nbsp;</SPAN></SAMP>&#8217;<!-- /@w --> (with four trailing spaces), which was probably not the intention. (Imagine something like &#8216;<SAMP><SPAN class=samp>$(dir)/file</SPAN></SAMP>&#8217;<!-- /@w --> with this definition!) </FONT>
+<P><A name=index-conditional-variable-assignment-496></A><A name=index-variables_002c-conditional-assignment-497></A><A name=index-g_t_003f_003d-498></A><FONT class=extract>There is another assignment operator for variables, &#8216;<SAMP><SPAN class=samp>?=</SPAN></SAMP>&#8217;. This is called a conditional variable assignment operator, because it only has an effect if the variable is not yet defined. This statement: </FONT><PRE class=example><FONT class=extract>     FOO ?= bar
+</FONT></PRE>
+<P class=noindent><FONT class=extract>is exactly equivalent to this (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Origin-Function"><FONT class=extract>The <CODE>origin</CODE> Function</FONT></A><FONT class=extract>): </FONT><PRE class=example><FONT class=extract>     ifeq ($(origin FOO), undefined)
+       FOO = bar
+     endif
+</FONT></PRE>
+<P><FONT class=extract>Note that a variable set to an empty value is still defined, so &#8216;<SAMP><SPAN class=samp>?=</SPAN></SAMP>&#8217; will not set that variable. </FONT>
+<DIV class=node><A name=Advanced></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Values" rel=next>Values</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Flavors" rel=previous>Flavors</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.3 Advanced Features for Reference to Variables</FONT></H3>
+<P><A name=index-reference-to-variables-499></A><FONT class=extract>This section describes some advanced features you can use to reference variables in more flexible ways. </FONT>
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#Substitution-Refs"><FONT class=extract>Substitution Refs</FONT></A><FONT class=extract>: Referencing a variable with substitutions on the value. </FONT>
+<LI><A accessKey=2 href="https://www.gnu.org/software/make/manual/make.html#Computed-Names"><FONT class=extract>Computed Names</FONT></A><FONT class=extract>: Computing the name of the variable to refer to. </FONT></LI></UL>
+<DIV class=node><A name=Substitution-Refs></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Next:&nbsp;</FONT><A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Computed-Names" rel=next><FONT class=extract>Computed Names</FONT></A><FONT class=extract>, Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Advanced" rel=previous><FONT class=extract>Advanced</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Advanced" rel=up><FONT class=extract>Advanced</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>6.3.1 Substitution References</FONT></H4>
+<P><A name=index-modified-variable-reference-500></A><A name=index-substitution-variable-reference-501></A><A name=index-variables_002c-modified-reference-502></A><A name=index-variables_002c-substitution-reference-503></A><A name=index-variables_002c-substituting-suffix-in-504></A><A name=index-suffix_002c-substituting-in-variables-505></A><FONT class=extract>A <DFN>substitution reference</DFN> substitutes the value of a variable with alterations that you specify. It has the form &#8216;<SAMP><SPAN class=samp>$(</SPAN><VAR>var</VAR><SPAN class=samp>:</SPAN><VAR>a</VAR><SPAN class=samp>=</SPAN><VAR>b</VAR><SPAN class=samp>)</SPAN></SAMP>&#8217; (or &#8216;<SAMP><SPAN class=samp>${</SPAN><VAR>var</VAR><SPAN class=samp>:</SPAN><VAR>a</VAR><SPAN class=samp>=</SPAN><VAR>b</VAR><SPAN class=samp>}</SPAN></SAMP>&#8217;) and its meaning is to take the value of the variable <VAR>var</VAR>, replace every <VAR>a</VAR> at the end of a word with <VAR>b</VAR> in that value, and substitute the resulting string. </FONT>
+<P><FONT class=extract>When we say &#8220;at the end of a word&#8221;, we mean that <VAR>a</VAR> must appear either followed by whitespace or at the end of the value in order to be replaced; other occurrences of <VAR>a</VAR> in the value are unaltered. For example: </FONT><PRE class=example><FONT class=extract>     foo := a.o b.o c.o
+     bar := $(foo:.o=.c)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>sets &#8216;<SAMP><SPAN class=samp>bar</SPAN></SAMP>&#8217; to &#8216;<SAMP><SPAN class=samp>a.c b.c c.c</SPAN></SAMP>&#8217;. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Setting"><FONT class=extract>Setting Variables</FONT></A><FONT class=extract>. </FONT>
+<P><FONT class=extract>A substitution reference is actually an abbreviation for use of the <CODE>patsubst</CODE> expansion function (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Text-Functions"><FONT class=extract>Functions for String Substitution and Analysis</FONT></A><FONT class=extract>). We provide substitution references as well as <CODE>patsubst</CODE> for compatibility with other implementations of <CODE>make</CODE>. </FONT>
+<P><A name=index-patsubst-506></A><FONT class=extract>Another type of substitution reference lets you use the full power of the <CODE>patsubst</CODE> function. It has the same form &#8216;<SAMP><SPAN class=samp>$(</SPAN><VAR>var</VAR><SPAN class=samp>:</SPAN><VAR>a</VAR><SPAN class=samp>=</SPAN><VAR>b</VAR><SPAN class=samp>)</SPAN></SAMP>&#8217; described above, except that now <VAR>a</VAR> must contain a single &#8216;<SAMP><SPAN class=samp>%</SPAN></SAMP>&#8217; character. This case is equivalent to &#8216;<SAMP><SPAN class=samp>$(patsubst </SPAN><VAR>a</VAR><SPAN class=samp>,</SPAN><VAR>b</VAR><SPAN class=samp>,$(</SPAN><VAR>var</VAR><SPAN class=samp>))</SPAN></SAMP>&#8217;. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Text-Functions"><FONT class=extract>Functions for String Substitution and Analysis</FONT></A><FONT class=extract>, for a description of the <CODE>patsubst</CODE> function. </FONT><PRE class=example><BR><FONT class=extract>For example:<BR>
+     
+     foo := a.o b.o c.o
+     bar := $(foo:%.o=%.c)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>sets &#8216;<SAMP><SPAN class=samp>bar</SPAN></SAMP>&#8217; to &#8216;<SAMP><SPAN class=samp>a.c b.c c.c</SPAN></SAMP>&#8217;. </FONT>
+<DIV class=node><A name=Computed-Names></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Substitution-Refs" rel=previous><FONT class=extract>Substitution Refs</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Advanced" rel=up><FONT class=extract>Advanced</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>6.3.2 Computed Variable Names</FONT></H4>
+<P><A name=index-nested-variable-reference-507></A><A name=index-computed-variable-name-508></A><A name=index-variables_002c-computed-names-509></A><A name=index-variables_002c-nested-references-510></A><A name=index-variables_002c-_0040samp_007b_0024_007d-in-name-511></A><A name=index-g_t_0040code_007b_0024_007d_002c-in-variable-name-512></A><A name=index-dollar-sign-_0028_0040code_007b_0024_007d_0029_002c-in-variable-name-513></A><FONT class=extract>Computed variable names are a complicated concept needed only for sophisticated makefile programming. For most purposes you need not consider them, except to know that making a variable with a dollar sign in its name might have strange results. However, if you are the type that wants to understand everything, or you are actually interested in what they do, read on. </FONT>
+<P><FONT class=extract>Variables may be referenced inside the name of a variable. This is called a <DFN>computed variable name</DFN> or a <DFN>nested variable reference</DFN>. For example, </FONT><PRE class=example><FONT class=extract>     x = y
+     y = z
+     a := $($(x))
+</FONT></PRE>
+<P class=noindent><FONT class=extract>defines <CODE>a</CODE> as &#8216;<SAMP><SPAN class=samp>z</SPAN></SAMP>&#8217;: the &#8216;<SAMP><SPAN class=samp>$(x)</SPAN></SAMP>&#8217; inside &#8216;<SAMP><SPAN class=samp>$($(x))</SPAN></SAMP>&#8217; expands to &#8216;<SAMP><SPAN class=samp>y</SPAN></SAMP>&#8217;, so &#8216;<SAMP><SPAN class=samp>$($(x))</SPAN></SAMP>&#8217; expands to &#8216;<SAMP><SPAN class=samp>$(y)</SPAN></SAMP>&#8217; which in turn expands to &#8216;<SAMP><SPAN class=samp>z</SPAN></SAMP>&#8217;. Here the name of the variable to reference is not stated explicitly; it is computed by expansion of &#8216;<SAMP><SPAN class=samp>$(x)</SPAN></SAMP>&#8217;. The reference &#8216;<SAMP><SPAN class=samp>$(x)</SPAN></SAMP>&#8217; here is nested within the outer variable reference. </FONT>
+<P><FONT class=extract>The previous example shows two levels of nesting, but any number of levels is possible. For example, here are three levels: </FONT><PRE class=example><FONT class=extract>     x = y
+     y = z
+     z = u
+     a := $($($(x)))
+</FONT></PRE>
+<P class=noindent><FONT class=extract>Here the innermost &#8216;<SAMP><SPAN class=samp>$(x)</SPAN></SAMP>&#8217; expands to &#8216;<SAMP><SPAN class=samp>y</SPAN></SAMP>&#8217;, so &#8216;<SAMP><SPAN class=samp>$($(x))</SPAN></SAMP>&#8217; expands to &#8216;<SAMP><SPAN class=samp>$(y)</SPAN></SAMP>&#8217; which in turn expands to &#8216;<SAMP><SPAN class=samp>z</SPAN></SAMP>&#8217;; now we have &#8216;<SAMP><SPAN class=samp>$(z)</SPAN></SAMP>&#8217;, which becomes &#8216;<SAMP><SPAN class=samp>u</SPAN></SAMP>&#8217;. </FONT>
+<P><FONT class=extract>References to recursively-expanded variables within a variable name are re-expanded in the usual fashion. For example: </FONT><PRE class=example><FONT class=extract>     x = $(y)
+     y = z
+     z = Hello
+     a := $($(x))
+</FONT></PRE>
+<P class=noindent><FONT class=extract>defines <CODE>a</CODE> as &#8216;<SAMP><SPAN class=samp>Hello</SPAN></SAMP>&#8217;: &#8216;<SAMP><SPAN class=samp>$($(x))</SPAN></SAMP>&#8217; becomes &#8216;<SAMP><SPAN class=samp>$($(y))</SPAN></SAMP>&#8217; which becomes &#8216;<SAMP><SPAN class=samp>$(z)</SPAN></SAMP>&#8217; which becomes &#8216;<SAMP><SPAN class=samp>Hello</SPAN></SAMP>&#8217;. </FONT>
+<P><FONT class=extract>Nested variable references can also contain modified references and function invocations (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Functions"><FONT class=extract>Functions for Transforming Text</FONT></A><FONT class=extract>), just like any other reference. For example, using the <CODE>subst</CODE> function (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Text-Functions"><FONT class=extract>Functions for String Substitution and Analysis</FONT></A><FONT class=extract>): </FONT><PRE class=example><FONT class=extract>     x = variable1
+     variable2 := Hello
+     y = $(subst 1,2,$(x))
+     z = y
+     a := $($($(z)))
+</FONT></PRE>
+<P class=noindent><FONT class=extract>eventually defines <CODE>a</CODE> as &#8216;<SAMP><SPAN class=samp>Hello</SPAN></SAMP>&#8217;. It is doubtful that anyone would ever want to write a nested reference as convoluted as this one, but it works: &#8216;<SAMP><SPAN class=samp>$($($(z)))</SPAN></SAMP>&#8217; expands to &#8216;<SAMP><SPAN class=samp>$($(y))</SPAN></SAMP>&#8217; which becomes &#8216;<SAMP><SPAN class=samp>$($(subst 1,2,$(x)))</SPAN></SAMP>&#8217;. This gets the value &#8216;<SAMP><SPAN class=samp>variable1</SPAN></SAMP>&#8217; from <CODE>x</CODE> and changes it by substitution to &#8216;<SAMP><SPAN class=samp>variable2</SPAN></SAMP>&#8217;, so that the entire string becomes &#8216;<SAMP><SPAN class=samp>$(variable2)</SPAN></SAMP>&#8217;, a simple variable reference whose value is &#8216;<SAMP><SPAN class=samp>Hello</SPAN></SAMP>&#8217;. </FONT>
+<P><FONT class=extract>A computed variable name need not consist entirely of a single variable reference. It can contain several variable references, as well as some invariant text. For example, </FONT><PRE class=example><FONT class=extract>     a_dirs := dira dirb
+     1_dirs := dir1 dir2
+     
+     a_files := filea fileb
+     1_files := file1 file2
+     
+     ifeq "$(use_a)" "yes"
+     a1 := a
+     else
+     a1 := 1
+     endif
+     
+     ifeq "$(use_dirs)" "yes"
+     df := dirs
+     else
+     df := files
+     endif
+     
+     dirs := $($(a1)_$(df))
+</FONT></PRE>
+<P class=noindent><FONT class=extract>will give <CODE>dirs</CODE> the same value as <CODE>a_dirs</CODE>, <CODE>1_dirs</CODE>, <CODE>a_files</CODE> or <CODE>1_files</CODE> depending on the settings of <CODE>use_a</CODE> and <CODE>use_dirs</CODE>. </FONT>
+<P><FONT class=extract>Computed variable names can also be used in substitution references: </FONT><PRE class=example><FONT class=extract>     a_objects := a.o b.o c.o
+     1_objects := 1.o 2.o 3.o
+     
+     sources := $($(a1)_objects:.o=.c)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>defines <CODE>sources</CODE> as either &#8216;<SAMP><SPAN class=samp>a.c b.c c.c</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>1.c 2.c 3.c</SPAN></SAMP>&#8217;, depending on the value of <CODE>a1</CODE>. </FONT>
+<P><FONT class=extract>The only restriction on this sort of use of nested variable references is that they cannot specify part of the name of a function to be called. This is because the test for a recognized function name is done before the expansion of nested references. For example, </FONT><PRE class=example><FONT class=extract>     ifdef do_sort
+     func := sort
+     else
+     func := strip
+     endif
+     
+     bar := a d b g q c
+     
+     foo := $($(func) $(bar))
+</FONT></PRE>
+<P class=noindent><FONT class=extract>attempts to give &#8216;<SAMP><SPAN class=samp>foo</SPAN></SAMP>&#8217; the value of the variable &#8216;<SAMP><SPAN class=samp>sort a d b g q c</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>strip a d b g q c</SPAN></SAMP>&#8217;, rather than giving &#8216;<SAMP><SPAN class=samp>a d b g q c</SPAN></SAMP>&#8217; as the argument to either the <CODE>sort</CODE> or the <CODE>strip</CODE> function. This restriction could be removed in the future if that change is shown to be a good idea. </FONT>
+<P><FONT class=extract>You can also use computed variable names in the left-hand side of a variable assignment, or in a <CODE>define</CODE> directive, as in: </FONT><PRE class=example><FONT class=extract>     dir = foo
+     $(dir)_sources := $(wildcard $(dir)/*.c)
+     define $(dir)_print =
+     lpr $($(dir)_sources)
+     endef
+</FONT></PRE>
+<P class=noindent><FONT class=extract>This example defines the variables &#8216;<SAMP><SPAN class=samp>dir</SPAN></SAMP>&#8217;, &#8216;<SAMP><SPAN class=samp>foo_sources</SPAN></SAMP>&#8217;, and &#8216;<SAMP><SPAN class=samp>foo_print</SPAN></SAMP>&#8217;. </FONT>
+<P><FONT class=extract>Note that <DFN>nested variable references</DFN> are quite different from <DFN>recursively expanded variables</DFN> (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Flavors"><FONT class=extract>The Two Flavors of Variables</FONT></A><FONT class=extract>), though both are used together in complex ways when doing makefile programming. </FONT>
+<DIV class=node><A name=Values></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Setting" rel=next>Setting</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Advanced" rel=previous>Advanced</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.4 How Variables Get Their Values</FONT></H3>
+<P><A name=index-variables_002c-how-they-get-their-values-514></A><A name=index-value_002c-how-a-variable-gets-it-515></A><FONT class=extract>Variables can get values in several different ways: </FONT>
+<UL>
+<LI><FONT class=extract>You can specify an overriding value when you run <CODE>make</CODE>. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Overriding"><FONT class=extract>Overriding Variables</FONT></A><FONT class=extract>. </FONT>
+<LI><FONT class=extract>You can specify a value in the makefile, either with an assignment (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Setting"><FONT class=extract>Setting Variables</FONT></A><FONT class=extract>) or with a verbatim definition (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Multi_002dLine"><FONT class=extract>Defining Multi-Line Variables</FONT></A><FONT class=extract>). </FONT>
+<LI><FONT class=extract>Variables in the environment become <CODE>make</CODE> variables. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Environment"><FONT class=extract>Variables from the Environment</FONT></A><FONT class=extract>. </FONT>
+<LI><FONT class=extract>Several <DFN>automatic</DFN> variables are given new values for each rule. Each of these has a single conventional use. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables"><FONT class=extract>Automatic Variables</FONT></A><FONT class=extract>. </FONT>
+<LI><FONT class=extract>Several variables have constant initial values. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Implicit-Variables"><FONT class=extract>Variables Used by Implicit Rules</FONT></A><FONT class=extract>. </FONT></LI></UL>
+<DIV class=node><A name=Setting></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Appending" rel=next>Appending</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Values" rel=previous>Values</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.5 Setting Variables</FONT></H3>
+<P><A name=index-setting-variables-516></A><A name=index-variables_002c-setting-517></A><A name=index-g_t_003d-518></A><A name=index-g_t_003a_003d-519></A><A name=index-g_t_003a_003a_003d-520></A><A name=index-g_t_003f_003d-521></A><A name=index-g_t_0021_003d-522></A><FONT class=extract>To set a variable from the makefile, write a line starting with the variable name followed by &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217;, or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217;. Whatever follows the &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;, &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217;, or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217; on the line becomes the value. For example, </FONT><PRE class=example><FONT class=extract>     objects = main.o foo.o bar.o utils.o
+</FONT></PRE>
+<P class=noindent><FONT class=extract>defines a variable named <CODE>objects</CODE>. Whitespace around the variable name and immediately after the &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; is ignored. </FONT>
+<P><FONT class=extract>Variables defined with &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; are <DFN>recursively expanded</DFN> variables. Variables defined with &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217; are <DFN>simply expanded</DFN> variables; these definitions can contain variable references which will be expanded before the definition is made. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Flavors"><FONT class=extract>The Two Flavors of Variables</FONT></A><FONT class=extract>. </FONT>
+<P><FONT class=extract>The variable name may contain function and variable references, which are expanded when the line is read to find the actual variable name to use. </FONT>
+<P><FONT class=extract>There is no limit on the length of the value of a variable except the amount of memory on the computer. You can split the value of a variable into multiple physical lines for readability (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Splitting-Lines"><FONT class=extract>Splitting Long Lines</FONT></A><FONT class=extract>). </FONT>
+<P><FONT class=extract>Most variable names are considered to have the empty string as a value if you have never set them. Several variables have built-in initial values that are not empty, but you can set them in the usual ways (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Implicit-Variables"><FONT class=extract>Variables Used by Implicit Rules</FONT></A><FONT class=extract>). Several special variables are set automatically to a new value for each rule; these are called the <DFN>automatic</DFN> variables (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables"><FONT class=extract>Automatic Variables</FONT></A><FONT class=extract>). </FONT>
+<P><FONT class=extract>If you'd like a variable to be set to a value only if it's not already set, then you can use the shorthand operator &#8216;<SAMP><SPAN class=samp>?=</SPAN></SAMP>&#8217; instead of &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;. These two settings of the variable &#8216;<SAMP><SPAN class=samp>FOO</SPAN></SAMP>&#8217; are identical (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Origin-Function"><FONT class=extract>The <CODE>origin</CODE> Function</FONT></A><FONT class=extract>): </FONT><PRE class=example><FONT class=extract>     FOO ?= bar
+</FONT></PRE>
+<P class=noindent><FONT class=extract>and </FONT><PRE class=example><FONT class=extract>     ifeq ($(origin FOO), undefined)
+     FOO = bar
+     endif
+</FONT></PRE>
+<P><FONT class=extract>The shell assignment operator &#8216;<SAMP><SPAN class=samp>!=</SPAN></SAMP>&#8217; can be used to execute a program and set a variable to its output. This operator first evaluates the right-hand side, then passes that result to the shell for execution. If the result of the execution ends in a newline, that one newline is removed; all other newlines are replaced by spaces. The resulting string is then placed into the named recursively-expanded variable. For example: </FONT><PRE class=example><FONT class=extract>     hash != printf '\043'
+     file_list != find . -name '*.c'
+</FONT></PRE>
+<P><FONT class=extract>If the result of the execution could produce a <CODE>$</CODE>, and you don't intend what follows that to be interpreted as a make variable or function reference, then you must replace every <CODE>$</CODE> with <CODE>$$</CODE> as part of the execution. Alternatively, you can set a simply expanded variable to the result of running a program using the <CODE>shell</CODE> function call. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Shell-Function"><FONT class=extract>The <CODE>shell</CODE> Function</FONT></A><FONT class=extract>. For example: </FONT><PRE class=example><FONT class=extract>     hash := $(shell printf '\043')
+     var := $(shell find . -name "*.c")</FONT>
+</PRE>
+<DIV class=node><A name=Appending></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Override-Directive" rel=next>Override Directive</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Setting" rel=previous>Setting</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.6 Appending More Text to Variables</FONT></H3>
+<P><A name=index-g_t_002b_003d-523></A><A name=index-appending-to-variables-524></A><A name=index-variables_002c-appending-to-525></A><FONT class=extract>Often it is useful to add more text to the value of a variable already defined. You do this with a line containing &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217;, like this: </FONT><PRE class=example><FONT class=extract>     objects += another.o
+</FONT></PRE>
+<P class=noindent><FONT class=extract>This takes the value of the variable <CODE>objects</CODE>, and adds the text &#8216;<SAMP><SPAN class=samp>another.o</SPAN></SAMP>&#8217; to it (preceded by a single space). Thus: </FONT><PRE class=example><FONT class=extract>     objects = main.o foo.o bar.o utils.o
+     objects += another.o
+</FONT></PRE>
+<P class=noindent><FONT class=extract>sets <CODE>objects</CODE> to &#8216;<SAMP><SPAN class=samp>main.o foo.o bar.o utils.o another.o</SPAN></SAMP>&#8217;. </FONT>
+<P><FONT class=extract>Using &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217; is similar to: </FONT><PRE class=example><FONT class=extract>     objects = main.o foo.o bar.o utils.o
+     objects := $(objects) another.o
+</FONT></PRE>
+<P class=noindent><FONT class=extract>but differs in ways that become important when you use more complex values. </FONT>
+<P><FONT class=extract>When the variable in question has not been defined before, &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217; acts just like normal &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;: it defines a recursively-expanded variable. However, when there <EM>is</EM> a previous definition, exactly what &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217; does depends on what flavor of variable you defined originally. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Flavors"><FONT class=extract>The Two Flavors of Variables</FONT></A><FONT class=extract>, for an explanation of the two flavors of variables. </FONT>
+<P><FONT class=extract>When you add to a variable's value with &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217;, <CODE>make</CODE> acts essentially as if you had included the extra text in the initial definition of the variable. If you defined it first with &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217;, making it a simply-expanded variable, &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217; adds to that simply-expanded definition, and expands the new text before appending it to the old value just as &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; does (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Setting"><FONT class=extract>Setting Variables</FONT></A><FONT class=extract>, for a full explanation of &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217;). In fact, </FONT><PRE class=example><FONT class=extract>     variable := value
+     variable += more
+</FONT></PRE>
+<P class=noindent><FONT class=extract>is exactly equivalent to: </FONT>
+<P class=noindent><FONT class=extract></FONT><PRE class=example><FONT class=extract>     variable := value
+     variable := $(variable) more
+</FONT></PRE>
+<P><FONT class=extract>On the other hand, when you use &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217; with a variable that you defined first to be recursively-expanded using plain &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;, <CODE>make</CODE> does something a bit different. Recall that when you define a recursively-expanded variable, <CODE>make</CODE> does not expand the value you set for variable and function references immediately. Instead it stores the text verbatim, and saves these variable and function references to be expanded later, when you refer to the new variable (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Flavors"><FONT class=extract>The Two Flavors of Variables</FONT></A><FONT class=extract>). When you use &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217; on a recursively-expanded variable, it is this unexpanded text to which <CODE>make</CODE> appends the new text you specify. </FONT><PRE class=example><FONT class=extract>     variable = value
+     variable += more
+</FONT></PRE>
+<P class=noindent><FONT class=extract>is roughly equivalent to: </FONT><PRE class=example><FONT class=extract>     temp = value
+     variable = $(temp) more
+</FONT></PRE>
+<P class=noindent><FONT class=extract>except that of course it never defines a variable called <CODE>temp</CODE>. The importance of this comes when the variable's old value contains variable references. Take this common example: </FONT><PRE class=example><FONT class=extract>     CFLAGS = $(includes) -O
+     ...
+     CFLAGS += -pg # enable profiling
+</FONT></PRE>
+<P class=noindent><FONT class=extract>The first line defines the <CODE>CFLAGS</CODE> variable with a reference to another variable, <CODE>includes</CODE>. (<CODE>CFLAGS</CODE> is used by the rules for C compilation; see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Catalogue-of-Rules"><FONT class=extract>Catalogue of Implicit Rules</FONT></A><FONT class=extract>.) Using &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; for the definition makes <CODE>CFLAGS</CODE> a recursively-expanded variable, meaning &#8216;<SAMP><SPAN class=samp>$(includes)&nbsp;-O</SPAN></SAMP>&#8217;<!-- /@w --> is <EM>not</EM> expanded when <CODE>make</CODE> processes the definition of <CODE>CFLAGS</CODE>. Thus, <CODE>includes</CODE> need not be defined yet for its value to take effect. It only has to be defined before any reference to <CODE>CFLAGS</CODE>. If we tried to append to the value of <CODE>CFLAGS</CODE> without using &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217;, we might do it like this: </FONT><PRE class=example><FONT class=extract>     CFLAGS := $(CFLAGS) -pg # enable profiling
+</FONT></PRE>
+<P class=noindent><FONT class=extract>This is pretty close, but not quite what we want. Using &#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; redefines <CODE>CFLAGS</CODE> as a simply-expanded variable; this means <CODE>make</CODE> expands the text &#8216;<SAMP><SPAN class=samp>$(CFLAGS)&nbsp;-pg</SPAN></SAMP>&#8217;<!-- /@w --> before setting the variable. If <CODE>includes</CODE> is not yet defined, we get &#8216;<SAMP><SPAN class=samp>&nbsp;-O&nbsp;-pg</SPAN></SAMP>&#8217;<!-- /@w -->, and a later definition of <CODE>includes</CODE> will have no effect. Conversely, by using &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217; we set <CODE>CFLAGS</CODE> to the <EM>unexpanded</EM> value &#8216;<SAMP><SPAN class=samp>$(includes)&nbsp;-O&nbsp;-pg</SPAN></SAMP>&#8217;<!-- /@w -->. Thus we preserve the reference to <CODE>includes</CODE>, so if that variable gets defined at any later point, a reference like &#8216;<SAMP><SPAN class=samp>$(CFLAGS)</SPAN></SAMP>&#8217; still uses its value. </FONT>
+<DIV class=node><A name=Override-Directive></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Multi_002dLine" rel=next>Multi-Line</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Appending" rel=previous>Appending</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.7 The <CODE>override</CODE> Directive</FONT></H3>
+<P><A name=index-override-526></A><A name=index-overriding-with-_0040code_007boverride_007d-527></A><A name=index-variables_002c-overriding-528></A><FONT class=extract>If a variable has been set with a command argument (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Overriding"><FONT class=extract>Overriding Variables</FONT></A><FONT class=extract>), then ordinary assignments in the makefile are ignored. If you want to set the variable in the makefile even though it was set with a command argument, you can use an <CODE>override</CODE> directive, which is a line that looks like this: </FONT><PRE class=example><FONT class=extract>     override <VAR>variable</VAR> = <VAR>value</VAR>
+</FONT></PRE>
+<P class=noindent><FONT class=extract>or </FONT><PRE class=example><FONT class=extract>     override <VAR>variable</VAR> := <VAR>value</VAR>
+</FONT></PRE>
+<P><FONT class=extract>To append more text to a variable defined on the command line, use: </FONT><PRE class=example><FONT class=extract>     override <VAR>variable</VAR> += <VAR>more text</VAR>
+</FONT></PRE>
+<P class=noindent><FONT class=extract>See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Appending"><FONT class=extract>Appending More Text to Variables</FONT></A><FONT class=extract>. </FONT>
+<P><FONT class=extract>Variable assignments marked with the <CODE>override</CODE> flag have a higher priority than all other assignments, except another <CODE>override</CODE>. Subsequent assignments or appends to this variable which are not marked <CODE>override</CODE> will be ignored. </FONT>
+<P><FONT class=extract>The <CODE>override</CODE> directive was not invented for escalation in the war between makefiles and command arguments. It was invented so you can alter and add to values that the user specifies with command arguments. </FONT>
+<P><FONT class=extract>For example, suppose you always want the &#8216;<SAMP><SPAN class=samp>-g</SPAN></SAMP>&#8217; switch when you run the C compiler, but you would like to allow the user to specify the other switches with a command argument just as usual. You could use this <CODE>override</CODE> directive: </FONT><PRE class=example><FONT class=extract>     override CFLAGS += -g
+</FONT></PRE>
+<P><FONT class=extract>You can also use <CODE>override</CODE> directives with <CODE>define</CODE> directives. This is done as you might expect: </FONT><PRE class=example><FONT class=extract>     override define foo =
+     bar
+     endef
+</FONT></PRE>
+<P class=noindent><FONT class=extract>See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Multi_002dLine"><FONT class=extract>Defining Multi-Line Variables</FONT></A><FONT class=extract>. </FONT>
+<DIV class=node><A name=Multi-Line></A><A name=Multi_002dLine></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Undefine-Directive" rel=next>Undefine Directive</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Override-Directive" rel=previous>Override Directive</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.8 Defining Multi-Line Variables</FONT></H3>
+<P><A name=index-define-529></A><A name=index-endef-530></A><A name=index-multi_002dline-variable-definition-531></A><A name=index-variables_002c-multi_002dline-532></A><A name=index-verbatim-variable-definition-533></A><A name=index-defining-variables-verbatim-534></A><A name=index-variables_002c-defining-verbatim-535></A><FONT class=extract>Another way to set the value of a variable is to use the <CODE>define</CODE> directive. This directive has an unusual syntax which allows newline characters to be included in the value, which is convenient for defining both canned sequences of commands (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Canned-Recipes"><FONT class=extract>Defining Canned Recipes</FONT></A><FONT class=extract>), and also sections of makefile syntax to use with <CODE>eval</CODE> (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Eval-Function"><FONT class=extract>Eval Function</FONT></A><FONT class=extract>). </FONT>
+<P><FONT class=extract>The <CODE>define</CODE> directive is followed on the same line by the name of the variable being defined and an (optional) assignment operator, and nothing more. The value to give the variable appears on the following lines. The end of the value is marked by a line containing just the word <CODE>endef</CODE>. Aside from this difference in syntax, <CODE>define</CODE> works just like any other variable definition. The variable name may contain function and variable references, which are expanded when the directive is read to find the actual variable name to use. </FONT>
+<P><FONT class=extract>You may omit the variable assignment operator if you prefer. If omitted, <CODE>make</CODE> assumes it to be &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; and creates a recursively-expanded variable (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Flavors"><FONT class=extract>The Two Flavors of Variables</FONT></A><FONT class=extract>). When using a &#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217; operator, the value is appended to the previous value as with any other append operation: with a single space separating the old and new values. </FONT>
+<P><FONT class=extract>You may nest <CODE>define</CODE> directives: <CODE>make</CODE> will keep track of nested directives and report an error if they are not all properly closed with <CODE>endef</CODE>. Note that lines beginning with the recipe prefix character are considered part of a recipe, so any <CODE>define</CODE> or <CODE>endef</CODE> strings appearing on such a line will not be considered <CODE>make</CODE> directives. </FONT><PRE class=example><FONT class=extract>     define two-lines =
+     echo foo
+     echo $(bar)
+     endef
+</FONT></PRE>
+<P><FONT class=extract>The value in an ordinary assignment cannot contain a newline; but the newlines that separate the lines of the value in a <CODE>define</CODE> become part of the variable's value (except for the final newline which precedes the <CODE>endef</CODE> and is not considered part of the value). </FONT>
+<P><FONT class=extract>When used in a recipe, the previous example is functionally equivalent to this: </FONT><PRE class=example><FONT class=extract>     two-lines = echo foo; echo $(bar)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>since two commands separated by semicolon behave much like two separate shell commands. However, note that using two separate lines means <CODE>make</CODE> will invoke the shell twice, running an independent sub-shell for each line. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Execution"><FONT class=extract>Recipe Execution</FONT></A><FONT class=extract>. </FONT>
+<P><FONT class=extract>If you want variable definitions made with <CODE>define</CODE> to take precedence over command-line variable definitions, you can use the <CODE>override</CODE> directive together with <CODE>define</CODE>: </FONT><PRE class=example><FONT class=extract>     override define two-lines =
+     foo
+     $(bar)
+     endef
+</FONT></PRE>
+<P class=noindent><FONT class=extract>See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Override-Directive"><FONT class=extract>The <CODE>override</CODE> Directive</FONT></A><FONT class=extract>. </FONT>
+<DIV class=node><A name=Undefine-Directive></A>
+<P><FONT class=extract></FONT>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Environment" rel=next>Environment</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Multi_002dLine" rel=previous>Multi-Line</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.9 Undefining Variables</FONT></H3>
+<P><A name=index-undefine-536></A><A name=index-undefining-variable-537></A><FONT class=extract>If you want to clear a variable, setting its value to empty is usually sufficient. Expanding such a variable will yield the same result (empty string) regardless of whether it was set or not. However, if you are using the <CODE>flavor</CODE> (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Flavor-Function"><FONT class=extract>Flavor Function</FONT></A><FONT class=extract>) and <CODE>origin</CODE> (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Origin-Function"><FONT class=extract>Origin Function</FONT></A><FONT class=extract>) functions, there is a difference between a variable that was never set and a variable with an empty value. In such situations you may want to use the <CODE>undefine</CODE> directive to make a variable appear as if it was never set. For example: </FONT><PRE class=example><FONT class=extract>     foo := foo
+     bar = bar
+     
+     undefine foo
+     undefine bar
+     
+     $(info $(origin foo))
+     $(info $(flavor bar))
+</FONT></PRE>
+<P><FONT class=extract>This example will print &#8220;undefined&#8221; for both variables. </FONT>
+<P><FONT class=extract>If you want to undefine a command-line variable definition, you can use the <CODE>override</CODE> directive together with <CODE>undefine</CODE>, similar to how this is done for variable definitions: </FONT><PRE class=example><FONT class=extract>     override undefine CFLAGS</FONT>
+</PRE>
+<DIV class=node><A name=Environment></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Target_002dspecific" rel=next>Target-specific</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Undefine-Directive" rel=previous>Undefine Directive</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.10 Variables from the Environment</FONT></H3>
+<P><A name=index-variables_002c-environment-538></A><A name=index-environment-539></A><FONT class=extract>Variables in <CODE>make</CODE> can come from the environment in which <CODE>make</CODE> is run. Every environment variable that <CODE>make</CODE> sees when it starts up is transformed into a <CODE>make</CODE> variable with the same name and value. However, an explicit assignment in the makefile, or with a command argument, overrides the environment. (If the &#8216;<SAMP><SPAN class=samp>-e</SPAN></SAMP>&#8217; flag is specified, then values from the environment override assignments in the makefile. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Options-Summary"><FONT class=extract>Summary of Options</FONT></A><FONT class=extract>. But this is not recommended practice.) </FONT>
+<P><FONT class=extract>Thus, by setting the variable <CODE>CFLAGS</CODE> in your environment, you can cause all C compilations in most makefiles to use the compiler switches you prefer. This is safe for variables with standard or conventional meanings because you know that no makefile will use them for other things. (Note this is not totally reliable; some makefiles set <CODE>CFLAGS</CODE> explicitly and therefore are not affected by the value in the environment.) </FONT>
+<P><FONT class=extract>When <CODE>make</CODE> runs a recipe, variables defined in the makefile are placed into the environment of each shell. This allows you to pass values to sub-<CODE>make</CODE> invocations (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Recursion"><FONT class=extract>Recursive Use of <CODE>make</CODE></FONT></A><FONT class=extract>). By default, only variables that came from the environment or the command line are passed to recursive invocations. You can use the <CODE>export</CODE> directive to pass other variables. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Variables_002fRecursion"><FONT class=extract>Communicating Variables to a Sub-<CODE>make</CODE></FONT></A><FONT class=extract>, for full details. </FONT>
+<P><FONT class=extract>Other use of variables from the environment is not recommended. It is not wise for makefiles to depend for their functioning on environment variables set up outside their control, since this would cause different users to get different results from the same makefile. This is against the whole purpose of most makefiles. </FONT>
+<P><A name=index-SHELL_002c-import-from-environment-540></A><FONT class=extract>Such problems would be especially likely with the variable <CODE>SHELL</CODE>, which is normally present in the environment to specify the user's choice of interactive shell. It would be very undesirable for this choice to affect <CODE>make</CODE>; so, <CODE>make</CODE> handles the <CODE>SHELL</CODE> environment variable in a special way; see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Choosing-the-Shell"><FONT class=extract>Choosing the Shell</FONT></A><FONT class=extract>. </FONT>
+<DIV class=node><A name=Target-specific></A><A name=Target_002dspecific></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Pattern_002dspecific" rel=next>Pattern-specific</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Environment" rel=previous>Environment</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.11 Target-specific Variable Values</FONT></H3>
+<P><A name=index-target_002dspecific-variables-541></A><A name=index-variables_002c-target_002dspecific-542></A><FONT class=extract>Variable values in <CODE>make</CODE> are usually global; that is, they are the same regardless of where they are evaluated (unless they're reset, of course). One exception to that is automatic variables (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables"><FONT class=extract>Automatic Variables</FONT></A><FONT class=extract>). </FONT>
+<P><FONT class=extract>The other exception is <DFN>target-specific variable values</DFN>. This feature allows you to define different values for the same variable, based on the target that <CODE>make</CODE> is currently building. As with automatic variables, these values are only available within the context of a target's recipe (and in other target-specific assignments). </FONT>
+<P><FONT class=extract>Set a target-specific variable value like this: </FONT><PRE class=example><FONT class=extract>     <VAR>target</VAR> ... : <VAR>variable-assignment</VAR>
+</FONT></PRE>
+<P><FONT class=extract>Target-specific variable assignments can be prefixed with any or all of the special keywords <CODE>export</CODE>, <CODE>override</CODE>, or <CODE>private</CODE>; these apply their normal behavior to this instance of the variable only. </FONT>
+<P><FONT class=extract>Multiple <VAR>target</VAR> values create a target-specific variable value for each member of the target list individually. </FONT>
+<P><FONT class=extract>The <VAR>variable-assignment</VAR> can be any valid form of assignment; recursive (&#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;), simple (&#8216;<SAMP><SPAN class=samp>:=</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>::=</SPAN></SAMP>&#8217;), appending (&#8216;<SAMP><SPAN class=samp>+=</SPAN></SAMP>&#8217;), or conditional (&#8216;<SAMP><SPAN class=samp>?=</SPAN></SAMP>&#8217;). All variables that appear within the <VAR>variable-assignment</VAR> are evaluated within the context of the target: thus, any previously-defined target-specific variable values will be in effect. Note that this variable is actually distinct from any &#8220;global&#8221; value: the two variables do not have to have the same flavor (recursive vs. simple). </FONT>
+<P><FONT class=extract>Target-specific variables have the same priority as any other makefile variable. Variables provided on the command line (and in the environment if the &#8216;<SAMP><SPAN class=samp>-e</SPAN></SAMP>&#8217; option is in force) will take precedence. Specifying the <CODE>override</CODE> directive will allow the target-specific variable value to be preferred. </FONT>
+<P><FONT class=extract>There is one more special feature of target-specific variables: when you define a target-specific variable that variable value is also in effect for all prerequisites of this target, and all their prerequisites, etc. (unless those prerequisites override that variable with their own target-specific variable value). So, for example, a statement like this: </FONT><PRE class=example><FONT class=extract>     prog : CFLAGS = -g
+     prog : prog.o foo.o bar.o
+</FONT></PRE>
+<P class=noindent><FONT class=extract>will set <CODE>CFLAGS</CODE> to &#8216;<SAMP><SPAN class=samp>-g</SPAN></SAMP>&#8217; in the recipe for <SAMP><SPAN class=file>prog</SPAN></SAMP>, but it will also set <CODE>CFLAGS</CODE> to &#8216;<SAMP><SPAN class=samp>-g</SPAN></SAMP>&#8217; in the recipes that create <SAMP><SPAN class=file>prog.o</SPAN></SAMP>, <SAMP><SPAN class=file>foo.o</SPAN></SAMP>, and <SAMP><SPAN class=file>bar.o</SPAN></SAMP>, and any recipes which create their prerequisites. </FONT>
+<P><FONT class=extract>Be aware that a given prerequisite will only be built once per invocation of make, at most. If the same file is a prerequisite of multiple targets, and each of those targets has a different value for the same target-specific variable, then the first target to be built will cause that prerequisite to be built and the prerequisite will inherit the target-specific value from the first target. It will ignore the target-specific values from any other targets. </FONT>
+<DIV class=node><A name=Pattern-specific></A><A name=Pattern_002dspecific></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Suppressing-Inheritance" rel=next>Suppressing Inheritance</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Target_002dspecific" rel=previous>Target-specific</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.12 Pattern-specific Variable Values</FONT></H3>
+<P><A name=index-pattern_002dspecific-variables-543></A><A name=index-variables_002c-pattern_002dspecific-544></A><FONT class=extract>In addition to target-specific variable values (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Target_002dspecific"><FONT class=extract>Target-specific Variable Values</FONT></A><FONT class=extract>), GNU <CODE>make</CODE> supports pattern-specific variable values. In this form, the variable is defined for any target that matches the pattern specified. </FONT>
+<P><FONT class=extract>Set a pattern-specific variable value like this: </FONT><PRE class=example><FONT class=extract>     <VAR>pattern</VAR> ... : <VAR>variable-assignment</VAR>
+</FONT></PRE>
+<P><FONT class=extract>where <VAR>pattern</VAR> is a %-pattern. As with target-specific variable values, multiple <VAR>pattern</VAR> values create a pattern-specific variable value for each pattern individually. The <VAR>variable-assignment</VAR> can be any valid form of assignment. Any command line variable setting will take precedence, unless <CODE>override</CODE> is specified. </FONT>
+<P><FONT class=extract>For example: </FONT><PRE class=example><FONT class=extract>     %.o : CFLAGS = -O
+</FONT></PRE>
+<P class=noindent><FONT class=extract>will assign <CODE>CFLAGS</CODE> the value of &#8216;<SAMP><SPAN class=samp>-O</SPAN></SAMP>&#8217; for all targets matching the pattern <CODE>%.o</CODE>. </FONT>
+<P><FONT class=extract>If a target matches more than one pattern, the matching pattern-specific variables with longer stems are interpreted first. This results in more specific variables taking precedence over the more generic ones, for example: </FONT><PRE class=example><FONT class=extract>     %.o: %.c
+             $(CC) -c $(CFLAGS) $(CPPFLAGS) $&lt; -o $@
+     
+     lib/%.o: CFLAGS := -fPIC -g
+     %.o: CFLAGS := -g
+     
+     all: foo.o lib/bar.o
+</FONT></PRE>
+<P><FONT class=extract>In this example the first definition of the <CODE>CFLAGS</CODE> variable will be used to update <SAMP><SPAN class=file>lib/bar.o</SPAN></SAMP> even though the second one also applies to this target. Pattern-specific variables which result in the same stem length are considered in the order in which they were defined in the makefile. </FONT>
+<P><FONT class=extract>Pattern-specific variables are searched after any target-specific variables defined explicitly for that target, and before target-specific variables defined for the parent target. </FONT>
+<DIV class=node><A name=Suppressing-Inheritance></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Special-Variables" rel=next>Special Variables</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Pattern_002dspecific" rel=previous>Pattern-specific</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV>
+<H3 class=section><FONT class=extract>6.13 Suppressing Inheritance</FONT></H3>
+<P><A name=index-private-545></A><A name=index-suppressing-inheritance-546></A><A name=index-inheritance_002c-suppressing-547></A><FONT class=extract>As described in previous sections, <CODE>make</CODE> variables are inherited by prerequisites. This capability allows you to modify the behavior of a prerequisite based on which targets caused it to be rebuilt. For example, you might set a target-specific variable on a <CODE>debug</CODE> target, then running &#8216;<SAMP><SPAN class=samp>make debug</SPAN></SAMP>&#8217; will cause that variable to be inherited by all prerequisites of <CODE>debug</CODE>, while just running &#8216;<SAMP><SPAN class=samp>make all</SPAN></SAMP>&#8217; (for example) would not have that assignment. </FONT>
+<P><FONT class=extract>Sometimes, however, you may not want a variable to be inherited. For these situations, <CODE>make</CODE> provides the <CODE>private</CODE> modifier. Although this modifier can be used with any variable assignment, it makes the most sense with target- and pattern-specific variables. Any variable marked <CODE>private</CODE> will be visible to its local target but will not be inherited by prerequisites of that target. A global variable marked <CODE>private</CODE> will be visible in the global scope but will not be inherited by any target, and hence will not be visible in any recipe. </FONT>
+<P><FONT class=extract>As an example, consider this makefile: </FONT><PRE class=example><FONT class=extract>     EXTRA_CFLAGS =
+     
+     prog: private EXTRA_CFLAGS = -L/usr/local/lib
+     prog: a.o b.o
+</FONT></PRE>
+<P><FONT class=extract>Due to the <CODE>private</CODE> modifier, <CODE>a.o</CODE> and <CODE>b.o</CODE> will not inherit the <CODE>EXTRA_CFLAGS</CODE> variable assignment from the <CODE>prog</CODE> target. </FONT>
+<DIV class=node><A name=Special-Variables></A>
+<P>
+<HR>
+Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Suppressing-Inheritance" rel=previous>Suppressing Inheritance</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Using-Variables" rel=up>Using Variables</A> </DIV><!-- node-name,  next,  previous,  up -->
+<H3 class=section><FONT class=extract>6.14 Other Special Variables</FONT></H3>
+<P><A name=index-makefiles_002c-and-special-variables-548></A><A name=index-special-variables-549></A><FONT class=extract>GNU <CODE>make</CODE> supports some variables that have special properties. </FONT><A name=index-MAKEFILE_005fLIST-_0040r_007b_0028list-of-parsed-makefiles_0029_007d-550></A><A name=index-makefiles_002c-and-_0040code_007bMAKEFILE_005fLIST_007d-variable-551></A><A name=index-including-_0028_0040code_007bMAKEFILE_005fLIST_007d-variable_0029-552></A>
+<DL>
+<DT><FONT class=extract><CODE>MAKEFILE_LIST</CODE> </FONT>
+<DD><FONT class=extract>Contains the name of each makefile that is parsed by <CODE>make</CODE>, in the order in which it was parsed. The name is appended just before <CODE>make</CODE> begins to parse the makefile. Thus, if the first thing a makefile does is examine the last word in this variable, it will be the name of the current makefile. Once the current makefile has used <CODE>include</CODE>, however, the last word will be the just-included makefile. </FONT>
+<P><FONT class=extract>If a makefile named <CODE>Makefile</CODE> has this content: </FONT><PRE class=example><FONT class=extract>          name1 := $(lastword $(MAKEFILE_LIST))
+          
+          include inc.mk
+          
+          name2 := $(lastword $(MAKEFILE_LIST))
+          
+          all:
+                  @echo name1 = $(name1)
+                  @echo name2 = $(name2)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>then you would expect to see this output: </FONT><PRE class=example><FONT class=extract>          name1 = Makefile
+          name2 = inc.mk
+</FONT></PRE>
+<P><A name=index-g_t_002eDEFAULT_005fGOAL-_0040r_007b_0028define-default-goal_0029_007d-553><FONT class=extract></FONT></A><BR></P>
+<DT><FONT class=extract><CODE>.DEFAULT_GOAL</CODE> </FONT>
+<DD><FONT class=extract>Sets the default goal to be used if no targets were specified on the command line (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Goals"><FONT class=extract>Arguments to Specify the Goals</FONT></A><FONT class=extract>). The <CODE>.DEFAULT_GOAL</CODE> variable allows you to discover the current default goal, restart the default goal selection algorithm by clearing its value, or to explicitly set the default goal. The following example illustrates these cases: </FONT><PRE class=example><FONT class=extract>          # Query the default goal.
+          ifeq ($(.DEFAULT_GOAL),)
+            $(warning no default goal is set)
+          endif
+          
+          .PHONY: foo
+          foo: ; @echo $@
+          
+          $(warning default goal is $(.DEFAULT_GOAL))
+          
+          # Reset the default goal.
+          .DEFAULT_GOAL :=
+          
+          .PHONY: bar
+          bar: ; @echo $@
+          
+          $(warning default goal is $(.DEFAULT_GOAL))
+          
+          # Set our own.
+          .DEFAULT_GOAL := foo
+</FONT></PRE>
+<P><FONT class=extract>This makefile prints: </FONT><PRE class=example><FONT class=extract>          no default goal is set
+          default goal is foo
+          default goal is bar
+          foo
+</FONT></PRE>
+<P><FONT class=extract>Note that assigning more than one target name to <CODE>.DEFAULT_GOAL</CODE> is invalid and will result in an error. </FONT>
+<P><A name=index-MAKE_005fRESTARTS-_0040r_007b_0028number-of-times-_0040code_007bmake_007d-has-restarted_0029_007d-554><FONT class=extract></FONT></A><BR></P>
+<DT><FONT class=extract><CODE>MAKE_RESTARTS</CODE> </FONT>
+<DD><FONT class=extract>This variable is set only if this instance of <CODE>make</CODE> has restarted (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles"><FONT class=extract>How Makefiles Are Remade</FONT></A><FONT class=extract>): it will contain the number of times this instance has restarted. Note this is not the same as recursion (counted by the <CODE>MAKELEVEL</CODE> variable). You should not set, modify, or export this variable. </FONT>
+<P><A name=index-g_t_002eRECIPEPREFIX-_0040r_007b_0028change-the-recipe-prefix-character_0029_007d-555></A><BR></P>
+<DT><FONT class=extract><CODE>.RECIPEPREFIX</CODE> </FONT>
+<DD><FONT class=extract>The first character of the value of this variable is used as the character make assumes is introducing a recipe line. If the variable is empty (as it is by default) that character is the standard tab character. For example, this is a valid makefile: </FONT><PRE class=example><FONT class=extract>          .RECIPEPREFIX = &gt;
+          all:
+          &gt; @echo Hello, world
+</FONT></PRE>
+<P><FONT class=extract>The value of <CODE>.RECIPEPREFIX</CODE> can be changed multiple times; once set it stays in effect for all rules parsed until it is modified. </FONT>
+<P><A name=index-g_t_002eVARIABLES-_0040r_007b_0028list-of-variables_0029_007d-556><FONT class=extract></FONT></A><BR></P>
+<DT><FONT class=extract><CODE>.VARIABLES</CODE> </FONT>
+<DD><FONT class=extract>Expands to a list of the <EM>names</EM> of all global variables defined so far. This includes variables which have empty values, as well as built-in variables (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Implicit-Variables"><FONT class=extract>Variables Used by Implicit Rules</FONT></A><FONT class=extract>), but does not include any variables which are only defined in a target-specific context. Note that any value you assign to this variable will be ignored; it will always return its special value. <!-- @vindex .TARGETS @r{(list of targets)} --><!-- @item .TARGETS --><!-- The second special variable is @code{.TARGETS}.  When expanded, the --><!-- value consists of a list of all targets defined in all makefiles read --><!-- up until that point.  Note it's not enough for a file to be simply --><!-- mentioned in the makefile to be listed in this variable, even if it --><!-- would match an implicit rule and become an ``implicit target''.  The --><!-- file must appear as a target, on the left-hand side of a ``:'', to be --><!-- considered a target for the purposes of this variable. --></FONT>
+<P><A name=index-g_t_002eFEATURES-_0040r_007b_0028list-of-supported-features_0029_007d-557></A><BR></P>
+<DT><FONT class=extract><CODE>.FEATURES</CODE> </FONT>
+<DD><FONT class=extract>Expands to a list of special features supported by this version of <CODE>make</CODE>. Possible values include, but are not limited to: </FONT>
+<DL>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>archives</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports <CODE>ar</CODE> (archive) files using special file name syntax. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Archives"><FONT class=extract>Using <CODE>make</CODE> to Update Archive Files</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>check-symlink</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports the <CODE>-L</CODE> (<CODE>--check-symlink-times</CODE>) flag. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Options-Summary"><FONT class=extract>Summary of Options</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>else-if</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports &#8220;else if&#8221; non-nested conditionals. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Conditional-Syntax"><FONT class=extract>Syntax of Conditionals</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>jobserver</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports &#8220;job server&#8221; enhanced parallel builds. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Parallel"><FONT class=extract>Parallel Execution</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>oneshell</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports the <CODE>.ONESHELL</CODE> special target. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#One-Shell"><FONT class=extract>Using One Shell</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>order-only</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports order-only prerequisites. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Prerequisite-Types"><FONT class=extract>Types of Prerequisites</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>second-expansion</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports secondary expansion of prerequisite lists. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>shortest-stem</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Uses the &#8220;shortest stem&#8221; method of choosing which pattern, of multiple applicable options, will be used. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Pattern-Match"><FONT class=extract>How Patterns Match</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>target-specific</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports target-specific and pattern-specific variable assignments. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Target_002dspecific"><FONT class=extract>Target-specific Variable Values</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>undefine</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports the <CODE>undefine</CODE> directive. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Undefine-Directive"><FONT class=extract>Undefine Directive</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>guile</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Has GNU Guile available as an embedded extension language. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration"><FONT class=extract>GNU Guile Integration</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>load</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports dynamically loadable objects for creating custom extensions. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects"><FONT class=extract>Loading Dynamic Objects</FONT></A><FONT class=extract>. </FONT></DD></DL>
+<P><A name=index-g_t_002eINCLUDE_005fDIRS-_0040r_007b_0028list-of-include-directories_0029_007d-558><FONT class=extract></FONT></A><BR></P>
+<DT><FONT class=extract><CODE>.INCLUDE_DIRS</CODE> </FONT>
+<DD><FONT class=extract>Expands to a list of directories that <CODE>make</CODE> searches for included makefiles (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Include"><FONT class=extract>Including Other Makefiles</FONT></A><FONT class=extract>). </FONT></DD></DL>

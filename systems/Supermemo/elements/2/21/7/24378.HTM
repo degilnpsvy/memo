@@ -1,0 +1,33 @@
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 3.2. Notifier Chains and the Events They Propagate</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=250>
+<COL width=300></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Notifier Chain</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><SPAN class=docEmphStrong>Die Notifier Chain</SPAN> <TT>(die_chain)</TT></FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><TT>my_die_event_handler()</TT> attaches to the die notifier chain, <TT>die_chain</TT>, using <TT>register_die_notifier()</TT>. To trigger invocation of <TT>my_die_event_handler()</TT></FONT><A name="as the"></A><FONT class=extract>, introduce an invalid dereference somewhere in your code, such as the following: </FONT>
+<DIV class=docText><PRE><FONT class=extract>int *q = 0;
+*q = 1;</FONT></PRE></DIV><BR>
+<P class=docText><A name="this code"></A><FONT class=extract>When this code snippet is executed, <TT>my_die_event_handler()</TT> gets called, and you will see a message like this: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_die_event_handler: OOPs! at EIP=f00350e7</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><FONT class=extract>The die event notifier passes the <TT>die_args</TT></FONT><A name="to the"></A><FONT class=extract> structure to the registered event handler. This argument contains a pointer to the <TT>regs</TT></FONT><A name="which carries"></A><FONT class=extract> structure, which carries a snapshot of processor register contents when the fault occurred. <TT>my_die_event_handler()</TT></FONT><A name="contents of"></A><FONT class=extract> prints the contents of the instruction pointer register.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><A name="Notifier Chain"></A><FONT class=extract>Netdevice Notifier Chain</FONT></SPAN><FONT class=extract>(<TT>netdev_chain</TT>)</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><TT>my_dev_event_handler()</TT> attaches to the net device notifier chain, <TT>netdev_chain</TT>, using <TT>register_netdevice_notifier()</TT></FONT><A name="of a"></A><FONT class=extract>. You can generate this event by changing the state of a network interface such as Ethernet (<TT>ethX</TT>) or loopback (<TT>lo</TT>): </FONT>
+<DIV class=docText><PRE><SPAN class=docEmphStrong><FONT class=extract>bash&gt; ifconfig eth0 up</FONT></SPAN></PRE></DIV><BR>
+<P class=docText><A name=of></A><FONT class=extract>This results in the execution of <TT>my_dev_event_handler()</TT>. The handler is passed a pointer to <TT>struct net_device</TT> as argument, which contains the name of the network interface. <TT>my_dev_event_handler()</TT> uses this information to produce the following message: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_dev_event_handler: Val=1, Interface=eth0</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><FONT class=extract><TT>Val=1</TT> corresponds to the <TT>NETDEV_UP</TT> event as defined in <SPAN class=docEmphasis>include/linux/notifier.h</SPAN>.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>User-Defined Notifier Chain</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06"><FONT class=extract>Listing 3.6</FONT></A><FONT class=extract> also implements a user-defined notifier chain, <TT>my_noti_chain</TT></FONT><A name="whenever a"></A><FONT class=extract>. Assume that you want an event to be generated whenever a user reads from a particular file in the process filesystem. Add the following in the associated procfs <TT>read</TT> routine: </FONT>
+<DIV class=docText><PRE><FONT class=extract>blocking_notifier_call_chain(&amp;my_noti_chain, 100, NULL);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>This results in the invocation of <TT>my_event_handler()</TT> whenever you read from the corresponding <SPAN class=docEmphasis>/proc</SPAN> file and results in the following message: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_event_handler: Val=100</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><TT><FONT class=extract>Val</FONT></TT><A name="which is"></A><FONT class=extract> contains the identity of the generated event, which is <TT>100</TT> for this example. The function argument is left unused.</FONT></TD></TR></TBODY></TABLE>

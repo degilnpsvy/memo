@@ -1,0 +1,696 @@
+<H1><A name=HERE-DOCS></A>Chapter 19. Here Documents</H1>
+<TABLE class=EPIGRAPH border=0 cellSpacing=0 cellPadding=0 width="100%">
+<TBODY>
+<TR>
+<TD width="45%">&nbsp;</TD>
+<TD vAlign=top width="45%" align=left><I>
+<P><I>Here and now, boys.</I></P>
+<P><I>--Aldous Huxley, <I class=FIRSTTERM>Island</I></I></P></I></TD></TR></TBODY></TABLE>
+<P><A name=HEREDOCREF></A></P>
+<P>A <I class=FIRSTTERM>here document</I> is a special-purpose code block. It uses a form of <A href="http://tldp.org/LDP/abs/html/abs-guide.html#IOREDIRREF">I/O redirection</A> to feed a command list to an interactive program or a command, such as <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTPREF">ftp</A>, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CATREF">cat</A>, or the <I class=FIRSTTERM>ex</I> text editor.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>COMMAND &lt;&lt;InputComesFromHERE
+...
+...
+...
+InputComesFromHERE</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=LIMITSTRINGREF></A></P>
+<P>A <I class=FIRSTTERM>limit string</I> delineates (frames) the command list. The special symbol <SPAN class=TOKEN>&lt;&lt;</SPAN> precedes the limit string. This has the effect of redirecting the output of a command block into the <TT class=FILENAME>stdin</TT> of the program or command. It is similar to <TT class=USERINPUT><B>interactive-program &lt; command-file</B></TT>, where <TT class=FILENAME>command-file</TT> contains 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>command #1
+command #2
+...</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>The <I class=FIRSTTERM>here document</I> equivalent looks like this: 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>interactive-program &lt;&lt;LimitString
+command #1
+command #2
+...
+LimitString</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Choose a <I class=FIRSTTERM>limit string</I> sufficiently unusual that it will not occur anywhere in the command list and confuse matters.</P>
+<P>Note that <I class=FIRSTTERM>here documents</I> may sometimes be used to good effect with non-interactive utilities and commands, such as, for example, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#WALLREF">wall</A>.</P>
+<DIV class=EXAMPLE><A name=EX70></A>
+<P><B>Example 19-1. <I class=FIRSTTERM>broadcast</I>: Sends message to everyone logged in</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+wall &lt;&lt;zzz23EndOfMessagezzz23
+E-mail your noontime orders for pizza to the system administrator.
+    (Add an extra dollar for anchovy or mushroom topping.)
+# Additional message text goes here.
+# Note: 'wall' prints comment lines.
+zzz23EndOfMessagezzz23
+
+# Could have been done more efficiently by
+#         wall &lt;message-file
+#  However, embedding the message template in a script
+#+ is a quick-and-dirty one-off solution.
+
+exit</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=VIHERE></A></P>
+<P>Even such unlikely candidates as the <I class=FIRSTTERM>vi</I> text editor lend themselves to <I class=FIRSTTERM>here documents</I>.</P>
+<DIV class=EXAMPLE><A name=EX69></A>
+<P><B>Example 19-2. <I class=FIRSTTERM>dummyfile</I>: Creates a 2-line dummy file</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+# Noninteractive use of 'vi' to edit a file.
+# Emulates 'sed'.
+
+E_BADARGS=85
+
+if [ -z "$1" ]
+then
+  echo "Usage: `basename $0` filename"
+  exit $E_BADARGS
+fi
+
+TARGETFILE=$1
+
+# Insert 2 lines in file, then save.
+#--------Begin here document-----------#
+vi $TARGETFILE &lt;&lt;x23LimitStringx23
+i
+This is line 1 of the example file.
+This is line 2 of the example file.
+^[
+ZZ
+x23LimitStringx23
+#----------End here document-----------#
+
+#  Note that ^[ above is a literal escape
+#+ typed by Control-V &lt;Esc&gt;.
+
+#  Bram Moolenaar points out that this may not work with 'vim'
+#+ because of possible problems with terminal interaction.
+
+exit</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>The above script could just as effectively have been implemented with <B class=COMMAND>ex</B>, rather than <B class=COMMAND>vi</B>. <A name=EXSCRIPTREF></A><I class=FIRSTTERM>Here documents</I> containing a list of <B class=COMMAND>ex</B> commands are common enough to form their own category, known as <I class=FIRSTTERM>ex scripts</I>. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+#  Replace all instances of "Smith" with "Jones"
+#+ in files with a ".txt" filename suffix. 
+
+ORIGINAL=Smith
+REPLACEMENT=Jones
+
+for word in $(fgrep -l $ORIGINAL *.txt)
+do
+  # -------------------------------------
+  ex $word &lt;&lt;EOF
+  :%s/$ORIGINAL/$REPLACEMENT/g
+  :wq
+EOF
+  # :%s is the "ex" substitution command.
+  # :wq is write-and-quit.
+  # -------------------------------------
+done</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=CATSCRIPTREF></A></P>
+<P>Analogous to <SPAN class=QUOTE>"ex scripts"</SPAN> are <I class=FIRSTTERM>cat scripts</I>.</P>
+<DIV class=EXAMPLE><A name=EX71></A>
+<P><B>Example 19-3. Multi-line message using <I class=FIRSTTERM>cat</I></B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+#  'echo' is fine for printing single line messages,
+#+  but somewhat problematic for for message blocks.
+#   A 'cat' here document overcomes this limitation.
+
+cat &lt;&lt;End-of-message
+-------------------------------------
+This is line 1 of the message.
+This is line 2 of the message.
+This is line 3 of the message.
+This is line 4 of the message.
+This is the last line of the message.
+-------------------------------------
+End-of-message
+
+#  Replacing line 7, above, with
+#+   cat &gt; $Newfile &lt;&lt;End-of-message
+#+       ^^^^^^^^^^
+#+ writes the output to the file $Newfile, rather than to stdout.
+
+exit 0
+
+
+#--------------------------------------------
+# Code below disabled, due to "exit 0" above.
+
+# S.C. points out that the following also works.
+echo "-------------------------------------
+This is line 1 of the message.
+This is line 2 of the message.
+This is line 3 of the message.
+This is line 4 of the message.
+This is the last line of the message.
+-------------------------------------"
+# However, text may not include double quotes unless they are escaped.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=LIMITSTRDASH></A></P>
+<P>The <TT class=OPTION>-</TT> option to mark a here document limit string (<TT class=USERINPUT><B>&lt;&lt;-LimitString</B></TT>) suppresses leading tabs (but not spaces) in the output. This may be useful in making a script more readable.</P>
+<DIV class=EXAMPLE><A name=EX71A></A>
+<P><B>Example 19-4. Multi-line message, with tabs suppressed</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# Same as previous example, but...
+
+#  The - option to a here document &lt;&lt;-
+#+ suppresses leading tabs in the body of the document,
+#+ but *not* spaces.
+
+cat &lt;&lt;-ENDOFMESSAGE
+	This is line 1 of the message.
+	This is line 2 of the message.
+	This is line 3 of the message.
+	This is line 4 of the message.
+	This is the last line of the message.
+ENDOFMESSAGE
+# The output of the script will be flush left.
+# Leading tab in each line will not show.
+
+# Above 5 lines of "message" prefaced by a tab, not spaces.
+# Spaces not affected by   &lt;&lt;-  .
+
+# Note that this option has no effect on *embedded* tabs.
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=HEREPASSP></A></P>
+<P>A <I class=FIRSTTERM>here document</I> supports parameter and command substitution. It is therefore possible to pass different parameters to the body of the here document, changing its output accordingly.</P>
+<DIV class=EXAMPLE><A name=EX71B></A>
+<P><B>Example 19-5. Here document with replaceable parameters</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# Another 'cat' here document, using parameter substitution.
+
+# Try it with no command-line parameters,   ./scriptname
+# Try it with one command-line parameter,   ./scriptname Mortimer
+# Try it with one two-word quoted command-line parameter,
+#                           ./scriptname "Mortimer Jones"
+
+CMDLINEPARAM=1     #  Expect at least command-line parameter.
+
+if [ $# -ge $CMDLINEPARAM ]
+then
+  NAME=$1          #  If more than one command-line param,
+                   #+ then just take the first.
+else
+  NAME="John Doe"  #  Default, if no command-line parameter.
+fi  
+
+RESPONDENT="the author of this fine script"  
+  
+
+cat &lt;&lt;Endofmessage
+
+Hello, there, $NAME.
+Greetings to you, $NAME, from $RESPONDENT.
+
+# This comment shows up in the output (why?).
+
+Endofmessage
+
+# Note that the blank lines show up in the output.
+# So does the comment.
+
+exit</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=HEREPARAMSUB></A></P>
+<P>This is a useful script containing a <I class=FIRSTTERM>here document</I> with parameter substitution.</P>
+<DIV class=EXAMPLE><A name=EX72></A>
+<P><B>Example 19-6. Upload a file pair to <I class=FIRSTTERM>Sunsite</I> incoming directory</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# upload.sh
+
+#  Upload file pair (Filename.lsm, Filename.tar.gz)
+#+ to incoming directory at Sunsite/UNC (ibiblio.org).
+#  Filename.tar.gz is the tarball itself.
+#  Filename.lsm is the descriptor file.
+#  Sunsite requires "lsm" file, otherwise will bounce contributions.
+
+
+E_ARGERROR=85
+
+if [ -z "$1" ]
+then
+  echo "Usage: `basename $0` Filename-to-upload"
+  exit $E_ARGERROR
+fi  
+
+
+Filename=`basename $1`           # Strips pathname out of file name.
+
+Server="ibiblio.org"
+Directory="/incoming/Linux"
+#  These need not be hard-coded into script,
+#+ but may instead be changed to command-line argument.
+
+Password="your.e-mail.address"   # Change above to suit.
+
+ftp -n $Server &lt;&lt;End-Of-Session
+# -n option disables auto-logon
+
+user anonymous "$Password"       #  If this doesn't work, then try:
+                                 #  quote user anonymous "$Password"
+binary
+bell                             # Ring 'bell' after each file transfer.
+cd $Directory
+put "$Filename.lsm"
+put "$Filename.tar.gz"
+bye
+End-Of-Session
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=HEREESC></A></P>
+<P>Quoting or escaping the <SPAN class=QUOTE>"limit string"</SPAN> at the head of a here document disables parameter substitution within its body. The reason for this is that <I class=FIRSTTERM>quoting/escaping the limit string</I> effectively <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ESCP">escapes</A> the <SPAN class=TOKEN>$</SPAN>, <SPAN class=TOKEN>`</SPAN>, and <SPAN class=TOKEN>\</SPAN> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SCHARLIST">special characters</A>, and causes them to be interpreted literally. (Thank you, Allen Halsey, for pointing this out.)</P>
+<DIV class=EXAMPLE><A name=EX71C></A>
+<P><B>Example 19-7. Parameter substitution turned off</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+#  A 'cat' here-document, but with parameter substitution disabled.
+
+NAME="John Doe"
+RESPONDENT="the author of this fine script"  
+
+cat &lt;&lt;'Endofmessage'
+
+Hello, there, $NAME.
+Greetings to you, $NAME, from $RESPONDENT.
+
+Endofmessage
+
+#   No parameter substitution when the "limit string" is quoted or escaped.
+#   Either of the following at the head of the here document would have
+#+  the same effect.
+#   cat &lt;&lt;"Endofmessage"
+#   cat &lt;&lt;\Endofmessage
+
+
+
+#   And, likewise:
+
+cat &lt;&lt;"SpecialCharTest"
+
+Directory listing would follow
+if limit string were not quoted.
+`ls -l`
+
+Arithmetic expansion would take place
+if limit string were not quoted.
+$((5 + 3))
+
+A a single backslash would echo
+if limit string were not quoted.
+\\
+
+SpecialCharTest
+
+
+exit</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=HERELIT></A></P>
+<P>Disabling parameter substitution permits outputting literal text. Generating scripts or even program code is one use for this.</P>
+<DIV class=EXAMPLE><A name=GENERATESCRIPT></A>
+<P><B>Example 19-8. A script that generates another script</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# generate-script.sh
+# Based on an idea by Albert Reiner.
+
+OUTFILE=generated.sh         # Name of the file to generate.
+
+
+# -----------------------------------------------------------
+# 'Here document containing the body of the generated script.
+(
+cat &lt;&lt;'EOF'
+#!/bin/bash
+
+echo "This is a generated shell script."
+#  Note that since we are inside a subshell,
+#+ we can't access variables in the "outside" script.
+
+echo "Generated file will be named: $OUTFILE"
+#  Above line will not work as normally expected
+#+ because parameter expansion has been disabled.
+#  Instead, the result is literal output.
+
+a=7
+b=3
+
+let "c = $a * $b"
+echo "c = $c"
+
+exit 0
+EOF
+) &gt; $OUTFILE
+# -----------------------------------------------------------
+
+#  Quoting the 'limit string' prevents variable expansion
+#+ within the body of the above 'here document.'
+#  This permits outputting literal strings in the output file.
+
+if [ -f "$OUTFILE" ]
+then
+  chmod 755 $OUTFILE
+  # Make the generated file executable.
+else
+  echo "Problem in creating file: \"$OUTFILE\""
+fi
+
+#  This method also works for generating
+#+ C programs, Perl programs, Python programs, Makefiles,
+#+ and the like.
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=HERECS></A></P>
+<P>It is possible to set a variable from the output of a here document. This is actually a devious form of <A href="http://tldp.org/LDP/abs/html/abs-guide.html#COMMANDSUBREF">command substitution</A>. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>variable=$(cat &lt;&lt;SETVAR
+This variable
+runs over multiple lines.
+SETVAR
+)
+
+echo "$variable"</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=HEREFUNC></A></P>
+<P>A here document can supply input to a function in the same script.</P>
+<DIV class=EXAMPLE><A name=HF></A>
+<P><B>Example 19-9. Here documents and functions</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# here-function.sh
+
+GetPersonalData ()
+{
+  read firstname
+  read lastname
+  read address
+  read city 
+  read state 
+  read zipcode
+} # This certainly appears to be an interactive function, but . . .
+
+
+# Supply input to the above function.
+GetPersonalData &lt;&lt;RECORD001
+Bozo
+Bozeman
+2726 Nondescript Dr.
+Bozeman
+MT
+21226
+RECORD001
+
+
+echo
+echo "$firstname $lastname"
+echo "$address"
+echo "$city, $state $zipcode"
+echo
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=ANONHEREDOC0></A></P>
+<P>It is possible to use <SPAN class=TOKEN>:</SPAN> as a dummy command accepting output from a here document. This, in effect, creates an <SPAN class=QUOTE>"anonymous"</SPAN> here document.</P>
+<DIV class=EXAMPLE><A name=ANONHEREDOC></A>
+<P><B>Example 19-10. <SPAN class=QUOTE>"Anonymous"</SPAN> Here Document</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+: &lt;&lt;TESTVARIABLES
+${HOSTNAME?}${USER?}${MAIL?}  # Print error message if one of the variables not set.
+TESTVARIABLES
+
+exit $?</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=CBLOCK1></A></P>
+<DIV class=TIP>
+<P></P>
+<TABLE class=TIP border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Tip src="http://tldp.org/LDP/abs/images/tip.gif"></TD>
+<TD vAlign=top align=left>
+<P>A variation of the above technique permits <SPAN class=QUOTE>"commenting out"</SPAN> blocks of code.</P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=EXAMPLE><A name=COMMENTBLOCK></A>
+<P><B>Example 19-11. Commenting out a block of code</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# commentblock.sh
+
+: &lt;&lt;COMMENTBLOCK
+echo "This line will not echo."
+This is a comment line missing the "#" prefix.
+This is another comment line missing the "#" prefix.
+
+&amp;*@!!++=
+The above line will cause no error message,
+because the Bash interpreter will ignore it.
+COMMENTBLOCK
+
+echo "Exit value of above \"COMMENTBLOCK\" is $?."   # 0
+# No error shown.
+echo
+
+
+#  The above technique also comes in useful for commenting out
+#+ a block of working code for debugging purposes.
+#  This saves having to put a "#" at the beginning of each line,
+#+ then having to go back and delete each "#" later.
+#  Note that the use of of colon, above, is optional.
+
+echo "Just before commented-out code block."
+#  The lines of code between the double-dashed lines will not execute.
+#  ===================================================================
+: &lt;&lt;DEBUGXXX
+for file in *
+do
+ cat "$file"
+done
+DEBUGXXX
+#  ===================================================================
+echo "Just after commented-out code block."
+
+exit 0
+
+
+
+######################################################################
+#  Note, however, that if a bracketed variable is contained within
+#+ the commented-out code block,
+#+ then this could cause problems.
+#  for example:
+
+
+#/!/bin/bash
+
+  : &lt;&lt;COMMENTBLOCK
+  echo "This line will not echo."
+  &amp;*@!!++=
+  ${foo_bar_bazz?}
+  $(rm -rf /tmp/foobar/)
+  $(touch my_build_directory/cups/Makefile)
+COMMENTBLOCK
+
+
+$ sh commented-bad.sh
+commented-bad.sh: line 3: foo_bar_bazz: parameter null or not set
+
+# The remedy for this is to strong-quote the 'COMMENTBLOCK' in line 49, above.
+
+  : &lt;&lt;'COMMENTBLOCK'
+
+# Thank you, Kurt Pfeifle, for pointing this out.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=HSELFDOC></A></P>
+<DIV class=TIP>
+<P></P>
+<TABLE class=TIP border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Tip src="http://tldp.org/LDP/abs/images/tip.gif"></TD>
+<TD vAlign=top align=left>
+<P>Yet another twist of this nifty trick makes <SPAN class=QUOTE>"self-documenting"</SPAN> scripts possible.</P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=EXAMPLE><A name=SELFDOCUMENT></A>
+<P><B>Example 19-12. A self-documenting script</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# self-document.sh: self-documenting script
+# Modification of "colm.sh".
+
+DOC_REQUEST=70
+
+if [ "$1" = "-h"  -o "$1" = "--help" ]     # Request help.
+then
+  echo; echo "Usage: $0 [directory-name]"; echo
+  sed --silent -e '/DOCUMENTATIONXX$/,/^DOCUMENTATIONXX$/p' "$0" |
+  sed -e '/DOCUMENTATIONXX$/d'; exit $DOC_REQUEST; fi
+
+
+: &lt;&lt;DOCUMENTATIONXX
+List the statistics of a specified directory in tabular format.
+---------------------------------------------------------------
+The command-line parameter gives the directory to be listed.
+If no directory specified or directory specified cannot be read,
+then list the current working directory.
+
+DOCUMENTATIONXX
+
+if [ -z "$1" -o ! -r "$1" ]
+then
+  directory=.
+else
+  directory="$1"
+fi  
+
+echo "Listing of "$directory":"; echo
+(printf "PERMISSIONS LINKS OWNER GROUP SIZE MONTH DAY HH:MM PROG-NAME\n" \
+; ls -l "$directory" | sed 1d) | column -t
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Using a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CATSCRIPTREF">cat script</A> is an alternate way of accomplishing this.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>DOC_REQUEST=70
+
+if [ "$1" = "-h"  -o "$1" = "--help" ]     # Request help.
+then                                       # Use a "cat script" . . .
+  cat &lt;&lt;DOCUMENTATIONXX
+List the statistics of a specified directory in tabular format.
+---------------------------------------------------------------
+The command-line parameter gives the directory to be listed.
+If no directory specified or directory specified cannot be read,
+then list the current working directory.
+
+DOCUMENTATIONXX
+exit $DOC_REQUEST
+fi</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>See also <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ISSPAMMER2">Example A-28</A>, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PETALS">Example A-40</A>, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#QKY">Example A-41</A>, and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#NIM">Example A-42</A> for more examples of self-documenting scripts.</P>
+<P><A name=HERETEMP></A></P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>Here documents create temporary files, but these files are deleted after opening and are not accessible to any other process.</P>
+<P>
+<TABLE border=1 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>bash -c 'lsof -a -p $$ -d0' &lt;&lt; EOF</B></TT>
+<TT class=PROMPT>&gt; </TT><TT class=USERINPUT><B>EOF</B></TT>
+<TT class=COMPUTEROUTPUT>lsof    1213 bozo    0r   REG    3,5    0 30386 /tmp/t1213-0-sh (deleted)</TT>
+	      </PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P>Some utilities will not work inside a <I class=FIRSTTERM>here document</I>.</P></TD></TR></TBODY></TABLE></DIV>
+<P><A name=INDENTEDLS></A></P>
+<DIV class=WARNING>
+<P></P>
+<TABLE class=WARNING border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Warning src="http://tldp.org/LDP/abs/images/warning.gif"></TD>
+<TD vAlign=top align=left>
+<P>The closing <I class=FIRSTTERM>limit string</I>, on the final line of a here document, must start in the <EM>first</EM> character position. There can be <EM>no leading whitespace</EM>. Trailing whitespace after the limit string likewise causes unexpected behavior. The whitespace prevents the limit string from being recognized. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN17822" name=AEN17822><SPAN class=footnote>[103]</SPAN></A> </P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+echo "----------------------------------------------------------------------"
+
+cat &lt;&lt;LimitString
+echo "This is line 1 of the message inside the here document."
+echo "This is line 2 of the message inside the here document."
+echo "This is the final line of the message inside the here document."
+     LimitString
+#^^^^Indented limit string. Error! This script will not behave as expected.
+
+echo "----------------------------------------------------------------------"
+
+#  These comments are outside the 'here document',
+#+ and should not echo.
+
+echo "Outside the here document."
+
+exit 0
+
+echo "This line had better not echo."  # Follows an 'exit' command.</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P><A name=EXCLLS></A>Some people very cleverly use a single <SPAN class=TOKEN>!</SPAN> as a limit string. But, that's not necessarily a good idea.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># This works.
+cat &lt;&lt;!
+Hello!
+! Three more exclamations !!!
+!
+
+
+# But . . .
+cat &lt;&lt;!
+Hello!
+Single exclamation point follows!
+!
+!
+# Crashes with an error message.
+
+
+# However, the following will work.
+cat &lt;&lt;EOF
+Hello!
+Single exclamation point follows!
+!
+EOF
+# It's safer to use a multi-character limit string.</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<P>For those tasks too complex for a <I class=FIRSTTERM>here document</I>, consider using the <TT class=REPLACEABLE><I>expect</I></TT> scripting language, which was specifically designed for feeding input into interactive programs.

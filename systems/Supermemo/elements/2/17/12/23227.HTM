@@ -1,0 +1,240 @@
+<H3 id=title-IDAVXCZD class=docSection1Title>4.2. Linux Kernel Construction</H3>
+<P class=docText>In the next few sections, we explore the layout, organization, and construction of the Linux kernel. Armed with this knowledge, you will find it much easier to navigate this large, complex source code base. Over time, there have been significant improvements in the organization of the source tree, especially in the architecture branch, which contains support for numerous architectures and specific machines. As this book is being written, an effort is underway to collapse the <TT>ppc</TT> and <TT>ppc64</TT> architecture branches into a single common <TT>powerpc</TT> branch. When the dust settles, there will be many improvements, including elimination of duplicate code, better organization of files, and partitioning of functionality.</P><A name=ch04lev2sec3></A>
+<H4 id=title-IDAKYCZD class=docSection2Title>4.2.1. Top-Level Source Directory</H4>
+<P class=docText>We make frequent reference to the <SPAN class=docEmphasis>top-level source directory</SPAN> throughout the book. In every case, we are referring to the highest-level directory contained in the kernel source tree. On any given machine, it might be located anywhere, but on a desktop Linux workstation, it is often found in <TT>/usr/src/linux-x.y.z</TT>, where <TT>x.y.z</TT> represents the kernel version. Throughout the book, we use the shorthand <TT>.../</TT> to represent the top-level kernel source directory.</P>
+<P class=docText>The top-level kernel source directory contains the following subdirectories. (We have omitted the nondirectory entries in this listing, as well as directories used for source control for clarity and brevity.)</P>
+<DIV class=docText><PRE>arch    crypto   Documentation   drivers fs     include
+init    ipc      kernel  lib     mm      net
+scripts security sound   usr</PRE></DIV><BR>
+<P class=docText>Many of these subdirectories contain several additional levels of subdirectories containing source code, makefiles, and configuration files. By far the largest branch of the Linux kernel source tree is found under <TT>.../drivers.</TT> Here you can find support for Ethernet network cards, USB controllers, and the numerous hardware devices that the Linux kernel supports. As you might imagine, the <TT>.../arch</TT> subdirectory is the next largest, containing support for more than 20 unique processor architectures.</P>
+<P class=docText><A name=iddle1141></A><A name=iddle1206></A><A name=iddle1761></A>Additional files found in the top-level Linux subdirectory include the top-level makefile, a hidden configuration file (<SPAN class=docEmphasis>dot-config</SPAN>, introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04lev2sec8">Section 4.3.1</A>, "The Dot-Config") and various other informational files not involved in the build itself. Finally, two important build targets are found in the top-level kernel source tree after a successful build: <TT>System.map</TT> and the kernel proper, <TT>vmlinux.</TT> Both are described shortly.</P><A name=ch04lev2sec4></A>
+<H4 id=title-IDAA1CZD class=docSection2Title>4.2.2. Compiling the Kernel</H4>
+<P class=docText>Understanding a large body of software such as Linux can be a daunting task. It is too large to simply "step through" the code to follow what is happening. Multithreading and preemption add to the complexity of analysis. In fact, even locating the entry point (the first line of code to be executed upon entry to the kernel) can be challenging. One of the more useful ways to understand the structure of a large binary image is to examine its built components.</P>
+<P class=docText>The output of the kernel build system produces several common files, as well as one or more architecture-specific binary modules. Common files are always built regardless of the architecture. Two of the common files are <TT>System.map</TT> and <TT>vmlinux</TT>, introduced earlier. The former is useful during kernel debug and is particularly interesting. It contains a human-readable list of the kernel symbols and their respective addresses. The latter is an architecture-specific <SPAN class=docEmphasis>ELF</SPAN><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04fn03">[3]</A></SUP> file in executable format. It is produced by the top-level kernel makefile for every architecture. If the kernel was compiled with symbolic debug information, it will be contained in the <TT>vmlinux</TT> image. In practice, although it is an ELF executable, this file is usually <SPAN class=docEmphasis>never</SPAN> booted directly, as you will see shortly.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn03>[3]</A></SUP> Executable and Linking Format, a de-facto standard format for binary executable files.</P></BLOCKQUOTE>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list02">Listing 4-2</A> is a snippet of output resulting from executing <TT>make</TT> in a recent kernel tree configured for the ARM XScale architecture. The kernel source tree was configured for the ADI Engineering Coyote reference board based on the Intel IXP425 network processor using the following command:</P>
+<DIV class=docText><PRE>make ARCH=arm CROSS_COMPILE=xscale_be- ixp4xx_defconfig</PRE></DIV><BR>
+<P class=docText>This command does not build the kernel; it prepares the kernel source tree for the XScale architecture including an initial default configuration for this architecture and processor. It builds a default configuration (the dot-config file) that drives <A name=iddle1943></A>the kernel build, based on the defaults found in the <TT>ixp4xx_defconfig</TT> file. We have more to say about the configuration process later, in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec3.html#ch04lev1sec3">Section 4.3</A>, "Kernel Build System."</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list02">Listing 4-2</A> shows the command that builds the kernel. Only the first few and last few lines of the build output are shown for this discussion.</P><A name=ch04list02></A>
+<H5 id=title-IDAR3CZD class=docExampleTitle>Listing 4-2. Kernel Build Output</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>make ARCH=arm CROSS_COMPILE=xscale_be- zImage</SPAN>
+      CHK      include/linux/version.h
+      HOSTCC   scripts/basic/fixdep
+      .
+      . &lt;hundreds of lines of output omitted here&gt;
+      .
+      LD       vmlinux
+      SYSMAP   System.map
+      SYSMAP   .tmp_System.map
+      OBJCOPY  arch/arm/boot/Image
+      Kernel:  arch/arm/boot/Image is ready
+      AS       arch/arm/boot/compressed/head.o
+      GZIP     arch/arm/boot/compressed/piggy.gz
+      AS       arch/arm/boot/compressed/piggy.o
+      CC       arch/arm/boot/compressed/misc.o
+      AS       arch/arm/boot/compressed/head-xscale.o
+      AS       arch/arm/boot/compressed/big-endian.o
+      LD       arch/arm/boot/compressed/vmlinux
+      OBJCOPY  arch/arm/boot/zImage
+      Kernel:  arch/arm/boot/zImage is ready
+      Building modules, stage 2.
+      ...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>To begin, notice the invocation of the build. Both the desired architecture (<TT>ARCH=arm</TT>) and the toolchain (<TT>CROSS_COMPILE=xscale_be-</TT>) were specified on the command line. This forces <TT>make</TT> to use the XScale toolchain to build the kernel image and to use the arm-specific branch of the kernel source tree for architecture-dependent portions of the build. We also specify a target called <SPAN class=docEmphasis>zImage</SPAN>. This target is common to many architectures and is described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, "Kernel Initialization."</P>
+<P class=docText>The next thing you might notice is that the actual commands used for each step have been hidden and replaced with a shorthand notation. The motivation behind this was to clean up the build output to draw more attention to intermediate build <A name=iddle1602></A><A name=iddle1764></A><A name=iddle1795></A><A name=iddle2617></A>issues, particularly compiler warnings. In earlier kernel source trees, each compilation or link command was output to the console verbosely, which often required several lines for each step. The end result was virtually unreadable, and compiler warnings slipped by unnoticed in the noise. The new system is definitely an improvement because any anomaly in the build process is easily spotted. If you want or need to see the complete build step, you can force verbose output by defining <TT>V=1</TT> on the <TT>make</TT> command line.</P>
+<P class=docText>We have omitted most of the actual compilation and link steps in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list02">Listing 4-2</A>, for clarity. (This particular build has more than 900 individual compile and link commands in the build. That would have made for a long listing, indeed.) After all the intermediate files and library archives have been built and compiled, they are put together in one large ELF build target called <TT>vmlinux</TT>. Although it is architecture specific, this <TT>vmlinux</TT> target is a common targetit is produced for all supported Linux architectures.</P><A name=ch04lev2sec5></A>
+<H4 id=title-IDA4ADZD class=docSection2Title>4.2.3. The Kernel Proper: vmlinux</H4>
+<P class=docText>Notice this line in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list02">Listing 4-2</A>:</P>
+<DIV class=docText><PRE>LD /arch/arm/boot/compressed/vmlinux</PRE></DIV><BR>
+<P class=docText>The <TT>vmlinux</TT> file is the actual <SPAN class=docEmphasis>kernel proper</SPAN>. It is a fully stand-alone, monolithic image. No unresolved external references exist within the <TT>vmlinux</TT> binary. When caused to execute in the proper context (by a bootloader designed to boot the Linux kernel), it boots the board on which it is running, leaving a completely functional kernel.</P>
+<P class=docText>In keeping with the philosophy that to understand a system one must first understand its parts, let's look at the construction of the <TT>vmlinux</TT> kernel object.<A name=iddle1955></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list03">Listing 4-3</A> reproduces the actual link stage of the build process that resulted in the <TT>vmlinux</TT> ELF object. We have formatted it with line breaks (indicated by the UNIX line-continuation character, '\') to make it more readable, but otherwise it is the exact output produced by the <TT>vmlinux</TT> link step in the build process from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list02">Listing 4-2</A>. If you were building the kernel by hand, this is the link command you would issue from the command line.</P><A name=ch04list03></A>
+<H5 id=title-IDAEDDZD class=docExampleTitle>Listing 4-3. Link Stage: vmlinux</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>xscale_be-ld -EB  -p --no-undefined -X -o vmlinux    \
+-T arch/arm/kernel/vmlinux.lds                       \
+arch/arm/kernel/head.o                               \
+arch/arm/kernel/init_task.o                          \
+init/built-in.o                                      \
+--start-group                                        \
+usr/built-in.o                                       \
+arch/arm/kernel/built-in.o                           \
+arch/arm/mm/built-in.o                               \
+arch/arm/common/built-in.o                           \
+arch/arm/mach-ixp4xx/built-in.o                      \
+arch/arm/nwfpe/built-in.o                            \
+kernel/built-in.o                                    \
+mm/built-in.o                                        \
+fs/built-in.o                                        \
+ipc/built-in.o                                       \
+security/built-in.o                                  \
+crypto/built-in.o                                    \
+lib/lib.a                                            \
+arch/arm/lib/lib.a                                   \
+lib/built-in.o                                       \
+arch/arm/lib/built-in.o                              \
+drivers/built-in.o                                   \
+sound/built-in.o                                     \
+net/built-in.o                                       \
+--end-group                                          \
+.tmp_kallsyms2.o</PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch04lev2sec6></A>
+<H4 id=title-IDAXDDZD class=docSection2Title>4.2.4. Kernel Image Components</H4>
+<P class=docText><A name=iddle1796></A><A name=iddle1823></A><A name=iddle2618></A>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list03">Listing 4-3</A>, you can see that the <TT>vmlinux</TT> image consists of several composite binary images. Right now, it is not important to understand the purpose of each component. What is important is to understand the top-level view of what components make up the kernel. The first line of the link command in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list03">Listing 4-3</A> specifies the output file (<TT>-o vmlinux</TT>.) The second line specifies the <SPAN class=docEmphasis>linker script</SPAN> file (<TT>-T vmlinux.lds</TT>), a detailed recipe for how the kernel binary image should be linked. <SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04fn04">[4]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn04>[4]</A></SUP> The linker script file has a peculiar syntax. The details can be found in the documentation for the GNU linker.</P></BLOCKQUOTE>
+<P class=docText>The third and subsequent lines from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list03">Listing 4-3</A> specify the object modules that form the resulting binary image. Notice that the first object specified is <TT>head.o</TT>. This object was assembled from <TT>/arch/arm/kernel/head.S</TT>, an architecture-specific assembly language source file that performs very low-level kernel initialization. If you were searching for the first line of code to be executed by the kernel, it would make sense to start your search here because it will ultimately be the first code found in the binary image created by this link stage. We examine kernel initialization in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>.</P>
+<P class=docText>The next object, <TT>init_task.o</TT>, sets up initial thread and task structures that the kernel requires. Following this is a large collection of object modules, each having a common name: <TT>built-in.o</TT>. You will notice, however, that each <TT>built-in.o</TT> object comes from a specific part of the kernel source tree, as indicated by the path component preceding the <TT>built-in.o</TT> object name. These are the binary objects that are included in the kernel image. An illustration might make this clearer.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04fig01">Figure 4-1</A> illustrates the binary makeup of the <TT>vmlinux</TT> image. It contains a section for each line of the link stage. It's not to scale because of space considerations, but you can see the relative sizes of each functional component.</P><A name=ch04fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 4-1. vmlinux image components</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/04elp01.jpg" width=500 height=603></P></CENTER>
+<P></P><BR>
+<P class=docText>It might come as no surprise that the three largest binary components are the file system code, the network code, and all the built-in drivers. If you take the kernel code and the architecture-specific kernel code together, this is the next-largest binary component. Here you find the scheduler, process and thread management, timer management, and other core kernel functionality. Naturally, the kernel contains some architecture-specific functionality, such as low-level context switching, hardware-level interrupt and timer processing, processor exception handling, and more. This is found in <TT>.../arch/arm/kernel</TT>.</P>
+<P class=docText>Bear in mind that we are looking at a specific example of a kernel build. In this particular example, we are building a kernel specific to the ARM XScale architecture and, more specifically, the Intel IXP425 network processor on the ADI Engineering reference board. You can see the machine-specific binary components in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04fig01">Figure 4-1</A> as <TT>arch/arm/mach-ixp4xx</TT>. Each architecture and machine type (processor/reference board) has different elements in the architecture-specific portions of the kernel, so the makeup of the <TT>vmlinux</TT> image is slightly different. When you understand one example, you will find it easy to navigate others.</P>
+<P class=docText>To help you understand the breakdown of functionality in the kernel source tree, <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04table01">Table 4-1</A> lists each component in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04fig01">Figure 4-1</A>, together with a short description of each binary element that makes up the <TT>vmlinux</TT> image.</P><A name=ch04table01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 4-1. vmlinux Image Components Description</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=225>
+<COL width=300></COLGROUP>
+<THEAD>
+<TR>
+<TH class="bottomBorder thead" vAlign=top scope=col align=left>
+<P class=docText>Component</P></TH>
+<TH class="bottomBorder thead" vAlign=top scope=col align=left>
+<P class=docText>Description</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>arch/arm/kernel/head.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Kernel architecture-specific startup code.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>init_task.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Initial thread and task structs required by kernel.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>init/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Main kernel-initialization code. See <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>usr/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Built-in <TT>initramfs</TT> image. See <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>arch/arm/kernel/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Architecture-specific kernel code.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>arch/arm/mm/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Architecture-specific memory-management code.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>arch/arm/common/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Architecture-specific generic code. Varies by architecture.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>arch/arm/mach-ixp4xx/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Machine-specific code, usually initialization.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>arch/arm/nwfpe/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Architecture-specific floating point-emulation code.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>kernel/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Common components of the kernel itself.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>mm/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Common components of memory-management code.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>ipc/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Interprocess communications, such as SysV IPC.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>security/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Linux security components.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>lib/lib.a</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Archive of miscellaneous helper functions.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>arch/arm/lib/lib.a</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Architecture-specific common facilities. Varies by architecture.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>lib/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Common kernel helper functions.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>drivers/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>All the built-in driversnot loadable modules.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>sound/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Sound drivers.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>net/built-in.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Linux networking.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>.tmp_kallsyms2.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Symbol table.</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>When we speak of the kernel proper, this <TT>vmlinux</TT> image is being referenced. As mentioned earlier, very few platforms boot this image directly. For one thing, it is almost universally compressed. At a bare minimum, a bootloader must decompress the image. Many platforms require some type of stub bolted onto the image to perform the decompression. Later in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, you will learn how this image is packaged for different architectures, machine types, and bootloaders, and the requirements for booting it.</P><A name=ch04lev2sec7></A>
+<H4 id=title-IDAHTDZD class=docSection2Title>4.2.5. Subdirectory Layout</H4>
+<P class=docText><A name=iddle1084></A><A name=iddle1142></A><A name=iddle1351></A><A name=iddle1715></A><A name=iddle1721></A><A name=iddle1762></A><A name=iddle1951></A><A name=iddle2459></A><A name=iddle2460></A>Now that you've seen how the build system controls the kernel image, let's take a look at a representative kernel subdirectory. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list04">Listing 4-4</A> details the contents of the <TT>mach-ixp425</TT> subdirectory. This directory exists under the <TT>.../arch/arm</TT> architecture-specific branch of the source tree.</P><A name=ch04list04></A>
+<H5 id=title-IDAPXDZD class=docExampleTitle>Listing 4-4. Kernel Subdirectory</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ls -l linux-2.6/arch/arm/mach-ixp425</SPAN>
+total 92
+-rw-rw-r--  1 chris   chris   11892 Oct 10 14:53 built-in.o
+-rw-rw-r--  1 chris   chris    6924 Sep 29 15:39 common.c
+-rw-rw-r--  1 chris   chris    3525 Oct 10 14:53 common.o
+-rw-rw-r--  1 chris   chris   13062 Sep 29 15:39 common-pci.c
+-rw-rw-r--  1 chris   chris    7504 Oct 10 14:53 common-pci.o
+-rw-rw-r--  1 chris   chris    1728 Sep 29 15:39 coyote-pci.c
+-rw-rw-r--  1 chris   chris    1572 Oct 10 14:53 coyote-pci.o
+-rw-rw-r--  1 chris   chris    2118 Sep 29 15:39 coyote-setup.c
+-rw-rw-r--  1 chris   chris    2180 Oct 10 14:53 coyote-setup.o
+-rw-rw-r--  1 chris   chris    2042 Sep 29 15:39 ixdp425-pci.c
+-rw-rw-r--  1 chris   chris    3656 Sep 29 15:39 ixdp425-setup.c
+-rw-rw-r--  1 chris   chris    2761 Sep 29 15:39 Kconfig
+-rw-rw-r--  1 chris   chris     259 Sep 29 15:39 Makefile
+-rw-rw-r--  1 chris   chris    3102 Sep 29 15:39 prpmc1100-pci.c</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The directory contents in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04lev1sec2.html#ch04list04">Listing 4-4</A> have common components found in many kernel source subdirectories: <TT>Makefile</TT> and <TT>Kconfig</TT>. These two files drive the kernel configuration-and-build process. Let's look at how that works.

@@ -1,0 +1,37 @@
+<H3 id=-100000 class=docSection1Title>Pseudo Char Drivers</H3>
+<P class=docText><A name="Several commonly"></A>Several commonly used kernel facilities are not connected with any physical hardware, and these are elegantly implemented as char devices. The <SPAN class=docEmphasis>null</SPAN> sink, the perpetual <SPAN class=docEmphasis>zero</SPAN> <A name=iddle1548></A><A name=iddle1555></A><A name=iddle1643></A><A name=iddle1763></A><A name=iddle1765></A><A name=iddle1766></A><A name=iddle1768></A><A name=iddle2139></A><A name=iddle2370></A><A name=iddle3307></A><A name=iddle3713></A><A name=iddle3714></A><A name=iddle4405></A><A name=iddle4673></A><A name="kernel random"></A>source, and the kernel random number generator are treated as virtual devices and are accessed using <SPAN class=docEmphasis>pseudo</SPAN><A name="device drivers"></A> char device drivers.</P>
+<P class=docText>The <SPAN class=docEmphasis>/dev/null</SPAN><A name="on your"></A> char device sinks data that you don't want to display on your screen. So if you need to check out source files from a <SPAN class=docEmphasis>Concurrent Versioning System</SPAN><A name="over the"></A> (CVS) repository without spewing filenames all over the screen, do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cvs co kernel &gt; /dev/null</SPAN></PRE></DIV><BR>
+<P class=docText><A name="belonging to"></A>This redirects command output to the write entry point belonging to the <SPAN class=docEmphasis>/dev/null</SPAN> driver. The driver's <TT>read()</TT> and <TT>write()</TT><A name="contents of"></A> methods simply return success ignoring the contents of the input and output buffers, respectively.</P>
+<P class=docText><A name="with zeros"></A>If you want to fill an image file with zeros, call upon <SPAN class=docEmphasis>/dev/zero</SPAN><A name="come to"></A> to come to your service:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; dd if=/dev/zero of=file.img bs=1024 count=1024</SPAN></PRE></DIV><BR>
+<P class=docText>This sources a stream of zeros from the <TT>read()</TT> method belonging to the <SPAN class=docEmphasis>/dev/zero</SPAN> driver. The driver has no <TT>write()</TT> method.</P>
+<P class=docText><A name="kernel users"></A>The kernel has a built-in random number generator. For the benefit of kernel users who desire to use random sequences, the random number generator exports APIs such as <TT>get_random_bytes()</TT><A name="For user"></A>. For user mode programs, it exports two char interfaces: <SPAN class=docEmphasis>/dev/random</SPAN> and <SPAN class=docEmphasis>/dev/urandom.</SPAN><A name="of randomness"></A> The quality of randomness is higher for reads from <SPAN class=docEmphasis>/dev/random</SPAN><A name="to that"></A> compared to that from <SPAN class=docEmphasis>/dev/</SPAN><SPAN class=docEmphasis>urandom.</SPAN> When a user program reads from <SPAN class=docEmphasis>/dev/random</SPAN>, it gets strong (or true) random numbers, but reads from <SPAN class=docEmphasis>/dev/urandom</SPAN> yield pseudo random numbers. The <SPAN class=docEmphasis>/dev/</SPAN><SPAN class=docEmphasis>random</SPAN><A name="it gathers"></A> driver does not use formulae to generate strong random numbers. Instead, it gathers "environmental noise" (interval between interrupts, key clicks, and so on) for maintaining a reservoir of disorder (called an <SPAN class=docEmphasis>entropy pool</SPAN><A name="see the"></A>) that seeds the random stream. To see the kernel's <SPAN class=docEmphasis>input</SPAN> subsystem (discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07">Chapter 7</A><A name="keyboard press"></A>) contributing to the entropy pool when it detects a keyboard press or mouse movement, look at <TT>input_event()</TT> defined in <SPAN class=docEmphasis>drivers/input/input.c:</SPAN></P>
+<DIV class=docText><PRE>void
+input_event(struct input_dev *dev, unsigned int type,
+            unsigned int code, int value)
+{
+  /* ... */
+  add_input_randomness(type, code, value); /* Contribute to entropy
+                                              pool */
+  /* ... */
+}</PRE></DIV><BR>
+<P class=docText><A name=iddle1760></A><A name=iddle1761></A><A name=iddle1762></A><A name=iddle1764></A><A name=iddle1767></A><A name=iddle2117></A><A name=iddle2171></A><A name=iddle2668></A><A name=iddle2923></A><A name=iddle3610></A><A name="handling layer"></A>To see how the core interrupt handling layer contributes inter-interrupt periods to the entropy pool, look at <TT>handle_IRQ_event()</TT> defined in <SPAN class=docEmphasis>kernel/irq/handle.c:</SPAN></P>
+<DIV class=docText><PRE>irqreturn_t handle_IRQ_event(unsigned int irq,
+                             struct irqaction *action)
+{
+  /* ... */
+  if (status &amp; IRQF_SAMPLE_RANDOM)
+    add_interrupt_randomness(irq); /* Contribute to entropy pool */
+  /* ... */
+}</PRE></DIV><BR>
+<P class=docText><A name="the size"></A>The generation of strongly random numbers depends on the size of the entropy pool:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; od &#37413;&#25625; /dev/random</SPAN>
+0000000 7331 9028 7c89 4791 7f64 3deb 86b3 7564
+0000020 ebb9 e806 221a b8f9 af12 cb30 9a0e cc28
+0000040 68d8 0bbf 68a4 0898 528e 1557 d8b3 57ec
+0000060 b01d 8714 b1e1 19b9 0a86 9f60 646c c269</PRE></DIV><BR>
+<P class=docText><A name="output stops"></A>The output stops after a few lines, signaling that the entropy pool is exhausted. To replenish the entropy pool and restart the random stream, jab the keyboard several times after switching to an unused terminal or push the mouse around the screen.</P>
+<P class=docText>A dump of <SPAN class=docEmphasis>/dev/</SPAN> <SPAN class=docEmphasis>urandom</SPAN>, however, produces a continuous pseudo random stream that never stops.</P>
+<P class=docText><SPAN class=docEmphasis>/dev/mem</SPAN> and <SPAN class=docEmphasis>/dev/</SPAN> <SPAN class=docEmphasis>kmem</SPAN><A name="you peek"></A> are classic pseudo char devices that are tools that let you peek inside system memory. These char nodes export raw interfaces connected to physical memory and kernel virtual memory, respectively. To manipulate system memory, you may <TT>mmap()</TT><A name="these nodes"></A> these nodes and operate on the returned regions. As an exercise, change the hostname of your system by accessing <SPAN class=docEmphasis>/dev/mem</SPAN>.</P>
+<P class=docText><A name="char devices"></A>All the char devices discussed in this section (null, zero, random, urandom, mem, and kmem) have different minor numbers but the same statically assigned major number, 1. Look at <SPAN class=docEmphasis>drivers/char/mem.c</SPAN> and <SPAN class=docEmphasis>drivers/char/random.c</SPAN><A name="their implementation"></A> for their implementation. Two other pseudo drivers belong to the same major number family: <SPAN class=docEmphasis>/dev/full</SPAN>, which emulates an always full device; and <SPAN class=docEmphasis>/dev/port</SPAN>, which peeks at system I/O ports. We use the latter in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A>.

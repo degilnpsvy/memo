@@ -1,0 +1,42 @@
+<H3 id=-100000 class=docSection1Title>Loadable Modules</H3>
+<P class=docText><A name=iddle2409></A><A name=iddle2583></A><A name=iddle2834></A><A name=iddle2863></A><A name=iddle3030></A><A name=iddle3037></A><A name=iddle3824></A><A name="Because Linux"></A>Because Linux runs on a variety of architectures and supports zillions of I/O devices, it's not feasible to permanently compile support for all possible devices into the base kernel. Distributions generally package a minimal kernel image and supply the rest of the functionalities in the form of <SPAN class=docEmphasis>kernel modules.</SPAN><A name="necessary modules"></A> During runtime, the necessary modules are dynamically loaded on demand.</P>
+<P class=docText><A name="generate modules"></A>To generate modules, go to the root of your kernel source tree and build:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cd /usr/src/linux-X.Y.Z/</SPAN>
+<SPAN class=docEmphStrong>bash&gt; make modules</SPAN></PRE></DIV><BR>
+<P class=docText>To install the produced modules, do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; make modules_install</SPAN></PRE></DIV><BR>
+<P class=docText>This creates a kernel source directory structure under /<SPAN class=docEmphasis>lib/modules/X.Y.Z/kernel/</SPAN><A name="the depmod"></A> and populates it with loadable module objects. This also invokes <FONT class=extract>the depmod utility that generates module dependencies in the file <SPAN class=docEmphasis>/lib/modules/X.Y.Z/modules.dep</SPAN></FONT>.</P>
+<P class=docText><A name="to manipulate"></A><FONT class=extract>The following utilities are available to manipulate modules: <SPAN class=docEmphasis>insmod</SPAN>, <SPAN class=docEmphasis>rmmod</SPAN>, <SPAN class=docEmphasis>lsmod, modprobe</SPAN>, <SPAN class=docEmphasis>modinfo</SPAN>, and <SPAN class=docEmphasis>depmod.</SPAN></FONT><A name="whereas lsmod"></A><FONT class=extract> The first two are utilities to insert and remove modules, whereas lsmod lists the modules that are currently loaded. modprobe is a cleverer version of insmod that also inserts dependent modules after examining the contents of <SPAN class=docEmphasis>/lib/modules/X.Y.Z/modules.dep.</SPAN></FONT><A name="mount a"></A><FONT class=extract> For example, assume that you need to mount a <SPAN class=docEmphasis>Virtual File Allocation Table</SPAN></FONT><A name="to load"></A><FONT class=extract> (VFAT) partition present on a USB pen drive. Use modprobe to load the VFAT filesystem driver:<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch01lev1sec8.html#ch01fn02">[2]</A></SUP></FONT></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch01fn02><FONT class=extract>[2]</FONT></A></SUP><A name="example assumes"></A><FONT class=extract> This example assumes that the module is not autoloaded by the kernel. If you enable <SPAN class=docEmphasis>Automatic Kernel Module Loading</SPAN> (<TT>CONFIG_KMOD</TT></FONT><A name="when it"></A><FONT class=extract>) during configuration, the kernel automatically runs modprobe with the appropriate arguments when it detects missing subsystems. You'll learn about module autoloading in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><A name="the Groundwork"></A><FONT class=extract>, "Laying the Groundwork."</FONT></P></BLOCKQUOTE>
+<DIV class=docText><PRE><FONT class=extract><SPAN class=docEmphStrong>bash&gt; modprobe vfat</SPAN>
+<SPAN class=docEmphStrong>bash&gt; lsmod</SPAN>
+Module       Size     Used by
+vfat         14208    0
+fat          49052    1 vfat
+nls_base     9728     2 vfat, fat</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle3029></A><A name="see in"></A><FONT class=extract>As you see in the lsmod output, modprobe inserts three modules rather than one. modprobe first figures out that it has to insert <SPAN class=docEmphasis>/lib/modules/X.Y.Z/kernel/fs/vfat/vfat.ko.</SPAN></FONT><A name="when it"></A><FONT class=extract> But when it peeks into the dependency file <SPAN class=docEmphasis>/lib/modules/X.Y.Z/modules.dep</SPAN></FONT><A name="has to"></A><FONT class=extract>, it finds the following line and realizes that it has to load two other dependent modules first:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>/lib/modules/X.Y.Z/kernel/fs/vfat/vfat.ko:
+/lib/modules/X.Y.Z/kernel/fs/fat/fat.ko
+/lib/modules/X.Y.Z/kernel/fs/nls/nls_base.ko</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>It then proceeds to load <SPAN class=docEmphasis>fat.ko</SPAN> and <SPAN class=docEmphasis>nls_base.ko</SPAN> before attempting to insert <SPAN class=docEmphasis>vfat.ko</SPAN></FONT><A name="modules you"></A><FONT class=extract>, thus automatically loading all the modules you need to mount your VFAT partition.</FONT></P>
+<P class=docText><A name="the modules"></A><FONT class=extract>Use the modinfo utility to extract verbose information about the modules you just loaded:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract><SPAN class=docEmphStrong>bash&gt; modinfo vfat</SPAN>
+filename:      /lib/modules/X.Y.Z/kernel/fs/vfat/vfat.ko
+license:       GPL
+description:   VFAT filesystem support
+...
+depends:       fat, nls_base</FONT></PRE></DIV><BR>
+<P class=docText><A name="a module"></A>To compile a kernel driver as a module, toggle the corresponding menu choice button to <TT><M></M></TT><A name="examples in"></A>while configuring the kernel. Most of the device driver examples in this book are implemented as kernel modules. To build a module <SPAN class=docEmphasis>mymodule.ko</SPAN><A name="its source"></A> from its source file <SPAN class=docEmphasis>mymodule.c</SPAN>, create a one-line Makefile and execute it as follows:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cd /path/to/module-source/</SPAN>
+<SPAN class=docEmphStrong>bash&gt; echo "obj-m += mymodule.ko" &gt; Makefile</SPAN>
+<SPAN class=docEmphStrong>bash&gt; make -C /path/to/kernel-sources/ M=`pwd` modules</SPAN>
+make: Entering directory '/path/to/kernel-sources'
+  Building modules, stage 2.
+  MODPOST
+  CC /path/to/module-sources/mymodule.mod.o
+  LD [M] /path/to/module-sources/mymodule.ko
+make: Leaving directory '/path/to/kernel-sources'
+<SPAN class=docEmphStrong>bash&gt; insmod ./mymodule.ko</SPAN></PRE></DIV><BR>
+<P class=docText><A name="You only"></A>Kernel modules render the kernel footprint smaller and the develop-build-test cycle shorter. You only need to recompile the particular module and reinsert it to effect a change. We look at module debugging techniques in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21">Chapter 21</A><A name="Device Drivers"></A>, "Debugging Device Drivers."</P>
+<P class=docText><A name="also some"></A><FONT class=extract>There are also some downsides if you choose to design your driver as a kernel module. Unlike built-in drivers, modules cannot reserve resources during boot time, when success is more or less guaranteed.</FONT>

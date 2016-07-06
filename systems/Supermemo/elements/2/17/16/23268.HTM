@@ -1,0 +1,137 @@
+<H3 id=title-IDALGOWC class=docSection1Title>9.8. Pseudo File Systems</H3>
+<P class=docText>A number of file systems fall under the category of Pseudo File Systems in the kernel-configuration menu. Together they provide a range of facilities useful in a wide range of applications. For additional information, especially on the <TT>proc</TT> file system, spend an afternoon poking around this useful system facility. Where appropriate, references to additional reading material can be found in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec11.html#ch09lev2sec7">Section 9.11.1</A>, at the end of this chapter.</P><A name=ch09lev2sec5></A>
+<H4 id=title-IDAAHOWC class=docSection2Title>9.8.1. Proc File System</H4>
+<P class=docText>The <TT>/proc</TT> file system took its name from its original purpose, an interface that allows the kernel to communicate information about each running process on a Linux system. Over the course of time, it has grown and matured to provide much <A name=iddle1011></A><A name=iddle1012></A><A name=iddle1476></A><A name=iddle1477></A><A name=iddle1983></A><A name=iddle2109></A><A name=iddle2115></A><A name=iddle2252></A><A name=iddle2253></A><A name=iddle2295></A><A name=iddle2296></A><A name=iddle2605></A>more than process information. We introduce the highlights here; a complete tour of the <TT>/proc</TT> file system is left as an exercise for the reader.</P>
+<P class=docText>The <TT>/proc</TT> file system has become a virtual necessity for all but the simplest of Linux systems, even embedded ones. Many user-level functions rely on the contents of the <TT>/proc</TT> file system to do their job. For example, the <TT>mount</TT> command, issued without any parameters, lists all the currently active mount points on a running system, from the information delivered by <TT>/proc/mounts</TT>. If the <TT>/proc</TT> file system is not available, the <TT>mount</TT> command silently returns. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec8.html#ch09list14">Listing 9-14</A> illustrates this on the ADI Engineering Coyote board.</P><A name=ch09list14></A>
+<H5 id=title-IDABNOWC class=docExampleTitle>Listing 9-14. Mount Dependency on <TT>/proc</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>mount</SPAN>
+rootfs on / type rootfs (rw)
+/dev/root on / type nfs
+(rw,v2,rsize=4096,wsize=4096,hard,udp,nolock,addr=192.168.1.19)
+tmpfs on /dev/shm type tmpfs (rw)
+/proc on /proc type proc (rw,nodiratime)
+
+&lt; Now unmount proc and try again ...&gt;
+
+# <SPAN class=docEmphStrong>umount /proc</SPAN>
+# <SPAN class=docEmphStrong>mount</SPAN>
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec8.html#ch09list14">Listing 9-14</A> that <TT>/proc</TT> itself is listed as a mounted file system, as type <TT>proc</TT> mounted on <TT>/proc</TT>. This is not doublespeak; your system must have a mount point called <TT>/proc</TT> at the top-level directory tree as a destination for the <TT>/proc</TT> file system to be mounted on.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec8.html#ch096">[6]</A></SUP> To mount the <TT>/proc</TT> file system, use the <TT>mount</TT> command as with any other file system:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch096>[6]</A></SUP> It is certainly possible to mount <TT>/proc</TT> anywhere you like on your file system, but all the utilities (including <TT>mount</TT>) that require proc expect to find it mounted on <TT>/proc</TT>.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>mount -t proc /proc /proc</SPAN></PRE></DIV><BR>
+<P class=docText>The general form of the <TT>mount</TT> command, from the man page, is <TT>mount [-t fstype] something somewhere</TT>. In the previous invocation, we could have substituted <TT>none</TT> for <TT>/proc</TT>, as follows:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>mount -t proc none /proc</SPAN></PRE></DIV><BR>
+<P class=docText><A name=iddle1009></A><A name=iddle1474></A><A name=iddle1613></A><A name=iddle1926></A><A name=iddle2250></A><A name=iddle2293></A>This looks somewhat less like doublespeak. The <TT>something</TT> parameter is not strictly necessary because <TT>/proc</TT> is a pseudo file system and not a real physical device. However, specifying <TT>/proc</TT> as in the earlier example helps remind us that we are mounting the <TT>/proc</TT> file system on the <TT>/proc</TT> directory (or, more appropriately, on the <TT>/proc</TT> mount point).</P>
+<P class=docText>Of course, by this time, it might be obvious that to get <TT>/proc</TT> file system functionality, it must be enabled in the kernel configuration. This kernel-configuration option can be found in the File Systems submenu under the category Pseudo File Systems.</P>
+<P class=docText>Each user process running in the kernel is represented by an entry in the <TT>/proc</TT> file system. For example, the <TT>init</TT> process introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06.html#ch06">Chapter 6</A> is always assigned the process id (PID) of 1. Processes in the <TT>/proc</TT> file system are represented by a directory that is given the PID number as its name. For example, the <TT>init</TT> process with a PID of 1 would be represented by a <TT>/proc/1</TT> directory. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec8.html#ch09list15">Listing 9-15</A> shows the contents of this directory on our embedded Coyote board.</P><A name=ch09list15></A>
+<H5 id=title-IDA4TOWC class=docExampleTitle>Listing 9-15. <TT>init</TT> Process <TT>/proc</TT> EnTRies</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>ls -l /proc/1</SPAN>
+total 0
+-r--------    1 root  root   0 Jan  1 00:25 auxv
+-r--r--r--    1 root  root   0 Jan  1 00:21 cmdline
+lrwxrwxrwx    1 root  root   0 Jan  1 00:25 cwd -&gt; /
+-r--------    1 root  root   0 Jan  1 00:25 environ
+lrwxrwxrwx    1 root  root   0 Jan  1 00:25 exe -&gt; /sbin/init
+dr-x------    2 root  root   0 Jan  1 00:25 fd
+-r--r--r--    1 root  root   0 Jan  1 00:25 maps
+-rw-------    1 root  root   0 Jan  1 00:25 mem
+-r--r--r--    1 root  root   0 Jan  1 00:25 mounts
+-rw-r--r--    1 root  root   0 Jan  1 00:25 oom_adj
+-r--r--r--    1 root  root   0 Jan  1 00:25 oom_score
+lrwxrwxrwx    1 root  root   0 Jan  1 00:25 root -&gt; /
+-r--r--r--    1 root  root   0 Jan  1 00:21 stat
+-r--r--r--    1 root  root   0 Jan  1 00:25 statm
+-r--r--r--    1 root  root   0 Jan  1 00:21 status
+dr-xr-xr-x    3 root  root   0 Jan  1 00:25 task
+-r--r--r--    1 root  root   0 Jan  1 00:25 wchan</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>These entries, which are present in the <TT>/proc</TT> file system for each running process, contain much useful information, especially for analyzing and debugging a process. For example, the <TT>cmdline</TT> entry contains the complete command line used to <A name=iddle1010></A><A name=iddle1475></A><A name=iddle1927></A><A name=iddle2073></A><A name=iddle2251></A><A name=iddle2294></A>invoke the process, including any arguments. The <TT>cwd</TT> and <TT>root</TT> directories contain the processes' view of the current working directory and the current root directory.</P>
+<P class=docText>One of the more useful entries for system debugging is the <TT>maps</TT> entry. This contains a list of each virtual memory segment assigned to the program, along with attributes about each. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec8.html#ch09list16">Listing 9-16</A> is the output from <TT>/proc/1/maps</TT> in our example of the <TT>init</TT> process.</P><A name=ch09list16></A>
+<H5 id=title-IDAXXOWC class=docExampleTitle>Listing 9-16. <TT>init</TT> Process Memory Segments from <TT>/proc</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>cat /proc/1/maps</SPAN>
+00008000-0000f000 r-xp 00000000 00:0a 9537567    /sbin/init
+00016000-00017000 rw-p 00006000 00:0a 9537567    /sbin/init
+00017000-0001b000 rwxp 00017000 00:00 0
+40000000-40017000 r-xp 00000000 00:0a 9537183    /lib/ld-2.3.2.so
+40017000-40018000 rw-p 40017000 00:00 0
+4001f000-40020000 rw-p 00017000 00:0a 9537183    /lib/ld-2.3.2.so
+40020000-40141000 r-xp 00000000 00:0a 9537518    /lib/libc-2.3.2.so
+40141000-40148000 ---p 00121000 00:0a 9537518    /lib/libc-2.3.2.so
+40148000-4014d000 rw-p 00120000 00:0a 9537518    /lib/libc-2.3.2.so
+4014d000-4014f000 rw-p 4014d000 00:00 0
+befeb000-bf000000 rwxp befeb000 00:00 0
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The usefulness of this information is readily apparent. You can see the program segments of the <TT>init</TT> process itself in the first two entries. You can also see the memory segments used by the shared library objects being used by the <TT>init</TT> process. The format is as follows:</P>
+<DIV class=docText><PRE>vmstart-vmend attr  pgoffset  devname inode filename</PRE></DIV><BR>
+<P class=docText>Here, <TT>vmstart</TT> and <TT>vmend</TT> are the starting and ending virtual memory addresses, respectively; <TT>attr</TT> indicates memory region attributes, such as read, write, and execute, and tells whether this region is shareable; <TT>pgoffset</TT> is the page offset of the region (a kernel virtual memory parameter); and <TT>devname</TT>, displayed as <TT>xx:xx</TT>, is a kernel representation of the device ID associated with this memory region. The memory regions that are not associated with a file are also not associated with a device, thus the <TT>00:00</TT>. The final two entries are the inode and file associated with the given memory region. Of course, if there is no file, there is no inode associated with it, and it displays with a zero. These are usually data segments.</P>
+<P class=docText>Other useful entries are listed for each process. The <TT>status</TT> entry contains useful status information about the running process, including items such as the parent <A name=iddle1008></A><A name=iddle1245></A><A name=iddle1473></A><A name=iddle1489></A><A name=iddle1491></A><A name=iddle2029></A><A name=iddle2249></A><A name=iddle2292></A><A name=iddle2297></A><A name=iddle2299></A><A name=iddle2471></A><A name=iddle2473></A>PID, user and group IDs, virtual memory usage stats, signals, and capabilities. More details can be obtained from the references at the end of the chapter.</P>
+<P class=docText>Some frequently used <TT>/proc</TT> enTRies are <TT>cpuinfo</TT>, <TT>meminfo</TT>, and <TT>version</TT>. The <TT>cpuinfo</TT> enTRy lists attributes that the kernel discovers about the processor(s) running on the system. The <TT>meminfo</TT> enTRy provides statistics on the total system memory. The version entry mirrors the Linux kernel version string, together with information on what compiler and machine were used to build the kernel.</P>
+<P class=docText>Many more useful <TT>/proc</TT> entries are provided by the kernel; we have only scratched the surface of this useful subsystem. Many utilities have been designed for extracting and reporting information contained with the <TT>/proc</TT> file system. Two popular examples are <TT>top</TT> and <TT>ps</TT>, which every embedded Linux developer should be intimately familiar with. These are introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13.html#ch13">Chapter 13</A>. Other utilities useful for interfacing with the <TT>/proc</TT> file system include free, pkill, pmap, and uptime. See the <TT>procps</TT> package for more details.</P><A name=ch09lev2sec6></A>
+<H4 id=title-IDAA5OWC class=docSection2Title>9.8.2. sysfs</H4>
+<P class=docText>Like the <TT>/proc</TT> file system, <TT>sysfs</TT> is not representative of an actual physical device. Instead, <TT>sysfs</TT> models specific kernel objects such as physical devices and provides a way to associate devices with device drivers. Some agents in a typical Linux distribution depend on the information on <TT>sysfs</TT>.</P>
+<P class=docText>We can get some idea of what kinds of objects are exported by looking directly at the directory structure exported by <TT>sysfs</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec8.html#ch09list17">Listing 9-17</A> shows the top-level <TT>/sys</TT> directory on our Coyote board.</P><A name=ch09list17></A>
+<H5 id=title-IDAHIPWC class=docExampleTitle>Listing 9-17. Top-Level <TT>/sys</TT> Directory Contents</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>dir /sys</SPAN>
+total 0
+drwxr-xr-x   21 root    root    0 Jan  1 00:00 block
+drwxr-xr-x    6 root    root    0 Jan  1 00:00 bus
+drwxr-xr-x   10 root    root    0 Jan  1 00:00 class
+drwxr-xr-x    5 root    root    0 Jan  1 00:00 devices
+drwxr-xr-x    2 root    root    0 Jan  1 00:00 firmware
+drwxr-xr-x    2 root    root    0 Jan  1 00:00 kernel
+drwxr-xr-x    5 root    root    0 Jan  1 00:00 module
+drwxr-xr-x    2 root    root    0 Jan  1 00:00 power
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1139></A><A name=iddle1490></A><A name=iddle2298></A><A name=iddle2472></A><A name=iddle2496></A><A name=iddle2609></A>As you can see, <TT>sysfs</TT> provides a subdirectory for each major class of system device, including the system buses. For example, under the block subdirectory, each block device is represented by a subdirectory entry. The same holds true for the other directories at the top level.</P>
+<P class=docText>Most of the information stored by <TT>sysfs</TT> is in a format more suitable for machines than humans to read. For example, to discover the devices on the PCI bus, one could look directly at the <TT>/sys/bus/pci</TT> subdirectory. On our Coyote board, which has a single PCI device attached (an Ethernet card), the directory looks like this:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>ls /sys/bus/pci/devices/</SPAN>
+0000:00:0f.0 -&gt; ../../../devices/pci0000:00/0000:00:0f.0</PRE></DIV><BR>
+<P class=docText>This entry is actually a symbolic link pointing to another node in the <TT>sysfs</TT> directory tree. We have formatted the output of <TT>ls</TT> here to illustrate this, while still fitting in a single line. The name of the symbolic link is the kernel's representation of the PCI bus, and it points to a <TT>devices</TT> subdirectory called <TT>pci0000:00</TT> (the PCI bus representation), which contains a number of subdirectories and files representing attributes of this specific PCI device. As you can see, the data is rather difficult to discover and parse.</P>
+<P class=docText>A useful utility exists to browse the <TT>sysfs</TT> file system directory structure. Called systool, it comes from the sysfsutils package found on sourceforge.net. Here is how systool would display the PCI bus from the previous discussion:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>systool -b pci</SPAN>
+    Bus = "pci"
+    0000:00:0f.0 8086:1229</PRE></DIV><BR>
+<P class=docText>Again we see the kernel's representation of the bus and device (<TT>0f</TT>), but this time the tool displays the vendor ID (8086 = Intel) and device ID (1229 = eepro100 Ethernet card) obtained from the <TT>/sys/devices/pci0000:00</TT> branch of <TT>/sys</TT> where these attributes are kept. Executed with no parameters, systool displays the top-level system hierarchy. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec8.html#ch09list18">Listing 9-18</A> is an example from our Coyote board.</P>
+<P class=docText></P><A name=ch09list18></A>
+<H5 id=title-IDADNPWC class=docExampleTitle>Listing 9-18. Output from systool</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>systool</SPAN>
+Supported sysfs buses:
+        i2c
+        ide
+        pci
+        platform
+Supported sysfs classes:
+        block
+        i2c-adapter
+        i2c-dev
+        input
+        mem
+        misc
+        net
+        pci_bus
+        tty
+Supported sysfs devices:
+        pci0000:00
+        platform
+        system</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1478></A><A name=iddle2023></A><A name=iddle2303></A>You can see from this listing the variety of system information available from <TT>sysfs</TT>. Many utilities use this information to determine the characteristics of system devices or to enforce system policies, such as power management and hot-plug capability.

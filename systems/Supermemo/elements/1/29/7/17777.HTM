@@ -1,0 +1,35 @@
+<H4 class=subsection>6.1.2 Using Regular Expression Constants</H4><A name=index-dark-corner_002c-regexp-constants></A>
+<P>When used on the righthand side of the &#8216;<SAMP>~</SAMP>&#8217; or &#8216;<SAMP>!~</SAMP>&#8217; operators, a regexp constant merely stands for the regexp that is to be matched. However, regexp constants (such as <CODE>/foo/</CODE>) may be used like simple expressions. When a regexp constant appears by itself, it has the same meaning as if it appeared in a pattern, i.e., &#8216;<SAMP>($0 ~ /foo/)</SAMP>&#8217; (d.c.) See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Expression-Patterns">Expression Patterns</A>. This means that the following two code segments: </P>
+<DIV class=example><PRE class=example>if ($0 ~ /barfly/ || $0 ~ /camelot/)
+    print "found"
+</PRE></DIV>
+<P>and: </P>
+<DIV class=example><PRE class=example>if (/barfly/ || /camelot/)
+    print "found"
+</PRE></DIV>
+<P>are exactly equivalent. One rather bizarre consequence of this rule is that the following Boolean expression is valid, but does not do what the user probably intended: </P>
+<DIV class=example><PRE class=example># Note that /foo/ is on the left of the ~
+if (/foo/ ~ $1) print "found foo"
+</PRE></DIV><A name=index-gawk_002c-regexp-constants-and></A><A name=index-regexp-constants_002c-in-gawk></A>
+<P>This code is &#8220;obviously&#8221; testing <CODE>$1</CODE> for a match against the regexp <CODE>/foo/</CODE>. But in fact, the expression &#8216;<SAMP>/foo/ ~ $1</SAMP>&#8217; really means &#8216;<SAMP>($0 ~ /foo/) ~ $1</SAMP>&#8217;. In other words, first match the input record against the regexp <CODE>/foo/</CODE>. The result is either zero or one, depending upon the success or failure of the match. That result is then matched against the first field in the record. Because it is unlikely that you would ever really want to make this kind of test, <CODE>gawk</CODE> issues a warning when it sees this construct in a program. Another consequence of this rule is that the assignment statement: </P>
+<DIV class=example><PRE class=example>matches = /foo/
+</PRE></DIV>
+<P>assigns either zero or one to the variable <CODE>matches</CODE>, depending upon the contents of the current input record. </P><A name=index-differences-in-awk-and-gawk_002c-regexp-constants></A><A name=index-dark-corner_002c-regexp-constants_002c-as-arguments-to-user_002ddefined-functions></A><A name=index-gensub_0028_0029-function-_0028gawk_0029></A><A name=index-sub_0028_0029-function></A><A name=index-gsub_0028_0029-function></A>
+<P>Constant regular expressions are also used as the first argument for the <CODE>gensub()</CODE>, <CODE>sub()</CODE>, and <CODE>gsub()</CODE> functions, as the second argument of the <CODE>match()</CODE> function, and as the third argument of the <CODE>patsplit()</CODE> function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>). Modern implementations of <CODE>awk</CODE>, including <CODE>gawk</CODE>, allow the third argument of <CODE>split()</CODE> to be a regexp constant, but some older implementations do not. (d.c.) This can lead to confusion when attempting to use regexp constants as arguments to user-defined functions (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#User_002ddefined">User-defined</A>). For example: </P>
+<DIV class=example><PRE class=example>function mysub(pat, repl, str, global)
+{
+    if (global)
+        gsub(pat, repl, str)
+    else
+        sub(pat, repl, str)
+    return str
+}
+
+{
+    &#8230;
+    text = "hi! hi yourself!"
+    mysub(/hi/, "howdy", text, 1)
+    &#8230;
+}
+</PRE></DIV>
+<P>In this example, the programmer wants to pass a regexp constant to the user-defined function <CODE>mysub</CODE>, which in turn passes it on to either <CODE>sub()</CODE> or <CODE>gsub()</CODE>. However, what really happens is that the <CODE>pat</CODE> parameter is either one or zero, depending upon whether or not <CODE>$0</CODE> matches <CODE>/hi/</CODE>. <CODE>gawk</CODE> issues a warning when it sees a regexp constant used as a parameter to a user-defined function, since passing a truth value in this way is probably not what was intended.

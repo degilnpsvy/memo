@@ -1,0 +1,46 @@
+<H4 class=subsubsection>6.3.2.1 String Type Versus Numeric Type</H4><A name=index-numeric_002c-strings></A><A name=index-strings_002c-numeric></A><A name=index-POSIX-awk_002c-numeric-strings-and></A>
+<P>The 1992 POSIX standard introduced the concept of a <EM>numeric string</EM>, which is simply a string that looks like a number&#8212;for example, <CODE>"&nbsp;+2"<!-- /@w --></CODE>. This concept is used for determining the type of a variable. The type of the variable is important because the types of two variables determine how they are compared. The various versions of the POSIX standard did not get the rules quite right for several editions. Fortunately, as of at least the 2008 standard (and possibly earlier), the standard has been fixed, and variable typing follows these rules:<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT34" name=DOCF34><SUP>34</SUP></A> </P>
+<UL>
+<LI>A numeric constant or the result of a numeric operation has the <VAR>numeric</VAR> attribute. </LI>
+<LI>A string constant or the result of a string operation has the <VAR>string</VAR> attribute. </LI>
+<LI>Fields, <CODE>getline</CODE> input, <CODE>FILENAME</CODE>, <CODE>ARGV</CODE> elements, <CODE>ENVIRON</CODE> elements, and the elements of an array created by <CODE>patsplit()</CODE>, <CODE>split()</CODE> and <CODE>match()</CODE> that are numeric strings have the <VAR>strnum</VAR> attribute. Otherwise, they have the <VAR>string</VAR> attribute. Uninitialized variables also have the <VAR>strnum</VAR> attribute. </LI>
+<LI>Attributes propagate across assignments but are not changed by any use. </LI></UL>
+<P>The last rule is particularly important. In the following program, <CODE>a</CODE> has numeric type, even though it is later used in a string operation: </P>
+<DIV class=example><PRE class=example>BEGIN {
+     a = 12.345
+     b = a " is a cute number"
+     print b
+}
+</PRE></DIV>
+<P>When two operands are compared, either string comparison or numeric comparison may be used. This depends upon the attributes of the operands, according to the following symmetric matrix: </P>
+<DIV class=display><PRE class=display>        +&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-
+        |       STRING          NUMERIC         STRNUM
+&#8212;&#8212;&#8211;+&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-
+        |
+STRING  |       string          string          string
+        |
+NUMERIC |       string          numeric         numeric
+        |
+STRNUM  |       string          numeric         numeric
+&#8212;&#8212;&#8211;+&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;-
+</PRE></DIV>
+<P>The basic idea is that user input that looks numeric&#8212;and <EM>only</EM> user input&#8212;should be treated as numeric, even though it is actually made of characters and is therefore also a string. Thus, for example, the string constant <CODE>"&nbsp;+3.14"</CODE><!-- /@w -->, when it appears in program source code, is a string&#8212;even though it looks numeric&#8212;and is <EM>never</EM> treated as number for comparison purposes. </P>
+<P>In short, when one operand is a &#8220;pure&#8221; string, such as a string constant, then a string comparison is performed. Otherwise, a numeric comparison is performed. </P>
+<P>This point bears additional emphasis: All user input is made of characters, and so is first and foremost of <VAR>string</VAR> type; input strings that look numeric are additionally given the <VAR>strnum</VAR> attribute. Thus, the six-character input string &#8216;<SAMP>&nbsp;+3.14</SAMP>&#8217;<!-- /@w --> receives the <VAR>strnum</VAR> attribute. In contrast, the eight-character literal <CODE>"&nbsp;+3.14"</CODE><!-- /@w --> appearing in program text is a string constant. The following examples print &#8216;<SAMP>1</SAMP>&#8217; when the comparison between the two different constants is true, &#8216;<SAMP>0</SAMP>&#8217; otherwise: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo ' +3.14' | gawk '{ print $0 == " +3.14" }'</EM></KBD>    <I>True</I>
+-| 1
+$ <KBD><EM>echo ' +3.14' | gawk '{ print $0 == "+3.14" }'</EM></KBD>     <I>False</I>
+-| 0
+$ <KBD><EM>echo ' +3.14' | gawk '{ print $0 == "3.14" }'</EM></KBD>      <I>False</I>
+-| 0
+$ <KBD><EM>echo ' +3.14' | gawk '{ print $0 == 3.14 }'</EM></KBD>        <I>True</I>
+-| 1
+$ <KBD><EM>echo ' +3.14' | gawk '{ print $1 == " +3.14" }'</EM></KBD>    <I>False</I>
+-| 0
+$ <KBD><EM>echo ' +3.14' | gawk '{ print $1 == "+3.14" }'</EM></KBD>     <I>True</I>
+-| 1
+$ <KBD><EM>echo ' +3.14' | gawk '{ print $1 == "3.14" }'</EM></KBD>      <I>False</I>
+-| 0
+$ <KBD><EM>echo ' +3.14' | gawk '{ print $1 == 3.14 }'</EM></KBD>        <I>True</I>
+-| 1
+</PRE></DIV>

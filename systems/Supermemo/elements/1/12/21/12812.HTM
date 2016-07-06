@@ -1,0 +1,48 @@
+<DIV class=NAVHEADER style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>Secure Programming for Linux and Unix HOWTO</TH></TR>
+<TR>
+<TD vAlign=bottom align=left width="10%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/file-descriptors.html">Prev</A></TD>
+<TD vAlign=bottom align=middle width="80%">Chapter 5. Validate All Input</TD>
+<TD vAlign=bottom align=right width="10%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/file-contents.html">Next</A></TD></TR></TBODY></TABLE>
+<HR align=left width="100%">
+</DIV>
+<DIV class=SECT1 style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<H1 class=SECT1><A name=FILE-NAMES>5.4. File Names</A></H1>
+<P>The names of files can, in certain circumstances, cause serious problems. This is especially a problem for secure programs that run on computers with local untrusted users, but this isn't limited to that circumstance. Remote users may be able to trick a program into creating undesirable filenames (programs should prevent this, but not all do), or remote users may have partially penetrated a system and try using this trick to penetrate the rest of the system.</P>
+<P>Usually you will want to not include ``..'' (higher directory) as a legal value from an untrusted user, though that depends on the circumstances. You might also want to list only the characters you will permit, and forbidding any filenames that don't match the list. It's best to prohibit any change in directory, e.g., by not including ``/'' in the set of legal characters, if you're taking data from an external user and transforming it into a filename.</P>
+<P>Often you shouldn't support ``globbing'', that is, expanding filenames using ``*'', ``?'', ``['' (matching ``]''), and possibly ``{'' (matching ``}''). For example, the command ``ls *.png'' does a glob on ``*.png'' to list all PNG files. The C fopen(3) command (for example) doesn't do globbing, but the command shells perform globbing by default, and in C you can request globbing using (for example) glob(3). If you don't need globbing, just use the calls that don't do it where possible (e.g., fopen(3)) and/or disable them (e.g., escape the globbing characters in a shell). Be especially careful if you want to permit globbing. Globbing can be useful, but complex globs can take a great deal of computing time. For example, on some ftp servers, performing a few of these requests can easily cause a denial-of-service of the entire machine:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>ftp&gt; ls */../*/../*/../*/../*/../*/../*/../*/../*/../*/../*/../*/../*</PRE></FONT></TD></TR></TBODY></TABLE>Trying to allow globbing, yet limit globbing patterns, is probably futile. Instead, make sure that any such programs run as a separate process and use process limits to limit the amount of CPU and other resources they can consume. See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/minimize-privileges.html#MINIMIZE-RESOURCES">Section 7.4.8</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>for more information on this approach, and see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/quotas.html">Section 3.6</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>for more information on how to set these limits.</P>
+<P>Unix-like systems generally forbid including the NIL character in a filename (since this marks the end of the name) and the '/' character (since this is the directory separator). However, they often permit anything else, which is a problem; it is easy to write programs that can be subverted by cleverly-created filenames.</P>
+<P>Filenames that can especially cause problems include:</P>
+<P></P>
+<UL>
+<LI>
+<P>Filenames with leading dashes (-). If passed to other programs, this may cause the other programs to misinterpret the name as option settings. Ideally, Unix-like systems shouldn't allow these filenames; they aren't needed and create many unnecessary security problems. Unfortunately, currently developers have to deal with them. Thus, whenever calling another program with a filename, insert ``--'' before the filename parameters (to stop option processing, if the program supports this common request) or modify the filename (e.g., insert ``./'' in front of the filename to keep the dash from being the lead character).</P></LI>
+<LI>
+<P>Filenames with control characters. This especially includes newlines and carriage returns (which are often confused as argument separators inside shell scripts, or can split log entries into multiple entries) and the ESCAPE character (which can interfere with terminal emulators, causing them to perform undesired actions outside the user's control). Ideally, Unix-like systems shouldn't allow these filenames either; they aren't needed and create many unnecessary security problems.</P></LI>
+<LI>
+<P>Filenames with spaces; these can sometimes confuse a shell into being multiple arguments, with the other arguments causing problems. Since other operating systems allow spaces in filenames (including Windows and MacOS), for interoperability's sake this will probably always be permitted. Please be careful in dealing with them, e.g., in the shell use double-quotes around all filename parameters whenever calling another program. You might want to forbid leading and trailing spaces at least; these aren't as visible as when they occur in other places, and can confuse human users.</P></LI>
+<LI>
+<P>Invalid character encoding. For example, a program may believe that the filename is UTF-8 encoded, but it may have an invalidly long UTF-8 encoding. See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/character-encoding.html#CHARACTER-ENCODING-UTF8">Section 5.9.2</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>for more information. I'd like to see agreement on the character encoding used for filenames (e.g., UTF-8), and then have the operating system enforce the encoding (so that only legal encodings are allowed), but that hasn't happened at this time.</P></LI>
+<LI>
+<P>Another other character special to internal data formats, such as ``&lt;'', ``;'', quote characters, backslash, and so on.</P></LI></UL>
+<P></P></DIV>
+<DIV class=NAVFOOTER style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR align=left width="100%">
+
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TD vAlign=top align=left width="33%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/file-descriptors.html">Prev</A></TD>
+<TD vAlign=top align=middle width="34%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/index.html">Home</A></TD>
+<TD vAlign=top align=right width="33%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/file-contents.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="33%">File Descriptors</TD>
+<TD vAlign=top align=middle width="34%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/input.html">Up</A></TD>
+<TD vAlign=top align=right width="33%">File Contents</TD></TR></TBODY></TABLE></DIV>

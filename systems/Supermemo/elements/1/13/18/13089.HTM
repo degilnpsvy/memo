@@ -1,0 +1,322 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>10.7.&nbsp;The Stack Frame</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s06.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;10.&nbsp;Subprogram Calls and the Stack</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s08.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="10.7.&nbsp;The Stack Frame" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286963113></A>10.7.&nbsp;The Stack Frame</H2></DIV></DIV></DIV>
+<DIV class=section title="10.7.1.&nbsp;The Basics">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286963116></A>10.7.1.&nbsp;The Basics</H3></DIV></DIV></DIV>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>stack frame</EM></SPAN>, also known as<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>activation record</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286963128></A><A class=indexterm name=id286963132></A>is the collection of all data on the stack associated with one subprogram call.</P>
+<P>The stack frame generally includes the following components:</P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist type=disc>
+<LI class=listitem>The return address</LI>
+<LI class=listitem>Argument variables passed on the stack</LI>
+<LI class=listitem>Local variables (in HLLs)</LI>
+<LI class=listitem>Saved copies of any registers modified by the subprogram that need to be restored (e.g. $s0 - $s8 in MAL).</LI></UL></DIV>
+<P>Since the stack frame for a given subprogram has a fixed size, we can reduce the number of instructions required to push and pop it by only updating the stack pointer once. Instead of individual pushes and pops, we can use offset addressing:</P>
+<P>The following requires 12 instructions:</P><PRE class=programlisting>	    pushw($ra)
+	    pushw($a0)
+	    pushw($a1)
+	    
+	    popw($a1)
+	    popw($a0)
+	    popw($ra)
+	    </PRE>
+<P>The same effect can be achieved with 8:</P><PRE class=programlisting>	    addi    $sp, $sp, -12
+	    sw      $ra, 0($sp)
+	    sw      $a0, 4($sp)
+	    sw      $a1, 8($sp)
+	    
+	    lw      $a1, 8($sp)
+	    lw      $a0, 4($sp)
+	    lw      $ra, 0($sp)
+	    addi    $sp, $sp, 12
+	    </PRE>
+<P>One possible view of the stack frame:</P><PRE class=screen>		    Address Content
+	    $sp --&gt; FF00    Saved return address
+		    FF04    Saved value from $a0
+		    FF08    Saved value from $a1
+	    </PRE></DIV>
+<DIV class=section title="10.7.2.&nbsp;Allocating Space on the Stack for Local Variables">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286963164></A>10.7.2.&nbsp;Allocating Space on the Stack for Local Variables</H3></DIV></DIV></DIV>
+<P>Local variables in C, C++, and Java that are not declared as static, actually reside in the stack frame, and have<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>automatic</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>storage class.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286963174></A>When a C, C++, or Java program enters a block such a function or method, space is allocated on top of the stack for the local variables there. When the program leaves the block, the space is freed again.</P>
+<P>Automatic variables are therefore represented as an offset from the stack pointer, such as 4($sp) or 8($sp).</P><PRE class=programlisting>	    int     function(int a, double b)
+	    
+	    {
+		int     x, y;
+		...
+		
+		return  x;
+	    }
+	    </PRE>
+<P>Possible stack frame for function:</P><PRE class=screen>		    Address Content
+	    $sp --&gt; F080    Saved return address
+		    F084    a
+		    F088    b
+		    F090    x
+		    F094    y
+		    F098    Saved register value
+		    F09C    Saved register value
+	    </PRE></DIV>
+<DIV class=section title="10.7.3.&nbsp;The Frame Pointer">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286963189></A>10.7.3.&nbsp;The Frame Pointer</H3></DIV></DIV></DIV>
+<P>The stack pointer will change when a subprogram does a push or pop operation. Many subprograms do this during calculations for convenience, or to implement algorithms that use a stack.</P>
+<P>When this happens, the offset addresses representing local automatic variables such as 4($sp) are no longer valid. The offsets are computed by the compiler, and hard-coded as offset-mode operands in the instructions, so they cannot be easily changed while the program is running.</P>
+<P>One way to alleviate this problem is by using the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>frame pointer</EM></SPAN>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286963202></A>The frame pointer is another register that we set to the address of the stack frame when a subprogram begins executing. If the code refers to local variables as offsets from the frame pointer instead of offsets from the stack pointer, then the program can use the stack pointer without complicating access to auto variables. We would then refer to something in the stack frame as offset($fp) instead of offset($sp).</P><PRE class=screen>		    Address Content
+	    $fp --&gt; F080    Saved return address
+		    F084    a
+		    F088    b
+		    F090    x
+		    F094    y
+		    F098    Saved register value
+		    F09C    Saved register value
+	    
+	    $sp --&gt; Who cares?
+	    </PRE>
+<P>Use of the frame pointer adds a small amount of overhead to a function call (the frame pointer must be set using the stack pointer upon entry to the subprogram, and restored before returning).</P>
+<P>The C code segment below was compiled with gcc on an Intel processor (with no optimizations) to produce the assembly code that follows:</P><PRE class=programlisting>	    # C code
+	    
+	    int     main()
+	    {
+		int     x, y, z;
+		
+		x = 5;
+		y = 3;
+		z = x + y - 2;
+		return z;
+	    }
+	    </PRE><PRE class=programlisting>	    # Compiler output with no optimization
+	    
+	    _main:
+	    LFB3:
+	    LM1:
+		    pushl   %ebp            # Save FP (a.k.a. base pointer)
+	    LCFI0:
+		    movl    %esp, %ebp      # Copy SP to FP
+	    LCFI1:
+		    subl    $24, %esp       # Advance SP
+	    LCFI2:
+	    LM2:
+		    movl    $5, -20(%ebp)   # x = 5
+	    LM3:
+		    movl    $3, -16(%ebp)   # y = 3
+	    LM4:
+		    movl    -16(%ebp), %eax # z = x + y - 2
+		    addl    -20(%ebp), %eax
+		    subl    $2, %eax
+		    movl    %eax, -12(%ebp) 
+	    LM5:
+		    movl    -12(%ebp), %eax # Return value goes in eax
+					    # Very inefficient
+					    # Optimizer would remove this
+	    LM6:
+		    # The leave instruction restores the base pointer
+		    # and other items in a single instruction cycle.
+		    # This is a good example of a CISC instruction.
+		    leave
+		    ret
+	</PRE><PRE class=programlisting>	# Compiled with -O (basic optimizations)
+	
+	_main:
+		pushl   %ebp            # Save base pointer
+		movl    %esp, %ebp      # Set base pointer to stack pointer
+		
+		movl    $6, %eax        # Return 6
+		
+		leave                   # Restore base and stack pointers
+		ret
+	</PRE></DIV>
+<DIV class=section title="10.7.4.&nbsp;Passing Arguments on the Stack">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286963219></A>10.7.4.&nbsp;Passing Arguments on the Stack</H3></DIV></DIV></DIV>
+<P>In many architectures, subprogram arguments are by convention passed on the system stack rather than in registers. The use of registers for arguments is only common in architectures that have many general-purpose registers available. Even in architectures that have a large number of registers such as the MIPS, there are often subprograms that take many arguments, making it impractical to pass all of them in registers. The example below demonstrates how to pass an argument on the stack.</P><PRE class=programlisting>#########################################################################
+#   Description:
+#       Print factorials from 1 to 10
+#########################################################################
+
+#########################################################################
+#   Macro definitions and includes
+#########################################################################
+
+# Common ASCII/ISO control characters
+
+ISO_EOT             =   4   # End of transmission (Ctrl+D)
+ISO_BEL             =   7   # Bell
+ISO_BS              =   8   # Backspace
+ISO_TAB             =   9   # Tab
+ISO_LF              =   10  # Line feed (newline)
+ISO_FF              =   12  # Form feed
+ISO_CR              =   13  # Carriage return
+
+# System call constants
+
+SYS_PRINT_INT       =   1
+SYS_PRINT_FLOAT     =   2
+SYS_PRINT_DOUBLE    =   3
+SYS_PRINT_STRING    =   4
+SYS_READ_INT        =   5
+SYS_READ_FLOAT      =   6
+SYS_READ_DOUBLE     =   7
+SYS_READ_STRING     =   8
+SYS_SBRK            =   9
+SYS_EXIT            =   10
+SYS_PRINT_CHAR      =   11
+SYS_READ_CHAR       =   12
+
+	# Save contents of an integer register on the stack
+	.macro  pushw($register)
+	addi    $sp, $sp, -4
+	sw      $register, ($sp)
+	.end_macro
+	
+	# Retrieve top of stack to an integer register
+	.macro  popw($register)
+	lw      $register, ($sp)
+	addi    $sp, $sp, 4
+	.end_macro
+
+	# Print the character in $const
+	# $const must be an immediate value
+	# Example: print_char_const(ISO_LF)
+	.macro  print_char_const($const)
+	pushw($a0)
+	pushw($v0)
+	
+	li      $a0, $const
+	li      $v0, SYS_PRINT_CHAR
+	syscall
+	
+	popw($v0)
+	popw($a0)
+	.end_macro
+	
+	# Print the integer in $var
+	# $var must be a label
+	.macro  print_word_var($var)
+	pushw($a0)
+	pushw($v0)
+	
+	lw      $a0, $var
+	li      $v0, SYS_PRINT_INT
+	syscall
+	
+	popw($v0)
+	popw($a0)
+	.end_macro
+	
+
+######################################################################### 
+#   Subprogram Description:
+#       Compute N! for non-negative N
+#
+#   Arguments received on stack:
+#       N
+#
+#   Returns:
+#       $v0 = N!
+#
+#########################################################################
+
+# Stack frame:
+#   $a0         Saved register used to cache argument
+#   $ra         Return address
+#   N           Argument
+
+# Subprogram body
+	.text
+factorial:
+	# Push rest of stack frame.  Already contains argument
+	# pushed by caller.
+	addi    $sp, $sp, -8 
+	sw      $ra, 0($sp)
+	sw      $a0, 4($sp)
+	
+	lw      $a0, 8($sp)     # Get argument from the stack
+	
+	# Initialize N! to 1 and then multiply by all values from N to 2
+	li      $v0, 1
+factorial_loop:
+	blt     $a0, 2, factorial_done
+	mul     $v0, $v0, $a0
+	addi    $a0, $a0, -1
+	j       factorial_loop
+	
+factorial_done:
+	
+	# Pop stack frame
+	lw      $ra, 0($sp)
+	lw      $a0, 4($sp)
+	addi    $sp, $sp, 12    # Account for argument on stack
+	
+	jr      $ra
+
+
+#########################################################################
+#   Main program
+#########################################################################
+
+	.data
+nfactorial: .word   0
+
+# Main body
+	.text
+main:
+	# Push stack frame
+	pushw($ra)
+
+	li      $s0, 0
+next_factorial:
+	pushw($s0)
+	jal     factorial
+	
+	# Print N!
+	sw      $v0, nfactorial
+	print_word_var(nfactorial)
+	print_char_const(ISO_LF)
+	
+	# Next N
+	addi    $s0, $s0, 1
+	ble     $s0, 10, next_factorial
+	
+	# Pop stack frame
+	popw($ra)
+	
+	# Return to system
+	jr      $ra
+
+</PRE></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s06.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch10s08.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">10.6.&nbsp;Value and Reference Arguments&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;10.8.&nbsp;Macros vs. Subprograms</TD></TR></TBODY></TABLE></DIV>

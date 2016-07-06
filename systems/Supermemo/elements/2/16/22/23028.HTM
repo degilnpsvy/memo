@@ -1,0 +1,165 @@
+<H3 id=-100000 class=docSection1Title>Sensing Data Availability</H3>
+<P class=docText><A name=iddle1443></A><A name=iddle1444></A><A name=iddle1657></A><A name=iddle1658></A><A name=iddle3605></A><A name=iddle3923></A><A name=iddle3924></A><A name="Many user"></A>Many user applications are sophisticated and are not satisfied with the vintage <TT>open()</TT>/<TT>read()</TT>/<TT>write()</TT>/<TT>close()</TT><A name="synchronous or"></A> calls. They desire synchronous or asynchronous notifications that alert them when new data is available from the device or when the driver is ready to accept new data. In this section, we examine two char driver methods that sense data availability: <TT>poll()</TT> and <TT>fasync()</TT><A name="former is"></A>. The former is synchronous, whereas the latter is asynchronous. Because these mechanisms are relatively advanced, let's first understand how applications use these features before finding out how the underlying driver implements them. Sensing data availability is not relevant for the simple CMOS memory device discussed previously, so let's take a few usage scenarios from a popular user space application: the X Windows server.</P><A name=ch05lev2sec6></A>
+<H4 id=title-ID0EDWOM class=docSection2Title>Poll</H4>
+<P class=docText><A name="source tree"></A>Consider the following code snippet from the X Windows source tree (downloadable from <A class=docLink href="http://www.xfree86.org/" target=_blank>www.xfree86.org</A>) that handles mice events:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong><SPAN class=docEmphasis>xc/programs/Xserver/hw/xfree86/input/mouse/mouse.c</SPAN>:</SPAN>
+case PROT_THINKING:           /* ThinkingMouse */
+  /* This mouse may send a PnP ID string, ignore it. */
+  usleep(200000); xf86FlushInput(pInfo-&gt;fd);
+  /* Send the command to initialize the beast. */
+  for (s = "E5E5"; *s; ++s) {
+    xf86WriteSerial(pInfo-&gt;fd, s, 1);
+    if ((xf86WaitForInput(pInfo-&gt;fd, 1000000) &lt;= 0))
+    break;
+    xf86ReadSerial(pInfo-&gt;fd, &amp;c, 1);
+    if (c != *s) break;
+  }
+  break;</PRE></DIV><BR>
+<P class=docText><A name=iddle3918></A><A name=iddle4666></A><A name="command to"></A>Essentially, the code sends an initialization command to the mouse, polls until it senses input data, and reads the response from the device. If you peel the envelope off <TT>Xf86WaitForInput()</TT> used previously, you will find a call to the <TT>select()</TT> system call:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong><SPAN class=docEmphasis>xc/programs/Xserver/hw/xfree86/os-support/shared/posix_tty.c</SPAN>:</SPAN>
+int
+xf86WaitForInput(int fd, int timeout)
+{
+  fd_set readfds;
+  struct timeval to;
+  int r;
+
+  FD_ZERO(&amp;readfds);
+  if (fd &gt;= 0) {
+    FD_SET(fd, &amp;readfds);
+  }
+
+  to.tv_sec  = timeout / 1000000;
+  to.tv_usec = timeout % 1000000;
+
+  if (fd &gt;= 0) {
+    SYSCALL (r = select(FD_SETSIZE, &amp;readfds, NULL, NULL, &amp;to));
+  } else {
+    SYSCALL (r = select(FD_SETSIZE, NULL, NULL, NULL, &amp;to));
+  }
+
+  if (xf86Verbose &gt;= 9)
+    ErrorF ("select returned %d\n", r);
+
+  return (r);
+}
+
+					  </PRE></DIV><BR>
+<P class=docText>You may supply a bunch of file descriptors to <TT>select(</TT><A name="until there"></A>) and ask it to keep an eye on them until there is a change in the associated data state. You may also request a timeout to override data availability. If you ask for a timeout of <TT>NULL</TT>, <TT>select()</TT><A name="info pages"></A> blocks forever. Refer to the man or info pages of <TT>select()</TT> for detailed documentation. The call to <TT>select()</TT><A name="to poll"></A> in the preceding snippet induces the X server to poll for data from a connected mouse within a timeout.</P><A name=ch05note01></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name=iddle1995></A><A name=iddle3042></A><A name=iddle3598></A><A name=iddle3601></A><A name="supports another"></A>Linux supports another system call, <TT>poll()</TT>, which has semantics similar to <TT>select()</TT>. The 2.6 kernel supports a new non-POSIX system call named <TT>epoll()</TT> that is a more scalable superset of <TT>poll()</TT><A name="driver method"></A>. All these system calls rely on the same underlying char driver method, <TT>poll()</TT>.</P>
+<P></P></DIV><BR>
+<P class=docText><A name="Most I"></A>Most I/O system calls are POSIX-compliant and are not Linux-specific (programs such as X Windows after all, run on many UNIX flavors, not just on Linux), but the internal driver methods are operating system-specific. On Linux, the <TT>poll()</TT><A name="is the"></A> driver method is the pillar under the <TT>select()</TT><A name="In the"></A> system call. In the previous X server scenario, the mouse driver's <TT>poll()</TT> method looks like this:</P>
+<DIV class=docText><PRE>static DECLARE_WAIT_QUEUE_HEAD(mouse_wait); /* Wait Queue */
+
+static unsigned int
+mouse_poll(struct file *file, poll_table *wait)
+{
+  poll_wait(file, &amp;mouse_wait, wait);
+  spin_lock_irq(&amp;mouse_lock);
+
+  /* See if data has arrived from the device or
+     if the device is ready to accept more data */
+  /* ... */
+  spin_unlock_irq(&amp;mouse_lock);
+
+  /* Availability of data is detected from interrupt context */
+  if (data_is_available()) return(POLLIN | POLLRDNORM);
+
+  /* Data can be written. Not relevant for mice */
+  if (data_can_be_written()) return(POLLOUT | POLLWRNORM);
+
+  return 0;
+}</PRE></DIV><BR>
+<P class=docText>When <TT>Xf86WaitForInput()</TT> invokes <TT>select()</TT>, the generic kernel poll implementation (defined in <SPAN class=docEmphasis>fs/select.c</SPAN>) calls <TT>mouse_poll()</TT>. <TT>mouse_poll()</TT> takes two arguments, the usual file pointer (<TT>struct file *</TT><A name=the></A>) and a pointer to a kernel data structure called the <TT>poll_table</TT>. The <TT>poll_table</TT><A name="queues owned"></A> is a table of wait queues owned by device drivers that are being polled for data.</P>
+<P class=docText><A name=iddle1442></A><A name=iddle1656></A><A name=iddle2041></A><A name=iddle3603></A><A name=iddle3922></A><A name=iddle4624></A><TT>mouse_poll()</TT> uses the library function, <TT>poll_wait()</TT>, to add a wait queue (<TT>mouse_wait</TT>) to the kernel <TT>poll_table</TT> and go to sleep. As you saw in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03">Chapter 3</A><A name="until they"></A>, "Kernel Facilities," device drivers usually own several wait queues that block until they detect a change in a data condition. This condition can be the arrival of new data from the device, willingness of the driver to pass new data to the application, or the readiness of the device (or the driver) to accept new data. Such conditions are usually (but not always) detected by the driver's interrupt handler. When the mouse driver's interrupt handler senses mouse movement, it calls <TT>wake_up_interruptible(&amp;mouse_wait)</TT> to wake up the sleeping <TT>mouse_poll()</TT>.</P>
+<P class=docText><A name="the data"></A>If there is no change in the data condition, the <TT>poll()</TT> method returns <TT>0</TT><A name="least one"></A>. If the driver is ready to send at least one byte of data to the application, it returns <TT>POLLIN|POLLRDNORM</TT><A name="the driver"></A>. If the driver is ready to accept at least a byte of data from the application, it returns <TT>POLLOUT|POLLWRNORM</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec3.html#ch05fn02">[2]</A></SUP> Thus, if there is no mouse movement, <TT>mouse_poll()</TT> returns <TT>0</TT>, and the calling thread is put to sleep. The kernel invokes <TT>mouse_poll()</TT><A name="wakes up"></A> again when the mouse interrupt handler senses device data and wakes up the <TT>mouse_wait</TT><A name="This time"></A> queue. This time around, <TT>mouse_poll()</TT> returns <TT>POLLIN|POLLRDNORM</TT>, so the <TT>select()</TT><A name=hence></A> call and hence <TT>Xf86WaitForInput()</TT><A name="positive values"></A> return positive values. The X server's mouse handler (<SPAN class=docEmphasis>xc/programs/Xserver/hw/xfree86/input/mouse/mouse.c</SPAN>) goes on to read data from the mouse.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn02>[2]</A></SUP> The full list of return codes is defined in <SPAN class=docEmphasis>include/asm-generic/poll.h.</SPAN> Some of them are used only by the networking stack.</P></BLOCKQUOTE><A name=ch05note02></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="interested in"></A>User applications that poll a driver are usually more interested in driver characteristics than device characteristics. For example, depending on the health of its buffers, a driver might be ready to accept new data from the application before the device itself is.</P>
+<P></P></DIV><BR><A name=ch05lev2sec7></A>
+<H4 id=title-ID0EA6OM class=docSection2Title>Fasync</H4>
+<P class=docText><A name="notifications from"></A>Some applications, for performance reasons, desire asynchronous notifications from the device driver. Assume that an application on a Linux pacemaker programmer device is busy performing complex computations but wants to be notified as soon as data arrives from an implanted pacemaker via a telemetry interface. The <TT>select()/poll()</TT><A name="it blocks"></A> mechanism is not of use in this case because it blocks the computations. What the application needs is an asynchronous event report. If the telemetry driver can asynchronously dispatch a signal (usually <TT>SIGIO</TT><A name="from the"></A>) as soon as it detects data from the pacemaker, the application can catch it using a signal handler and accordingly steer the code flow.</P>
+<P class=docText><A name="region of"></A>For a real-world example of asynchronous notification, let's revert to a region of the X server that requests alerts when data is detected from input devices. Take a look at this snippet from the X server sources:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong><SPAN class=docEmphasis>xc/programs/Xserver/hw/xfree86/os-support/shared/sigio.c</SPAN>:</SPAN>
+int xf86InstallSIGIOHandler(int fd, void (*f)(int, void *),
+                            void *closure)
+{
+  struct sigaction sa;
+  struct sigaction osa;
+
+  if (fcntl(fd, F_SETOWN, getpid()) == -1) {
+    blocked = xf86BlockSIGIO();
+
+  /* O_ASYNC is defined as SIGIO elsewhere by the X server */
+  if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_ASYNC) == -1) {
+    xf86UnblockSIGIO(blocked); return 0;
+  }
+  sigemptyset(&amp;sa.sa_mask);
+  sigaddset(&amp;sa.sa_mask, SIGIO);
+  sa.sa_flags = 0;
+  sa.sa_handler = xf86SIGIO;
+  sigaction(SIGIO, &amp;sa, &amp;osa);
+  /* ... */
+  return 0;
+}
+
+static void
+xf86SIGIO(int sig)
+{
+  /* Identify the device that triggered generation of this
+     SIGIO and handle the data arriving from it */
+  /* ... */
+}
+
+					  </PRE></DIV><BR>
+<P class=docText><A name=iddle2042></A><A name=iddle2050></A><A name=iddle2661></A><A name=iddle3998></A><A name=iddle4665></A><A name="you can"></A>As you can decipher from the above snippet, the X server does the following:</P>
+<UL>
+<LI>
+<P class=docList>Calls <TT>fcntl(F_SETOWN)</TT>. The <TT>fcntl()</TT> system call is used to manipulate file descriptor behavior. <TT>F_SETOWN</TT><A name="is required"></A> sets the ownership of the descriptor to the calling process. This is required since the kernel needs to know where to send the asynchronous signal. This step is transparent to the device driver.</P>
+<LI>
+<P class=docList><A name=Invokes></A>Invokes <TT>fcntl(F_SETFL)</TT>. <TT>F_SETFL</TT><A name="driver to"></A> requests the driver to deliver <TT>SIGIO</TT><A name="the application"></A> to the application whenever there is data to be read, or if the driver is ready to receive more application data. The invocation of <TT>fcntl(F_SETFL)</TT> results in the invocation of the <TT>fasync()</TT><A name="the list"></A> driver method. It's this method's responsibility to add or remove entries from the list of processes that are to be delivered <TT>SIGIO</TT>. To this end, <TT>fasync()</TT><A name="kernel library"></A> utilizes the services of a kernel library function called <TT>fasync_helper()</TT>.</P>
+<LI>
+<P class=docList>Implements the <TT>SIGIO</TT> signal handler, <TT>xf86SIGIO()</TT><A name=the></A>, as per its code architecture and installs it using the <TT>sigaction()</TT><A name="driver detects"></A> system call. When the underlying input device driver detects a change in data status, it dispatches <TT>SIGIO</TT> to registered requesters and this triggers execution of <TT>xf86SIGIO()</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec3.html#ch05fn03">[3]</A></SUP> Char drivers call <TT>kill_fasync()</TT> to send <TT>SIGIO</TT> to registered processes. To notify a read event, <TT>POLLIN</TT> is passed as the argument to <TT>kill_fasync()</TT>. To notify a write event, the argument is <TT>POLLOUT</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn03>[3]</A></SUP><A name="multiple devices"></A> If your signal handler services asynchronous events from multiple devices, you will need additional mechanisms, such as a <TT>select()</TT><A name="inside the"></A> call inside the handler, to figure out the identity of the device responsible for the event.</P></BLOCKQUOTE></LI></UL>
+<P class=docText><A name="look at"></A>To see how the driver-side of the asynchronous notification chain is implemented, let's look at a fictitious <TT>fasync()</TT><A name="method belonging"></A> method belonging to the driver of an input device:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* This is invoked by the kernel when the X server opens this
+ * input device and issues fcntl(F_SETFL) on the associated file
+ * descriptor. fasync_helper() ensures that if the driver issues a
+ * kill_fasync(), a SIGIO is dispatched to the owning application.
+ */
+static int
+inputdevice_fasync(int fd, struct file *filp, int on)
+{
+  return fasync_helper(fd, filp, on, &amp;inputdevice_async_queue);
+}
+/* Interrupt Handler */
+irqreturn_t
+inputdevice_interrupt(int irq, void *dev_id)
+{
+  /* ... */
+  /* Dispatch a SIGIO using kill_fasync() when input data is
+     detected. Output data is not relevant since this is a read-only
+     device */
+  wake_up_interruptible(&amp;inputdevice_wait);
+  kill_fasync(&amp;inputdevice_async_queue, SIGIO, POLL_IN);
+  /* ... */
+  return IRQ_HANDLED;
+}
+
+					  </PRE></DIV><BR>
+<P class=docText><A name=iddle1436></A><A name=iddle3371></A><A name=iddle3378></A><A name=iddle3613></A><A name=how></A>To see how <TT>SIGIO</TT><A name="can be"></A> delivery can be complex, consider the case of a tty driver (discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A>, "Serial Drivers"). Interested applications get notified under different scenarios:</P>
+<UL>
+<LI>
+<P class=docList><A name="application data"></A>If the underlying driver is not ready to accept application data, it puts the calling process to sleep. When the driver interrupt handler subsequently decides that the device can accept more data, it wakes the application and invokes <TT>kill_fasync(POLLOUT)</TT>.</P>
+<LI>
+<P class=docList><A name="the tty"></A>If a newline character is received, the tty layer calls <TT>kill_fasync(POLLIN)</TT>.</P>
+<LI>
+<P class=docList><A name="after detecting"></A>When the driver wakes up a sleeping reader thread after detecting that sufficient data bytes beyond a threshold have arrived from a device, it sends that information to stakeholder processes by invoking <TT>kill_fasync(POLLIN)</TT>.</P></LI></UL>

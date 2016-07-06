@@ -1,0 +1,330 @@
+<CENTER style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><FONT face="Times New Roman, Times, serif"><B><FONT size=7>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>LILO</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>(Li<FONT size=6>nux</FONT><SPAN class=Apple-converted-space>&nbsp;</SPAN>Lo<FONT size=6>ader</FONT>) MBR</FONT></B></FONT><BR><BR><FONT size=5 face=Arial><B>An Assembly Listing<BR>As seen in Memory during Execution<BR><I>and some</I><BR>Notes on How to Remove LILO from the MBR</B><BR><BR></FONT></CENTER>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<FONT style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" size=4 face=Verdana>NOTE:<SPAN class=Apple-converted-space>&nbsp;</SPAN><FONT size=3 face="Arial, Helvetica, sans-serif">Although there's no need to pursue the<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>disassembly</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>of this code<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>(</B>since it's already an Open-Source program<B>)</B>, I've listed the<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>Assembly instructions</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>from<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>the first sector</B><SPAN class=Apple-converted-space>&nbsp;</SPAN><I>with some of my own comments.</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>( This MBR code is<SPAN class=Apple-converted-space>&nbsp;</SPAN><B><I>only</I></B><SPAN class=Apple-converted-space>&nbsp;</SPAN>the '<B>first stage</B>' of the complete<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>LILO</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>program. ) &nbsp; You can find documented sources by LILO's original author, Werner Almesberger, on most Linux archive sites.</FONT><SPAN class=Apple-converted-space>&nbsp;</SPAN>[<FONT size=3>Try looking here first:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://sunsite.unc.edu/pub/Linux/system/boot/lilo/" target=SUN>sunsite.unc.edu/pub/Linux/system/boot/lilo/</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>for the archive,<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>lilo-21.tar.gz</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>(version 21). The code for the MBR is found in the file,<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>first.S</B>, whereas the much larger portion of the Assembly code for the Second Stage is found in the file,<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>second.S</B>.</FONT><SPAN class=Apple-converted-space>&nbsp;</SPAN><FONT size=3 face="Verdana, Arial, Helvetica, sans-serif">Note that the lastest version of LILO (v.<B>22</B>) has gone through some extensive changes; including the ability to display some graphics screens at boot up. The code for its MBR has been changed and is no longer referenced as first.S, but rather as<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>mbr.S</B>. The code and data shown below is for version<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>20</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>and should still be applicable to version<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>21</B>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><I><B>but not</B>for version<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>22</B></I>.</FONT>]</FONT><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<BR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<H1 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" align=center>A View of the LILO MBR<BR>in a Disk Editor<BR><FONT size=5>(Note: Various versions of LILO are in existence;<BR>this is only one of those versions.)</FONT><FONT size=4></FONT></H1>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><FONT size=4 face=Verdana><B style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>The executable code</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>LILO MBR</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>begins with a 'Clear Interrupts' (<B>CLI</B>) instruction ('FA'), then continues with a<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>two-byte</I><SPAN class=Apple-converted-space>&nbsp;</SPAN><B>Jump Instruction</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>('EB 6C') pointing to the body of the code at offsets<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>0<B>6F</B>h through<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>170</B>h</SPAN>. Although the code<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>is</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>that of a Master Boot Record, it contains a section of data at the beginning of the sector (similar to many OS Boot Records) making it necessary to<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>JMP</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>(Jump) over that section to the rest of the code. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99><B>LILO</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>Name</SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>is embedded near the start of this data section to identify the sector as a LILO MBR (from offsets<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99>00<B>6</B>h through 00<B>9</B>h</SPAN>). The '<B style="BACKGROUND-COLOR: rgb(255,204,255)" class=ltpnk><FONT size=5 face="Courier New, Courier, mono">lba</FONT></B>' string is optional; it indicates that LILO should use its LBA sector code. The Hex<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>Word</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>at offset<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>00<B>C</B>h-00<B>D</B>h</SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>(00<B>14</B>h) shows this code is for<SPAN class=Apple-converted-space>&nbsp;</SPAN><B style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>version 20</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>(14 hex = 20 decimal) of LILO.</FONT></P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" align=center>
+<TABLE>
+<TBODY>
+<TR>
+<TD><PRE>Absolute sector 0 (cylinder 0, head 0, sector 1)
+       0  1  2  3  4  5  <B>6</B>  7  8  <B>9</B>  A  B  <B>C</B>  <B>D</B>  E  F
+0000  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>FA EB 6C</SPAN> <SPAN style="BACKGROUND-COLOR: rgb(255,204,255)">6C 62 61</SPAN> <B style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99>4C 49 4C 4F</B> 01 00 <B style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>14 00</B> 5A 00  ..l<SPAN style="BACKGROUND-COLOR: rgb(255,204,255)">lba</SPAN><B style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99>LILO</B>....Z.
+0010  00 00 00 00 <SPAN style="BACKGROUND-COLOR: rgb(204,255,255)" class=ltcyn>2D DB 75 3B</SPAN> 1D 87 80 1A <FONT color=#ff0000>01</FONT> 1E 87 80  ....-.u;........
+0020  1A <FONT color=#ff0000>01</FONT> 1C 87 80 1A <FONT color=#ff0000>01</FONT> <B>01</B> 00 00 00 00 00 00 <FONT color=#ff0000>00</FONT> 20  ...............
+0030  87 80 1A <FONT color=#ff0000>01</FONT> 2B 85 80 18 01 2C 85 80 18 01 2D 85  ....+....,....-.
+0040  80 18 01 2E 85 80 18 01 2F 85 80 18 01 30 85 80  ......../....0..
+0050  18 01 31 85 80 18 01 32 85 80 18 01 00 00 00 00  ..1....2........
+0060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00<SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn> B8</SPAN>  ................
+0070  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>C0 07 8E D8 8C 06 6A 00 89 36 68 00 89 1E 6C 00</SPAN>  ......j..6h...l.
+0080  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>88 16 6E 00 B8 00 8A 8E C0 B9 00 01 29 F6 29 FF</SPAN>  ..n.........).).
+0090  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>FC F3 A5 EA 98 00 00 8A FA 8E D8 8E C0 BC 00 B0</SPAN>  ................
+00A0  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>B8 00 80 8E D0 FB B0 0D E8 57 00 B0 0A E8 52 00</SPAN>  .........W....R.
+00B0  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>B0 4C E8 4D 00 BE 34 00 BB 00 10 FC AD 89 C1 AD</SPAN>  .L.M..4.........
+00C0  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>89 C2 09 C8 74 20 46 E8 43 00 72 06 81 C3 00 02</SPAN>  ....t F.C.r.....
+00D0  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>EB EA 50 B0 20 E8 2A 00 58 88 E0 E8 12 00 31 C0</SPAN>  ..P. .*.X.....1.
+00E0  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>88 C2 CD 13 EB CF B0 49 E8 17 00 EA 00 00 00 8B</SPAN>  .......I........
+00F0  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>50 C0 E8 04 E8 01 00 58 24 0F 04 30 3C 3A 72 02</SPAN>  P......X$..0&lt;r.
+0100  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>04 07 30 FF B4 0E CD 10 C3 5A 59 5B C3 F6 C2 40</SPAN>  ..0......ZY[...@
+0110  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>74 54 80 E2 BF 53 51 52 B4 08 CD 13 72 EB 88 F0</SPAN>  tT...SQR....r...
+0120  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>5A 88 16 73 01 88 F2 30 F6 51 86 CD D0 C5 D0 C5</SPAN>  Z..s...0.Q......
+0130  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>80 E5 03 89 0E 71 01 59 83 E1 3F F6 E1 01 C8 93</SPAN>  .....q.Y..?.....
+0140  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>58 F7 F3 92 F6 F1 FE C4 88 26 74 01 92 88 D6 8A</SPAN>  X........&amp;t.....
+0150  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>16 73 01 3B 06 71 01 77 13 86 C4 D0 C8 D0 C8 0A</SPAN>  .s.;.q.w........
+0160  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>06 74 01 89 C1 5B B8 01 02 CD 13 C3 5B 31 C0 F9</SPAN>  .t...[......[1..
+0<B>170</B>  <SPAN style="BACKGROUND-COLOR: rgb(204,255,204)" class=ltgrn>C3 </SPAN>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+0180  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+0190  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+01A0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+01B0  00 00 00 00 00 00 00 00 00 00 00 00 00 00<SPAN style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred> 80 01</SPAN>  ................
+01C0  <SPAN style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>01 00 <B>83</B> 1F 7F C8 3F 00 00 00 A1 0E 0E 00 00 00</SPAN>  ......?.........
+01D0  <SPAN style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>41 C9 <B>05</B> 1F BF 0A E0 0E 0E 00 C0 07 02 00 00 00</SPAN>  A...............
+01E0  <SPAN style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00</SPAN>  ................
+01F0  <SPAN style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>00 00 00 00 00 00 00 00 00 00 00 00 00 00</SPAN><SPAN style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99> <B>55 AA</B></SPAN>  ..............U.
+       0  1  2  3  4  5  6  7  8  9  A  B  C  D  <B>E</B>  <B>F</B>
+</PRE></TD></TR></TBODY></TABLE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><FONT size=4 face=Verdana>Although LILO is a Boot Manager, it follows the structure of all MBRs by placing the standard<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>four-entry</I><SPAN class=Apple-converted-space>&nbsp;</SPAN><B style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>Partition Table</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>in its agreed upon location (between offsets 0<B>1BE</B>h and 0<B>1FD</B>h; inclusive) which is followed by the standard<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>Word-sized</I><SPAN class=Apple-converted-space>&nbsp;</SPAN><B>signature</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>ID (or<SPAN class=Apple-converted-space>&nbsp;</SPAN><B><I>Magic</I></B><SPAN class=Apple-converted-space>&nbsp;</SPAN>number) of<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN style="BACKGROUND-COLOR: rgb(255,255,0)" class=yel><B>AA55</B>h</SPAN>(remember hex Words for Intel x86 CPUs are stored in memory with the Lowest-byte first and the Highest-byte last to make processing quicker).</FONT></P><BR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=CODE></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<BR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><BR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<H1 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" align=center>An Examination of the Assembly Code</H1>
+<UL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<P><FONT size=4 face=Verdana>Here's a disassembled copy of the code (; with comments) after being loaded into memory by the BIOS at 0000:7C00<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR><BR>NOTE: The following code is only one of LILO's many versions which you may encounter in the real-life world!</FONT></P></UL><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">0000:7C00 FA            CLI                ; Clear Interrupts
+                                           ; 
+0000:7C01 EB6C          <B>JMP     <FONT color=#006e00>7C6F</FONT></B>       ; Code continues below after
+                                           ;  the 'data table' examples.
+
+</PRE>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">      This portion of the LILO MBR is somewhat similar to the "<B>BPB</B>" of an
+   MS-DOS or Windows OS Boot Record only because it provides further data
+   about the Boot Record. But it also contains such things as the <B>Input
+   Timeout</B>, <B>Boot Delay</B> and even a <B style="BACKGROUND-COLOR: rgb(204,255,255)" class=ltcyn>Timestamp</B>.
+
+
+0003:           <SPAN style="BACKGROUND-COLOR: rgb(255,204,255)" class=ltpnk>6C 62 61</SPAN> <B style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99>4C 49 4C 4F</B> <U>01 00</U> <B style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>14 00</B> <U>5A 00</U>  ..l<SPAN style="BACKGROUND-COLOR: rgb(255,204,255)" class=ltpnk>lba</SPAN><B style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99>LILO</B>....Z.
+0010:  <U>00 00</U> 00 00 <SPAN style="BACKGROUND-COLOR: rgb(204,255,255)" class=ltcyn>2D dB 75 3B</SPAN> <U>1D 87</U> <U>80 1A</U> <B><FONT color=#ff0000>01</FONT></B> <U>1E 87</U> 80  ....-.u;........
+0020:  1A <B><FONT color=#ff0000>01</FONT></B> <U>1C 87</U> <U>80 1A</U> <B><FONT color=#ff0000>01</FONT></B> <B>01</B> <U>00 00</U> <U>00 00</U> <U>00 00</U> <B><FONT color=#ff0000>00</FONT></B> 20  ...............
+0030:  87 <U>80 1A</U> <B><FONT color=#ff0000>01</FONT></B> 2B 85 80 18 <B>01</B> 2C 85 80 18 <B>01</B> 2D 85  ....+....,....-.
+0040:  80 18 <B>01</B> 2E 85 80 18 <B>01</B> 2F 85 80 18 <B>01</B> 30 85 80  ......../....0..
+0050:  18 <B>01</B> 31 85 80 18 <B>01</B> 32 85 80 18 <B>01</B> 00 00 00 00  ..1....2........
+0060:  00 00 00 00 00 00 00 00 00 00 <FONT color=#ff0000>00 00 00 00 00</FONT>     ...............
+        0  1  2  3  4  5  6  7  8  9  a  b  c  d  e
+
+ Offset
+(in hex)    Size     Description                               Example
+========  =======  =======================================   ===========
+ 03-05    3 bytes    <B style="BACKGROUND-COLOR: rgb(255,204,255)" class=ltpnk>Optional</B> ASCII string:  "<SPAN style="BACKGROUND-COLOR: rgb(255,204,255)" class=ltpnk>lba</SPAN>"                -
+                     <B>(</B>if found, LILO uses LBA sector mode<B>)</B>
+ 06-09    4 bytes    ASCII string: "<B style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99>LILO</B>" (<B>always present</B>)        -
+
+ 0a-0b      WORD     FIRST STAGE                                0x0001
+ 0c-0d      WORD     <B style="BACKGROUND-COLOR: rgb(255,204,204)" class=ltred>VERSION        v.20</B> (14hex = 20 decimal)   0x00<B>14</B>
+ 0e-0f      WORD     <B>Input Timeout</B>                              0x005a
+ 10-11      WORD     <B>Boot Delay</B>                                 0x0000
+
+   12       byte     COM Port (0 = unused, 1 = COM1, etc.)        00
+   13       byte     Serial Port Parameters (0 = unused)          00
+
+ 14-17     DWORD     <SPAN style="BACKGROUND-COLOR: rgb(204,255,255)" class=ltcyn>Timestamp                                0x3b75db2d</SPAN>
+
+ 18-19      WORD     First Descriptor Sector <B>Address</B> (<B>CX</B>)       0x871d
+ 1a-1b      WORD     First Descriptor Sector <B>Address</B> (<B>DX</B>)       0x1a80
+   <B><FONT color=#ff0000>1c</FONT></B>       byte     (d1_AL) <FONT color=#ff0000>Not Used</FONT>                             <B><FONT color=#ff0000>01</FONT></B>
+
+ 1d-1e      WORD     2nd Descriptor Sector <B>Address</B> (<B>CX</B>)         0x871e
+ 1f-20      WORD     2nd Descriptor Sector <B>Address</B> (<B>DX</B>)         0x1a80
+   <B><FONT color=#ff0000>21</FONT></B>       byte     (d2_AL) <FONT color=#ff0000>Not Used</FONT>                             <B><FONT color=#ff0000>01</FONT></B>
+
+ 22-23      WORD     Default Command-Line Sector <B>Address</B> (<B>CX</B>)   0x871c
+ 24-25      WORD     Default Command-Line Sector <B>Address</B> (<B>DX</B>)   0x1a80
+   <B><FONT color=#ff0000>26</FONT></B>       byte     (dc_AL) <FONT color=#ff0000>Not Used</FONT>                             <B><FONT color=#ff0000>01</FONT></B>
+
+   27       byte     Flag to indicate if Prompt is always to      <B>01</B>
+                     be Entered (also used as alignment byte)
+
+ 28-29      WORD     <B>Length</B> of Initial <B>Greeting Message</B>         0x0000
+ 2a-2b      WORD     <B>Location</B> of Message (<B>CX</B>)                   0x0000
+ 2c-2d      WORD     <B>Location</B> of Message (<B>DX</B>)                   0x0000
+   <B><FONT color=#ff0000>2e</FONT></B>       byte     (ms_AL) <FONT color=#ff0000>Not Used</FONT>                             <B><FONT color=#ff0000>00</FONT></B>
+
+ 2f-30      WORD     Keyboard Translation Table Location (CX)   0x8720
+ 31-32      WORD     Keyboard Translation Table Location (DX)   0x1a80
+   33       byte     (kt_AL)                                      <B><FONT color=#ff0000>01</FONT></B>
+
+ 34-5b (+?) ????     <B>Second Stage Sector Addresses</B>:
+                                                         0x852b, 0x1880, <B>01</B>
+                                                         0x852c, 0x1880, <B>01</B>
+                                                         0x852d, 0x1880, <B>01</B>
+                                                         0x852e, 0x1880, <B>01</B>
+                                                         0x852f, 0x1880, <B>01</B>
+                                                         0x8530, 0x1880, <B>01</B>
+                                                         0x8531, 0x1880, <B>01</B>
+                                                         0x8532, 0x1880, <B>01</B>
+
+ 5c         <FONT color=#ff0000><B>????</B></FONT>     <B><FONT color=#ff0000>? ? ? ?</FONT></B>
+
+ 6a - 6e    Used for copying possible external data parameters.</PRE>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">0000:<B><FONT color=#006e00>7C6F</FONT></B> B8C007        MOV     AX,0<B>7C0</B>      ; Note: 0<B>7C0</B>:0000 <FONT color=#009900><B>=</B></FONT> 0000:<B>7C00</B>
+0000:7C72 8ED8          MOV     DS,AX
+0000:7C74 8C066A00      MOV     [006A],ES
+0000:7C78 89366800      MOV     [0068],SI
+0000:7C7C 891E6C00      MOV     [006C],BX
+0000:7C80 88166E00      MOV     [006E],DL
+0000:7C84 B8008A        MOV     AX,<B>8A00</B>        ; Segment of new location.
+0000:7C87 8EC0          MOV     ES,AX
+0000:7C89 B90001        MOV     CX,0100
+0000:7C8C 29F6          SUB     SI,SI
+0000:7C8E 29FF          SUB     DI,DI
+0000:7C90 FC            CLD
+0000:7C91 F3            REPZ                   ; All of the code and the
+0000:7C92 A5            MOVSW                  ;   tables are moved to a
+                                               ;  SEGMENT <B>much higher up</B>
+                                               ;   <B>in Memory</B>...
+
+0000:7C93 EA9800008A    <B>JMP     8A00:0098</B>      ; JUMP to new code area...
+</PRE>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<FONT style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" size=4 face=Verdana>The following code begins at location:<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>8A00:0098</B><SPAN class=Apple-converted-space>&nbsp;</SPAN><BR>[Only the<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>Offset Locations</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>are shown in the code listings below.]</FONT><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">:0098 FA            CLI                 ; Clear Interrupts
+:0099 8ED8          MOV     DS,AX       ; Set DS and...
+:009B 8EC0          MOV     ES,AX       ; ES from AX
+:009D BC00B0        MOV     SP,B000     ; Set the Stack Pointer to...
+:00A0 B80080        MOV     AX,8000     ; B000 and the Stack...
+:00A3 8ED0          MOV     SS,AX       ; Segment to 8000.
+:00A5 FB            STI                 ; Enable Interrupts again
+
+:00A6 B00D          MOV     AL,<B>0D</B>
+:00A8 E85700        <FONT color=green><B>CALL    <FONT color=#0000cc>0102</FONT></B></FONT>        ; Display  CARRIAGE RETURN
+
+:00AB B00A          MOV     AL,<B>0A</B>
+:00AD E85200        <FONT color=green><B>CALL    <FONT color=#0000cc>0102</FONT></B></FONT>        ; Display  LINE FEED
+
+:00B0 B04C          MOV     AL,<B>4C</B>
+:00B2 E84D00        <FONT color=green><B>CALL    <FONT color=#0000cc>0102</FONT></B></FONT>        ; Display an ASCII '<B>L</B>'
+                                        ; This completes first stage
+                                        ; of the LILO Loader!
+
+:00B5 BE3400        MOV     SI,0034
+:00B8 BB0010        MOV     BX,1000
+:00BB FC            CLD
+
+
+:<B><FONT class=clozed>00BC</FONT></B> AD            LODSW
+:00BD 89C1          MOV     CX,AX
+:00BF AD            LODSW
+:00C0 89C2          MOV     DX,AX
+
+:00C2 09C8          OR      AX,CX       ; At End of File?
+:00C4 7420          <B>JZ</B><FONT color=#008000><B>      00E6</B></FONT>        ; Yes, so --&gt; Begin loading
+                                        ;   the <I>Second Stage</I> Loader.
+
+:00C6 46            INC     SI
+:00C7 E84300        <FONT color=green><B>CALL    <FONT color=#0000cc>010D</FONT></B></FONT>
+
+:00CA 7206          <FONT color=red><B>JB     00D2</B></FONT>         ; Error! --&gt; Error routine
+
+:00CC 81C30002      ADD     BX,0200     ; 200h = 512 bytes
+:00D0 EBEA          <FONT class=clozed><B>JMP     00BC</B></FONT>        ; Get next Sector
+
+
+; ========================================================================
+
+
+:<FONT color=red><B>00D2</B></FONT> 50            PUSH    AX
+:00D3 B020          MOV     AL,20       ;
+:00D5 E82A00        <FONT color=green><B>CALL    <FONT color=#0000cc>0102</FONT></B></FONT>        ; Display  SPACE
+:00D8 58            POP     AX
+:00D9 88E0          MOV     AL,AH       ; Display Error Code
+:00DB E81200        <FONT color=green><B>CALL    <FONT color=#0000cc>00F0</FONT></B></FONT>
+
+:00DE 31C0          XOR     AX,AX       ; | RESET the
+:00E0 88C2          MOV     DL,AL       ; | Floppy Disk
+:00E2 CD13          <B><I>INT</I>     13</B>          ; | Controller.
+
+:00E4 EBCF          <FONT class=clozed><B>JMP     00B5</B></FONT>
+
+<FONT color=#008000><B>:00E6</B></FONT> B049          MOV     AL,49
+:00E8 E81700        <FONT color=green><B>CALL    <FONT color=#0000cc>0102</FONT></B></FONT>        ; Display an ASCII '<B>I</B>'
+
+:00EB EA0000008B    <B><FONT color=#008000>JMP     8B00:0000</FONT></B>   ; --&gt; Jump to <B><I>Second Stage</I></B>
+                                        ;          of Boot Loader
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><FONT size=4 face=Verdana>The instruction above jumps to<SPAN class=Apple-converted-space>&nbsp;</SPAN><B><I>the next stage</I></B><SPAN class=Apple-converted-space>&nbsp;</SPAN>of the LILO Boot Loading Program at:<SPAN class=Apple-converted-space>&nbsp;</SPAN><FONT size=5 face="Courier New, Courier, mono"><B>8B00:0000</B></FONT>.</FONT></P>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+
+<CENTER style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><FONT size=4><B><FONT size=5>S U B R O U T I N E &nbsp;s</FONT></B></FONT></CENTER>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">:<FONT color=#0000cc><B>00F0</B></FONT> 50            PUSH    AX
+:00F1 C0E804     <B>*</B>  SHR     AL,04       ; the only OpCode in the MBR
+                                        ; that isn't just 8086 code.
+:00F4 E80100        <FONT color=green><B>CALL    <FONT color=#0000cc>00F8</FONT></B></FONT>
+
+:00F7 58            POP     AX
+
+:<B><FONT color=#0000cc>00F8</FONT></B> 240F          AND     AL,0F
+:00FA 0430          ADD     AL,30
+:00FC 3C3A          CMP     AL,3A
+:00FE 7202          JB      <B><FONT color=#006e00>0102</FONT></B>
+
+:0100 0407          ADD     AL,07
+
+:<FONT color=green><B>0102</B></FONT> 30FF          XOR     BH,BH
+:0104 B40E          MOV     AH,0E       ; Function <B>0E</B>h of <B><I>INT</I> 10</B>
+:0106 CD10          <B><I>INT</I>     10</B>          ;  "Teletype Output" Display one
+                                        ;  character on the screen. 
+:0108 C3            <B><FONT color=#0000ff>RET</FONT></B>
+
+:<B><FONT class=clozed>0109</FONT></B> 5A            POP     DX
+:010A 59            POP     CX
+:010B 5B            POP     BX
+:010C C3            <B><FONT color=#0000ff>RET</FONT></B>
+
+:010D F6C240        TEST    DL,40
+:0110 7454          JZ      0166
+:0112 80E2BF        AND     DL,BF
+:0115 53            PUSH    BX
+:0116 51            PUSH    CX
+:0117 52            PUSH    DX
+:0118 B408          MOV     AH,0<B>8</B>
+:011A CD13          <B><I>INT</I>     13</B>
+
+:011C 72EB          JB      <B><FONT class=clozed>0109</FONT></B>
+:011E 88F0          MOV     AL,DH
+:0120 5A            POP     DX
+:0121 88167301      MOV     [0173],DL
+:0125 88F2          MOV     DL,DH
+:0127 30F6          XOR     DH,DH
+:0129 51            PUSH    CX
+:012A 86CD          XCHG    CL,CH
+:012C D0C5          ROL     CH,1
+:012E D0C5          ROL     CH,1
+:0130 80E503        AND     CH,03
+:0133 890E7101      MOV     [0171],CX
+:0137 59            POP     CX
+:0138 83E13F        AND     CX,+3F
+:013B F6E1          MUL     CL
+:013D 01C8          ADD     AX,CX
+:013F 93            XCHG    BX,AX
+:0140 58            POP     AX
+:0141 F7F3          DIV     BX
+:0143 92            XCHG    DX,AX
+:0144 F6F1          DIV     CL
+:0146 FEC4          INC     AH
+:0148 88267401      MOV     [0174],AH
+:014C 92            XCHG    DX,AX
+:014D 88D6          MOV     DH,DL
+:014F 8A167301      MOV     DL,[0173]
+:0153 3B067101      CMP     AX,[0171]
+:0157 7713          JA      016C
+
+:0159 86C4          XCHG    AL,AH
+:015B D0C8          ROR     AL,1
+:015D D0C8          ROR     AL,1
+:015F 0A067401      OR      AL,[0174]
+:0163 89C1          MOV     CX,AX
+:0165 5B            POP     BX
+
+:0166 B80102        MOV     AX,0<B>2</B>01         ; | READ one
+:0169 CD13          <B><I>INT</I>     13</B>              ; | Sector
+
+:016B C3            <B><FONT color=#0000ff>RET</FONT></B>
+
+:016C 5B            POP     BX
+:016D 31C0          XOR     AX,AX
+:016F F9            STC
+:0170 C3            <B><FONT color=#0000ff>RET</FONT></B>
+
+</PRE>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+         A N    E X A M P L E   P A R T I T I O N     T A B L E 
+       ----------------------------------------------------------
+
+01BE                                             <B>80</B> 01                ..
+01C0   01 00 <B>83</B> 3F 3F 20 3F 00 00 00 81 07 02 00 00 00  ...?? ?.........
+01D0   01 21 <B>05</B> 3F BF 6C C0 07 02 00 00 2D 24 00 00 00  .!.?.l.....-$...
+01E0   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+01F0   00 00 00 00 00 00 00 00 00 00 00 00 00 00 <B style="BACKGROUND-COLOR: rgb(255,255,153)" class=yel99>55 AA</B>  ..............U.
+</PRE>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+
+<H1 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><FONT face=Arial>Notes on Removing LILO Boot Manager</FONT></H1><FONT style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" size=4>The following is an edited article from the<SPAN class=Apple-converted-space>&nbsp;</SPAN><FONT face="Arial Narrow">Microsoft's</FONT><SPAN class=Apple-converted-space>&nbsp;</SPAN>Knowledge Base article Q171611, Titled: "<FONT face=Arial><B>Removing the Linux LILO Boot Manager</B></FONT>"</FONT><BR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><BR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><FONT style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" size=2 face=Verdana>
+<H3>SUMMARY</H3>
+<P>This describes how to remove the LILO boot manager from the Master Boot Record (MBR).</P>
+<H3>MORE INFORMATION</H3>
+<P>When Linux is installed on your computer, it allows a dual boot by loading a boot manager called LILO directly into the MBR. To remove LILO, perform the following steps:</P>
+<H4>If Linux is Still Installed</H4>Run LILO with either the -u or -U switch. The second parameter (the one after the switch) must be the device name.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR><BR>The only difference between the two switches is that -u checks the time stamp on the current MBR and the backed-up one, whereas -U does not check the time stamp at all.
+<UL>
+<LI>For example, if LILO is installed to the MBR of the master drive on the primary IDE controller, the command would be:</LI><BR><BR>
+<BLOCKQUOTE><B>lilo -u /dev/hda</B><BR></BLOCKQUOTE>Where dev is the device directory, 'hd' indicates an IDE hard drive, and 'a' indicates the master on the primary IDE channel.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR><BR>
+<LI>To use with a SCSI drive, run:<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>lilo -u /dev/sda</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>where sd indicates a SCSI drive and a indicates the first drive in the chain.</LI><BR><BR>
+<LI>If there are multiple partitions on the drive, indicate the partition number for LILO to uninstall by adding a number corresponding to the partition number on the drive, starting the count at 1 (not 0). For example,</LI><BR>
+<BLOCKQUOTE><B>lilo -u /dev/sda1</B><BR></BLOCKQUOTE>removes LILO from the first SCSI drive, first partition. (<B>NOTE</B>: The sda indicator has nothing to do with the SCSI ID number.)<BR><BR></UL>
+<H4>If Linux is No Longer Installed Correctly</H4><B>NOTE</B>: The following procedure is more difficult [and is "not supported by Microsoft..." as the KB article says, "...and is done strictly at the discretion of the user. Microsoft assumes no liability for lost or corrupted data. This procedure should be done only as a last resort."] and most likely one you must attempt because you tried to remove the Linux partition or had some disk structure accident before you could remove the LILO Boot Manager using the correct procedure... Or, you simply didn't know about its existence! This procedure has not been tested by The Starman either... If you do not have access to the NT Resource Kit's Disksave program mentioned below, you could also use<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://thestarman.pcministry.com/asm/mbr/BootToolsRefs.htm#RAN">The Ranish Partition Manager</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>(or better in my opinion:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://thestarman.pcministry.com/asm/mbr/BootToolsRefs.htm#PQMBR">PQ's<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>MBRUTIL</B></A>) to both 'save' and 'restore' your hard drive's first sector (MBR) or any other utility that will do so.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR><BR><B>IMPORTANT</B>: fdisk /mbr removes the Windows NT disk signature (<B>not<SPAN class=Apple-converted-space>&nbsp;</SPAN></B>the same as the MBR's AA55h Word signature!) from the MBR. If this drive is a member of a Windows NT fault tolerance set, it will no longer be recognized as a member of that set.
+<OL>
+<LI>Use the Windows NT Resource Kit Disksave.exe utility to back up the MBR and boot sector.</LI><BR><BR>
+<LI>Boot to MS-DOS and type the following:</LI><BR><BR>
+<BLOCKQUOTE><B>fdisk /mbr</B></BLOCKQUOTE>
+<LI>Restart your computer.</LI><BR><BR></OL>The computer should start normally. If the computer does not start normally, boot to an MS-DOS boot disk and run Disksave again to restore the MBR and boot sector. You may also need to run Fdisk to specify the new active partition to boot.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></FONT>

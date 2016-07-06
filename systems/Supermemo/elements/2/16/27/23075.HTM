@@ -1,0 +1,550 @@
+<H3 id=-100000 class=docSection1Title>Device Example: Ethernet-Modem Card</H3>
+<P class=docText><A name="Armed with"></A>Armed with the knowledge acquired so far, let's venture to write a skeletal device driver for a fictitious Ethernet-Modem dual-function CardBus card and see how it can be used for networking on a LAN and for establishing a dialup connection to an <A name=iddle2013></A><A name=iddle2014></A><A name=iddle3431></A><A name=iddle3432></A><A name=iddle3446></A><A name=iddle3448></A><A name="You will"></A>Internet service provider. You will essentially need one device driver per supported function. Assuming you already have a serial driver (we learned to write serial drivers in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="an Ethernet"></A>, "Serial Drivers") and an Ethernet driver (we will learn to implement network drivers in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15">Chapter 15</A><A name="those drivers"></A>) that support the chipsets used on the card, let's tinker with those drivers and get them to work with the CardBus interface. The example here is generic but is loosely based on the kernel driver for the Xircom card that we used previously. The Ethernet and modem portions of the Xircom driver live separately in <SPAN class=docEmphasis>drivers/net/tulip/xircom_cb.c</SPAN> and <SPAN class=docEmphasis>drivers/serial/8250_pci.c</SPAN>, respectively.</P><A name=ch10lev2sec3></A>
+<H4 id=title-ID0E4PPM class=docSection2Title>Initializing and Probing</H4>
+<P class=docText><A name=of></A>PCI drivers use an array of <TT>pci_device_id</TT> structures defined in <SPAN class=docEmphasis>include/linux/mod_devicetable.h</SPAN> to describe the identity of the cards they support:</P>
+<DIV class=docText><PRE>struct pci_device_id {
+  __u32 vendor, device;         /* Vendor and Device IDs */
+  __u32 subvendor, subdevice;   /* Subvendor and Subdevice IDs */
+  __u32 class, classmask;       /* Class and class mask */
+  kernel_ulong_t driver_data;   /* Private data */
+};</PRE></DIV><BR>
+<P class=docText>The semantics of the first six fields in <TT>pci_device_id</TT> conform to the PCI parlance discussed previously. The last field <TT>driver_data</TT><A name="to co"></A> is private to the driver and is commonly used to co-relate configuration information if the driver supports multiple cards.</P>
+<P class=docText><A name="a configuration"></A>The Ethernet-Modem card has a device ID and a configuration space corresponding to each of its two functions. Because the two card functions are unconnected, you need separate PCI drivers to handle them. The <SPAN class=docEmphasis>drivers/net/</SPAN> directory is a good place to hold the Ethernet driver, and <SPAN class=docEmphasis>drivers/serial/</SPAN><A name="driver in"></A> is the right location to place its serial counterpart. The Ethernet driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex01">Listing 10.1</A><A name="function and"></A> supports the network function and announces a set of associated IDs in its <TT>pci_device_id</TT><A name="driver in"></A> table. The serial driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex02">Listing 10.2</A><A name="is similar"></A> is similar, except that it's responsible for the modem function. The associated class codes and class masks are left unstated by both drivers because the vendor ID/device ID combination itself uniquely identifies their functionality.</P>
+<P class=docText><A name="subsystem provides"></A>The PCI subsystem provides macros such as <TT>PCI_DEVICE()</TT> and <TT>PCI_DEVICE_CLASS()</TT><A name="ease the"></A> to ease the creation of the <TT>pci_device_id</TT> table. <TT>PCI_DEVICE()</TT>, for example, <A name=iddle2010></A><A name=iddle2012></A><A name=iddle3032></A><A name=iddle3254></A><A name=iddle3428></A><A name=iddle3430></A><A name=iddle3476></A><A name=iddle3776></A>creates a <TT>pci_device_id</TT><A name="you may"></A> element from the specified vendor ID and device ID. So you may rewrite <TT>network_device_pci_table</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex01">Listing 10.1</A> as follows:</P>
+<DIV class=docText><PRE>struct pci_device_id network_driver_pci_table[] __devinitdata = {
+  {PCI_DEVICE(MY_VENDOR_ID, MY_DEVICE_ID_NET)
+   .driver_data = (unsigned long)network_driver_private_data},
+  {0},
+};</PRE></DIV><BR>
+<P class=docText>The <TT>MODULE_DEVICE_TABLE()</TT> macro in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex01">Listing 10.1</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex02">Listing 10.2</A> marks the <TT>pci_device_id</TT><A name="information loads"></A> table in the module image. This information loads the module on demand when the CardBus card is inserted. We explored this mechanism in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04lev2sec9">Module Autoload</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A>, "Laying the Groundwork," and used it in the context of <TT>pcmcia_device_id</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09.html#ch09">Chapter 9</A>, "PCMCIA and Compact Flash."</P>
+<P class=docText><A name="a card"></A>When the PCI hotplug layer senses the presence of a card with properties matching the ones announced by the <TT>pci_device_id</TT> table of a driver, it invokes the <TT>probe()</TT><A name="opportunity to"></A> method belonging to that driver. This gives an opportunity to the driver to claim the card. Obviously, PCI drivers have to associate their <TT>pci_device_id</TT> table with their <TT>probe()</TT> method. This tie up is achieved by the <TT>pci_driver</TT><A name="perform this"></A> structure that drivers register with the PCI subsystem during initialization. To perform this registration, drivers call <TT>pci_register_driver()</TT>.</P><A name=ch10ex01></A>
+<H5 id=title-ID0E2WPM class=docExampleTitle>Listing 10.1. Registering the Network Function</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX pci.h="">
+
+#define MY_VENDOR_ID      0xABCD
+#define MY_DEVICE_ID_NET  0xEF01
+
+/* The set of PCI cards that this driver supports. Only a single
+   entry in our case. Look at <SPAN class=docEmphasis>include/linux/mod_devicetable.h</SPAN> for
+   the definition of pci_device_id */
+struct pci_device_id network_driver_pci_table[] __devinitdata = {
+{
+  { MY_VENDOR_ID,               /* Interface chip manufacturer ID */
+    MY_DEVICE_ID_NET,           /* Device ID for the network
+                                   function */
+    PCI_ANY_ID,                 /* Subvendor ID wild card */
+    PCI_ANY_ID,                 /* Subdevice ID wild card */
+    0, 0,                       /* class and classmask are
+                                   unspecified */
+    network_driver_private_data /* Use this to co-relate
+                                   configuration information if the
+                                   driver supports multiple
+                                   cards. Can be an enumerated type. */
+  }, {0},
+};
+
+/* struct pci_driver is defined in <SPAN class=docEmphasis>include/linux/pci.h</SPAN> */
+struct pci_driver network_pci_driver = {
+  .name     =  "ntwrk",                      /* Unique name */
+  .probe    =  net_driver_probe,             /* See Listing 10.3 */
+  .remove   = __devexit_p(net_driver_remove),/* See Listing 10.3 */
+  .id_table = network_driver_pci_table,      /* See above */
+
+  /* suspend() and resume() methods that implement power
+     management are not used by this driver */
+
+};
+
+/* Ethernet driver initialization */
+static int __init
+network_driver_init(void)
+{
+  pci_register_driver(&amp;network_pci_driver);
+  return 0;
+}
+
+/* Ethernet driver exit */
+static void __exit
+network_driver_exit(void)
+{
+  pci_unregister_driver(&amp;network_pci_driver);
+}
+
+module_init(network_driver_init);
+module_exit(network_driver_exit);
+MODULE_DEVICE_TABLE(pci, network_driver_pci_table);
+
+					  </LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText></P><A name=ch10ex02></A>
+<H5 id=title-ID0EWXPM class=docExampleTitle>Listing 10.2. Registering the Modem Function</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX pci.h="">
+
+#define MY_VENDOR_ID      0xABCD
+#define MY_DEVICE_ID_MDM  0xEF02
+
+/* The set of PCI cards that this driver supports */
+struct pci_device_id modem_driver_pci_table[] __devinitdata = {
+{
+  { MY_VENDOR_ID,               /* Interface chip manufacturer ID */
+    MY_DEVICE_ID_MDM,           /* Device ID for the modem
+                                   function */
+    PCI_ANY_ID,                 /* Subvendor ID wild card */
+    PCI_ANY_ID,                 /* Subdevice ID wild card */
+    0, 0,                       /* class and classmask are
+                                   unspecified */
+    modem_driver_private_data   /* Use this to co-relate
+                                   configuration information if the driver
+                                   supports multiple cards. Can be an
+                                   enumerated type. */
+  }, {0},
+};
+
+struct pci_driver modem_pci_driver = {
+  .name     =  "mdm",                          /* Unique name */
+  .probe    =  modem_driver_probe,             /* See Listing 10.4 */
+  .remove   = __devexit_p(modem_driver_remove),/* See Listing 10.4 */
+  .id_table =  modem_driver_pci_table,         /* See above */
+  /* suspend() and resume() methods that implement power
+   management are not used by this driver */
+};
+
+/* Modem driver initialization */
+static int __init
+modem_driver_init(void)
+{
+  pci_register_driver(&amp;modem_pci_driver);
+  return 0;
+}
+/* Modem driver exit */
+static void __exit
+modem_driver_exit(void)
+{
+  pci_unregister_driver(&amp;modem_pci_driver);
+}
+
+module_init(modem_driver_init);
+module_exit(modem_driver_exit);
+MODULE_DEVICE_TABLE(pci, modem_driver_pci_table);
+
+					  </LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2009></A><A name=iddle3024></A><A name=iddle3427></A><A name=iddle3775></A><A name=iddle3643></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex03">Listing 10.3</A> implements the <TT>probe()</TT><A name="network function"></A> method for the network function. This</P>
+<UL>
+<LI>
+<P class=docList><A name="PCI device"></A>Enables the PCI device</P></LI>
+<LI>
+<P class=docList><A name="Discovers resource"></A>Discovers resource information such as I/O base addresses and IRQ</P></LI>
+<LI>
+<P class=docList><A name="populates a"></A>Allocates and populates a networking data structure associated with this device</P></LI>
+<LI>
+<P class=docList><A name="itself with"></A>Registers itself with the kernel networking layer</P></LI></UL>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex04">Listing 10.4</A><A name="driver registers"></A> performs similar work for the modem function. In this case, the driver registers with the kernel serial layer instead of the networking layer.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex03">Listings 10.3</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex04">10.4</A> also implement <TT>remove()</TT><A name="CardBus card"></A> methods, which are invoked when the CardBus card is ejected or when the driver module is unloaded. <TT>remove()</TT> is the reverse of <TT>probe()</TT><A name=The></A>; it frees resources and unregisters the driver from relevant subsystems. The <TT>__devexit_p()</TT> macro that <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex01">Listing 10.1</A> uses to declare the <TT>remove()</TT><A name="time if"></A> method discards the supplied function at compile time if you haven't enabled hotplug support and if the driver is not a dynamically loadable module.</P>
+<P class=docText>The PCI subsystem calls <TT>probe()</TT> with two arguments:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>A pointer to <TT>pci_dev</TT>, the data structure that describes this PCI device. This structure, defined in <SPAN class=docEmphasis>include/linux/pci.h</SPAN><A name="on your"></A>, is maintained by the PCI subsystem for each PCI device on your system.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>A pointer to <TT>pci_device_id</TT><A name="the driver"></A>, the entry in the driver's <TT>pci_device_id</TT><A name="matches the"></A> table that matches the information found in the configuration space of the inserted card.<A name=iddle2011></A><A name=iddle3253></A><A name=iddle3429></A><A name=iddle3647></A></P></DIV></LI></OL></DIV>
+<P class=docText></P><A name=ch10ex03></A>
+<H5 id=title-ID0EN5PM class=docExampleTitle>Listing 10.3. Probing the Network Function</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><A name="Code View"></A>Code View:</DIV><PRE>#include <LINUX pci.h="">
+
+unsigned long ioaddr;
+
+/* Probe method */
+static int __devinit
+net_driver_probe(struct pci_dev *pdev,
+                 const struct pci_device_id *id)
+{
+  /* The net_device structure is defined in <SPAN class=docEmphasis>include/linux/netdevice.h</SPAN>.
+     See Chapter 15, "Network Interface Cards", for the description */
+     struct net_device *net_dev;
+
+  /* Ask low-level PCI code to enable I/O and memory regions for
+     this device. Look up the IRQ for the device that the PCI
+     subsystem allotted when it walked the bus */
+  pci_enable_device(pdev);
+
+  /* Use this device in bus mastering mode, since the network
+     function of this card is capable of DMA */
+  pci_set_master(pdev);
+
+  /* Allocate an Ethernet interface and fill in generic values in
+     the net_dev structure. prv_data is the private driver data
+     structure that contains buffers, locks, and so on. This is
+     left undefined. Wait until Chapter 15 for more on
+     alloc_etherdev() */
+  net_dev = alloc_etherdev(sizeof(struct prv_data));
+
+  /* Populate net_dev with your network device driver methods */
+  net_dev-&gt;hard_start_xmit = &amp;mydevice_xmit; /* See Listing 10.6 */
+
+  /* More net_dev initializations */
+  /* ... */
+
+  /* Get the I/O address for this PCI region. All card registers
+     specified in Table 10.3 are assumed to be in bar 0 */
+  ioaddr = pci_resource_start(pdev, 0);
+
+  /* Claim a 128-byte I/O region */
+  request_region(ioaddr, 128, "ntwrk");
+  /* Fill in resource information obtained from the PCI layer */
+  net_dev-&gt;base_addr = ioaddr;
+  net_dev-&gt;irq       = pdev-&gt;irq;
+  /* ... */
+  /* Setup DMA. Defined in Listing 10.5 */
+  dma_descriptor_setup(pdev);
+
+  /* Register the driver with the network layer. This will allot
+     an unused ethX interface */
+  register_netdev(net_dev);
+
+  /* ... */
+}
+
+/* Remove method */
+static void __devexit
+net_driver_remove(struct pci_dev *pdev)
+{
+  /* Free transmit and receive DMA buffers.
+     Defined in Listing 10.5 */
+  dma_descriptor_release(pdev);
+
+  /* Release memory regions */
+  /* ... */
+
+  /* Unregister from the networking layer */
+  unregister_netdev(dev);
+  free_netdev(dev);
+
+  /* ... */
+}
+
+					  </LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText></P><A name=ch10ex04></A>
+<H5 id=title-ID0EF6PM class=docExampleTitle>Listing 10.4. Probing the Modem Function</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Probe method */
+static int __devinit
+modem_driver_probe(struct pci_dev *pdev,
+                   const struct pci_device_id *id)
+{
+  struct uart_port port; /* See Chapter 6, "Serial Drivers" */
+  /* Ask low-level PCI code to enable I/O and memory regions
+     for this PCI device */
+  pci_enable_device(pdev);
+
+  /* Get the PCI IRQ and I/O address to be used and populate the
+     uart_port structure (see Chapter 6) with these resources. Look at
+     <SPAN class=docEmphasis>include/linux/pci.h</SPAN> for helper functions */
+
+  /* ... */
+
+  /* Register this information with the serial layer and get an
+     unused <SPAN class=docEmphasis>ttySX</SPAN> port allotted to the card. Look at Chapter 6 for
+     more on serial drivers */
+  serial8250_register_port(&amp;port);
+
+  /* ... */
+}
+
+/* Remove method */
+static void __devexit
+modem_driver_remove(struct pci_dev *dev)
+{
+  /* Unregister the port from the serial layer */
+  serial8250_unregister_port(&amp;port);
+
+  /* Disable device */
+  pci_disable_device(dev);
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2008></A><A name=iddle3023></A><A name=iddle3426></A><A name="the code"></A>To recap, let's trace the code path from the time you insert the Ethernet-Modem CardBus card until you are allotted a network interface (ethX) and a serial port (<SPAN class=docEmphasis>/dev/ttySX</SPAN>):</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="each supported"></A>For each supported CardBus function, the corresponding driver initialization routine registers a <TT>pci_device_id</TT> table of supported cards and a <TT>probe()</TT> routine. This is shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex01">Listing 10.1</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex02">Listing 10.2</A>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the vendor"></A>The PCI hotplug layer detects card insertion and gleans the vendor ID and device ID of each device function from the card's PCI configuration space.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="those registered"></A>Because the IDs match with those registered by the card's Ethernet and serial drivers, the corresponding <TT>probe()</TT> methods are invoked. This results in the <A name=iddle1599></A><A name=iddle1670></A><A name=iddle1829></A><A name=iddle1832></A><A name=iddle2007></A><A name=iddle2911></A><A name=iddle3122></A><A name=iddle3425></A>invocation of <TT>net_driver_probe()</TT> and <TT>modem_driver_probe()</TT> described respectively in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex03">Listing 10.3</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex04">Listing 10.4</A>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The <TT>probe()</TT><A name="PCI driver"></A> methods configure the Ethernet and modem portions of the PCI driver with resource information. This leads to the allocation of a networking interface (ethX) and a serial port (ttySX) to the card. From this point on, application data flows over these interfaces.</P></DIV></LI></OL></DIV><A name=ch10lev2sec4></A>
+<H4 id=title-ID0ENFAO class=docSection2Title>Data Transfer</H4>
+<P class=docText><A name="CardBus device"></A>The network function belonging to the sample CardBus device uses the following strategy for data transfer: The card expects the device driver to supply it with an array of two receive DMA descriptors and an array of two transmit DMA descriptors. Each DMA descriptor contains the address of an associated data buffer, its length, and a control word. You can use the control word to tell the device whether the descriptor contains valid data. For a transmit descriptor, you may also program it to request an interrupt after data transmission. The card looks for a valid descriptor and DMA's data to/from the associated data buffer. To suit this elementary scheme, the example driver uses only the coherent DMA interface. The driver coherently allocates a large buffer that holds the descriptors and their associated data buffers. The receive and transmit buffers are 1536 bytes long to match the <SPAN class=docEmphasis>maximum transmission unit</SPAN> (MTU) of Ethernet frames. The descriptors and buffers are pictorially shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10fig02">Figure 10.2</A><A name="two "></A>. The top 24 bytes of each array in the figure hold two 12-byte DMA descriptors, and the rest of the memory is occupied by two 1536-byte DMA buffers. The 12-byte descriptor layout shown in the figure is assumed to match the format specified in the card's data sheet.</P><A name=ch10fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="and buffers"></A>Figure 10.2. DMA descriptors and buffers for the CardBus device.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzJmMGhpZ2Y-.jpg" width=500 height=414></P></CENTER>
+<P></P><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10tab03">Table 10.3</A><A name="register layout"></A> shows the register layout of the card's network function.</P><A name=ch10tab03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><A name="Table "></A>Table 10.3. Register Layout of the Card's Network Function</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=100>
+<COL width=300>
+<COL width=150></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Register Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Offset into I/O Space</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>DMA_RX_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="bus address"></A>Holds the bus address of the receive DMA descriptor array (<TT>dma_bus_rx</TT>)</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x0</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>DMA_TX_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="the bus"></A>Holds the bus address of the transmit DMA descriptor array (<TT>dma_bus_tx</TT>)</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x4</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CONTROL_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="and so"></A>Control word that commands the card to initiate DMA, stop DMA, and so on</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x8</TT></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText></P><A name=ch10ex05></A>
+<H5 id=title-ID0EXKAO class=docExampleTitle>Listing 10.5. Setting Up DMA Descriptors and Buffers</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Device-specific data structure for the Ethernet Function */
+struct device_data {
+  struct pci_dev *pdev;     /* The PCI Device structure */
+  struct net_device *ndev;  /* The Net Device structure */
+  void *dma_buffer_rx;      /* Kernel virtual address of the
+                               receive descriptor */
+  dma_addr_t dma_bus_rx;    /* Bus address of the receive
+                               descriptor */
+  void *dma_buffer_tx;      /* Kernel virtual address of the
+                               transmit descriptor */
+  dma_addr_t dma_bus_tx;    /* Bus address of the transmit
+                               descriptor */
+  /* ... */
+  spin_lock_t device_lock;  /* Serialize */
+} *mydev_data;
+/* On-card registers related to DMA */
+#define DMA_RX_REGISTER_OFFSET  0x0 /* Offset of the register
+                                       holding the bus address
+                                       of the RX descriptor */
+#define DMA_TX_REGISTER_OFFSET  0x4 /* Offset of the register
+                                       holding the bus address
+                                       of the TX descriptor */
+#define CONTROL_REGISTER        0x8 /* Offset of the control
+                                       register */
+
+/* Control Register Defines */
+#define INITIATE_XMIT           0x1
+
+/* Descriptor control word definitions */
+#define FREE_FLAG               0x1 /* Free Descriptor */
+#define INTERRUPT_FLAG          0x2 /* Assert interrupt after DMA */
+
+/* Invoked from Listing 10.3 */
+static void
+dma_descriptor_setup(struct pci_dev *pdev)
+{
+  /* Allocate receive DMA descriptors and buffers */
+  mydev_data-&gt;dma_buffer_rx =
+     pci_alloc_consistent(pdev, 3096, &amp;mydev_data-&gt;dma_bus_rx);
+
+  /* Fill the two receive descriptors as shown in Figure 10.2 */
+  /* RX descriptor 1 */
+  mydev_data-&gt;dma_buffer_rx[0] = cpu_to_le32((unsigned long)
+              (mydev_data-&gt;dma_bus_rx + 24));  /* Buffer address */
+  mydev_data-&gt;dma_buffer_rx[1] = 1536;         /* Buffer length */
+  mydev_data-&gt;dma_buffer_rx[2] = FREE_FLAG;    /* Descriptor is free */
+
+  /* RX descriptor 2 */
+  mydev_data-&gt;dma_buffer_rx[3] = cpu_to_le32((unsigned long)
+             (mydev_data-&gt;dma_bus_rx + 1560)); /* Buffer address */
+  mydev_data-&gt;dma_buffer_rx[4] = 1536;         /* Buffer length */
+  mydev_data-&gt;dma_buffer_rx[5] = FREE_FLAG;    /* Descriptor is free */
+
+  wmb(); /* Write Memory Barrier */
+  /* Write the address of the receive descriptor to the appropriate
+     register in the card. The I/O base address, ioaddr, was populated
+     in Listing 10.3 */
+  outl(cpu_to_le32((unsigned long)mydev_data-&gt;dma_bus_rx),
+                   ioaddr + DMA_RX_REGISTER_OFFSET);
+  /* Allocate transmit DMA descriptors and buffers */
+  mydev_data-&gt;dma_buffer_tx =
+      pci_alloc_consistent(pdev, 3096, &amp;mydev_data-&gt;dma_bus_tx);
+
+  /* Fill the two transmit descriptors as shown in Figure 10.2 */
+  /* TX descriptor 1 */
+  mydev_data-&gt;dma_buffer_tx[0] = cpu_to_le32((unsigned long)
+              (mydev_data-&gt;dma_bus_tx + 24));   /* Buffer address */
+  mydev_data-&gt;dma_buffer_tx[1] = 1536;          /* Buffer length */
+  /* Valid descriptor. Generate an interrupt
+     after completing the DMA */
+  mydev_data-&gt;dma_buffer_tx[2] = (FREE_FLAG | INTERRUPT_FLAG);
+  /* TX descriptor 2 */
+  mydev_data-&gt;dma_buffer_tx[3] = cpu_to_le32((unsigned long)
+              (mydev_data-&gt;dma_bus_tx + 1560)); /* Buffer address */
+  mydev_data-&gt;dma_buffer_tx[4] = 1536;          /* Buffer length */
+  mydev_data-&gt;dma_buffer_tx[5] = (FREE_FLAG | INTERRUPT_FLAG);
+
+  wmb(); /* Write Memory Barrier */
+  /* Write the address of the transmit descriptor to the appropriate
+     register in the card. The I/O base, ioaddr, was populated in
+     Listing 10.3 */
+  outl(cpu_to_le32((unsigned long)mydev_data-&gt;dma_bus_tx),
+                   ioaddr + DMA_TX_REGISTER_OFFSET);
+}
+
+/* Invoked from Listing 10.3 */
+static void
+dma_descriptor_release(struct pci_dev *pdev)
+{
+  pci_free_consistent(pdev, 3096, mydev_data-&gt;dma_bus_tx);
+  pci_free_consistent(pdev, 3096, mydev_data-&gt;dma_bus_rx);
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;<A name=iddle1336></A><A name=iddle1668></A><A name=iddle1821></A><A name=iddle2005></A><A name=iddle3418></A></P>
+<P class=docText><A name=iddle4641></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex05">Listing 10.5</A><A name=calling></A> enforces a write barrier by calling <TT>wmb()</TT> to prevent the CPU from reordering the <TT>outl()</TT> before populating the DMA descriptor. On an x86 processor, <TT>wmb()</TT><A name="in program"></A> reduces to a NOP because Intel CPUs enforce writes in program order. When writing the DMA descriptor address to the card and when populating the buffer's bus address inside the DMA descriptor, the driver converts the native byte order to PCI little-endian format using <TT>cpu_to_le32()</TT>. On Intel CPUs, this again has no effect <A name=iddle1669></A><A name=iddle2006></A><A name="in little"></A>because both PCI and Intel processors communicate in little-endian. On several other architectures, for example, an ARM9 CPU running in the big-endian mode, both <TT>wmb()</TT> and <TT>cpu_to_le32()</TT> assume significance.</P>
+<P class=docText><A name="ready to"></A>Now that you have the descriptors and buffers mapped and ready to go, it's time to look at how data is exchanged between the system and the CardBus device, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex06">Listing 10.6</A><A name="the network"></A>. We won't dwell on the network interfaces and networking data structures because <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15">Chapter 15</A><A name="to doing"></A> is devoted to doing that.</P><A name=ch10ex06></A>
+<H5 id=title-ID0EUPAO class=docExampleTitle>Listing 10.6. Receiving and Transmitting Data</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><A name="Code View"></A>Code View:</DIV><PRE>/* The interrupt handler */
+static irqreturn_t
+mydevice_interrupt(int irq, void *devid)
+{
+  struct sk_buff *skb;
+  /* ... */
+  /* If this is a receive interrupt, collect the packet and pass it
+     on to higher layers. Look at the control word in each RX DMA
+     descriptor to figure out whether it contains data. Assume for
+     convenience that the first RX descriptor was used by the card
+     to DMA this received packet */
+
+  packet_size = mydev_data-&gt;dma_buffer_rx[1];
+  /* In real world drivers, the sk_buff is pre-allocated, stream-
+     mapped, and supplied to the card after setting the FREE_FLAG
+     during device open(). The received data is directly
+     DMA'ed to this sk_buff instead of the memcpy() performed here,
+     as you will learn in Chapter 15. The card clears the FREE_FLAG
+     before the DMA */
+  skb = dev_alloc_skb(packet_size); /* See Figure 15.2 of Chapter 15 */
+  skb-&gt;dev = mydev_data-&gt;ndev;      /* Owner network device */
+  memcpy(skb, mydev_data-&gt;dma_buffer_rx[24], packet_size);
+  /* Pass the received data to higher-layer protocols */
+  skb_put(skb, packet_size);
+  netif_rx(skb);
+  /* ... */
+  /* Make the descriptor available to the card again */
+  mydev_data-&gt;dma_buffer_rx[2] |= FREE_FLAG;
+}
+
+/* This function is registered in Listing 10.3 and is called from
+   the networking layer. More on network device interfaces in
+   Chapter 15 */
+static int
+mydevice_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+  /* Use a valid TX descriptor. Look at Figure 10.2 */
+  /* Locking has been omitted for simplicity */
+  if (mydev_data-&gt;dma_buffer_tx[2] &amp; FREE_FLAG) {
+    /* Use first TX descriptor */
+    /* In the real world, DMA occurs directly from the sk_buff as
+       you will learn later on! */
+    memcpy(mydev_data-&gt;dma_buffer_tx[24], skb-&gt;data, skb-&gt;len);
+    mydev_data-&gt;dma_buffer_tx[1] = skb-&gt;len;
+    mydev_data-&gt;dma_buffer_tx[2] &amp;= ~FREE_FLAG;
+    mydev_data-&gt;dma_buffer_tx[2] |= INTERRUPT_FLAG;
+  } else if (mydev_data-&gt;dma_buffer[5] &amp; FREE_FLAG) {
+    /* Use second TX descriptor */
+    memcpy(mydev_data-&gt;dma_buffer_tx[1560], skb-&gt;data, skb-&gt;len);
+    mydev_data-&gt;dma_buffer_tx[4] = skb-&gt;len;
+    mydev_data-&gt;dma_buffer_tx[5] &amp;= ~FREE_FLAG;
+    mydev_data-&gt;dma_buffer_tx[5] |= INTERRUPT_FLAG;
+  } else {
+    return &#37413;&#25544;IO; /* Signal error to the caller */
+  }
+  wmb(); /* Don't reorder writes across this barrier */
+
+  /* Ask the card to initiate DMA. ioaddr is defined
+     in Listing 10.3 */
+  outl(INITIATE_XMIT, ioaddr + CONTROL_REGISTER);
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle3138></A><A name="CardBus device"></A>When the CardBus device receives an Ethernet packet, it DMAs it to a free RX descriptor and interrupts the CPU. The interrupt handler <TT>mydevice_interrupt()</TT><A name="the packet"></A> collects the packet from the receive DMA buffer, copies it to a networking data structure (<TT>sk_buff</TT>), and passes it on to higher protocol layers.</P>
+<P class=docText>The transmit routine <TT>my_device_xmit()</TT><A name="DMAs transmit"></A> is responsible for initiating DMA in the reverse direction. It DMAs transmit packets to card memory. For this, <TT>my_device_xmit()</TT><A name="that is"></A> chooses a TX DMA descriptor that is unused by the card (or whose <TT>FREE_FLAG</TT> is set<TT>)</TT> and uses the associated transmit buffer for data transfer. <TT>FREE_FLAG</TT><A name="to the"></A> is cleared soon after, signaling that the descriptor now belongs to the card. The descriptor is released in the interrupt handler (<TT>FREE_FLAG</TT><A name="interrupt after"></A> is set again) when the card asserts an interrupt after completing the transmit (not shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex06">Listing 10.6</A>).</P>
+<P class=docText><A name="is not"></A>This example driver uses a simplified buffer management scheme that is not performance-sensitive. High-speed network drivers implement a more elaborate plan that employs a combination of coherent and streaming DMA mappings. They maintain linked lists of transmit and receive descriptors and implement free and in-use pools for buffer management. Their receive and transmit data structures look like this:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Ring of receive buffers */
+struct rx_list {
+  void *dma_buffer_rx;        /* Kernel virtual address of the
+                                 transmit descriptor */
+  dma_addr_t dma_bus_rx;      /* Bus address of the transmit
+                                 descriptor */
+  unsigned int size;          /* Buffer size */
+  struct list_head next_desc; /* Pointer to the next element */
+  struct sk_buff *skb;        /* Network Packet */
+  dma_addr_t sk_bus;          /* Bus address of network packet */
+} *rxlist;
+
+/* Ring of transmit buffers */
+struct tx_list {
+  void *dma_buffer_tx;        /* Kernel virtual address of the
+                                 receive descriptor */
+  dma_addr_t dma_bus_tx;      /* Bus address of the transmit
+                                 descriptor */
+  unsigned int size;          /* Buffer size */
+  struct list_head next_desc; /* Pointer to the next element */
+  struct sk_buff *skb;        /* Network Packet */
+  dma_addr_t sk_bus;          /* Bus address of network packet */
+} *txlist;
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="transmit DMA"></A>The receive and transmit DMA descriptors (<TT>rxlist-&gt;dma_buffer_rx</TT> and <TT>txlist-&gt;dma_buffer_tx</TT><A name="coherently as"></A>) are mapped coherently as done in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex05">Listing 10.5</A><A name="The payload"></A>. The payload buffers (<TT>rxlist-&gt;skb-&gt;data</TT> and <TT>txlist-&gt;skb-&gt;data</TT><A name="streaming DMA"></A>) are, however, mapped using streaming DMA. The receive buffers are preallocated and stream mapped into a free pool during device open, while the transmit buffers are mapped on-the-fly. This avoids the extra data copy performed by <TT>mydevice_interrupt()</TT><A name=the></A> from the <A name=iddle1725></A><A name=iddle3413></A><A name=iddle3443></A><A name=iddle4098></A><A name="the extra"></A>coherently mapped receive DMA buffer to the network buffer (and the extra copy done by <TT>mydevice_xmit()</TT> in the reverse direction).</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Preallocating/replenishing receive buffers. Also see the section, "Buffer
+   Management and Concurrency Control" in Chapter 15 */
+/* ... */
+struct sk_buff *skb = dev_alloc_skb();
+skb_reserve(skb, NET_IP_ALIGN);
+/* Map using streaming DMA */
+rxlist-&gt;sk_bus = pci_map_single(pdev, rxlist-&gt;skb-&gt;data,
+                                rxlist-&gt;skb-&gt;len, PCI_DMA_TODEVICE);
+/* Allocate a DMA descriptor and populate it with the address mapped
+   above. Add the descriptor to the receive descriptor ring */
+/* ... */
+
+</PRE></DIV>

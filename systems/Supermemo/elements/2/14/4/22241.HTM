@@ -1,0 +1,89 @@
+<DIV class=navheader>
+<TABLE summary="Navigation header" width="100%">
+<TBODY>
+<TR>
+<TH colSpan=3 align=middle><SPAN class=phrase>struct fence_ops</SPAN></TH></TR>
+<TR>
+<TD width="20%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-struct-fence-cb.html">Prev</A>&nbsp;</TD>
+<TH width="60%" align=middle>Device Drivers DMA Management</TH>
+<TD width="20%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-fence-get.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=refentry><A name=API-struct-fence-ops></A>
+<DIV class=titlepage></DIV>
+<DIV class=refnamediv>
+<H2>Name</H2>
+<P>struct fence_ops &#8212; operations implemented for fence </P></DIV>
+<DIV class=refsynopsisdiv>
+<H2>Synopsis</H2><PRE class=programlisting>struct fence_ops {
+  const char * (* get_driver_name) (struct fence *fence);
+  const char * (* get_timeline_name) (struct fence *fence);
+  bool (* enable_signaling) (struct fence *fence);
+  bool (* signaled) (struct fence *fence);
+  signed long (* wait) (struct fence *fence, bool intr, signed long timeout);
+  void (* release) (struct fence *fence);
+  int (* fill_driver_data) (struct fence *fence, void *data, int size);
+  void (* fence_value_str) (struct fence *fence, char *str, int size);
+  void (* timeline_value_str) (struct fence *fence, char *str, int size);
+};  </PRE></DIV>
+<DIV class=refsect1><A name=idp44936804></A>
+<H2>Members</H2>
+<DIV class=variablelist>
+<DL class=variablelist>
+<DT><SPAN class=term>get_driver_name</SPAN> 
+<DD>
+<P>returns the driver name. </P>
+<DT><SPAN class=term>get_timeline_name</SPAN> 
+<DD>
+<P>return the name of the context this fence belongs to. </P>
+<DT><SPAN class=term>enable_signaling</SPAN> 
+<DD>
+<P>enable software signaling of fence. </P>
+<DT><SPAN class=term>signaled</SPAN> 
+<DD>
+<P>[optional] peek whether the fence is signaled, can be null. </P>
+<DT><SPAN class=term>wait</SPAN> 
+<DD>
+<P>custom wait implementation, or fence_default_wait. </P>
+<DT><SPAN class=term>release</SPAN> 
+<DD>
+<P>[optional] called on destruction of fence, can be null </P>
+<DT><SPAN class=term>fill_driver_data</SPAN> 
+<DD>
+<P>[optional] callback to fill in free-form debug info Returns amount of bytes filled, or -errno. </P>
+<DT><SPAN class=term>fence_value_str</SPAN> 
+<DD>
+<P>[optional] fills in the value of the fence as a string </P>
+<DT><SPAN class=term>timeline_value_str</SPAN> 
+<DD>
+<P>[optional] fills in the current value of the timeline as a string </P></DD></DL></DIV></DIV>
+<DIV class=refsect1><A name=idp44944020></A>
+<H2>Notes on enable_signaling</H2>
+<P>For fence implementations that have the capability for hw-&gt;hw signaling, they can implement this op to enable the necessary irqs, or insert commands into cmdstream, etc. This is called in the first <CODE class=function>wait</CODE> or <CODE class=function>add_callback</CODE> path to let the fence implementation know that there is another driver waiting on the signal (ie. hw-&gt;sw case). </P>
+<P>This function can be called called from atomic context, but not from irq context, so normal spinlocks can be used. </P>
+<P>A return value of false indicates the fence already passed, or some failure occurred that made it impossible to enable signaling. True indicates successful enabling. </P>
+<P>fence-&gt;status may be set in enable_signaling, but only when false is returned. </P>
+<P>Calling fence_signal before enable_signaling is called allows for a tiny race window in which enable_signaling is called during, before, or after fence_signal. To fight this, it is recommended that before enable_signaling returns true an extra reference is taken on the fence, to be released when the fence is signaled. This will mean fence_signal will still be called twice, but the second time will be a noop since it was already signaled. </P></DIV>
+<DIV class=refsect1><A name=idp44947652></A>
+<H2>Notes on signaled</H2>
+<P>May set fence-&gt;status if returning true. </P></DIV>
+<DIV class=refsect1><A name=idp44948388></A>
+<H2>Notes on wait</H2>
+<P>Must not be NULL, set to fence_default_wait for default implementation. the fence_default_wait implementation should work for any fence, as long as enable_signaling works correctly. </P>
+<P>Must return -ERESTARTSYS if the wait is intr = true and the wait was interrupted, and remaining jiffies if fence has signaled, or 0 if wait timed out. Can also return other error values on custom implementations, which should be treated as if the fence is signaled. For example a hardware lockup could be reported like that. </P></DIV>
+<DIV class=refsect1><A name=idp44949668></A>
+<H2>Notes on release</H2>
+<P>Can be NULL, this function allows additional commands to run on destruction of the fence. Can be called from irq context. If pointer is set to NULL, kfree will get called instead. </P></DIV></DIV>
+<DIV class=navfooter>
+<HR>
+
+<TABLE summary="Navigation footer" width="100%">
+<TBODY>
+<TR>
+<TD width="40%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-struct-fence-cb.html">Prev</A>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=u href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/ch02s03.html">Up</A></TD>
+<TD width="40%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-fence-get.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top width="40%" align=left><SPAN class=phrase>struct fence_cb</SPAN>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=h href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/index.html">Home</A></TD>
+<TD vAlign=top width="40%" align=right>&nbsp;<SPAN class=phrase>fence_get</SPAN></TD></TR></TBODY></TABLE></DIV>

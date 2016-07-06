@@ -1,0 +1,69 @@
++</P>
+<P>Rick Boivie's revision of Jordi Sanfeliu's <EM>tree</EM> script.</P>
+<DIV class=EXAMPLE><A name=TREE></A>
+<P><B>Example A-16. <I class=FIRSTTERM>tree</I>: Displaying a directory tree</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# tree.sh
+
+#  Written by Rick Boivie.
+#  Used with permission.
+#  This is a revised and simplified version of a script
+#+ by Jordi Sanfeliu (the original author), and patched by Ian Kjos.
+#  This script replaces the earlier version used in
+#+ previous releases of the Advanced Bash Scripting Guide.
+#  Copyright (c) 2002, by Jordi Sanfeliu, Rick Boivie, and Ian Kjos.
+
+# ==&gt; Comments added by the author of this document.
+
+
+search () {
+for dir in `echo *`
+#  ==&gt; `echo *` lists all the files in current working directory,
+#+ ==&gt; without line breaks.
+#  ==&gt; Similar effect to for dir in *
+#  ==&gt; but "dir in `echo *`" will not handle filenames with blanks.
+do
+  if [ -d "$dir" ] ; then # ==&gt; If it is a directory (-d)...
+  zz=0                    # ==&gt; Temp variable, keeping track of
+                          #     directory level.
+  while [ $zz != $1 ]     # Keep track of inner nested loop.
+    do
+      echo -n "| "        # ==&gt; Display vertical connector symbol,
+                          # ==&gt; with 2 spaces &amp; no line feed
+                          #     in order to indent.
+      zz=`expr $zz + 1`   # ==&gt; Increment zz.
+    done
+
+    if [ -L "$dir" ] ; then # ==&gt; If directory is a symbolic link...
+      echo "+---$dir" `ls -l $dir | sed 's/^.*'$dir' //'`
+      # ==&gt; Display horiz. connector and list directory name, but...
+      # ==&gt; delete date/time part of long listing.
+    else
+      echo "+---$dir"       # ==&gt; Display horizontal connector symbol...
+      # ==&gt; and print directory name.
+      numdirs=`expr $numdirs + 1` # ==&gt; Increment directory count.
+      if cd "$dir" ; then         # ==&gt; If can move to subdirectory...
+        search `expr $1 + 1`      # with recursion ;-)
+        # ==&gt; Function calls itself.
+        cd ..
+      fi
+    fi
+  fi
+done
+}
+
+if [ $# != 0 ] ; then
+  cd $1   # Move to indicated directory.
+  #else   # stay in current directory
+fi
+
+echo "Initial directory = `pwd`"
+numdirs=0
+
+search 0
+echo "Total directories = $numdirs"
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>

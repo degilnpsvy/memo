@@ -1,0 +1,67 @@
+<H4 class=subsection>11.2.4 Splitting a Large File into Pieces</H4><A name=index-files_002c-splitting></A><A name=index-split-utility></A>
+<P>The <CODE>split</CODE> program splits large text files into smaller pieces. Usage is as follows:<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT71" name=DOCF71><SUP>71</SUP></A> </P>
+<DIV class=example><PRE class=example>split <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>-<VAR>count</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN> file <SPAN class=roman><FONT face=Batang>[</FONT></SPAN> <VAR>prefix</VAR> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN>
+</PRE></DIV>
+<P>By default, the output files are named <SAMP>xaa</SAMP>, <SAMP>xab</SAMP>, and so on. Each file has 1000 lines in it, with the likely exception of the last file. To change the number of lines in each file, supply a number on the command line preceded with a minus; e.g., &#8216;<SAMP>-500</SAMP>&#8217; for files with 500 lines in them instead of 1000. To change the name of the output files to something like <SAMP>myfileaa</SAMP>, <SAMP>myfileab</SAMP>, and so on, supply an additional argument that specifies the file name prefix. </P>
+<P>Here is a version of <CODE>split</CODE> in <CODE>awk</CODE>. It uses the <CODE>ord()</CODE> and <CODE>chr()</CODE> functions presented in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Ordinal-Functions">Ordinal Functions</A>. </P>
+<P>The program first sets its defaults, and then tests to make sure there are not too many arguments. It then looks at each argument in turn. The first argument could be a minus sign followed by a number. If it is, this happens to look like a negative number, so it is made positive, and that is the count of lines. The data file name is skipped over and the final argument is used as the prefix for the output file names: </P><A name=index-split_002eawk-program></A>
+<DIV class=example><PRE class=example># split.awk --- do split in awk
+#
+# Requires ord() and chr() library functions
+# usage: split [-num] [file] [outname]
+
+BEGIN {
+    outfile = "x"    # default
+    count = 1000
+    if (ARGC &gt; 4)
+        usage()
+
+    i = 1
+    if (ARGV[i] ~ /^-[[:digit:]]+$/) {
+        count = -ARGV[i]
+        ARGV[i] = ""
+        i++
+    }
+    # test argv in case reading from stdin instead of file
+    if (i in ARGV)
+        i++    # skip data file name
+    if (i in ARGV) {
+        outfile = ARGV[i]
+        ARGV[i] = ""
+    }
+
+    s1 = s2 = "a"
+    out = (outfile s1 s2)
+}
+</PRE></DIV>
+<P>The next rule does most of the work. <CODE>tcount</CODE> (temporary count) tracks how many lines have been printed to the output file so far. If it is greater than <CODE>count</CODE>, it is time to close the current file and start a new one. <CODE>s1</CODE> and <CODE>s2</CODE> track the current suffixes for the file name. If they are both &#8216;<SAMP>z</SAMP>&#8217;, the file is just too big. Otherwise, <CODE>s1</CODE> moves to the next letter in the alphabet and <CODE>s2</CODE> starts over again at &#8216;<SAMP>a</SAMP>&#8217;: </P>
+<DIV class=example><PRE class=example>{
+    if (++tcount &gt; count) {
+        close(out)
+        if (s2 == "z") {
+            if (s1 == "z") {
+                printf("split: %s is too large to split\n",
+                       FILENAME) &gt; "/dev/stderr"
+                exit 1
+            }
+            s1 = chr(ord(s1) + 1)
+            s2 = "a"
+        }
+</PRE><PRE class=example>        else
+            s2 = chr(ord(s2) + 1)
+</PRE><PRE class=example>        out = (outfile s1 s2)
+        tcount = 1
+    }
+    print &gt; out
+}
+</PRE></DIV>
+<P>The <CODE>usage()</CODE> function simply prints an error message and exits: </P>
+<DIV class=example><PRE class=example>function usage(   e)
+{
+    e = "usage: split [-num] [file] [outname]"
+    print e &gt; "/dev/stderr"
+    exit 1
+}
+</PRE></DIV>
+<P>The variable <CODE>e</CODE> is used so that the function fits nicely on the page. </P>
+<P>This program is a bit sloppy; it relies on <CODE>awk</CODE> to automatically close the last file instead of doing it in an <CODE>END</CODE> rule. It also assumes that letters are contiguous in the character set, which isn&#8217;t true for EBCDIC systems.

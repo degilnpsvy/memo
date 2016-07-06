@@ -1,0 +1,108 @@
+<H3 id=title-IDANWB3D class=docSection1Title>14.2. Using KGDB for Kernel Debugging</H3>
+<P class=docText>Two popular methods enable symbolic source-level debugging within the Linux kernel:</P>
+<UL>
+<LI>
+<P class=docList>Using KGDB as a remote <TT>gdb</TT> agent</P></LI>
+<LI>
+<P class=docList>Using a hardware JTAG probe to control the processor</P></LI></UL>
+<P class=docText>We cover JTAG debugging in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch14lev1sec4">Section 14.4</A>, "Hardware-Assisted Debugging."</P>
+<P class=docText>KGDB (Kernel GDB) is a set of Linux kernel patches that provide an interface to <TT>gdb</TT> via its remote serial protocol. KGDB implements a <TT>gdb</TT> stub that communicates to a <TT>cross-gdb</TT> running on your host development workstation. Until very recently, KGDB on the target required a serial connection to the development host. Some targets support KGDB connection via Ethernet, although this is relatively new. Complete support for KGDB is still not in the mainline <TT>kernel.org</TT> kernel. You need to port KGDB to your chosen target or obtain an embedded Linux distribution for your chosen architecture and platform that contains KGDB support. Most embedded Linux distributions available today support KGDB.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch14fig01">Figure 14-1</A> describes the KGDB debug setup. Up to three connections to the target board are used. Ethernet is used to enable NFS root mount and telnet sessions from the host. If your board has a ramdisk image in Flash that it mounts as a root file system, you can eliminate the Ethernet connection.</P><A name=ch14fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 14-1. KGDB debug setup</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/14elp01.jpg" width=400 height=197></P></CENTER>
+<P></P><BR>
+<P class=docText>A serial port is dedicated for the connection between KGBD and <TT>gdb</TT> running on the development host system, and an optional second serial port serves as a console. Systems that have only one serial port make KGDB somewhat more cumbersome to use.</P>
+<P class=docText>As you can see in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch14fig01">Figure 14-1</A>, the debugger (your cross-version of <TT>gdb)</TT> runs on your development host system. KGDB is part of the kernel running on your target system. KGDB implements the hooks required to interface <TT>gdb</TT> with your target board to enable features such as setting breakpoints, examining memory, and enabling single-step program execution.</P><A name=ch14lev2sec1></A>
+<H4 id=title-IDAVZB3D class=docSection2Title>14.2.1. KGDB Kernel Configuration</H4>
+<P class=docText><A name=iddle1091></A><A name=iddle1218></A><A name=iddle1402></A><A name=iddle1403></A><A name=iddle1540></A><A name=iddle1542></A><A name=iddle1805></A><A name=iddle1807></A>KGDB is a kernel feature and must be enabled in your kernel. KGDB is selected from the Kernel Hacking menu, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch14fig02">Figure 14-2</A>. As part of the configuration, you must select the serial port for KGDB to use. Notice also from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch14fig02">Figure 14-2</A> that we enabled the option to compile the kernel with debug information. This adds the <TT>-g</TT> compiler flag to the build process to enable symbolic debugging.</P><A name=ch14fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 14-2. Kernel configuration for KGDB</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/14elp02_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/14elp02.jpg" width=500 height=468>
+<P></P></CENTER>
+<P></P><BR><A name=ch14lev2sec2></A>
+<H4 id=title-IDA13B3D class=docSection2Title>14.2.2. Target Boot with KGDB Support</H4>
+<P class=docText>After your kernel is built with KGDB support, it must be enabled. Unfortunately, the method to enable it is not yet uniform across all architectures and implementations. In general, KGDB is enabled by passing a command line switch to the kernel via the kernel command line. If KGDB support is compiled into the kernel but not enabled via a command line switch, it does nothing. When KGDB is enabled, the kernel stops at a KGDB-enabled breakpoint very early in the boot cycle to allow you to connect to the target using <TT>gdb</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch14fig03">Figure 14-3</A> shows the logic for generating an initial breakpoint when KGDB is enabled.</P><A name=ch14fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 14-3. KGDB logic</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/14elp03.jpg" width=389 height=413></P></CENTER>
+<P></P><BR>
+<P class=docText>KGDB requires a serial port for connection to the host.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch14fn3">[3]</A></SUP> The first step in setting up KGDB is to enable a serial port very early in the boot process. In many architectures, the hardware UART must be mapped into kernel memory before access. After the address range is mapped, the serial port is initialized. Debug trap handlers are installed to allow processor exceptions to trap into the debugger.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn3>[3]</A></SUP> Notwithstanding the comments made earlier about KGDB over Ethernet.</P></BLOCKQUOTE>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch1401">Listing 14-1</A> displays the terminal output when booting with <TT>KGDB</TT> enabled. This example is based on the AMCC 440EP Evaluation Kit (Yosemite board), which ships with the U-Boot bootloader.</P>
+<P class=docText></P><A name=ch1401></A>
+<H5 id=title-IDADAC3D class=docExampleTitle>Listing 14-1. Booting with KGDB Enabled Using U-Boot</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>=&gt; <SPAN class=docEmphStrong>sete bootargs console=ttyS1,115200 root=/dev/nfs rw ip=dhcp gdb</SPAN>
+=&gt; <SPAN class=docEmphStrong>bootm 200000</SPAN>
+## Booting image at 00200000 ...
+   Image Name:   Linux-2.6.13
+   Image Type:   PowerPC Linux Kernel Image (gzip compressed)
+   Data Size:    1064790 Bytes =  1 MB
+   Load Address: 00000000
+   Entry Point:  00000000
+   Verifying Checksum ... OK
+   Uncompressing Kernel Image ... OK
+$T0440:c000ae5c;01:c0205fa0;#d9  &lt;&lt;&lt; See text</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1115></A><A name=iddle1851></A><A name=iddle2550></A>Most of the boot sequence is familiar from our coverage of U-Boot in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>, "Bootloaders." This kernel boot sequence has two unique features: the command-line parameter to enable <TT>KGDB</TT> and the odd-looking text string after the kernel is uncompressed.</P>
+<P class=docText>Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A> that the kernel command line is defined by the U-Boot <TT>bootargs</TT> environment variable. Notice that we have added the <TT>gdb</TT> parameter, which instructs the kernel to force an early breakpoint and wait for the host debugger (your <TT>cross-gdb</TT>) to connect.</P>
+<P class=docText>As diagrammed in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch14fig03">Figure 14-3</A>, the kernel detects the presence of the <TT>gdb</TT> parameter and attempts to pass control to the remote (host-based) debugger. This is evidenced by the sequence of ASCII characters dumped to the serial port in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch1401">Listing 14-1</A>. If you are curious about this <TT>gdb</TT> remote serial protocol, it is documented in the <TT>gdb</TT> manual cited at the end of this chapter. In this example, <TT>KGDB</TT> is sending a <SPAN class=docEmphasis>Stop Reply</SPAN> packet reporting the breakpoint trap to the remote <TT>gdb</TT> session on the host. The two 32-bit parameters indicate the location of the program and the stack frame.</P>
+<P class=docText>Now that the kernel is set up and waiting for the host debugger, we can begin our debugging session. We invoke <TT>cross-gdb</TT> from our host development workstation and connect to the target via <TT>gdb</TT>'s remote protocol. In this example, we are sharing the serial port, so we must disconnect the terminal emulator from the target before trying to connect with <TT>gdb</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch1402">Listing 14-2</A> highlights the <TT>gdb</TT> connection process. This assumes that we have already exited our terminal emulator and freed the serial port for <TT>gdb</TT> to use.</P>
+<P class=docText></P><A name=ch1402></A>
+<H5 id=title-IDAKEC3D class=docExampleTitle>Listing 14-2. Connecting to KGDB</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ppc_4xx-gdb --silent vmlinux</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote /dev/ttyS0</SPAN>
+Remote debugging using /dev/ttyS0
+breakinst () at arch/ppc/kernel/ppc-stub.c:825
+825     }
+(gdb) <SPAN class=docEmphStrong>l</SPAN>
+820                      return;
+821              }
+822
+823             asm("   .globl breakinst        \n\
+824                  breakinst: .long 0x7d821008");
+825     }
+826
+827     #ifdef CONFIG_KGDB_CONSOLE
+828     /* Output string in GDB O-packet format if GDB has connected.
+If nothing
+829        output, returns 0 (caller must then handle output). */
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1135></A><A name=iddle1230></A><A name=iddle1231></A><A name=iddle1541></A><A name=iddle1806></A><A name=iddle1866></A>Here we have performed three actions:</P>
+<UL>
+<LI>
+<P class=docList>Invoked <TT>gdb</TT>, passing it the kernel ELF file <TT>vmlinux</TT></P></LI>
+<LI>
+<P class=docList>Connected to the target using the <TT>target remote</TT> command within <TT>gdb</TT></P></LI>
+<LI>
+<P class=docList>Issued the <TT>list</TT> command, using its abbreviated form to display our location in the source code</P></LI></UL>
+<P class=docText>At the risk of pointing out the obvious, the <TT>vmlinux</TT> image that we pass to <TT>gdb</TT> must be from the same kernel build that produced the target kernel binary. It also must have been compiled with the <TT>-g</TT> compiler flag to contain debug information.</P>
+<P class=docText>When we issued the <TT>target remote</TT> command, <TT>gdb</TT> responded by displaying the location of the program counter (PC). In this example, the kernel is stopped at the breakpoint defined by the inline assembler statement at line 823 in file <TT>.../arch/ppc/kernel/ppc-stub.c</TT>. When we issue the <TT>continue</TT> (<TT>c</TT>) command, execution resumes starting at line 825, as indicated.</P><A name=ch14lev2sec3></A>
+<H4 id=title-IDA2IC3D class=docSection2Title>14.2.3. Useful Kernel Breakpoints</H4>
+<P class=docText>We have now established a debug connection with the kernel on our target board. When we issue the <TT>gdb continue</TT> (<TT>c</TT>) command, the kernel proceeds to boot, and <A name=iddle1863></A>if there are no problems, the boot process completes. There is one minor limitation of using KGDB on many architectures and processors. An engineering trade-off was made between the need to support very early kernel debugging (for example, before a full-blown interrupt-driven serial port driver is installed) and the desire to keep the complexity of the KGDB debug engine itself very simple and, therefore, robust and portable. KGDB uses a simple polled serial driver that has zero overhead when the kernel is running. As a drawback to this implementation, the traditional <TT>Ctl-C</TT> or Break sequence on the serial port will have no effect. Therefore, it will be impossible to stop execution of the running kernel unless a breakpoint or other fault is encountered.</P>
+<P class=docText>For this reason, it has become common practice to define some system-wide breakpoints, which provide the capability to halt the current thread of execution. Two of the most common are highlighted in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch1403">Listing 14-3</A>.</P><A name=ch1403></A>
+<H5 id=title-IDAGKC3D class=docExampleTitle>Listing 14-3. Common Kernel Breakpoints</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>b panic</SPAN>
+Breakpoint 1 at 0xc0016b18: file kernel/panic.c, line 74.
+(gdb) <SPAN class=docEmphStrong>b sys_sync</SPAN>
+Breakpoint 2 at 0xc005a8c8: file fs/buffer.c, line 296.
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Using the <TT>gdb breakpoint</TT> command, again using its abbreviated version, we enter two breakpoints. One is at <TT>panic()</TT> and the other is at the <TT>sync</TT> system call entry <TT>sys_sync()</TT>. The former allows the debugger to be invoked if a later event generates a panic. This enables examination of the system state at the time of the panic. The second is a useful way to halt the kernel and trap into the debugger from user space by entering the <TT>sync</TT> command from a terminal running on your target hardware.</P>
+<P class=docText>We are now ready to proceed with our debugging session. We have a KGDB-enabled kernel running on our target, paused at a KGDB-defined early breakpoint. We established a connection to the target with our host-based cross debuggerin this case, invoked as <TT>ppc_4xx-gdb</TT>and we have entered a pair of useful system breakpoints. Now we can direct our debugging activities to the task at hand.</P>
+<P class=docText>One caveat: By definition, we cannot use KGDB for stepping through code before the <TT>breakpoint()</TT> function in <TT>.../arch/ppc/setup.c</TT> used to establish the connection between a KGDB-enabled kernel and <TT>cross-gdb</TT> on our host. <A name=iddle1263></A><A name=iddle1288></A><A name=iddle1733></A><A name=iddle1878></A><A name=iddle2200></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec2.html#ch14fig03">Figure 14-3</A> is a rough guide to the code that executes before KGDB gains control. Debugging this early code requires the use of a hardware-assisted debug probe. We cover this topic shortly in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch14lev1sec4">Section 14.4</A>, "Hardware-Assisted Debugging."

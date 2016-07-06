@@ -1,0 +1,39 @@
+Connectors (struct drm_connector)</P>
+<P>Connector Initialization<BR>Connector Operations</P>
+<P>A connector is the final destination for pixel data on a device, and usually connects directly to an external display device like a monitor or laptop panel. A connector can only be attached to one encoder at a time. The connector is also the structure where information about the attached display is kept, so it contains fields for display data, EDID data, DPMS &amp; connection status, and information about modes supported on the attached displays.<BR>Connector Initialization</P>
+<P>Finally a KMS driver must create, initialize, register and attach at least one struct drm_connector instance. The instance is created as other KMS objects and initialized by setting the following fields.</P>
+<P>interlace_allowed</P>
+<P>&nbsp;&nbsp;&nbsp; Whether the connector can handle interlaced modes. <BR>doublescan_allowed</P>
+<P>&nbsp;&nbsp;&nbsp; Whether the connector can handle doublescan. <BR>display_info</P>
+<P>&nbsp;&nbsp;&nbsp; Display information is filled from EDID information when a display is detected. For non hot-pluggable displays such as flat panels in embedded systems, the driver should initialize the display_info.width_mm and display_info.height_mm fields with the physical size of the display. <BR>polled</P>
+<P>&nbsp;&nbsp;&nbsp; Connector polling mode, a combination of</P>
+<P>&nbsp;&nbsp;&nbsp; DRM_CONNECTOR_POLL_HPD</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The connector generates hotplug events and doesn't need to be periodically polled. The CONNECT and DISCONNECT flags must not be set together with the HPD flag. <BR>&nbsp;&nbsp;&nbsp; DRM_CONNECTOR_POLL_CONNECT</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Periodically poll the connector for connection. <BR>&nbsp;&nbsp;&nbsp; DRM_CONNECTOR_POLL_DISCONNECT</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Periodically poll the connector for disconnection. </P>
+<P>&nbsp;&nbsp;&nbsp; Set to 0 for connectors that don't support connection status discovery. </P>
+<P>The connector is then registered with a call to drm_connector_init with a pointer to the connector functions and a connector type, and exposed through sysfs with a call to drm_connector_register.</P>
+<P>Supported connector types are</P>
+<P>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_VGA<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_DVII<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_DVID<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_DVIA<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_Composite<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_SVIDEO<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_LVDS<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_Component<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_9PinDIN<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_DisplayPort<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_HDMIA<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_HDMIB<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_TV<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_eDP<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_CONNECTOR_VIRTUAL</P>
+<P>Connectors must be attached to an encoder to be used. For devices that map connectors to encoders 1:1, the connector should be attached at initialization time with a call to drm_mode_connector_attach_encoder. The driver must also set the drm_connector encoder field to point to the attached encoder.</P>
+<P>Finally, drivers must initialize the connectors state change detection with a call to drm_kms_helper_poll_init. If at least one connector is pollable but can't generate hotplug interrupts (indicated by the DRM_CONNECTOR_POLL_CONNECT and DRM_CONNECTOR_POLL_DISCONNECT connector flags), a delayed work will automatically be queued to periodically poll for changes. Connectors that can generate hotplug interrupts must be marked with the DRM_CONNECTOR_POLL_HPD flag instead, and their interrupt handler must call drm_helper_hpd_irq_event. The function will queue a delayed work to check the state of all connectors, but no periodic polling will be done.<BR>Connector Operations<BR>Note</P>
+<P>Unless otherwise state, all operations are mandatory.<BR>DPMS</P>
+<P>void (*dpms)(struct drm_connector *connector, int mode);</P>
+<P>The DPMS operation sets the power state of a connector. The mode argument is one of</P>
+<P>&nbsp;&nbsp;&nbsp; DRM_MODE_DPMS_ON</P>
+<P>&nbsp;&nbsp;&nbsp; DRM_MODE_DPMS_STANDBY</P>
+<P>&nbsp;&nbsp;&nbsp; DRM_MODE_DPMS_SUSPEND</P>
+<P>&nbsp;&nbsp;&nbsp; DRM_MODE_DPMS_OFF</P>
+<P>In all but DPMS_ON mode the encoder to which the connector is attached should put the display in low-power mode by driving its signals appropriately. If more than one connector is attached to the encoder care should be taken not to change the power state of other displays as a side effect. Low-power mode should be propagated to the encoders and CRTCs when all related connectors are put in low-power mode.<BR>Modes</P>
+<P>int (*fill_modes)(struct drm_connector *connector, uint32_t max_width,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; uint32_t max_height);</P>
+<P>Fill the mode list with all supported modes for the connector. If the max_width and max_height arguments are non-zero, the implementation must ignore all modes wider than max_width or higher than max_height.</P>
+<P>The connector must also fill in this operation its display_info width_mm and height_mm fields with the connected display physical size in millimeters. The fields should be set to 0 if the value isn't known or is not applicable (for instance for projector devices).<BR>Connection Status</P>
+<P>The connection status is updated through polling or hotplug events when supported (see polled). The status value is reported to userspace through ioctls and must not be used inside the driver, as it only gets initialized by a call to drm_mode_getconnector from userspace.</P>
+<P>enum drm_connector_status (*detect)(struct drm_connector *connector,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; bool force);</P>
+<P>Check to see if anything is attached to the connector. The force parameter is set to false whilst polling or to true when checking the connector due to user request. force can be used by the driver to avoid expensive, destructive operations during automated probing.</P>
+<P>Return connector_status_connected if something is connected to the connector, connector_status_disconnected if nothing is connected and connector_status_unknown if the connection state isn't known.</P>
+<P>Drivers should only return connector_status_connected if the connection status has really been probed as connected. Connectors that can't detect the connection status, or failed connection status probes, should return connector_status_unknown.<BR>Miscellaneous</P>
+<P>&nbsp;&nbsp;&nbsp; void (*set_property)(struct drm_connector *connector,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct drm_property *property, uint64_t value);</P>
+<P>&nbsp;&nbsp;&nbsp; Set the value of the given connector property to value. See the section called &#8220;KMS Properties&#8221; for more information about properties.</P>
+<P>&nbsp;&nbsp;&nbsp; void (*destroy)(struct drm_connector *connector);</P>
+<P>&nbsp;&nbsp;&nbsp; Destroy the connector when not needed anymore. See the section called &#8220;KMS Initialization and Cleanup&#8221;.

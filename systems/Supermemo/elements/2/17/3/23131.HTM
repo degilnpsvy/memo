@@ -1,0 +1,44 @@
+<H3 id=-100000 class=docSection1Title>NOR Chip Drivers</H3>
+<P class=docText><A name="As you"></A>As you might have noticed, the NOR flash chip used by the handheld in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec3.html#ch17fig02">Figure 17.2</A> is labeled <SPAN class=docEmphasis>CFI-compliant.</SPAN><A name=for></A> CFI stands for <SPAN class=docEmphasis>Common Flash Interface</SPAN><A name="do away"></A>, a specification designed to do away with the need for developing separate drivers to support chips from different vendors. Software can query CFI-compliant flash chips and automatically detect block sizes, timing parameters, and the command-set to be used for communication. Drivers that implement specifications such as CFI and JEDEC are called <SPAN class=docEmphasis>chip drivers</SPAN>.</P>
+<P class=docText><A name="CFI specification"></A>According to the CFI specification, software must write <TT>0x98</TT> to location <TT>0x55</TT> within flash memory to initiate a query. Look at <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec4.html#ch17ex04">Listing 17.4</A> to see how MTD implements CFI query.</P>
+<P class=docText></P><A name=ch17ex04></A>
+<H5 id=title-ID0EIBAO class=docExampleTitle>Listing 17.4. Querying CFI-compliant Flash</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>/* Snippet from cfi_probe_chip() (2.6.23.1 kernel) defined in
+   <SPAN class=docEmphasis>drivers/mtd/chips/cfi_probe.c</SPAN>, with comments added */
+
+/* cfi is a pointer to struct cfi_private defined in
+   <SPAN class=docEmphasis>include/linux/mtd/cfi.h</SPAN> */
+
+/* ... */
+
+/* Ask the device to enter query mode by sending
+   0x98 to offset 0x55 */
+cfi_send_gen_cmd(0x98, 0x55, base, map, cfi,
+                 cfi-&gt;device_type, NULL);
+
+/* If the device did not return the ASCII characters
+   'Q', 'R' and 'Y', the chip is not CFI-compliant */
+if (!qry_present(map, base, cfi)) {
+  xip_enable(base, map, cfi);
+  return 0;
+}
+
+/* Elicit chip parameters and the command-set, and populate
+   the cfi structure */
+if (!cfi-&gt;numchips) {
+  return cfi_chip_setup(map, cfi);
+}
+/* ... */</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1410></A><A name=iddle1522></A><A name=iddle1523></A><A name=iddle1524></A><A name=iddle1525></A><A name=iddle2081></A><A name=iddle2942></A><A name="of the"></A>The CFI specification defines various command-sets that compliant chips can implement. Some of the common ones are as follows:</P>
+<UL>
+<LI>
+<P class=docList>Command-set <TT>0001</TT><A name="Sharp flash"></A>, supported by Intel and Sharp flash chips</P></LI>
+<LI>
+<P class=docList>Command-set <TT>0002</TT>, implemented on AMD and Fujitsu flash chips</P></LI>
+<LI>
+<P class=docList>Command-set <TT>0020</TT>, used on ST flash chips</P></LI></UL>
+<P class=docText><A name="enable the"></A>MTD supports these command-sets as kernel modules. You can enable the one supported by your flash chip via the kernel configuration menu.

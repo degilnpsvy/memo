@@ -1,0 +1,123 @@
+A Merge with a Conflict 
+<P></P>
+<P>The merge operation is inherently problematic because it necessarily brings together potentially varying and conflicting changes from different lines of development. The changes on one branch may be similar to or radically different from the changes on a different branch. Modifications may alter the same files or a disjoint set of files. Git can handle all these varied possibilities, but often it requires guidance from you to resolve conflicts. </P>
+<P>Let&#8217;s work through a scenario in which a merge leads to a conflict. We begin with the results of the merge from the previous section and introduce independent and conflicting changes on the master and alternate branches. We then merge the alternate branch into the master branch, face the conflict, resolve it, and commit the final result.</P>
+<P>On the master branch, create a new version of file with a few additional lines in it and then commit the changes:</P>
+<P>$ git checkout master </P>
+<P>$ cat &gt;&gt; file </P>
+<P>Line 5 stuff </P>
+<P>Line 6 stuff </P>
+<P>^D</P>
+<P>$ git commit -a -m "Add line 5 and 6" </P>
+<P>Created commit 4d8b599: Add line 5 and 6 </P>
+<P>1&nbsp;files changed, 2 insertions(+), 0 deletions(-)</P>
+<P>Now, on the alternate branch, modify the same file differently. Whereas you made new commits to the master branch, the alternate branch has not progressed yet.</P>
+<P>$ git checkout alternate </P>
+<P>Switched branch "alternate" </P>
+<P>$ git show-branch</P>
+<P>* [alternate] Add alternate's line 4 </P>
+<P>&nbsp;! [master] Add line 5 and 6 </P>
+<P>-- </P>
+<P>&nbsp;+ [master] Add line 5 and 6 </P>
+<P>*+ [alternate] Add alternate's line 4 </P>
+<P># In this branch, "file" left off with "Line 4 alternate stuff" </P>
+<P>$ cat &gt;&gt; file</P>
+<P>Line 5 alternate stuff </P>
+<P>Line 6 alternate stuff </P>
+<P>^D</P>
+<P>$ cat file </P>
+<P>Line 1 stuff </P>
+<P>Line 2 stuff </P>
+<P>Line 3 stuff </P>
+<P>Line 4 alternate stuff </P>
+<P>Line 5 alternate stuff </P>
+<P>Line 6 alternate stuff</P>
+<P>$ git diff </P>
+<P>diff --git a/file b/file </P>
+<P>index a29c52b..802acf8 100644</P>
+<P>--- a/file </P>
+<P>+++ b/file </P>
+<P>@@ -2,3 +2,5 @@ Line 1 stuff</P>
+<P>Line 2 stuff </P>
+<P>Line 3 stuff </P>
+<P>Line 4 alternate stuff </P>
+<P>+Line 5 alternate stuff </P>
+<P>+Line 6 alternate stuff</P>
+<P>$ git commit -a -m "Add alternate line 5 and 6" </P>
+<P>Created commit e306e1d: Add alternate line 5 and 6 </P>
+<P>1 files changed, 2 insertions(+), 0 deletions(-)</P>
+<P>Let&#8217;s review the scenario. The current branch history looks like this: </P>
+<P>$ git show-branch </P>
+<P>* [alternate] Add alternate line 5 and 6 </P>
+<P>&nbsp;! [master] Add line 5 and 6 </P>
+<P>-- </P>
+<P>* [alternate] Add alternate line 5 and 6 </P>
+<P>&nbsp;+ [master] Add line 5 and 6 </P>
+<P>*+ [alternate^] Add alternate's line 4</P>
+<P>To continue, check out the master branch and try to perform the merge: </P>
+<P>$ git checkout master </P>
+<P>Switched to branch "master"</P>
+<P>$ git merge alternate </P>
+<P>Auto-merged file</P>
+<P>CONFLICT (content): Merge conflict in file </P>
+<P>Automatic merge failed; fix conflicts and then commit the result.</P>
+<P>When a merge conflict like this occurs, you should almost invariably investigate the extent of the conflict using the git diff command. Here, the single file named file has a conflict in its content:</P>
+<P>$ git diff </P>
+<P>diff --cc file</P>
+<P>index 4d77dd1,802acf8..0000000 </P>
+<P>--- a/file </P>
+<P>+++ b/file </P>
+<P>@@@ -2,5 -2,5 +2,10 @@@ Line 1 stuf</P>
+<P>Line 2 stuff </P>
+<P>Line 3 stuff </P>
+<P>Line 4 alternate stuff </P>
+<P>++&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD:file </P>
+<P>+Line 5 stuff </P>
+<P>+Line 6 stuff </P>
+<P>++======= </P>
+<P>+ Line 5 alternate stuff </P>
+<P>+ Line 6 alternate stuff </P>
+<P>++&gt;&gt;&gt;&gt;&gt;&gt;&gt; alternate:file</P>
+<P>The git diff command shows the differences between the file in your working directory and the index. In the traditional diff command output style, the changed content is presented between &lt;&lt;&lt;&lt;&lt;&lt;&lt; and =======, with an alternate between ======= and &gt;&gt;&gt;&gt;&gt;&gt;&gt;. However, additional plus and minus signs are used in the combined diff format to indicate changes from multiple sources relative to the final resulting version.</P>
+<P>The previous output shows that the conflict covers lines 5 and 6, where deliberately different changes were made in the two branches. It&#8217;s then up to you to resolve the conflict. When resolving a merge conflict, you are free to choose any resolution you would like for the file. That includes picking lines from only one side or the other, or a mix from both sides, or even making up something completely new and different. Although that last option might be confusing, it is a valid choice.</P>
+<P>In this case, I chose a line from each branch as the makeup of my resolved version. The edited file now has this content:</P>
+<P>$ cat file </P>
+<P>Line 1 stuff </P>
+<P>Line 2 stuff </P>
+<P>Line 3 stuff </P>
+<P>Line 4 alternate stuff </P>
+<P>Line 5 stuff </P>
+<P>Line 6 alternate stuff</P>
+<P>If you are happy with the conflict resolution, you should git add the file to the index and stage it for the merge commit:</P>
+<P>$ git add file </P>
+<P>After you have resolved conflicts and staged final versions of each file in the index using git add, it is finally time to commit the merge using git commit. Git places you in your favorite editor with a template message that looks like this:</P>
+<P>Merge branch 'alternate' </P>
+<P>Conflicts: </P>
+<P>file </P>
+<P>#</P>
+<P># It looks like you may be committing a MERGE. </P>
+<P># If this is not correct, please remove the file </P>
+<P># .git/MERGE_HEAD </P>
+<P># and try again. </P>
+<P># </P>
+<P># Please enter the commit message for your changes. </P>
+<P># (Comment lines starting with '#' will not be included) </P>
+<P># On branch master </P>
+<P># Changes to be committed: </P>
+<P># (use "git reset HEAD <FILE>..." to unstage) </P>
+<P># </P>
+<P># modified: file </P>
+<P>#</P>
+<P>As usual, the lines beginning with the octothorp (#) are comments and meant solely for your information while you write a message. All comment lines are ultimately elided from the final commit log message. Feel free to alter or augment the commit message as you see fit, perhaps adding a note about how the conflict was resolved.</P>
+<P>When you exit the editor, Git should indicate the successful creation of a new merge commit:</P>
+<P>$ git commit </P>
+<P># Edit merge commit message </P>
+<P>Created commit 7015896: Merge branch 'alternate' </P>
+<P>$ git show-branch </P>
+<P>! [alternate] Add alternate line 5 and 6 </P>
+<P>&nbsp;* [master] Merge branch 'alternate' </P>
+<P>-- </P>
+<P>&nbsp;- [master] Merge branch 'alternate' </P>
+<P>+* [alternate] Add alternate line 5 and 6</P>
+<P>You can see the resulting merge commit using: </P>
+<P>$ git log

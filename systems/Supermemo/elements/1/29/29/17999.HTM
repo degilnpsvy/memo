@@ -1,0 +1,27 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>16.7.4 Enabling In-Place File Editing</H4><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-inplace-extension></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>inplace</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>extension emulates GNU<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>sed</CODE>&#8217;s<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>-i</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>option which performs &#8220;in place&#8221; editing of each input file. It uses the bundled<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>inplace.awk</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>include file to invoke the extension properly:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example># inplace --- load and invoke the inplace extension.
+
+@load "inplace"
+
+# Please set INPLACE_SUFFIX to make a backup copy.  For example, you may
+# want to set INPLACE_SUFFIX to .bak on the command line or in a BEGIN rule.
+
+BEGINFILE {
+    inplace_begin(FILENAME, INPLACE_SUFFIX)
+}
+
+ENDFILE {
+    inplace_end(FILENAME, INPLACE_SUFFIX)
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For each regular file that is processed, the extension redirects standard output to a temporary file configured to have the same owner and permissions as the original. After the file has been processed, the extension restores standard output to its original destination. If<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>INPLACE_SUFFIX</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is not an empty string, the original file is linked to a backup filename created by appending that suffix. Finally, the temporary file is renamed to the original filename.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">If any error occurs, the extension issues a fatal error to terminate processing immediately without damaging the original file.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here are some simple examples:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">gawk -i inplace '{ gsub(/foo/, "bar") }; { print }' file1 file2 file3</KBD>
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">To keep a backup copy of the original files, try this:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>$ <KBD style="FONT-STYLE: oblique">gawk -i inplace -v INPLACE_SUFFIX=.bak '{ gsub(/foo/, "bar") }</KBD>
+&gt; <KBD style="FONT-STYLE: oblique">{ print }' file1 file2 file3</KBD>
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">We leave it as an exercise to write a wrapper script that presents an interface similar to &#8216;<SAMP>sed -i</SAMP>&#8217;.

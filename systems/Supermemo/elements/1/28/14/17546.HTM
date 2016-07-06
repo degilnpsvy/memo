@@ -1,0 +1,158 @@
+<TABLE style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; LETTER-SPACING: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" border=0>
+<TBODY>
+<TR>
+<TD>
+<H1>Introduction to VGA Graphics Programming Using Mode 13h</H1>Atrevida Game Programming Tutorial #7<BR>Copyright 1997, Kevin Matz, All Rights Reserved.
+<P>"Prerequisites:"<BR></P>
+<UL>
+<LI>Chapter 1: Introduction to Binary and Hexadecimal</LI>
+<LI>Chapter 2: Binary Operations</LI>
+<LI>Chapter 3: Binary Manipulations</LI>
+<LI>Chapter 4: Memory in the PC</LI>
+<LI>Chapter 5: Calling Interrupts</LI></UL>
+<P></P></TD>
+<TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD></TR>
+<TR>
+<TD>In this chapter, we will discover how to produce graphics using one of the VGA's graphics modes, Mode 13h. We will begin to construct our own basic graphics package, which we will add to in the next chapter.
+<P></P>
+<H3>Why write our own graphics package?</H3>Perhaps you've used a graphics package before, such as the Borland Graphics Interface that comes with some versions of Turbo Pascal or Turbo and Borland C/C++, or graphics functions built into a language such as Microsoft's old QuickBASIC/PDS and Qbasic languages. These graphics packages tend to be rather slow; they were most likely intended for business graphics purposes, such as drawing bar charts. Personally, I find the BGI package to be particularly oppressive.
+<P>If we choose to write our own graphics package, we gain more control over what we would like it to do. (The one-size-fits-all graphics packages often lack important features needed for game programming.) We can gain speed increases by doing away with bulky overhead; added speed is also very important for game programming. (When we reach the chapters dealing with assembler, we will be able to optimize our routines further.) Perhaps the biggest advantage is that we'll improve our understanding of how the VGA, and the PC in general, works.</P>
+<P></P>
+<H3>Why VGA Mode 13h?</H3>VGA users have access to eleven "standard" graphics modes and at least four "standard" text modes. There are also many higher-resolution SuperVGA modes, but these are not entirely standardized. And in later chapters, we will discover some exciting "undocumented" modes.
+<P>Of the standard graphics modes, Mode 13h is by far the simplest mode to use. It is a 256-color mode with a 320x200 resolution (320 columns and 200 rows of pixels).</P>
+<P></P>
+<H3>Changing video modes</H3>A BIOS function is provided that will change the video mode for us. Here is a description of INT 10h, Service 0:
+<P></P><PRE>INT 10h, Service 0h
+Set Screen Mode
+
+Input:   AH = 0h
+         AL = Mode Number (see below)
+Output:  The video mode is changed.
+
+Mode Number  Text Res.  Graphics Res.   Description  Adapters  Max. Pages
+---------------------------------------------------------------------------
+         0h      40x25         ------   B&amp;W Text     CGA+               8
+         1h      80x25         ------   B&amp;W Text     MDPA+              8
+         2h      40x25         ------   Color Text   CGA+          4 or 8
+         3h      80x25         ------   Color Text   (MDPA?)/CGA+  4 or 8
+         4h      40x25        320x200   4 colors     CGA+               1
+         5h      40x25        320x200   2 colors     CGA+               1
+         6h      80x25        640x200   2 colors     CGA+               1
+         7h      80x25         ------   B&amp;W          MDPA (CGA+?)       1
+         8h to Ch -- PCjr or other adapters; no longer used
+         Dh      40x25        320x200   16 colors    EGA+               8
+         Eh      80x25        640x200   16 colors    EGA+               4
+         Fh      80x25        640x350   2 colors     EGA+               2
+        10h      80x25        640x350   16 colors    EGA+               2
+        11h      80x25        640x480   2 colors     VGA+               1
+        12h      80x25        640x480   16 colors    VGA+               1
+        13h      40x25        320x200   256 colors   VGA+               1
+</PRE>
+<P>Be aware that your SuperVGA card most likely has more modes available. (And for your information, the general hierarchy of graphics adapters is: MDPA (Monochrome Display and Printer Adapter, CGA, EGA, VGA, various SuperVGA's. This doesn't take into account IBM's XGA, PGA, and 8514/A adapters that never caught on, or Hercules Monochrome, PCjr, Tandy, and other adapters that are now obsolete.)</P>
+<P>To get the VGA to enter Mode 13h, simply set AH to 0, set AL to 13 hex, and call INT 10h.</P>
+<P>It's courteous to return the VGA to the normal text mode before your program ends. The standard text mode is Mode 3h, so simply set AH to 0, set AL to 3 hex, and call INT 10h.</P>
+<P></P>
+<H3>Memory organization in Mode 13h</H3>The 320 columns are numbered 0 through 319 dec, with column 0 at the left of the screen and column 319 dec at the right of the screen. The 200 rows are numbered 0 through 199 dec. Most people are accustomed to the system used in mathematics, where the y-axis (which counts off rows) increases as it goes<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>up</I>. But with the VGA, we give the row at the top of the screen the number 0. Row numbers increase<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>down</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>the screen, so the row at the bottom of the screen is row number 199 dec.
+<P>A 64K segment of memory is assigned for use with graphics video modes. This segment starts at address A000:0000 and ends at A000:FFFF. (If you recall from Chapter Four, "Memory in the PC", another segment exists for text-based video modes; this segment begins at B000:0000.)</P>
+<P>In Mode 13h, one byte represents one pixel on the screen. The value of a byte, from 0 to 255 dec, determines which color, from 0 to 255 dec, the corresponding pixel on the screen should have. Because there are 320 pixels by 200 pixels on the screen, 320 * 200 = 64000 dec bytes are required to hold a Mode 13h screen image.</P>
+<P>Here's how the bytes are organized in the A000:0000 segment. The byte corresponding to the pixel at coordinates (0, 0) (at the upper-left corner of the screen) is stored at offset 0. The byte corresponding to the pixel at (1, 0) (column 1, row 0) is stored at offset 1; the byte for pixel (2, 0) is stored at offset 2, and so on. The byte corresponding to the pixel at (319, 0) is stored at offset 319 dec, which is 13F hex.</P>
+<P>Where is the byte corresponding to pixel (0, 1) stored? The offsets for pixels in the next row immediately follow the offsets from the previous row, so the offset for pixel (0, 1) is 320 dec, or 140 hex. Pixel (1, 1) is next, so its offset is 321 dec, or 141 hex.</P>
+<P>If you wish, you can consider the display under Mode 13h to be a two-dimensional array, with 200 rows (0..199 dec) and 320 columns (0..319 dec).</P>
+<P>If we know the row and column of a particular pixel, how can we determine the corresponding offset for that pixel? Well, notice that, because there are 320 pixels per row, there is a 320 dec difference in offsets between pixel positions that have the same columns and have rows that differ by one. So, given<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>row</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>column</TT>, we can use the formula...</P>
+<P></P><PRE>offset = (row * 320) + column
+</PRE>
+<P>...to find the offset.</P>
+<P></P>
+<H3>Plotting and reading pixels</H3>Now that we have an offset corresponding to a pixel position, it becomes an easy matter to<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>plot</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>a pixel (set a pixel to a particular color). I'll demonstrate the two most-often used methods: we can use<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dos.h</TT>'s<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>pokeb()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>function to poke a color value into the byte at the calculated offset into video memory, or, we can construct a far pointer to the start of video memory (A000:0000), and add the offset to directly to it (using pointer arithmetic).
+<P>Here's the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>pokeb()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>method. (Refer back to Chapter Four, "Memory in the PC", if you want a refresher.) We know the segment is A000 hex, we can calculate the offset, and we can pick a color from 0 to 255 dec:</P>
+<P></P><PRE>pokeb (0xA000, offset, color);
+</PRE>
+<P>Or, better yet, do away with the offset variable completely:</P>
+<P></P><PRE>pokeb (0xA000, (row * 320) + column, color);
+</PRE>
+<P>Of course, in a real program, we'd be wise to use constants such as "<TT>VIDEO_SEGMENT</TT>" instead of A000 hex and "<TT>SCREEN_WIDTH</TT>" instead of 320 dec.</P>
+<P>The other method, which appears to be more popular, uses far pointers. We can use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>MK_FP</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro to construct a far pointer to A000:0000 like this:</P>
+<P></P><PRE>char far *ptr_to_video_segment = MK_FP(0xA000, 0x0000);
+</PRE>
+<P>Then, there are two ways to access offsets from this "base pointer":</P>
+<P></P><PRE>*(ptr_to_video_segment + offset) = color;
+</PRE>
+<P>or:</P>
+<P></P><PRE>ptr_to_video_segment[offset] = color;
+</PRE>
+<P>You can substitute in the offset "formula" wherever offset is used. Again, in a real program, we'd most likely have a constant for the screen width (320 dec).</P>
+<P>You can use whatever method you wish to plot pixels. I personally am biased in favor of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>pokeb()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>method. (This is probably due to the fact that I fondly remember programming on the Commodore VIC-20 microcomputer many, many years ago, and POKE statements were used quite frequently. But I also find that the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>pokeb()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>method is less cryptic than the other method, and it saves me the trouble of unnecessarily fooling around with pointers.)</P>
+<P>What if we want to<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>read</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>a pixel from the screen (that is, determine the color of the pixel at a given location)? With the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>pokeb()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>method, we can simply use the converse of<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>pokeb()</TT>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>peekb()</TT>:</P>
+<P></P><PRE>color = peekb(0xA000, (row * 320) + column);
+</PRE>
+<P>Or, with the MK_FP method:</P>
+<P></P><PRE>color = *(ptr_to_video_segment + (row * 320) + column);
+</PRE>
+<P>or:</P>
+<P></P><PRE>color = ptr_to_video_segment[(row * 320) + column];
+</PRE>
+<P>Plotting and reading pixels are the two basic operations fundamental to graphics programming in Mode 13h. In the next chapter, we'll learn how to draw "graphics primitives" (shapes) such as lines, rectangles, bars (filled boxes), and circles. In another chapter, we'll also discuss palette manipulation, which allows us to control which colors we can select from, because the standard palette (the default set of colors available in the range 0..255 dec) is not particularly pretty.</P>
+<P></P>
+<H3>Using text in Mode 13h</H3>You can still use the familiar C and C++ functions and operators for input and output under Mode 13h. Note, however, that there are only 40 columns by 25 rows of characters. Also note that a 8x8 character set (the appearance of which, incidentally, varies on different systems) is used.
+<P>You'll notice that a black background surrounds the text that you output. If you don't like this, or you want to use nicer-looking fonts, you have to write your own font-handling routines. This topic may be explored further in later chapters.</P>
+<P></P>
+<H3>Starting a Mode 13h graphics package</H3>Let's begin writing some functions to handle the basic operations discussed in this chapter. You already have enough information to write functions to set Mode 13h, set the text mode, and plot and read pixels, so if you feel confident enough, please go ahead and write and test your own functions. I recommend it! Otherwise, examine the functions below.
+<P>First, I'll assume that the following (global) constants have been declared or<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>#define</TT>'d:</P>
+<P></P><PRE>#define VIDEO_SEGMENT   0xA000
+#define SCREEN_WIDTH    320
+</PRE>
+<P>So, to set the graphics mode, we simply use INT 10h, as described previously:</P>
+<P></P><PRE>void SetMode13h ()
+{
+    _AH = 0;
+    _AL = 0x13;
+    geninterrupt (0x10);
+}
+</PRE>
+<P>And to return to text mode:</P>
+<P></P><PRE>void SetTextMode ()
+{
+    _AH = 0;
+    _AL = 0x03;
+    geninterrupt (0x10);
+}
+</PRE>
+<P>To put a pixel on the Mode 13h screen, I'll use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>pokeb()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>method. Feel free to rewrite it using the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>MK_FP</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>method; just be certain to create a global pointer to the start of video memory.</P>
+<P></P><PRE>void PutPixel (int x, int y, unsigned char color)
+{
+    pokeb (VIDEO_SEGMENT, (y * SCREEN_WIDTH) + x, color);
+}
+</PRE>
+<P>To read a pixel from the Mode 13h screen, I'll use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>peekb()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>method:</P>
+<P></P><PRE>unsigned char ReadPixel (int x, int y)
+{
+    return peekb(VIDEO_SEGMENT, (y * SCREEN_WIDTH) + x);
+}
+</PRE>
+<P>Please note that these<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>PutPixel()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>ReadPixel()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>functions do not check that the x and y coordinates supplied do not fall outside the ranges of coordinates of the screen. What would happen, then, if I were to call PutPixel() with the coordinates (350, 100), like this:</P>
+<P></P><PRE>PutPixel (350, 100, 10);
+</PRE>
+<P>Well, do the "<TT>(y * SCREEN_WIDTH) + x</TT>" calculation. The color 10 will be plotted using the offset 32350 dec. This offset would normally be produced by using the coordinates (101, 30) -- this is probably not what you want!</P>
+<P>So, should we put code into the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>PutPixel()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>ReadPixel()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>functions to check that none of the coordinates go "out of bounds"? Or, should we burden the programmer using these functions by asking him or her to check that all coordinates are in range before calling one of these functions? It's a tough decision -- the latter method could potentially be faster, as the programmer using the functions could avoid doing range checking when he or she knows that the coordinates are in range. But that means that there is a potential for garbage on the screen if the programmer makes a mistake. It's your choice; for now, I'd recommend adding checking routines to<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>PutPixel()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>ReadPixel()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>functions.</P>
+<P>Those are all of the basic operations needed for now: we can build functions to draw more complex shapes by calling<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>PutPixel()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>to draw pixels.</P>
+<P>Here's a short<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>main()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>function to briefly demonstrate using several of these functions. It's not fancy, and it's not particularly efficient. It simply draws some vertical lines in all of the 256 possible colors in the standard palette:</P>
+<P></P><PRE>main ()
+{
+    int x, y;
+
+    SetMode13h ();
+
+    for (x = 0; x &lt;= 255; x++)
+        for (y = 0; y &lt;= 50; y++)
+            PutPixel (x, y, x);
+
+    getch ();
+
+    SetTextMode ();
+    return 0;
+}
+</PRE>
+<P>Be sure to<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>#include</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>conio.h</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dos.h</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>include files.</P>
+<P></P>
+<H3>Summary</H3>In this chapter, we've discovered how to change video modes, we've learned how pixels are organized in the A000h segment of memory, and we've seen how to change and retrieve the colors at different pixel locations. We've begun to construct a graphics library, which we will add to in the next chapter.
+<P>Mode 13h is not too difficult to use; at least, it is much easier to use than some of the other VGA graphics modes. And once you have constructed a reasonable graphics library, you don't need to worry too much about the details of the implementation: you can concentrate more on your actual game or graphics program.</P></TD></TR></TBODY></TABLE>

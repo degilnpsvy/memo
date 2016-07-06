@@ -1,0 +1,20 @@
+<HEAD></HEAD>
+<BODY><SPAN lang=EN-US style="FONT-SIZE: 14pt">Changing Cygwin's Maximum Memory</SPAN>
+<P></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">&nbsp;</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">Cygwin's heap is extensible. However, it does start out at a fixed size and attempts to extend it may run into memory which has been previously allocated by Windows. In some cases, this problem can be solved by changing a field in the file header which is utilized by Cygwin since version <?xml:namespace prefix = st1 /><st1:chsdate Year="1899" Month="12" Day="30" IsLunarDate="False" IsROCDate="False" w:st="on">1.7.10</st1:chsdate> to keep the initial size of the application heap. If the field contains 0, which is the default, the application heap defaults to a size of 384 Megabyte. If the field is set to any other value between 4 and 2048, Cygwin tries to reserve as much Megabytes for the application heap. The field used for this is the "LoaderFlags" field in the NT-specific PE header structure ((IMAGE_NT_HEADER)-&gt;OptionalHeader.LoaderFlags).</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">&nbsp;</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">This value can be changed for any executable by using a more recent version of the peflags tool from the rebase Cygwin package. Example:</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">&nbsp;</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">$ peflags --cygwin-heap foo.exe</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">foo.exe: initial Cygwin heap size: 0 (0x0) MB</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">$ peflags --cygwin-heap=500 foo.exe</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">foo.exe: initial Cygwin heap size: 500 (0x<st1:chmetcnv w:st="on" UnitName="F" SourceValue="1" HasSpace="False" Negative="False" NumberType="1" TCSC="0">1f</st1:chmetcnv>4) MB</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">Heap memory can be allocated up to the size of the biggest available free block in the processes virtual memory (VM). By default, the VM per process is 2 GB for 32 processes. To get more VM for a process, the executable must have the "large address aware" flag set in the file header. You can use the aforementioned peflags tool to set this flag. On 64 bit systems this results in a 4 GB VM for a process started from that executable. On 32 bit systems you also have to prepare the system to allow up to 3 GB per process. See the Microsoft article 4-Gigabyte Tuning for more information.</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">&nbsp;</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">Note</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">&nbsp;</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">Older Cygwin releases only supported a global registry setting to change the initial heap size for all Cygwin processes. This setting is not used anymore. However, if you're running an older Cygwin release than <st1:chsdate Year="1899" Month="12" Day="30" IsLunarDate="False" IsROCDate="False" w:st="on">1.7.10</st1:chsdate>, you can add the DWORD value heap_chunk_in_mb and set it to the desired memory limit in decimal MB. You have to stop all Cygwin processes for this setting to have any effect. It is preferred to do this in Cygwin using the regtool program included in the Cygwin package. (see the section called </SPAN><SPAN style="FONT-SIZE: 14pt; FONT-FAMILY: &#23435;&#20307;; mso-ascii-font-family: 'Times New Roman'; mso-hansi-font-family: 'Times New Roman'">&#8220;</SPAN><SPAN lang=EN-US style="FONT-SIZE: 14pt">regtool&#8221;) This example sets the memory limit to 1024 MB for all Cygwin processes (use HKCU instead of HKLM if you want to set this only for the current user):</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">&nbsp;</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">$ regtool -i set /HKLM/Software/Cygwin/heap_chunk_in_mb 1024</SPAN></P>
+<P><SPAN lang=EN-US style="FONT-SIZE: 14pt">$ regtool -v list /HKLM/Software/Cygwin</SPAN></P></BODY>

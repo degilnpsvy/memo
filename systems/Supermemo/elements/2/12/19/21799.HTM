@@ -1,0 +1,56 @@
+# Documentation/driver-model/driver.txt 
+<P></P>
+<P>Device Drivers</P>
+<P></P>
+<P>See the kerneldoc for the struct device_driver.</P>
+<P><BR><FONT class=extract>Allocation<BR>~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>Device drivers are statically allocated structures. Though there may<BR>be multiple devices in a system that a driver supports, struct<BR>device_driver represents the driver as a whole (not a particular<BR>device instance).</FONT></P>
+<P><FONT class=extract>Initialization<BR>~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>The driver must initialize at least the name and bus fields. It should<BR>also initialize the devclass field (when it arrives), so it may obtain<BR>the proper linkage internally. It should also initialize as many of<BR>the callbacks as possible, though each is optional.</FONT></P>
+<P><FONT class=extract>Declaration<BR>~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>As stated above, struct device_driver objects are statically<BR>allocated. Below is an example declaration of the eepro100<BR>driver. This declaration is hypothetical only; it relies on the driver<BR>being converted completely to the new model. </FONT></P>
+<P><FONT class=extract>static struct device_driver eepro100_driver = {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .name&nbsp;&nbsp;= "eepro100",<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .bus&nbsp;&nbsp;= &amp;pci_bus_type,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .probe&nbsp;&nbsp;= eepro100_probe,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .remove&nbsp;&nbsp;= eepro100_remove,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .suspend&nbsp;&nbsp;= eepro100_suspend,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .resume&nbsp;&nbsp;= eepro100_resume,<BR>};</FONT></P>
+<P><FONT class=extract>Most drivers will not be able to be converted completely to the new<BR>model because the bus they belong to has a bus-specific structure with<BR>bus-specific fields that cannot be generalized. </FONT></P>
+<P><FONT class=extract>The most common example of this are device ID structures. A driver<BR>typically defines an array of device IDs that it supports. The format<BR>of these structures and the semantics for comparing device IDs are<BR>completely bus-specific. Defining them as bus-specific entities would<BR>sacrifice type-safety, so we keep bus-specific structures around. </FONT></P>
+<P><FONT class=extract>Bus-specific drivers should include a generic struct device_driver in<BR>the definition of the bus-specific driver. Like this:</FONT></P>
+<P><FONT class=extract>struct pci_driver {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; const struct pci_device_id *id_table;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct device_driver&nbsp;&nbsp; driver;<BR>};</FONT></P>
+<P><FONT class=extract>A definition that included bus-specific fields would look like<BR>(using the eepro100 driver again):</FONT></P>
+<P><FONT class=extract>static struct pci_driver eepro100_driver = {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .id_table&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = eepro100_pci_tbl,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .driver&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = {<BR>&nbsp;&nbsp;.name&nbsp;&nbsp;= "eepro100",<BR>&nbsp;&nbsp;.bus&nbsp;&nbsp;= &amp;pci_bus_type,<BR>&nbsp;&nbsp;.probe&nbsp;&nbsp;= eepro100_probe,<BR>&nbsp;&nbsp;.remove&nbsp;&nbsp;= eepro100_remove,<BR>&nbsp;&nbsp;.suspend&nbsp;= eepro100_suspend,<BR>&nbsp;&nbsp;.resume&nbsp;&nbsp;= eepro100_resume,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; },<BR>};</FONT></P>
+<P><FONT class=extract>Some may find the syntax of embedded struct initialization awkward or<BR>even a bit ugly. So far, it's the best way we've found to do what we want...</FONT></P>
+<P><FONT class=extract>Registration<BR>~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>int driver_register(struct device_driver * drv);</FONT></P>
+<P><FONT class=extract>The driver registers the structure on startup. For drivers that have<BR>no bus-specific fields (i.e. don't have a bus-specific driver<BR>structure), they would use driver_register and pass a pointer to their<BR>struct device_driver object. </FONT></P>
+<P><FONT class=extract>Most drivers, however, will have a bus-specific structure and will<BR>need to register with the bus using something like pci_driver_register.</FONT></P>
+<P><FONT class=extract>It is important that drivers register their driver structure as early as<BR>possible. Registration with the core initializes several fields in the<BR>struct device_driver object, including the reference count and the<BR>lock. These fields are assumed to be valid at all times and may be<BR>used by the device model core or the bus driver.</FONT></P>
+<P><BR><FONT class=extract>Transition Bus Drivers<BR>~~~~~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>By defining wrapper functions, the transition to the new model can be<BR>made easier. Drivers can ignore the generic structure altogether and<BR>let the bus wrapper fill in the fields. For the callbacks, the bus can<BR>define generic callbacks that forward the call to the bus-specific<BR>callbacks of the drivers. </FONT></P>
+<P><FONT class=extract>This solution is intended to be only temporary. In order to get class<BR>information in the driver, the drivers must be modified anyway. Since<BR>converting drivers to the new model should reduce some infrastructural<BR>complexity and code size, it is recommended that they are converted as<BR>class information is added.</FONT></P>
+<P><FONT class=extract>Access<BR>~~~~~~</FONT></P>
+<P><FONT class=extract>Once the object has been registered, it may access the common fields of<BR>the object, like the lock and the list of devices. </FONT></P>
+<P><FONT class=extract>int driver_for_each_dev(struct device_driver * drv, void * data, <BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int (*callback)(struct device * dev, void * data));</FONT></P>
+<P><FONT class=extract>The devices field is a list of all the devices that have been bound to<BR>the driver. The LDM core provides a helper function to operate on all<BR>the devices a driver controls. This helper locks the driver on each<BR>node access, and does proper reference counting on each device as it<BR>accesses it. </FONT></P>
+<P><BR><FONT class=extract>sysfs<BR>~~~~~</FONT></P>
+<P><FONT class=extract>When a driver is registered, a sysfs directory is created in its<BR>bus's directory. In this directory, the driver can export an interface<BR>to userspace to control operation of the driver on a global basis;<BR>e.g. toggling debugging output in the driver.</FONT></P>
+<P><FONT class=extract>A future feature of this directory will be a 'devices' directory. This<BR>directory will contain symlinks to the directories of devices it<BR>supports.</FONT></P>
+<P>&nbsp;</P>
+<P><FONT class=extract>Callbacks<BR>~~~~~~~~~</FONT></P>
+<P><FONT class=extract>&nbsp;int&nbsp;(*probe)&nbsp;(struct device * dev);</FONT></P>
+<P><FONT class=extract>The probe() entry is called in task context, with the bus's rwsem locked<BR>and the driver partially bound to the device.&nbsp; Drivers commonly use<BR>container_of() to convert "dev" to a bus-specific type, both in probe()<BR>and other routines.&nbsp; That type often provides device resource data, such<BR>as pci_dev.resource[] or platform_device.resources, which is used in<BR>addition to dev-&gt;platform_data to initialize the driver.</FONT></P>
+<P><FONT class=extract>This callback holds the driver-specific logic to bind the driver to a<BR>given device.&nbsp; That includes verifying that the device is present, that<BR>it's a version the driver can handle, that driver data structures can<BR>be allocated and initialized, and that any hardware can be initialized.<BR>Drivers often store a pointer to their state with dev_set_drvdata().<BR>When the driver has successfully bound itself to that device, then probe()<BR>returns zero and the driver model code will finish its part of binding<BR>the driver to that device.</FONT></P>
+<P><FONT class=extract>A driver's probe() may return a negative errno value to indicate that<BR>the driver did not bind to this device, in which case it should have<BR>released all resources it allocated.</FONT></P>
+<P><FONT class=extract>&nbsp;int &nbsp;(*remove)&nbsp;(struct device * dev);</FONT></P>
+<P><FONT class=extract>remove is called to unbind a driver from a device. This may be<BR>called if a device is physically removed from the system, if the<BR>driver module is being unloaded, during a reboot sequence, or<BR>in other cases.</FONT></P>
+<P><FONT class=extract>It is up to the driver to determine if the device is present or<BR>not. It should free any resources allocated specifically for the<BR>device; i.e. anything in the device's driver_data field. </FONT></P>
+<P><FONT class=extract>If the device is still present, it should quiesce the device and place<BR>it into a supported low-power state.</FONT></P>
+<P><FONT class=extract>&nbsp;int&nbsp;(*suspend)&nbsp;(struct device * dev, pm_message_t state);</FONT></P>
+<P><FONT class=extract>suspend is called to put the device in a low power state.</FONT></P>
+<P><FONT class=extract>&nbsp;int&nbsp;(*resume)&nbsp;(struct device * dev);</FONT></P>
+<P><FONT class=extract>Resume is used to bring a device back from a low power state.</FONT></P>
+<P><BR><FONT class=extract>Attributes<BR>~~~~~~~~~~<BR>struct driver_attribute {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct attribute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; attr;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*show)(struct device_driver *driver, char *buf);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*store)(struct device_driver *, const char * buf, size_t count);<BR>};</FONT></P>
+<P><FONT class=extract>Device drivers can export attributes via their sysfs directories. <BR>Drivers can declare attributes using a DRIVER_ATTR macro that works<BR>identically to the DEVICE_ATTR macro. </FONT></P>
+<P><FONT class=extract>Example:</FONT></P>
+<P><FONT class=extract>DRIVER_ATTR(debug,0644,show_debug,store_debug);</FONT></P>
+<P><FONT class=extract>This is equivalent to declaring:</FONT></P>
+<P><FONT class=extract>struct driver_attribute driver_attr_debug;</FONT></P>
+<P><FONT class=extract>This can then be used to add and remove the attribute from the<BR>driver's directory using:</FONT></P>
+<P><FONT class=extract>int driver_create_file(struct device_driver *, const struct driver_attribute *);<BR>void driver_remove_file(struct device_driver *, const struct driver_attribute *);</FONT>

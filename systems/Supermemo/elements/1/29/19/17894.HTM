@@ -1,0 +1,69 @@
+<H4 class=subsection>11.3.3 Transliterating Characters</H4><A name=index-characters_002c-transliterating></A><A name=index-tr-utility></A>
+<P>The system <CODE>tr</CODE> utility transliterates characters. For example, it is often used to map uppercase letters into lowercase for further processing: </P>
+<DIV class=example><PRE class=example><VAR>generate data</VAR> | tr 'A-Z' 'a-z' | <VAR>process data</VAR> &#8230;
+</PRE></DIV>
+<P><CODE>tr</CODE> requires two lists of characters.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT74" name=DOCF74><SUP>74</SUP></A> When processing the input, the first character in the first list is replaced with the first character in the second list, the second character in the first list is replaced with the second character in the second list, and so on. If there are more characters in the &#8220;from&#8221; list than in the &#8220;to&#8221; list, the last character of the &#8220;to&#8221; list is used for the remaining characters in the &#8220;from&#8221; list. </P>
+<P>Some time ago, a user proposed that a transliteration function should be added to <CODE>gawk</CODE>. The following program was written to prove that character transliteration could be done with a user-level function. This program is not as complete as the system <CODE>tr</CODE> utility but it does most of the job. </P>
+<P>The <CODE>translate</CODE> program demonstrates one of the few weaknesses of standard <CODE>awk</CODE>: dealing with individual characters is very painful, requiring repeated use of the <CODE>substr()</CODE>, <CODE>index()</CODE>, and <CODE>gsub()</CODE> built-in functions (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>).<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT75" name=DOCF75><SUP>75</SUP></A> There are two functions. The first, <CODE>stranslate()</CODE>, takes three arguments: </P>
+<DL compact>
+<DT><CODE>from</CODE></DT>
+<DD>
+<P>A list of characters from which to translate. </P></DD>
+<DT><CODE>to</CODE></DT>
+<DD>
+<P>A list of characters to which to translate. </P></DD>
+<DT><CODE>target</CODE></DT>
+<DD>
+<P>The string on which to do the translation. </P></DD></DL>
+<P>Associative arrays make the translation part fairly easy. <CODE>t_ar</CODE> holds the &#8220;to&#8221; characters, indexed by the &#8220;from&#8221; characters. Then a simple loop goes through <CODE>from</CODE>, one character at a time. For each character in <CODE>from</CODE>, if the character appears in <CODE>target</CODE>, it is replaced with the corresponding <CODE>to</CODE> character. </P>
+<P>The <CODE>translate()</CODE> function simply calls <CODE>stranslate()</CODE> using <CODE>$0</CODE> as the target. The main program sets two global variables, <CODE>FROM</CODE> and <CODE>TO</CODE>, from the command line, and then changes <CODE>ARGV</CODE> so that <CODE>awk</CODE> reads from the standard input. </P>
+<P>Finally, the processing rule simply calls <CODE>translate()</CODE> for each record: </P><A name=index-translate_002eawk-program></A>
+<DIV class=example><PRE class=example># translate.awk --- do tr-like stuff
+# Bugs: does not handle things like: tr A-Z a-z, it has
+# to be spelled out. However, if `to' is shorter than `from',
+# the last character in `to' is used for the rest of `from'.
+
+function stranslate(from, to, target,     lf, lt, ltarget, t_ar, i, c,
+                                                               result)
+{
+    lf = length(from)
+    lt = length(to)
+    ltarget = length(target)
+    for (i = 1; i &lt;= lt; i++)
+        t_ar[substr(from, i, 1)] = substr(to, i, 1)
+    if (lt &lt; lf)
+        for (; i &lt;= lf; i++)
+            t_ar[substr(from, i, 1)] = substr(to, lt, 1)
+    for (i = 1; i &lt;= ltarget; i++) {
+        c = substr(target, i, 1)
+        if (c in t_ar)
+            c = t_ar[c]
+        result = result c
+    }
+    return result
+}
+
+function translate(from, to)
+{
+    return $0 = stranslate(from, to, $0)
+}
+
+# main program
+BEGIN {
+</PRE><PRE class=example>    if (ARGC &lt; 3) {
+        print "usage: translate from to" &gt; "/dev/stderr"
+        exit
+    }
+</PRE><PRE class=example>    FROM = ARGV[1]
+    TO = ARGV[2]
+    ARGC = 2
+    ARGV[1] = "-"
+}
+
+{
+    translate(FROM, TO)
+    print
+}
+</PRE></DIV>
+<P>While it is possible to do character transliteration in a user-level function, it is not necessarily efficient, and we (the <CODE>gawk</CODE> authors) started to consider adding a built-in function. However, shortly after writing this program, we learned that the System V Release 4 <CODE>awk</CODE> had added the <CODE>toupper()</CODE> and <CODE>tolower()</CODE> functions (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>). These functions handle the vast majority of the cases where character transliteration is necessary, and so we chose to simply add those functions to <CODE>gawk</CODE> as well and then leave well enough alone. </P>
+<P>An obvious improvement to this program would be to set up the <CODE>t_ar</CODE> array only once, in a <CODE>BEGIN</CODE> rule. However, this assumes that the &#8220;from&#8221; and &#8220;to&#8221; lists will never change throughout the lifetime of the program.

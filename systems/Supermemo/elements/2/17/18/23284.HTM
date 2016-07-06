@@ -1,0 +1,99 @@
+<H3 id=700181-865 class=docSection1Title>12.1. Cross-Development Environment</H3>
+<P class=docText>Developers new to embedded development often struggle with the concepts and differences between native and cross-development environments. Indeed, there are often three compilers and three (or more) versions of standard header files such as <TT>stdlib.h</TT>. Debugging an application on your target embedded system can be difficult without the right tools and host-based utilities. You must manage and separate the files and utilities designed to run on your host system from those you intend to use on your target.</P>
+<P class=docText>When we use the term <SPAN class=docEmphasis>host</SPAN> in this context, we are referring to the development workstation that is sitting on your desktop and running your favorite Linux desktop distribution.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#ch121">[1]</A></SUP> Conversely, when we use the term <SPAN class=docEmphasis>target</SPAN> we are referring to your embedded hardware platform. Therefore, <SPAN class=docEmphasis>native development</SPAN> denotes the compilation and building of applications on and for your host system. Cross-development denotes the compilation and building of applications on the host system that will be run on the embedded system. Keeping these definitions in mind will help you stay on track through this chapter.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch121>[1]</A></SUP> Webster's defines <SPAN class=docEmphasis>nonsense</SPAN> as "an idea that is absurd or contrary to good sense." It is my opinion that developing embedded Linux platforms on a non-Linux/UNIX host is nonsensical.</P></BLOCKQUOTE>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#ch12fig01">Figure 12-1</A> shows the layout of a typical cross-development environment. A host PC is connected to a target board via one or more physical connections. It is most <A name=iddle1258></A><A name=iddle1590></A>convenient if both serial and Ethernet ports are available on the target. Later when we discuss kernel debugging, you will realize that a second serial port can be a very valuable asset.</P><A name=ch12fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 12-1. Cross-development setup</H5>
+<P class=docText><IMG id=195131084202 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/12elp01.jpg" width=400 height=176></P></CENTER>
+<P></P><BR>
+<P class=docText>In the most common scenario, the developer has a serial terminal on the host connected to the RS-232 serial port, possibly one or more Telnet terminal sessions to the target board, and potentially one or more debug sessions using Ethernet as the connection medium. This cross-development setup provides a great deal of flexibility. The basic idea is that the host system provides the horsepower to run the compilers, debuggers, editors, and other utilities, while the target executes only the applications designed for it. Yes, you can certainly run compilers and debuggers on the target system, but we assume that your host system contains more resources, including RAM, disk storage, and Internet connectivity. In fact, it is not uncommon for a target embedded board to have no human-input devices or output displays.</P><A name=ch12lev2sec1></A>
+<H4 id=title-IDARZGCD class=docSection2Title>12.1.1. "Hello World"Embedded</H4>
+<P class=docText>A properly configured cross-development system hides a great deal of complexity from the average application developer. Looking at a simple example will help uncover and explain some of the mystery. When we compile a simple "hello world" program, the toolchain (compiler, linker, and associated utilities) makes many assumptions about the host system we are building on and the program we are compiling. Actually, they are not assumptions, but a collection of rules that the compiler references to build a proper binary.</P>
+<P class=docText><A name=iddle1924></A><A name=iddle2244></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#ch12list01">Listing 12-1</A> reproduces a simple "hello world" program.</P><A name=ch12list01></A>
+<H5 id=title-IDA00GCD class=docExampleTitle>Listing 12-1. Hello World Again</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>#include &lt;stdio.h&gt;
+
+int main(int argc, char **argv)
+{
+    printf("Hello World\n");
+    return 0;
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Even the casual application developer will realize some important points about this C source file. First, the function <TT>printf()</TT> is referenced but not defined in this file. If we omit the <TT>#include</TT> directive containing the prototype for the <TT>printf()</TT> function, the compiler emits the familiar message:</P>
+<DIV class=docText><PRE>hello.c:5: warning: implicit declaration of function 'printf'</PRE></DIV><BR>
+<P class=docText>This introduces some interesting questions:</P>
+<UL>
+<LI>
+<P class=docList>Where is the file <TT>stdio.h</TT> located, and how is it found?</P></LI>
+<LI>
+<P class=docList>Where does the <TT>printf()</TT> function live, and how is this reference resolved in the binary executable?</P></LI></UL>
+<P class=docText>Somehow it seems that the compiler just <SPAN class=docEmphasis>knows</SPAN> how to put together a proper binary file that is executable from the command line. To further complicate matters, the final executable contains startup and shutdown prologue code that we never see but that the linker automatically includes. This prologue deals with details such as the environment and arguments passed to your program, startup and shutdown housekeeping, exit handling, and more.</P>
+<P class=docText>To build the "hello world" application, we can use a simple command line invocation of the compiler, similar to this:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>gcc -o hello hello.c</SPAN></PRE></DIV><BR>
+<P class=docText>This produces the binary executable file called <TT>hello</TT>, which we can execute directly from the command line. Defaults referenced by the compiler provide guidance on where <TT>include</TT> files will be found. In a similar fashion, the linker knows how to resolve the reference to the <TT>printf()</TT> function by including a reference to the library where it is defined. This, of course, is the standard C library.</P>
+<P class=docText><A name=iddle1376></A><A name=iddle1383></A><A name=iddle1881></A>We can query the toolchain to see some of the defaults that were used. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#ch12list02">Listing 12-2</A> is a partial listing of the output from <TT>cpp</TT> when passed the <TT>-v</TT> flag. You might already know that <TT>cpp</TT> is the C preprocessor component of the <TT>gcc</TT> toolchain. We have added some formatting (whitespace only) to improve the readability.</P><A name=ch12list02></A>
+<H5 id=title-IDAX4GCD class=docExampleTitle>Listing 12-2. Default Native <TT>cpp</TT> Search Directories</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><A name=PLID3></A>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#PLID3">[View full width]</A></DIV><PRE>$ <SPAN class=docEmphStrong>cpp -v</SPAN>
+Reading specs from /usr/lib/gcc-lib/i386-redhat-linux/3.3.3/specs
+Configured with: ../configure --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share
+<IMG  src="" border=0 alt="" width=14 align=left height=9>/info --enable-shared --enable-threads=posix --disable-checking
+<IMG  src="" border=0 alt="" width=14 align=left height=9> --disable-libunwind-exceptions --with-system-zlib --enable-__cxa_atexit
+<IMG  src="" border=0 alt="" width=14 align=left height=9> -host=i386-redhat-linux
+
+Thread model: posix
+gcc version 3.3.3 20040412 (Red Hat Linux 3.3.3-7)
+ /usr/lib/gcc-lib/i386-redhat-linux/3.3.3/cc1 -E -quiet -v -
+ignoring nonexistent directory "/usr/i386-redhat-linux/include"
+
+#include "..." search starts here:
+#include &lt;...&gt; search starts here:
+ /usr/local/include
+ /usr/lib/gcc-lib/i386-redhat-linux/3.3.3/include
+ /usr/include
+End of search list.
+/usr/lib/</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This simple query produces some very useful information. First, we can see how the compiler was configured using the familiar <TT>./configure</TT> utility. The default thread model is <TT>posix</TT>, which determines the thread library your application gets linked against if you employ threading functions. Finally, you see the default search directories for <TT>#include</TT> directives.</P>
+<P class=docText>But what if we want to build <TT>hello.c</TT> for a different architecture, such as PowerPC? When we compile an application program for a PowerPC target using a cross-compiler on our host machine, we must make sure that the compiler does not use the default <SPAN class=docEmphasis>host</SPAN> <TT>include</TT> directories or library paths. Using a properly configured cross-compiler is the first step, and having a well designed cross-development environment is the second.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#ch12list03">Listing 12-3</A> is the output from a popular open-source cross-development toolchain known as the Embedded Linux Development Kit (ELDK), assembled and <A name=iddle1880></A>maintained by Denx Software Engineering. This particular installation was configured for the PowerPC 82xx toolchain. Again, we have added some whitespace to the output for readability.</P><A name=ch12list03></A>
+<H5 id=title-IDATJHCD class=docExampleTitle>Listing 12-3. Default Cross-Search Directories</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><A name=PLID4></A>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#PLID4">[View full width]</A></DIV><PRE>$ <SPAN class=docEmphStrong>ppc_82xx-cpp -v</SPAN>
+Reading specs from /opt/eldk/usr/bin/.. /lib/gcc-lib/ppc-linux/3.3.3/specs
+
+Configured with: ../configure --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share
+<IMG  src="" border=0 alt="" width=14 align=left height=9>/info --enable-shared --enable-threads=posix --disable-checking --with-system-zlib
+<IMG  src="" border=0 alt="" width=14 align=left height=9> --enable-__cxa_atexit --with-newlib --enable-languages=c,c++ --disable-libgcj
+<IMG  src="" border=0 alt="" width=14 align=left height=9> --host=i386-redhat-linux -target=ppc-linux
+
+Thread model: posix
+
+gcc version 3.3.3 (DENX ELDK 3.1.1 3.3.3-10)
+ /opt/eldk/usr/bin/../lib/gcc-lib/ppc-linux/3.3.3/cc1  -E -quiet -v -iprefix /opt/eldk/usr
+<IMG  src="" border=0 alt="" width=14 align=left height=9>/bin/..  /lib/gcc-lib/ppc-linux/3.3.3/ -D__unix__ -D__gnu_linux__  -D__linux__ -Dunix
+<IMG  src="" border=0 alt="" width=14 align=left height=9> -D__unix -Dlinux -D__linux -Asystem=unix  -Asystem=posix - -mcpu=603
+
+ignoring nonexistent directory "/opt/eldk/usr/ppc-linux/sys-include"
+ignoring nonexistent directory "/opt/eldk/usr/ppc-linux/include"
+#include "..." search starts here:
+
+#include &lt;...&gt; search starts here:
+  /opt/eldk/usr/lib/gcc-lib/ppc-linux/3.3.3/include
+  /opt/eldk/ppc_82xx/usr/include
+
+End of search list.</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Here you can see that the default search paths for <TT>include</TT> directories are now adjusted to point to your cross versions instead of the native <TT>include</TT> directories. This seemingly obscure detail is critical to being able to develop applications and compile open-source packages for your embedded system. It is one of the most confusing topics to even experienced application developers who are new to embedded systems.

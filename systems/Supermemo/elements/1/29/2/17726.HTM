@@ -1,0 +1,35 @@
+<H3 class=section>3.8 Using Dynamic Regexps</H3><A name=index-regular-expressions_002c-computed></A><A name=index-regular-expressions_002c-dynamic></A><A name=index-_007e-_0028tilde_0029_002c-_007e-operator-2></A><A name=index-tilde-_0028_007e_0029_002c-_007e-operator-2></A><A name=index-_0021-_0028exclamation-point_0029_002c-_0021_007e-operator-2></A><A name=index-exclamation-point-_0028_0021_0029_002c-_0021_007e-operator-2></A>
+<P>The righthand side of a &#8216;<SAMP>~</SAMP>&#8217; or &#8216;<SAMP>!~</SAMP>&#8217; operator need not be a regexp constant (i.e., a string of characters between slashes). It may be any expression. The expression is evaluated and converted to a string if necessary; the contents of the string are then used as the regexp. A regexp computed in this way is called a <EM>dynamic regexp</EM>: </P>
+<DIV class=example><PRE class=example>BEGIN { digits_regexp = "[[:digit:]]+" }
+$0 ~ digits_regexp    { print }
+</PRE></DIV>
+<P>This sets <CODE>digits_regexp</CODE> to a regexp that describes one or more digits, and tests whether the input record matches this regexp. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> When using the &#8216;<SAMP>~</SAMP>&#8217; and &#8216;<SAMP>!~</SAMP>&#8217; operators, there is a difference between a regexp constant enclosed in slashes and a string constant enclosed in double quotes. If you are going to use a string constant, you have to understand that the string is, in essence, scanned <EM>twice</EM>: the first time when <CODE>awk</CODE> reads your program, and the second time when it goes to match the string on the lefthand side of the operator with the pattern on the right. This is true of any string-valued expression (such as <CODE>digits_regexp</CODE>, shown previously), not just string constants. </P></BLOCKQUOTE><A name=index-regexp-constants_002c-slashes-vs_002e-quotes></A><A name=index-_005c-_0028backslash_0029_002c-in-regexp-constants></A><A name=index-backslash-_0028_005c_0029_002c-in-regexp-constants></A><A name=index-_0022-_0028double-quote_0029_002c-in-regexp-constants></A><A name=index-double-quote-_0028_0022_0029_002c-in-regexp-constants></A>
+<P>What difference does it make if the string is scanned twice? The answer has to do with escape sequences, and particularly with backslashes. To get a backslash into a regular expression inside a string, you have to type two backslashes. </P>
+<P>For example, <CODE>/\*/</CODE> is a regexp constant for a literal &#8216;<SAMP>*</SAMP>&#8217;. Only one backslash is needed. To do the same thing with a string, you have to type <CODE>"\\*"</CODE>. The first backslash escapes the second one so that the string actually contains the two characters &#8216;<SAMP>\</SAMP>&#8217; and &#8216;<SAMP>*</SAMP>&#8217;. </P><A name=index-troubleshooting_002c-regexp-constants-vs_002e-string-constants></A><A name=index-regexp-constants_002c-vs_002e-string-constants></A><A name=index-string-constants_002c-vs_002e-regexp-constants></A>
+<P>Given that you can use both regexp and string constants to describe regular expressions, which should you use? The answer is &#8220;regexp constants,&#8221; for several reasons: </P>
+<UL>
+<LI>String constants are more complicated to write and more difficult to read. Using regexp constants makes your programs less error-prone. Not understanding the difference between the two kinds of constants is a common source of errors. </LI>
+<LI>It is more efficient to use regexp constants. <CODE>awk</CODE> can note that you have supplied a regexp and store it internally in a form that makes pattern matching more efficient. When using a string constant, <CODE>awk</CODE> must first convert the string into this internal form and then perform the pattern matching. </LI>
+<LI>Using regexp constants is better form; it shows clearly that you intend a regexp match. </LI></UL><A name=index-sidebar_002c-Using-_005cn-in-Bracket-Expressions-of-Dynamic-Regexps></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B>Using <CODE>\n</CODE> in Bracket Expressions of Dynamic Regexps</B> </DIV><A name=index-regular-expressions_002c-dynamic_002c-with-embedded-newlines></A><A name=index-newlines_002c-in-dynamic-regexps></A>
+<P>Some commercial versions of <CODE>awk</CODE> do not allow the newline character to be used inside a bracket expression for a dynamic regexp: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk '$0 ~ "[ \t\n]"'</EM></KBD>
+error&#8594; awk: newline in character class [
+error&#8594; ]...
+error&#8594;  source line number 1
+error&#8594;  context is
+error&#8594;          &gt;&gt;&gt;  &lt;&lt;&lt;
+</PRE></DIV><A name=index-newlines_002c-in-regexp-constants></A>
+<P>But a newline in a regexp constant works with no problem: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk '$0 ~ /[ \t\n]/'</EM></KBD>
+<KBD><EM>here is a sample line</EM></KBD>
+-| here is a sample line
+<KBD><EM>Ctrl-d</EM></KBD>
+</PRE></DIV>
+<P><CODE>gawk</CODE> does not have this problem, and it isn&#8217;t likely to occur often in practice, but it&#8217;s worth noting for future reference. </P></TD></TR></TBODY></TABLE>

@@ -1,0 +1,269 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title>Exceptions</H2></DIV></DIV></DIV>
+<P><A id=linuxkernel2-IDXTERM-436 class=indexterm></A>The <A id=IXT-4-463 class=indexterm></A>80 &#215; 86 microprocessors issue roughly 20 different exceptions.<SUP>[<A id=linuxkernel2-CHP-4-FNOTE-2 class=footnote href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch04s02.html#ftn.linuxkernel2-CHP-4-FNOTE-2">24</A>]</SUP> The kernel must provide a dedicated exception handler for each exception type. For some exceptions, the CPU control unit also generates a <SPAN class=emphasis><EM>hardware error code</EM></SPAN> <A id=IXT-4-464 class=indexterm></A>and pushes it in the Kernel Mode stack before starting the exception handler. </P>
+<P>The following list gives the vector, the name, the type, and a brief description of the exceptions found in 80 &#215; 86 processors. Additional information may be found in the Intel technical documentation. </P>
+<DIV class=variablelist>
+<DL>
+<DT><SPAN class=term>0 - &#8220;Divide error&#8221; (fault)</SPAN></DT>
+<DD>
+<P>Raised when a program issues an integer division by 0.</P></DD>
+<DT><SPAN class=term>1- &#8220;Debug&#8221; (trap or fault)</SPAN></DT>
+<DD>
+<P>Raised when the T flag of <CODE class=literal>eflags</CODE> is set (quite useful to implement step-by-step execution of a debugged program) or when the address of an instruction or operand falls within the range of an active debug register (see <A title="Hardware Context" class=link href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch03s03.html#linuxkernel2-CHP-3-SECT-3.1">Section 3.3.1</A>). </P></DD>
+<DT><SPAN class=term>2 - Not used</SPAN></DT>
+<DD>
+<P>Reserved for nonmaskable interrupts (those that use the NMI pin).</P></DD>
+<DT><SPAN class=term>3 - &#8220;Breakpoint&#8221; (trap)</SPAN></DT>
+<DD>
+<P>Caused by an <CODE class=literal>int3</CODE> (breakpoint) instruction (usually inserted by a debugger). </P></DD>
+<DT><SPAN class=term>4 - &#8220;Overflow&#8221; (trap)</SPAN></DT>
+<DD>
+<P>An <CODE class=literal>into</CODE> (check for overflow) instruction has been executed when the <CODE class=literal>OF</CODE> (overflow) flag of <CODE class=literal>eflags</CODE> is set. </P></DD>
+<DT><SPAN class=term>5 - &#8220;Bounds check&#8221; (fault)</SPAN></DT>
+<DD>
+<P>A <CODE class=literal>bound</CODE> (check on address bound) instruction is executed with the operand outside of the valid address bounds. </P></DD>
+<DT><SPAN class=term>6 - &#8220;Invalid opcode&#8221; (fault)</SPAN></DT>
+<DD>
+<P>The CPU execution unit has detected an invalid opcode (the part of the machine instruction that determines the operation performed). </P></DD>
+<DT><SPAN class=term>7 - &#8220;Device not available&#8221; (fault)</SPAN></DT>
+<DD>
+<P>An ESCAPE, MMX, or XMM instruction has been executed with the <CODE class=literal>TS</CODE> flag of <CODE class=literal>cr0</CODE> set (see <A title="Saving the FPU, MMX, and XMM Registers" class=link href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch03s03.html#linuxkernel2-CHP-3-SECT-3.4">Section 3.3.4</A>). </P></DD>
+<DT><SPAN class=term>8 - &#8220;Double fault&#8221; (abort)</SPAN></DT>
+<DD>
+<P>Normally, when the CPU detects an exception while trying to call the handler for a prior exception, the two exceptions can be handled serially. In a few cases, however, the processor cannot handle them serially, so it raises this exception. </P></DD>
+<DT><SPAN class=term>9 - &#8220;Coprocessor segment overrun&#8221; (abort)</SPAN></DT>
+<DD>
+<P>Problems with the external mathematical coprocessor (applies only to old 80386 microprocessors). </P></DD>
+<DT><SPAN class=term>10 - &#8220;Invalid TSS&#8221; (fault)</SPAN></DT>
+<DD>
+<P>The CPU has attempted a context switch to a process having an invalid Task State Segment. </P></DD>
+<DT><SPAN class=term>11 - &#8220;Segment not present&#8221; (fault)</SPAN></DT>
+<DD>
+<P>A reference was made to a segment not present in memory (one in which the <CODE class=literal>Segment-Present</CODE> flag of the Segment Descriptor was cleared). </P></DD>
+<DT><SPAN class=term>12 - &#8220;Stack segment&#8221; (fault)</SPAN></DT>
+<DD>
+<P>The instruction attempted to exceed the stack segment limit, or the segment identified by <CODE class=literal>ss</CODE> is not present in memory. </P></DD>
+<DT><SPAN class=term>13 - &#8220;General protection&#8221; (fault)</SPAN></DT>
+<DD>
+<P>One of the protection rules in the protected mode of the 80 &#215; 86 has been violated. </P></DD>
+<DT><SPAN class=term>14 - &#8220;Page Fault&#8221; (fault)</SPAN></DT>
+<DD>
+<P>The addressed page is not present in memory, the corresponding Page Table entry is null, or a violation of the paging protection mechanism has occurred. </P></DD>
+<DT><SPAN class=term>15 - Reserved by Intel</SPAN></DT>
+<DD>
+<P></P></DD>
+<DT><SPAN class=term>16 - &#8220;Floating-point error&#8221; (fault)</SPAN></DT>
+<DD>
+<P>The floating-point unit integrated into the CPU chip has signaled an error condition, such as numeric overflow or division by 0.<SUP>[<A id=linuxkernel2-CHP-4-FNOTE-3 class=footnote href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch04s02.html#ftn.linuxkernel2-CHP-4-FNOTE-3">25</A>]</SUP> </P></DD>
+<DT><SPAN class=term>17 - &#8220;Alignment check&#8221; (fault)</SPAN></DT>
+<DD>
+<P>The address of an operand is not correctly aligned (for instance, the address of a long integer is not a multiple of 4). </P></DD>
+<DT><SPAN class=term>18 - &#8220;Machine check&#8221; (abort)</SPAN></DT>
+<DD>
+<P>A machine-check mechanism has detected a CPU or bus error.</P></DD>
+<DT><SPAN class=term>19 - &#8220;SIMD floating point&#8221; (fault)</SPAN></DT>
+<DD>
+<P>The SSE or SSE2 unit integrated in the CPU chip has signaled an error condition on a floating-point operation. </P></DD></DL></DIV>
+<P>The values from 20 to 31 are reserved by Intel for future development. As illustrated in <A title="Table&nbsp;4-1.&nbsp;Signals sent by the exception handlers" class=link href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch04s02.html#linuxkernel2-CHP-4-TABLE-1">Table 4-1</A>, each exception is handled by a specific <A id=IXT-4-465 class=indexterm></A>exception handler (see <A title="Exception Handling" class=link href="https://www.safaribooksonline.com/library/view/understanding-the-linux/0596002130/ch04s05.html">Section 4.5</A> later in this chapter), which usually sends a Unix signal to the process that caused the exception. </P>
+<DIV class=table><A id=linuxkernel2-CHP-4-TABLE-1></A>
+<P class=title>Table&nbsp;4-1.&nbsp;Signals sent by the exception handlers </P>
+<DIV class=table-contents>
+<TABLE style="BORDER-TOP: 0.5pt solid; BORDER-RIGHT: 0.5pt solid; BORDER-COLLAPSE: collapse; BORDER-BOTTOM: 0.5pt solid; BORDER-LEFT: 0.5pt solid" summary="Signals sent by the exception handlers ">
+<COLGROUP>
+<COL>
+<COL>
+<COL>
+<COL></COLGROUP>
+<THEAD>
+<TR>
+<TH style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>#</P></TH>
+<TH style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Exception</P></TH>
+<TH style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Exception handler </P></TH>
+<TH style="BORDER-BOTTOM: 0.5pt solid">
+<P>Signal</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>0</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Divide error</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>divide_error( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGFPE</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>1</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Debug</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>debug( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGTRAP</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>2</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>NMI</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>nmi( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P>None</P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>3</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Breakpoint</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>int3( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGTRAP</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>4</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Overflow</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>overflow( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGSEGV</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>5</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Bounds check</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>bounds( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGSEGV</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>6</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Invalid opcode</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>invalid_op( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGILL</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>7</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Device not available</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>device_not_available( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGSEGV</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>8</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Double fault</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>double_fault( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGSEGV</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>9</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Coprocessor segment overrun</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>coprocessor_segment_overrun( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGFPE</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>10</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Invalid TSS</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>invalid_tss( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGSEGV</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>11</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Segment not present</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>segment_not_present( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGBUS</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>12</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Stack exception</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>stack_segment( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGBUS</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>13</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>General protection</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>general_protection( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGSEGV</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>14</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Page Fault</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>page_fault( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGSEGV</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>15</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Intel reserved</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>None</P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P>None</P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>16</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Floating-point error</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>coprocessor_error( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGFPE</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>17</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Alignment check</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>alignment_check( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>SIGBUS</CODE> </P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>18</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P>Machine check</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid; BORDER-BOTTOM: 0.5pt solid">
+<P><CODE class=literal>machine_check( )</CODE> </P></TD>
+<TD style="BORDER-BOTTOM: 0.5pt solid">
+<P>None</P></TD></TR>
+<TR>
+<TD style="BORDER-RIGHT: 0.5pt solid">
+<P>19</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid">
+<P>SIMD floating point</P></TD>
+<TD style="BORDER-RIGHT: 0.5pt solid">
+<P><CODE class=literal>simd_coprocessor_error( )</CODE> </P></TD>
+<TD>
+<P><CODE class=literal>SIGFPE</CODE></P></TD></TR></TBODY></TABLE></DIV></DIV>

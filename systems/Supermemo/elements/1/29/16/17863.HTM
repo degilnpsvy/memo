@@ -1,0 +1,60 @@
+<H4 class=subsection>10.2.1 Converting Strings To Numbers</H4>
+<P>The <CODE>strtonum()</CODE> function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>) is a <CODE>gawk</CODE> extension. The following function provides an implementation for other versions of <CODE>awk</CODE>: </P>
+<DIV class=example><PRE class=example># mystrtonum --- convert string to number
+
+function mystrtonum(str,        ret, chars, n, i, k, c)
+{
+    if (str ~ /^0[0-7]*$/) {
+        # octal
+        n = length(str)
+        ret = 0
+        for (i = 1; i &lt;= n; i++) {
+            c = substr(str, i, 1)
+            if ((k = index("01234567", c)) &gt; 0)
+                k-- # adjust for 1-basing in awk
+
+            ret = ret * 8 + k
+        }
+    } else if (str ~ /^0[xX][[:xdigit:]]+/) {
+        # hexadecimal
+        str = substr(str, 3)    # lop off leading 0x
+        n = length(str)
+        ret = 0
+        for (i = 1; i &lt;= n; i++) {
+            c = substr(str, i, 1)
+            c = tolower(c)
+            if ((k = index("0123456789", c)) &gt; 0)
+                k-- # adjust for 1-basing in awk
+            else if ((k = index("abcdef", c)) &gt; 0)
+                k += 9
+
+            ret = ret * 16 + k
+        }
+    } else if (str ~ \
+  /^[-+]?([0-9]+([.][0-9]*([Ee][0-9]+)?)?|([.][0-9]+([Ee][-+]?[0-9]+)?))$/) {
+        # decimal number, possibly floating point
+        ret = str + 0
+    } else
+        ret = "NOT-A-NUMBER"
+
+    return ret
+}
+
+# BEGIN {     # gawk test harness
+#     a[1] = "25"
+#     a[2] = ".31"
+#     a[3] = "0123"
+#     a[4] = "0xdeadBEEF"
+#     a[5] = "123.45"
+#     a[6] = "1.e3"
+#     a[7] = "1.32"
+#     a[7] = "1.32E2"
+# 
+#     for (i = 1; i in a; i++)
+#         print a[i], strtonum(a[i]), mystrtonum(a[i])
+# }
+</PRE></DIV>
+<P>The function first looks for C-style octal numbers (base 8). If the input string matches a regular expression describing octal numbers, then <CODE>mystrtonum()</CODE> loops through each character in the string. It sets <CODE>k</CODE> to the index in <CODE>"01234567"</CODE> of the current octal digit. Since the return value is one-based, the &#8216;<SAMP>k--</SAMP>&#8217; adjusts <CODE>k</CODE> so it can be used in computing the return value. </P>
+<P>Similar logic applies to the code that checks for and converts a hexadecimal value, which starts with &#8216;<SAMP>0x</SAMP>&#8217; or &#8216;<SAMP>0X</SAMP>&#8217;. The use of <CODE>tolower()</CODE> simplifies the computation for finding the correct numeric value for each hexadecimal digit. </P>
+<P>Finally, if the string matches the (rather complicated) regexp for a regular decimal integer or floating-point number, the computation &#8216;<SAMP>ret = str + 0</SAMP>&#8217; lets <CODE>awk</CODE> convert the value to a number. </P>
+<P>A commented-out test program is included, so that the function can be tested with <CODE>gawk</CODE> and the results compared to the built-in <CODE>strtonum()</CODE> function.

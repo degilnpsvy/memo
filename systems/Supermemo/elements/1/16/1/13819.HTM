@@ -1,0 +1,270 @@
+<H2 class=chapter>12 Extending GNU <CODE>make</CODE></H2>
+<P><A name=index-make-extensions-1043></A>GNU <CODE>make</CODE> provides many advanced capabilities, including many useful functions. However, it does not contain a complete programming language and so it has limitations. Sometimes these limitations can be overcome through use of the <CODE>shell</CODE> function to invoke a separate program, although this can be inefficient. 
+<P><FONT class=extract>In cases where the built-in capabilities of GNU <CODE>make</CODE> are insufficient to your requirements there are two options for extending <CODE>make</CODE>. On systems where it's provided, you can utilize GNU Guile as an embedded scripting language (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration"><FONT class=extract>GNU Guile Integration</FONT></A><FONT class=extract>). On systems which support dynamically loadable objects, you can write your own extension in any language (which can be compiled into such an object) and load it to provide extended capabilities (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#load-Directive"><FONT class=extract>The <CODE>load</CODE> Directive</FONT></A><FONT class=extract>).</FONT> 
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration">Guile Integration</A>: Using Guile as an embedded scripting language. 
+<LI><A accessKey=2 href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects">Loading Objects</A>: Loading dynamic objects as extensions. </LI></UL>
+<DIV class=node><A name=Guile-Integration></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects" rel=next>Loading Objects</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Extending-make" rel=previous>Extending make</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Extending-make" rel=up>Extending make</A> </DIV>
+<H3 class=section><FONT class=extract>12.1 GNU Guile Integration</FONT></H3>
+<P><A name=index-Guile-1044></A><A name=index-extensions_002c-Guile-1045></A><FONT class=extract>GNU <CODE>make</CODE> may be built with support for GNU Guile as an embedded extension language. Guile implements the Scheme language. A review of GNU Guile and the Scheme language and its features is beyond the scope of this manual: see the documentation for GNU Guile and Scheme. </FONT>
+<P><FONT class=extract>You can determine if <CODE>make</CODE> contains support for Guile by examining the <CODE>.FEATURES</CODE> variable; it will contain the word <VAR>guile</VAR> if Guile support is available. </FONT>
+<P><FONT class=extract>The Guile integration provides one new <CODE>make</CODE> function: <CODE>guile</CODE>. The <CODE>guile</CODE> function takes one argument which is first expanded by <CODE>make</CODE> in the normal fashion, then passed to the GNU Guile evaluator. The result of the evaluator is converted into a string and used as the expansion of the <CODE>guile</CODE> function in the makefile. </FONT>
+<P><FONT class=extract>In addition, GNU <CODE>make</CODE> exposes Guile procedures for use in Guile scripts. </FONT>
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#Guile-Types"><FONT class=extract>Guile Types</FONT></A><FONT class=extract>: Converting Guile types to <CODE>make</CODE> strings. </FONT>
+<LI><A accessKey=2 href="https://www.gnu.org/software/make/manual/make.html#Guile-Interface"><FONT class=extract>Guile Interface</FONT></A><FONT class=extract>: Invoking <CODE>make</CODE> functions from Guile. </FONT>
+<LI><A accessKey=3 href="https://www.gnu.org/software/make/manual/make.html#Guile-Example"><FONT class=extract>Guile Example</FONT></A><FONT class=extract>: Example using Guile in <CODE>make</CODE>. </FONT></LI></UL>
+<DIV class=node><A name=Guile-Types></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Next:&nbsp;</FONT><A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Guile-Interface" rel=next><FONT class=extract>Guile Interface</FONT></A><FONT class=extract>, Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=previous><FONT class=extract>Guile Integration</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=up><FONT class=extract>Guile Integration</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>12.1.1 Conversion of Guile Types</FONT></H4>
+<P><A name=index-convert-guile-types-1046></A><A name=index-guile_002c-conversion-of-types-1047></A><A name=index-types_002c-conversion-of-1048></A><FONT class=extract>There is only one &#8220;data type&#8221; in <CODE>make</CODE>: a string. GNU Guile, on the other hand, provides a rich variety of different data types. An important aspect of the interface between <CODE>make</CODE> and GNU Guile is the conversion of Guile data types into <CODE>make</CODE> strings. </FONT>
+<P><FONT class=extract>This conversion is relevant in two places: when a makefile invokes the <CODE>guile</CODE> function to evaluate a Guile expression, the result of that evaluation must be converted into a make string so it can be further evaluated by <CODE>make</CODE>. And secondly, when a Guile script invokes one of the procedures exported by <CODE>make</CODE> the argument provided to the procedure must be converted into a string. </FONT>
+<P><FONT class=extract>The conversion of Guile types into <CODE>make</CODE> strings is as below: </FONT>
+<DL>
+<DT><FONT class=extract><CODE>#f</CODE> </FONT>
+<DD><FONT class=extract>False is converted into the empty string: in <CODE>make</CODE> conditionals the empty string is considered false. <BR></FONT>
+<DT><FONT class=extract><CODE>#t</CODE> </FONT>
+<DD><FONT class=extract>True is converted to the string &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217;: in <CODE>make</CODE> conditionals any non-empty string is considered true. <BR></FONT>
+<DT><FONT class=extract><CODE>symbol</CODE><BR></FONT>
+<DT><FONT class=extract><CODE>number</CODE> </FONT>
+<DD><FONT class=extract>A symbol or number is converted into the string representation of that symbol or number. <BR></FONT>
+<DT><FONT class=extract><CODE>character</CODE> </FONT>
+<DD><FONT class=extract>A printable character is converted to the same character. <BR></FONT>
+<DT><FONT class=extract><CODE>string</CODE> </FONT>
+<DD><FONT class=extract>A string containing only printable characters is converted to the same string. <BR></FONT>
+<DT><FONT class=extract><CODE>list</CODE> </FONT>
+<DD><FONT class=extract>A list is converted recursively according to the above rules. This implies that any structured list will be flattened (that is, a result of &#8216;<SAMP><SPAN class=samp>'(a b (c d) e)</SPAN></SAMP>&#8217; will be converted to the <CODE>make</CODE> string &#8216;<SAMP><SPAN class=samp>a b c d e</SPAN></SAMP>&#8217;). <BR></FONT>
+<DT><FONT class=extract><CODE>other</CODE> </FONT>
+<DD><FONT class=extract>Any other Guile type results in an error. In future versions of <CODE>make</CODE>, other Guile types may be converted. </FONT></DD></DL>
+<P><FONT class=extract>The translation of &#8216;<SAMP><SPAN class=samp>#f</SPAN></SAMP>&#8217; (to the empty string) and &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217; (to the non-empty string &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217;) is designed to allow you to use Guile boolean results directly as <CODE>make</CODE> boolean conditions. For example: </FONT><PRE class=example><FONT class=extract>     $(if $(guile (access? "myfile" R_OK)),$(info myfile exists))
+</FONT></PRE>
+<P><FONT class=extract>As a consequence of these conversion rules you must consider the result of your Guile script, as that result will be converted into a string and parsed by <CODE>make</CODE>. If there is no natural result for the script (that is, the script exists solely for its side-effects), you should add &#8216;<SAMP><SPAN class=samp>#f</SPAN></SAMP>&#8217; as the final expression in order to avoid syntax errors in your makefile. </FONT>
+<DIV class=node><A name=Guile-Interface></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Next:&nbsp;</FONT><A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Guile-Example" rel=next><FONT class=extract>Guile Example</FONT></A><FONT class=extract>, Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Guile-Types" rel=previous><FONT class=extract>Guile Types</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=up><FONT class=extract>Guile Integration</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>12.1.2 Interfaces from Guile to <CODE>make</CODE></FONT></H4>
+<P><A name=index-make-interface-to-guile-1049></A><A name=index-make-procedures-in-guile-1050></A><FONT class=extract>In addition to the <CODE>guile</CODE> function available in makefiles, <CODE>make</CODE> exposes some procedures for use in your Guile scripts. At startup <CODE>make</CODE> creates a new Guile module, <CODE>gnu make</CODE>, and exports these procedures as public interfaces from that module: </FONT>
+<DL>
+<DT><FONT class=extract><CODE>gmk-expand</CODE> </FONT>
+<DD><A name=index-gmk_002dexpand-1051></A><FONT class=extract>This procedure takes a single argument which is converted into a string. The string is expanded by <CODE>make</CODE> using normal <CODE>make</CODE> expansion rules. The result of the expansion is converted into a Guile string and provided as the result of the procedure. <BR></FONT>
+<DT><FONT class=extract><CODE>gmk-eval</CODE> </FONT>
+<DD><A name=index-gmk_002deval-1052></A><FONT class=extract>This procedure takes a single argument which is converted into a string. The string is evaluated by <CODE>make</CODE> as if it were a makefile. This is the same capability available via the <CODE>eval</CODE> function (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Eval-Function"><FONT class=extract>Eval Function</FONT></A><FONT class=extract>). The result of the <CODE>gmk-eval</CODE> procedure is always the empty string. </FONT>
+<P><FONT class=extract>Note that <CODE>gmk-eval</CODE> is not quite the same as using <CODE>gmk-expand</CODE> with the <CODE>eval</CODE> function: in the latter case the evaluated string will be expanded <EM>twice</EM>; first by <CODE>gmk-expand</CODE>, then again by the <CODE>eval</CODE> function. </FONT></P></DD></DL>
+<DIV class=node><A name=Guile-Example></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Guile-Interface" rel=previous><FONT class=extract>Guile Interface</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=up><FONT class=extract>Guile Integration</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>12.1.3 Example Using Guile in <CODE>make</CODE></FONT></H4>
+<P><A name=index-Guile-example-1053></A><A name=index-example-using-Guile-1054></A><FONT class=extract>Here is a very simple example using GNU Guile to manage writing to a file. These Guile procedures simply open a file, allow writing to the file (one string per line), and close the file. Note that because we cannot store complex values such as Guile ports in <CODE>make</CODE> variables, we'll keep the port as a global variable in the Guile interpreter. </FONT>
+<P><FONT class=extract>You can create Guile functions easily using <CODE>define</CODE>/<CODE>endef</CODE> to create a Guile script, then use the <CODE>guile</CODE> function to internalize it: </FONT><PRE class=example><FONT class=extract>     define GUILEIO
+     ;; A simple Guile IO library for GNU make
+     
+     (define MKPORT #f)
+     
+     (define (mkopen name mode)
+       (set! MKPORT (open-file name mode))
+       #f)
+     
+     (define (mkwrite s)
+       (display s MKPORT)
+       (newline MKPORT)
+       #f)
+     
+     (define (mkclose)
+       (close-port MKPORT)
+       #f)
+     
+     #f
+     endef
+     
+     # Internalize the Guile IO functions
+     $(guile $(GUILEIO))
+</FONT></PRE>
+<P><FONT class=extract>If you have a significant amount of Guile support code, you might consider keeping it in a different file (e.g., <SAMP><SPAN class=file>guileio.scm</SPAN></SAMP>) and then loading it in your makefile using the <CODE>guile</CODE> function: </FONT><PRE class=example><FONT class=extract>     $(guile (load "guileio.scm"))
+</FONT></PRE>
+<P><FONT class=extract>An advantage to this method is that when editing <SAMP><SPAN class=file>guileio.scm</SPAN></SAMP>, your editor will understand that this file contains Scheme syntax rather than makefile syntax. </FONT>
+<P><FONT class=extract>Now you can use these Guile functions to create files. Suppose you need to operate on a very large list, which cannot fit on the command line, but the utility you're using accepts the list as input as well: </FONT><PRE class=example><FONT class=extract>     prog: $(PREREQS)
+             @$(guile (mkopen "tmp.out" "w")) \
+              $(foreach X,$^,$(guile (mkwrite "$(X)"))) \
+              $(guile (mkclose))
+             $(LINK) &lt; tmp.out
+</FONT></PRE>
+<P><FONT class=extract>A more comprehensive suite of file manipulation procedures is possible of course. You could, for example, maintain multiple output files at the same time by choosing a symbol for each one and using it as the key to a hash table, where the value is a port, then returning the symbol to be stored in a <CODE>make</CODE> variable. </FONT>
+<DIV class=node><A name=Loading-Objects></A>
+<P>
+<HR>
+Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=previous>Guile Integration</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Extending-make" rel=up>Extending make</A> </DIV>
+<H3 class=section><FONT class=extract>12.2 Loading Dynamic Objects</FONT></H3>
+<P><A name=index-loaded-objects-1055><FONT class=extract></FONT></A><A name=index-objects_002c-loaded-1056></A><A name=index-extensions_002c-loading-1057></A>
+<P>
+<TABLE class=cartouche summary=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<BLOCKQUOTE><FONT class=extract><B>Warning:</B> The <CODE>load</CODE> directive and extension capability is considered a &#8220;technology preview&#8221; in this release of GNU make. We encourage you to experiment with this feature and we appreciate any feedback on it. However we cannot guarantee to maintain backward-compatibility in the next release. Consider using GNU Guile instead for extending GNU make (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Guile-Function"><FONT class=extract>The <CODE>guile</CODE> Function</FONT></A><FONT class=extract>). </FONT></BLOCKQUOTE></TD></TR></TBODY></TABLE>
+<P><FONT class=extract>Many operating systems provide a facility for dynamically loading compiled objects. If your system provides this facility, GNU <CODE>make</CODE> can make use of it to load dynamic objects at runtime, providing new capabilities which may then be invoked by your makefile. </FONT>
+<P><FONT class=extract>The <CODE>load</CODE> directive is used to load a dynamic object. Once the object is loaded, a &#8220;setup&#8221; function will be invoked to allow the object to initialize itself and register new facilities with GNU <CODE>make</CODE>. A dynamic object might include new <CODE>make</CODE> functions, for example, and the &#8220;setup&#8221; function would register them with GNU <CODE>make</CODE>'s function handling system. </FONT>
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#load-Directive"><FONT class=extract>load Directive</FONT></A><FONT class=extract>: Loading dynamic objects as extensions. </FONT>
+<LI><A accessKey=2 href="https://www.gnu.org/software/make/manual/make.html#Remaking-Loaded-Objects"><FONT class=extract>Remaking Loaded Objects</FONT></A><FONT class=extract>: How loaded objects get remade. </FONT>
+<LI><A accessKey=3 href="https://www.gnu.org/software/make/manual/make.html#Loaded-Object-API"><FONT class=extract>Loaded Object API</FONT></A><FONT class=extract>: Programmatic interface for loaded objects. </FONT>
+<LI><A accessKey=4 href="https://www.gnu.org/software/make/manual/make.html#Loaded-Object-Example"><FONT class=extract>Loaded Object Example</FONT></A><FONT class=extract>: Example of a loaded object </FONT></LI></UL>
+<DIV class=node><A name=load-Directive></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Next:&nbsp;</FONT><A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Remaking-Loaded-Objects" rel=next><FONT class=extract>Remaking Loaded Objects</FONT></A><FONT class=extract>, Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects" rel=previous><FONT class=extract>Loading Objects</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects" rel=up><FONT class=extract>Loading Objects</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>12.2.1 The <CODE>load</CODE> Directive</FONT></H4>
+<P><A name=index-load-directive-1058></A><A name=index-extensions_002c-load-directive-1059></A><FONT class=extract>Objects are loaded into GNU <CODE>make</CODE> by placing the <CODE>load</CODE> directive into your makefile. The syntax of the <CODE>load</CODE> directive is as follows: </FONT>
+<P><A name=index-load-1060><FONT class=extract></FONT></A><PRE class=example><FONT class=extract>     load <VAR>object-file</VAR> ...
+</FONT></PRE>
+<P><FONT class=extract>or: </FONT><PRE class=example><FONT class=extract>     load <VAR>object-file</VAR>(<VAR>symbol-name</VAR>) ...
+</FONT></PRE>
+<P><FONT class=extract>The file <VAR>object-file</VAR> is dynamically loaded by GNU <CODE>make</CODE>. If <VAR>object-file</VAR> does not include a directory path then it is first looked for in the current directory. If it is not found there, or a directory path is included, then system-specific paths will be searched. If the load fails for any reason, <CODE>make</CODE> will print a message and exit. </FONT>
+<P><FONT class=extract>If the load succeeds <CODE>make</CODE> will invoke an initializing function. </FONT>
+<P><FONT class=extract>If <VAR>symbol-name</VAR> is provided, it will be used as the name of the initializing function. </FONT>
+<P><FONT class=extract>If no <VAR>symbol-name</VAR> is provided, the initializing function name is created by taking the base file name of <VAR>object-file</VAR>, up to the first character which is not a valid symbol name character (alphanumerics and underscores are valid symbol name characters). To this prefix will be appended the suffix <CODE>_gmk_setup</CODE>. </FONT>
+<P><FONT class=extract>More than one object file may be loaded with a single <CODE>load</CODE> directive, and both forms of <CODE>load</CODE> arguments may be used in the same directive. </FONT>
+<P><FONT class=extract>The initializing function will be provided the file name and line number of the invocation of the <CODE>load</CODE> operation. It should return a value of type <CODE>int</CODE>, which must be <CODE>0</CODE> on failure and non-<CODE>0</CODE> on success. If the return value is <CODE>-1</CODE>, then GNU make will <EM>not</EM> attempt to rebuild the object file (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Remaking-Loaded-Objects"><FONT class=extract>How Loaded Objects Are Remade</FONT></A><FONT class=extract>). </FONT>
+<P><FONT class=extract>For example: </FONT><PRE class=example><FONT class=extract>     load ../mk_funcs.so
+</FONT></PRE>
+<P><FONT class=extract>will load the dynamic object <SAMP><SPAN class=file>../mk_funcs.so</SPAN></SAMP>. After the object is loaded, <CODE>make</CODE> will invoke the function (assumed to be defined by the shared object) <CODE>mk_funcs_gmk_setup</CODE>. </FONT>
+<P><FONT class=extract>On the other hand: </FONT><PRE class=example><FONT class=extract>     load ../mk_funcs.so(init_mk_func)
+</FONT></PRE>
+<P><FONT class=extract>will load the dynamic object <SAMP><SPAN class=file>../mk_funcs.so</SPAN></SAMP>. After the object is loaded, <CODE>make</CODE> will invoke the function <CODE>init_mk_func</CODE>. </FONT>
+<P><FONT class=extract>Regardless of how many times an object file appears in a <CODE>load</CODE> directive, it will only be loaded (and its setup function will only be invoked) once. </FONT>
+<P><A name=index-g_t_002eLOADED-1061></A><FONT class=extract>After an object has been successfully loaded, its file name is appended to the <CODE>.LOADED</CODE> variable. </FONT>
+<P><A name=index-g_t_002dload-1062></A><FONT class=extract>If you would prefer that failure to load a dynamic object not be reported as an error, you can use the <CODE>-load</CODE> directive instead of <CODE>load</CODE>. GNU <CODE>make</CODE> will not fail and no message will be generated if an object fails to load. The failed object is not added to the <CODE>.LOADED</CODE> variable, which can then be consulted to determine if the load was successful. </FONT>
+<DIV class=node><A name=Remaking-Loaded-Objects></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Next:&nbsp;</FONT><A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Loaded-Object-API" rel=next><FONT class=extract>Loaded Object API</FONT></A><FONT class=extract>, Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#load-Directive" rel=previous><FONT class=extract>load Directive</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects" rel=up><FONT class=extract>Loading Objects</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>12.2.2 How Loaded Objects Are Remade</FONT></H4>
+<P><A name=index-updating-loaded-objects-1063></A><A name=index-remaking-loaded-objects-1064></A><A name=index-loaded-objects_002c-remaking-of-1065></A><FONT class=extract>Loaded objects undergo the same re-make procedure as makefiles (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles"><FONT class=extract>How Makefiles Are Remade</FONT></A><FONT class=extract>). If any loaded object is recreated, then <CODE>make</CODE> will start from scratch and re-read all the makefiles, and reload the object files again. It is not necessary for the loaded object to do anything special to support this. </FONT>
+<P><FONT class=extract>It's up to the makefile author to provide the rules needed for rebuilding the loaded object. </FONT>
+<DIV class=node><A name=Loaded-Object-API></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Next:&nbsp;</FONT><A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Loaded-Object-Example" rel=next><FONT class=extract>Loaded Object Example</FONT></A><FONT class=extract>, Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Remaking-Loaded-Objects" rel=previous><FONT class=extract>Remaking Loaded Objects</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects" rel=up><FONT class=extract>Loading Objects</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>12.2.3 Loaded Object Interface</FONT></H4>
+<P><A name=index-loaded-object-API-1066><FONT class=extract></FONT></A><A name=index-interface-for-loaded-objects-1067></A>
+<P>
+<TABLE class=cartouche summary=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<BLOCKQUOTE><FONT class=extract><B>Warning:</B> For this feature to be useful your extensions will need to invoke various functions internal to GNU <CODE>make</CODE>. The programming interfaces provided in this release should not be considered stable: functions may be added, removed, or change calling signatures or implementations in future versions of GNU <CODE>make</CODE>. </FONT></BLOCKQUOTE></TD></TR></TBODY></TABLE>
+<P><FONT class=extract>To be useful, loaded objects must be able to interact with GNU <CODE>make</CODE>. This interaction includes both interfaces the loaded object provides to makefiles and also interfaces <CODE>make</CODE> provides to the loaded object to manipulate <CODE>make</CODE>'s operation. </FONT>
+<P><FONT class=extract>The interface between loaded objects and <CODE>make</CODE> is defined by the <SAMP><SPAN class=file>gnumake.h</SPAN></SAMP> C header file. All loaded objects written in C should include this header file. Any loaded object not written in C will need to implement the interface defined in this header file. </FONT>
+<P><FONT class=extract>Typically, a loaded object will register one or more new GNU <CODE>make</CODE> functions using the <CODE>gmk_add_function</CODE> routine from within its setup function. The implementations of these <CODE>make</CODE> functions may make use of the <CODE>gmk_expand</CODE> and <CODE>gmk_eval</CODE> routines to perform their tasks, then optionally return a string as the result of the function expansion. </FONT>
+<H5 class=subsubheading><FONT class=extract>Loaded Object Licensing</FONT></H5>
+<P><A name=index-loaded-object-licensing-1068></A><A name=index-plugin_005fis_005fGPL_005fcompatible-1069></A><FONT class=extract>Every dynamic extension should define the global symbol <CODE>plugin_is_GPL_compatible</CODE> to assert that it has been licensed under a GPL-compatible license. If this symbol does not exist, <CODE>make</CODE> emits a fatal error and exits when it tries to load your extension. </FONT>
+<P><FONT class=extract>The declared type of the symbol should be <CODE>int</CODE>. It does not need to be in any allocated section, though. The code merely asserts that the symbol exists in the global scope. Something like this is enough: </FONT><PRE class=example><FONT class=extract>     int plugin_is_GPL_compatible;
+</FONT></PRE>
+<H5 class=subsubheading><FONT class=extract>Data Structures</FONT></H5>
+<DL>
+<DT><FONT class=extract><CODE>gmk_floc</CODE> </FONT>
+<DD><FONT class=extract>This structure represents a filename/location pair. It is provided when defining items, so GNU <CODE>make</CODE> can inform the user later where the definition occurred if necessary. </FONT></DD></DL>
+<H5 class=subsubheading><FONT class=extract>Registering Functions</FONT></H5>
+<P><A name=index-gmk_005fadd_005ffunction-1070></A><FONT class=extract>There is currently one way for makefiles to invoke operations provided by the loaded object: through the <CODE>make</CODE> function call interface. A loaded object can register one or more new functions which may then be invoked from within the makefile in the same way as any other function. </FONT>
+<P><FONT class=extract>Use <CODE>gmk_add_function</CODE> to create a new <CODE>make</CODE> function. Its arguments are as follows: </FONT>
+<DL>
+<DT><FONT class=extract><CODE>name</CODE> </FONT>
+<DD><FONT class=extract>The function name. This is what the makefile should use to invoke the function. The name must be between 1 and 255 characters long and it may only contain alphanumeric, period (&#8216;<SAMP><SPAN class=samp>.</SPAN></SAMP>&#8217;), dash (&#8216;<SAMP><SPAN class=samp>-</SPAN></SAMP>&#8217;), and underscore (&#8216;<SAMP><SPAN class=samp>_</SPAN></SAMP>&#8217;) characters. It may not begin with a period. <BR></FONT>
+<DT><FONT class=extract><CODE>func_ptr</CODE> </FONT>
+<DD><FONT class=extract>A pointer to a function that <CODE>make</CODE> will invoke when it expands the function in a makefile. This function must be defined by the loaded object. <BR></FONT>
+<DT><FONT class=extract><CODE>min_args</CODE> </FONT>
+<DD><FONT class=extract>The minimum number of arguments the function will accept. Must be between 0 and 255. GNU <CODE>make</CODE> will check this and fail before invoking <CODE>func_ptr</CODE> if the function was invoked with too few arguments. <BR></FONT>
+<DT><FONT class=extract><CODE>max_args</CODE> </FONT>
+<DD><FONT class=extract>The maximum number of arguments the function will accept. Must be between 0 and 255. GNU <CODE>make</CODE> will check this and fail before invoking <CODE>func_ptr</CODE> if the function was invoked with too few arguments. If the value is 0, then any number of arguments is accepted. If the value is greater than 0, then it must be greater than or equal to <CODE>min_args</CODE>. <BR></FONT>
+<DT><FONT class=extract><CODE>flags</CODE> </FONT>
+<DD><FONT class=extract>Flags that specify how this function will operate; the desired flags should be OR'd together. If the <CODE>GMK_FUNC_NOEXPAND</CODE> flag is given then the function arguments will not be expanded before the function is called; otherwise they will be expanded first. </FONT></DD></DL>
+<H5 class=subsubheading><FONT class=extract>Registered Function Interface</FONT></H5>
+<P><A name=index-gmk_005ffunc_005fptr-1071></A><FONT class=extract>A function registered with <CODE>make</CODE> must match the <CODE>gmk_func_ptr</CODE> type. It will be invoked with three parameters: <CODE>name</CODE> (the name of the function), <CODE>argc</CODE> (the number of arguments to the function), and <CODE>argv</CODE> (an array of pointers to arguments to the function). The last pointer (that is, <CODE>argv[argc]</CODE>) will be null (<CODE>0</CODE>). </FONT>
+<P><FONT class=extract>The return value of the function is the result of expanding the function. If the function expands to nothing the return value may be null. Otherwise, it must be a pointer to a string created with <CODE>gmk_alloc</CODE>. Once the function returns, <CODE>make</CODE> owns this string and will free it when appropriate; it cannot be accessed by the loaded object. </FONT>
+<H5 class=subsubheading><FONT class=extract>GNU <CODE>make</CODE> Facilities</FONT></H5>
+<P><FONT class=extract>There are some facilities exported by GNU <CODE>make</CODE> for use by loaded objects. Typically these would be run from within the setup function and/or the functions registered via <CODE>gmk_add_function</CODE>, to retrieve or modify the data <CODE>make</CODE> works with. </FONT>
+<DL>
+<DT><FONT class=extract><CODE>gmk_expand</CODE> </FONT>
+<DD><A name=index-gmk_005fexpand-1072></A><FONT class=extract>This function takes a string and expands it using <CODE>make</CODE> expansion rules. The result of the expansion is returned in a nil-terminated string buffer. The caller is responsible for calling <CODE>gmk_free</CODE> with a pointer to the returned buffer when done. <BR></FONT>
+<DT><FONT class=extract><CODE>gmk_eval</CODE> </FONT>
+<DD><A name=index-gmk_005feval-1073></A><FONT class=extract>This function takes a buffer and evaluates it as a segment of makefile syntax. This function can be used to define new variables, new rules, etc. It is equivalent to using the <CODE>eval</CODE> <CODE>make</CODE> function. </FONT></DD></DL>
+<P><FONT class=extract>Note that there is a difference between <CODE>gmk_eval</CODE> and calling <CODE>gmk_expand</CODE> with a string using the <CODE>eval</CODE> function: in the latter case the string will be expanded <EM>twice</EM>; once by <CODE>gmk_expand</CODE> and then again by the <CODE>eval</CODE> function. Using <CODE>gmk_eval</CODE> the buffer is only expanded once, at most (as it's read by the <CODE>make</CODE> parser). </FONT>
+<H5 class=subsubheading><FONT class=extract>Memory Management</FONT></H5>
+<P><FONT class=extract>Some systems allow for different memory management schemes. Thus you should never pass memory that you've allocated directly to any <CODE>make</CODE> function, nor should you attempt to directly free any memory returned to you by any <CODE>make</CODE> function. Instead, use the <CODE>gmk_alloc</CODE> and <CODE>gmk_free</CODE> functions. </FONT>
+<P><FONT class=extract>In particular, the string returned to <CODE>make</CODE> by a function registered using <CODE>gmk_add_function</CODE> <EM>must</EM> be allocated using <CODE>gmk_alloc</CODE>, and the string returned from the <CODE>make</CODE> <CODE>gmk_expand</CODE> function <EM>must</EM> be freed (when no longer needed) using <CODE>gmk_free</CODE>. </FONT>
+<DL>
+<DT><FONT class=extract><CODE>gmk_alloc</CODE> </FONT>
+<DD><A name=index-gmk_005falloc-1074></A><FONT class=extract>Return a pointer to a newly-allocated buffer. This function will always return a valid pointer; if not enough memory is available <CODE>make</CODE> will exit. <BR></FONT>
+<DT><FONT class=extract><CODE>gmk_free</CODE> </FONT>
+<DD><A name=index-gmk_005ffree-1075></A><FONT class=extract>Free a buffer returned to you by <CODE>make</CODE>. Once the <CODE>gmk_free</CODE> function returns the string will no longer be valid. </FONT></DD></DL>
+<DIV class=node><A name=Loaded-Object-Example></A>
+<P><FONT class=extract></FONT></P><FONT class=extract>
+<HR>
+Previous:&nbsp;</FONT><A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Loaded-Object-API" rel=previous><FONT class=extract>Loaded Object API</FONT></A><FONT class=extract>, Up:&nbsp;</FONT><A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects" rel=up><FONT class=extract>Loading Objects</FONT></A><FONT class=extract> </FONT></DIV>
+<H4 class=subsection><FONT class=extract>12.2.4 Example Loaded Object</FONT></H4>
+<P><A name=index-loaded-object-example-1076></A><A name=index-example-of-loaded-objects-1077></A><FONT class=extract>Let's suppose we wanted to write a new GNU <CODE>make</CODE> function that would create a temporary file and return its name. We would like our function to take a prefix as an argument. First we can write the function in a file <SAMP><SPAN class=file>mk_temp.c</SPAN></SAMP>: </FONT><PRE class=example><FONT class=extract>     #include &lt;stdlib.h&gt;
+     #include &lt;stdlib.h&gt;
+     #include &lt;stdio.h&gt;
+     #include &lt;string.h&gt;
+     #include &lt;unistd.h&gt;
+     #include &lt;errno.h&gt;
+     
+     #include &lt;gnumake.h&gt;
+     
+     int plugin_is_GPL_compatible;
+     
+     char *
+     gen_tmpfile(const char *nm, int argc, char **argv)
+     {
+       int fd;
+     
+       /* Compute the size of the filename and allocate space for it.  */
+       int len = strlen (argv[0]) + 6 + 1;
+       char *buf = gmk_alloc (len);
+     
+       strcpy (buf, argv[0]);
+       strcat (buf, "XXXXXX");
+     
+       fd = mkstemp(buf);
+       if (fd &gt;= 0)
+         {
+           /* Don't leak the file descriptor.  */
+           close (fd);
+           return buf;
+         }
+     
+       /* Failure.  */
+       fprintf (stderr, "mkstemp(%s) failed: %s\n", buf, strerror (errno));
+       gmk_free (buf);
+       return NULL;
+     }
+     
+     int
+     mk_temp_gmk_setup ()
+     {
+       /* Register the function with make name "mk-temp".  */
+       gmk_add_function ("mk-temp", gen_tmpfile, 1, 1, 1);
+       return 1;
+     }
+</FONT></PRE>
+<P><FONT class=extract>Next, we will write a makefile that can build this shared object, load it, and use it: </FONT><PRE class=example><FONT class=extract>     all:
+             @echo Temporary file: $(mk-temp tmpfile.)
+     
+     load mk_temp.so
+     
+     mk_temp.so: mk_temp.c
+             $(CC) -shared -fPIC -o $ $&lt;
+</FONT></PRE>
+<P><FONT class=extract>On MS-Windows, due to peculiarities of how shared objects are produced, the compiler needs to scan the <DFN>import library</DFN> produced when building <CODE>make</CODE>, typically called <SAMP><SPAN class=file>libgnumake-</SPAN><VAR>version</VAR><SPAN class=file>.dll.a</SPAN></SAMP>, where <VAR>version</VAR> is the version of the load object API. So the recipe to produce a shared object will look on Windows like this (assuming the API version is 1): </FONT><PRE class=example><FONT class=extract>     mk_temp.dll: mk_temp.c
+             $(CC) -shared -o $ $&lt; -lgnumake-1
+</FONT></PRE>
+<P><FONT class=extract>Now when you run <CODE>make</CODE> you'll see something like: </FONT><PRE class=example><FONT class=extract>     $ make
+     cc -shared -fPIC -o mk_temp.so mk_temp.c
+     Temporary filename: tmpfile.A7JEwd</FONT>
+</PRE>

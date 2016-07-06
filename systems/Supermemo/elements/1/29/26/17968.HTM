@@ -1,0 +1,27 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>16.4.6.1 Registering An Extension Function</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Extension functions are described by the following record:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>typedef struct awk_ext_func {
+&nbsp;&nbsp;&nbsp;&nbsp;const char *name;
+&nbsp;&nbsp;&nbsp;&nbsp;awk_value_t *(*function)(int num_actual_args, awk_value_t *result);
+&nbsp;&nbsp;&nbsp;&nbsp;size_t num_expected_args;
+} awk_ext_func_t;
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The fields are:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>const char *name;</CODE></DT>
+<DD>
+<P>The name of the new function.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>level code calls the function by this name. This is a regular C string.</P>
+<P>Function names must obey the rules for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>identifiers. That is, they must begin with either a letter or an underscore, which may be followed by any number of letters, digits, and underscores. Letter case in function names is significant.</P></DD>
+<DT><CODE>awk_value_t *(*function)(int num_actual_args, awk_value_t *result);</CODE></DT>
+<DD>
+<P>This is a pointer to the C function that provides the desired functionality. The function must fill in the result with either a number or a string.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>takes ownership of any string memory. As mentioned earlier, string memory<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>must</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN>come from the api-provided functions<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_malloc()</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_calloc()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_realloc()</CODE>.</P>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>num_actual_args</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>argument tells the C function how many actual parameters were passed from the calling<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>code.</P>
+<P>The function must return the value of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>result</CODE>. This is for the convenience of the calling code inside<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>.</P></DD>
+<DT><CODE>size_t num_expected_args;</CODE></DT>
+<DD>
+<P>This is the number of arguments the function expects to receive. Each extension function may decide what to do if the number of arguments isn&#8217;t what it expected. Following<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>functions, it is likely OK to ignore extra arguments.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Once you have a record representing your extension function, you register it with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>using this API function:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>awk_bool_t add_ext_func(const char *namespace, const awk_ext_func_t *func);</CODE></DT>
+<DD>
+<P>This function returns true upon success, false otherwise. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>namespace</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>parameter is currently not used; you should pass in an empty string (<CODE>""</CODE>). The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>func</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>pointer is the address of a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>struct</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>representing your function, as just described.</P></DD></DL>

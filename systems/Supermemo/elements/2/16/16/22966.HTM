@@ -1,0 +1,51 @@
+# Documentation/printk-formats.txt</P>
+<P>If variable is of Type,&nbsp;&nbsp;use printk format specifier:<BR>---------------------------------------------------------<BR>&nbsp;&nbsp;int&nbsp;&nbsp;&nbsp;%d or %x<BR>&nbsp;&nbsp;unsigned int&nbsp;&nbsp;%u or %x<BR>&nbsp;&nbsp;long&nbsp;&nbsp;&nbsp;%ld or %lx<BR>&nbsp;&nbsp;unsigned long&nbsp;&nbsp;%lu or %lx<BR>&nbsp;&nbsp;long long&nbsp;&nbsp;%lld or %llx<BR>&nbsp;&nbsp;unsigned long long&nbsp;%llu or %llx<BR>&nbsp;&nbsp;size_t&nbsp;&nbsp;&nbsp;%zu or %zx<BR>&nbsp;&nbsp;ssize_t&nbsp;&nbsp;&nbsp;%zd or %zx</P>
+<P></P>
+<P>Raw pointer value SHOULD be printed with %p. The kernel supports<BR>the following extended format specifiers for pointer types:</P>
+<P>Symbols/Function Pointers:</P>
+<P>&nbsp;%pF&nbsp;versatile_init+0x0/0x110<BR>&nbsp;%pf&nbsp;versatile_init<BR>&nbsp;%pS&nbsp;versatile_init+0x0/0x110<BR>&nbsp;%pSR&nbsp;versatile_init+0x9/0x110<BR>&nbsp;&nbsp;(with __builtin_extract_return_addr() translation)<BR>&nbsp;%ps&nbsp;versatile_init<BR>&nbsp;%pB&nbsp;prev_fn_of_versatile_init+0x88/0x88</P>
+<P>&nbsp;For printing symbols and function pointers. The 'S' and 's' specifiers<BR>&nbsp;result in the symbol name with ('S') or without ('s') offsets. Where<BR>&nbsp;this is used on a kernel without KALLSYMS - the symbol address is<BR>&nbsp;printed instead.</P>
+<P>&nbsp;The 'B' specifier results in the symbol name with offsets and should be<BR>&nbsp;used when printing stack backtraces. The specifier takes into<BR>&nbsp;consideration the effect of compiler optimisations which may occur<BR>&nbsp;when tail-call's are used and marked with the noreturn GCC attribute.</P>
+<P>&nbsp;On ia64, ppc64 and parisc64 architectures function pointers are<BR>&nbsp;actually function descriptors which must first be resolved. The 'F' and<BR>&nbsp;'f' specifiers perform this resolution and then provide the same<BR>&nbsp;functionality as the 'S' and 's' specifiers.</P>
+<P>Kernel Pointers:</P>
+<P>&nbsp;%pK&nbsp;0x01234567 or 0x0123456789abcdef</P>
+<P>&nbsp;For printing kernel pointers which should be hidden from unprivileged<BR>&nbsp;users. The behaviour of %pK depends on the kptr_restrict sysctl - see<BR>&nbsp;Documentation/sysctl/kernel.txt for more details.</P>
+<P>Struct Resources:</P>
+<P>&nbsp;%pr&nbsp;[mem 0x60000000-0x6fffffff flags 0x2200] or<BR>&nbsp;&nbsp;[mem 0x0000000060000000-0x000000006fffffff flags 0x2200]<BR>&nbsp;%pR&nbsp;[mem 0x60000000-0x6fffffff pref] or<BR>&nbsp;&nbsp;[mem 0x0000000060000000-0x000000006fffffff pref]</P>
+<P>&nbsp;For printing struct resources. The 'R' and 'r' specifiers result in a<BR>&nbsp;printed resource with ('R') or without ('r') a decoded flags member.</P>
+<P>Physical addresses:</P>
+<P>&nbsp;%pa&nbsp;0x01234567 or 0x0123456789abcdef</P>
+<P>&nbsp;For printing a phys_addr_t type (and its derivatives, such as<BR>&nbsp;resource_size_t) which can vary based on build options, regardless of<BR>&nbsp;the width of the CPU data path. Passed by reference.</P>
+<P>Raw buffer as a hex string:<BR>&nbsp;%*ph&nbsp;00 01 02&nbsp; ...&nbsp; 3f<BR>&nbsp;%*phC&nbsp;00:01:02: ... :3f<BR>&nbsp;%*phD&nbsp;00-01-02- ... -3f<BR>&nbsp;%*phN&nbsp;000102 ... 3f</P>
+<P>&nbsp;For printing a small buffers (up to 64 bytes long) as a hex string with<BR>&nbsp;certain separator. For the larger buffers consider to use<BR>&nbsp;print_hex_dump().</P>
+<P>MAC/FDDI addresses:</P>
+<P>&nbsp;%pM&nbsp;00:01:02:03:04:05<BR>&nbsp;%pMR&nbsp;05:04:03:02:01:00<BR>&nbsp;%pMF&nbsp;00-01-02-03-04-05<BR>&nbsp;%pm&nbsp;000102030405<BR>&nbsp;%pmR&nbsp;050403020100</P>
+<P>&nbsp;For printing 6-byte MAC/FDDI addresses in hex notation. The 'M' and 'm'<BR>&nbsp;specifiers result in a printed address with ('M') or without ('m') byte<BR>&nbsp;separators. The default byte separator is the colon (':').</P>
+<P>&nbsp;Where FDDI addresses are concerned the 'F' specifier can be used after<BR>&nbsp;the 'M' specifier to use dash ('-') separators instead of the default<BR>&nbsp;separator.</P>
+<P>&nbsp;For Bluetooth addresses the 'R' specifier shall be used after the 'M'<BR>&nbsp;specifier to use reversed byte order suitable for visual interpretation<BR>&nbsp;of Bluetooth addresses which are in the little endian order.</P>
+<P>IPv4 addresses:</P>
+<P>&nbsp;%pI4&nbsp;1.2.3.4<BR>&nbsp;%pi4&nbsp;001.002.003.004<BR>&nbsp;%p[Ii][hnbl]</P>
+<P>&nbsp;For printing IPv4 dot-separated decimal addresses. The 'I4' and 'i4'<BR>&nbsp;specifiers result in a printed address with ('i4') or without ('I4')<BR>&nbsp;leading zeros.</P>
+<P>&nbsp;The additional 'h', 'n', 'b', and 'l' specifiers are used to specify<BR>&nbsp;host, network, big or little endian order addresses respectively. Where<BR>&nbsp;no specifier is provided the default network/big endian order is used.</P>
+<P>IPv6 addresses:</P>
+<P>&nbsp;%pI6&nbsp;0001:0002:0003:0004:0005:0006:0007:0008<BR>&nbsp;%pi6&nbsp;00010002000300040005000600070008<BR>&nbsp;%pI6c&nbsp;1:2:3:4:5:6:7:8</P>
+<P>&nbsp;For printing IPv6 network-order 16-bit hex addresses. The 'I6' and 'i6'<BR>&nbsp;specifiers result in a printed address with ('I6') or without ('i6')<BR>&nbsp;colon-separators. Leading zeros are always used.</P>
+<P>&nbsp;The additional 'c' specifier can be used with the 'I' specifier to<BR>&nbsp;print a compressed IPv6 address as described by<BR>&nbsp;<A href="http://tools.ietf.org/html/rfc5952">http://tools.ietf.org/html/rfc5952</A></P>
+<P>UUID/GUID addresses:</P>
+<P>&nbsp;%pUb&nbsp;00010203-0405-0607-0809-0a0b0c0d0e0f<BR>&nbsp;%pUB&nbsp;00010203-0405-0607-0809-0A0B0C0D0E0F<BR>&nbsp;%pUl&nbsp;03020100-0504-0706-0809-0a0b0c0e0e0f<BR>&nbsp;%pUL&nbsp;03020100-0504-0706-0809-0A0B0C0E0E0F</P>
+<P>&nbsp;For printing 16-byte UUID/GUIDs addresses. The additional 'l', 'L',<BR>&nbsp;'b' and 'B' specifiers are used to specify a little endian order in<BR>&nbsp;lower ('l') or upper case ('L') hex characters - and big endian order<BR>&nbsp;in lower ('b') or upper case ('B') hex characters.</P>
+<P>&nbsp;Where no additional specifiers are used the default little endian<BR>&nbsp;order with lower case hex characters will be printed.</P>
+<P>struct va_format:</P>
+<P>&nbsp;%pV</P>
+<P>&nbsp;For printing struct va_format structures. These contain a format string<BR>&nbsp;and va_list as follows:</P>
+<P>&nbsp;struct va_format {<BR>&nbsp;&nbsp;const char *fmt;<BR>&nbsp;&nbsp;va_list *va;<BR>&nbsp;};</P>
+<P>&nbsp;Do not use this feature without some mechanism to verify the<BR>&nbsp;correctness of the format string and va_list arguments.</P>
+<P>u64 SHOULD be printed with %llu/%llx, (unsigned long long):</P>
+<P>&nbsp;printk("%llu", (unsigned long long)u64_var);</P>
+<P>s64 SHOULD be printed with %lld/%llx, (long long):</P>
+<P>&nbsp;printk("%lld", (long long)s64_var);</P>
+<P>If &lt;type&gt; is dependent on a config option for its size (e.g., sector_t,<BR>blkcnt_t) or is architecture-dependent for its size (e.g., tcflag_t), use a<BR>format specifier of its largest possible type and explicitly cast to it.<BR>Example:</P>
+<P>&nbsp;printk("test: sector number/total blocks: %llu/%llu\n",<BR>&nbsp;&nbsp;(unsigned long long)sector, (unsigned long long)blockcount);</P>
+<P>Reminder: sizeof() result is of type size_t.</P>
+<P>Thank you for your cooperation and attention.</P>
+<P><BR>By Randy Dunlap &lt;<A href="mailto:rdunlap@infradead.org">rdunlap@infradead.org</A>&gt; and<BR>Andrew Murray &lt;<A href="mailto:amurray@mpc-data.co.uk">amurray@mpc-data.co.uk</A>&gt;

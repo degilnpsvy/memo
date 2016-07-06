@@ -1,0 +1,91 @@
+<H3 class=section>6.14 Other Special Variables</H3>
+<P><A name=index-makefiles_002c-and-special-variables-548></A><A name=index-special-variables-549></A>GNU <CODE>make</CODE> supports some variables that have special properties. <A name=index-MAKEFILE_005fLIST-_0040r_007b_0028list-of-parsed-makefiles_0029_007d-550></A><A name=index-makefiles_002c-and-_0040code_007bMAKEFILE_005fLIST_007d-variable-551></A><A name=index-including-_0028_0040code_007bMAKEFILE_005fLIST_007d-variable_0029-552></A>
+<DL>
+<DT><FONT class=extract><CODE>MAKEFILE_LIST</CODE> </FONT>
+<DD><FONT class=extract>Contains the name of each makefile that is parsed by <CODE>make</CODE>, in the order in which it was parsed. The name is appended just before <CODE>make</CODE> begins to parse the makefile. Thus, if the first thing a makefile does is examine the last word in this variable, it will be the name of the current makefile. Once the current makefile has used <CODE>include</CODE>, however, the last word will be the just-included makefile. </FONT>
+<P><FONT class=extract>If a makefile named <CODE>Makefile</CODE> has this content: </FONT><PRE class=example><FONT class=extract>          name1 := $(lastword $(MAKEFILE_LIST))
+          
+          include inc.mk
+          
+          name2 := $(lastword $(MAKEFILE_LIST))
+          
+          all:
+                  @echo name1 = $(name1)
+                  @echo name2 = $(name2)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>then you would expect to see this output: </FONT><PRE class=example><FONT class=extract>          name1 = Makefile
+          name2 = inc.mk
+</FONT></PRE>
+<P><A name=index-g_t_002eDEFAULT_005fGOAL-_0040r_007b_0028define-default-goal_0029_007d-553></A><BR></P>
+<DT><FONT class=extract><CODE>.DEFAULT_GOAL</CODE> </FONT>
+<DD><FONT class=extract>Sets the default goal to be used if no targets were specified on the command line (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Goals"><FONT class=extract>Arguments to Specify the Goals</FONT></A><FONT class=extract>). The <CODE>.DEFAULT_GOAL</CODE> variable allows you to discover the current default goal, restart the default goal selection algorithm by clearing its value, or to explicitly set the default goal. The following example illustrates these cases: </FONT><PRE class=example><FONT class=extract>          # Query the default goal.
+          ifeq ($(.DEFAULT_GOAL),)
+            $(warning no default goal is set)
+          endif
+          
+          .PHONY: foo
+          foo: ; @echo $@
+          
+          $(warning default goal is $(.DEFAULT_GOAL))
+          
+          # Reset the default goal.
+          .DEFAULT_GOAL :=
+          
+          .PHONY: bar
+          bar: ; @echo $@
+          
+          $(warning default goal is $(.DEFAULT_GOAL))
+          
+          # Set our own.
+          .DEFAULT_GOAL := foo
+</FONT></PRE>
+<P><FONT class=extract>This makefile prints: </FONT><PRE class=example><FONT class=extract>          no default goal is set
+          default goal is foo
+          default goal is bar
+          foo
+</FONT></PRE>
+<P><FONT class=extract>Note that assigning more than one target name to <CODE>.DEFAULT_GOAL</CODE> is invalid and will result in an error.</FONT> 
+<P><A name=index-MAKE_005fRESTARTS-_0040r_007b_0028number-of-times-_0040code_007bmake_007d-has-restarted_0029_007d-554></A><BR></P>
+<DT><FONT class=extract><CODE>MAKE_RESTARTS</CODE> </FONT>
+<DD><FONT class=extract>This variable is set only if this instance of <CODE>make</CODE> has restarted (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles"><FONT class=extract>How Makefiles Are Remade</FONT></A><FONT class=extract>): it will contain the number of times this instance has restarted. Note this is not the same as recursion (counted by the <CODE>MAKELEVEL</CODE> variable). You should not set, modify, or export this variable. </FONT>
+<P><A name=index-g_t_002eRECIPEPREFIX-_0040r_007b_0028change-the-recipe-prefix-character_0029_007d-555></A><BR></P>
+<DT><FONT class=extract><CODE>.RECIPEPREFIX</CODE> </FONT>
+<DD><FONT class=extract>The first character of the value of this variable is used as the character make assumes is introducing a recipe line. If the variable is empty (as it is by default) that character is the standard tab character. For example, this is a valid makefile: </FONT><PRE class=example><FONT class=extract>          .RECIPEPREFIX = &gt;
+          all:
+          &gt; @echo Hello, world
+</FONT></PRE>
+<P><FONT class=extract>The value of <CODE>.RECIPEPREFIX</CODE> can be changed multiple times; once set it stays in effect for all rules parsed until it is modified. </FONT>
+<P><A name=index-g_t_002eVARIABLES-_0040r_007b_0028list-of-variables_0029_007d-556></A><BR></P>
+<DT><FONT class=extract><CODE>.VARIABLES</CODE> </FONT>
+<DD><FONT class=extract>Expands to a list of the <EM>names</EM> of all global variables defined so far. This includes variables which have empty values, as well as built-in variables (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Implicit-Variables"><FONT class=extract>Variables Used by Implicit Rules</FONT></A><FONT class=extract>), but does not include any variables which are only defined in a target-specific context. Note that any value you assign to this variable will be ignored; it will always return its special value.</FONT> <!-- @vindex .TARGETS @r{(list of targets)} --><!-- @item .TARGETS --><!-- The second special variable is @code{.TARGETS}.  When expanded, the --><!-- value consists of a list of all targets defined in all makefiles read --><!-- up until that point.  Note it's not enough for a file to be simply --><!-- mentioned in the makefile to be listed in this variable, even if it --><!-- would match an implicit rule and become an ``implicit target''.  The --><!-- file must appear as a target, on the left-hand side of a ``:'', to be --><!-- considered a target for the purposes of this variable. -->
+<P><A name=index-g_t_002eFEATURES-_0040r_007b_0028list-of-supported-features_0029_007d-557></A><BR></P>
+<DT><FONT class=extract><CODE>.FEATURES</CODE> </FONT>
+<DD><FONT class=extract>Expands to a list of special features supported by this version of <CODE>make</CODE>. Possible values include, but are not limited to: </FONT>
+<DL>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>archives</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports <CODE>ar</CODE> (archive) files using special file name syntax. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Archives"><FONT class=extract>Using <CODE>make</CODE> to Update Archive Files</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>check-symlink</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports the <CODE>-L</CODE> (<CODE>--check-symlink-times</CODE>) flag. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Options-Summary"><FONT class=extract>Summary of Options</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>else-if</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports &#8220;else if&#8221; non-nested conditionals. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Conditional-Syntax"><FONT class=extract>Syntax of Conditionals</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>jobserver</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports &#8220;job server&#8221; enhanced parallel builds. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Parallel"><FONT class=extract>Parallel Execution</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>oneshell</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports the <CODE>.ONESHELL</CODE> special target. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#One-Shell"><FONT class=extract>Using One Shell</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>order-only</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports order-only prerequisites. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Prerequisite-Types"><FONT class=extract>Types of Prerequisites</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>second-expansion</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports secondary expansion of prerequisite lists. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>shortest-stem</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Uses the &#8220;shortest stem&#8221; method of choosing which pattern, of multiple applicable options, will be used. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Pattern-Match"><FONT class=extract>How Patterns Match</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>target-specific</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports target-specific and pattern-specific variable assignments. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Target_002dspecific"><FONT class=extract>Target-specific Variable Values</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>undefine</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports the <CODE>undefine</CODE> directive. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Undefine-Directive"><FONT class=extract>Undefine Directive</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>guile</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Has GNU Guile available as an embedded extension language. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration"><FONT class=extract>GNU Guile Integration</FONT></A><FONT class=extract>. <BR></FONT>
+<DT><FONT class=extract>&#8216;<SAMP><SPAN class=samp>load</SPAN></SAMP>&#8217; </FONT>
+<DD><FONT class=extract>Supports dynamically loadable objects for creating custom extensions. See </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Loading-Objects"><FONT class=extract>Loading Dynamic Objects</FONT></A><FONT class=extract>. </FONT></DD></DL>
+<P><A name=index-g_t_002eINCLUDE_005fDIRS-_0040r_007b_0028list-of-include-directories_0029_007d-558></A><BR></P>
+<DT><FONT class=extract><CODE>.INCLUDE_DIRS</CODE> </FONT>
+<DD><FONT class=extract>Expands to a list of directories that <CODE>make</CODE> searches for included makefiles (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Include"><FONT class=extract>Including Other Makefiles</FONT></A><FONT class=extract>). </FONT></DD></DL>

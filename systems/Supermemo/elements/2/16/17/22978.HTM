@@ -1,0 +1,16 @@
+Here's an example that will use /dev/ttyS1 (COM2) as the console.<BR>Replace the sample values as needed.
+<P></P>
+<P>1. Create /dev/console (real console) and /dev/tty0 (master virtual<BR>&nbsp;&nbsp; console):</P>
+<P>&nbsp;&nbsp; cd /dev<BR>&nbsp;&nbsp; rm -f console tty0<BR>&nbsp;&nbsp; mknod -m 622 console c 5 1<BR>&nbsp;&nbsp; mknod -m 622 tty0 c 4 0</P>
+<P>2. LILO can also take input from a serial device. This is a very<BR>&nbsp;&nbsp; useful option. To tell LILO to use the serial port:<BR>&nbsp;&nbsp; In lilo.conf (global section): </P>
+<P>&nbsp;&nbsp; serial&nbsp; = 1,9600n8 (ttyS1, 9600 bd, no parity, 8 bits)</P>
+<P>3. Adjust to kernel flags for the new kernel,<BR>&nbsp;&nbsp; again in lilo.conf (kernel section)</P>
+<P>&nbsp;&nbsp; append = "console=ttyS1,9600" </P>
+<P>4. Make sure a getty runs on the serial port so that you can login to<BR>&nbsp;&nbsp; it once the system is done booting. This is done by adding a line<BR>&nbsp;&nbsp; like this to /etc/inittab (exact syntax depends on your getty):</P>
+<P>&nbsp;&nbsp; S1:23:respawn:/sbin/getty -L ttyS1 9600 vt100</P>
+<P>5. Init and /etc/ioctl.save</P>
+<P>&nbsp;&nbsp; Sysvinit remembers its stty settings in a file in /etc, called<BR>&nbsp;&nbsp; `/etc/ioctl.save'. REMOVE THIS FILE before using the serial<BR>&nbsp;&nbsp; console for the first time, because otherwise init will probably<BR>&nbsp;&nbsp; set the baudrate to 38400 (baudrate of the virtual console).</P>
+<P>6. /dev/console and X<BR>&nbsp;&nbsp; Programs that want to do something with the virtual console usually<BR>&nbsp;&nbsp; open /dev/console. If you have created the new /dev/console device,<BR>&nbsp;&nbsp; and your console is NOT the virtual console some programs will fail.<BR>&nbsp;&nbsp; Those are programs that want to access the VT interface, and use<BR>&nbsp;&nbsp; /dev/console instead of /dev/tty0. Some of those programs are:</P>
+<P>&nbsp;&nbsp; Xfree86, svgalib, gpm, SVGATextMode</P>
+<P>&nbsp;&nbsp; It should be fixed in modern versions of these programs though.</P>
+<P>&nbsp;&nbsp; Note that if you boot without a console= option (or with<BR>&nbsp;&nbsp; console=/dev/tty0), /dev/console is the same as /dev/tty0. In that<BR>&nbsp;&nbsp; case everything will still work.

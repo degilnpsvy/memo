@@ -1,0 +1,124 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>16.4.11.3 Working With All The Elements of an Array</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">To<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>flatten</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>an array is create a structure that represents the full array in a fashion that makes it easy for C code to traverse the entire array. Test code in<SAMP>extension/testext.c</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>does this, and also serves as a nice example showing how to use the APIs.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">First, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>script that drives the test extension:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>@load "testext"
+BEGIN {
+    n = split("blacky rusty sophie raincloud lucky", pets)
+    printf("pets has %d elements\n", length(pets))
+    ret = dump_array_and_delete("pets", "3")
+    printf("dump_array_and_delete(pets) returned %d\n", ret)
+    if ("3" in pets)
+        printf("dump_array_and_delete() did NOT remove index \"3\"!\n")
+    else
+        printf("dump_array_and_delete() did remove index \"3\"!\n")
+    print ""
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This code creates an array with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>split()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>) and then calls<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dump_array_and_delete()</CODE>. That function looks up the array whose name is passed as the first argument, and deletes the element at the index passed in the second argument. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>code then prints the return value and checks if the element was indeed deleted. Here is the C code that implements<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dump_array_and_delete()</CODE>. It has been edited slightly for presentation.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The first part declares variables, sets up the default return value in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>result</CODE>, and checks that the function was called with the correct number of arguments:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>static awk_value_t *
+dump_array_and_delete(int nargs, awk_value_t *result)
+{
+    awk_value_t value, value2, value3;
+    awk_flat_array_t *flat_array;
+    size_t count;
+    char *name;
+    int i;
+
+    assert(result != NULL);
+    make_number(0.0, result);
+
+    if (nargs != 2) {
+        printf("dump_array_and_delete: nargs not right "
+               "(%d should be 2)\n", nargs);
+        goto out;
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The function then proceeds in steps, as follows. First, retrieve the name of the array, passed as the first argument. Then retrieve the array itself. If either operation fails, print error messages and return:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    /* get argument named array as flat array and print it */
+    if (get_argument(0, AWK_STRING, &amp; value)) {
+        name = value.str_value.str;
+        if (sym_lookup(name, AWK_ARRAY, &amp; value2))
+            printf("dump_array_and_delete: sym_lookup of %s passed\n",
+                   name);
+        else {
+            printf("dump_array_and_delete: sym_lookup of %s failed\n",
+                   name);
+            goto out;
+        }
+    } else {
+        printf("dump_array_and_delete: get_argument(0) failed\n");
+        goto out;
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For testing purposes and to make sure that the C code sees the same number of elements as the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>code, the second step is to get the count of elements in the array and print it:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    if (! get_element_count(value2.array_cookie, &amp; count)) {
+        printf("dump_array_and_delete: get_element_count failed\n");
+        goto out;
+    }
+
+    printf("dump_array_and_delete: incoming size is %lu\n",
+           (unsigned long) count);
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The third step is to actually flatten the array, and then to double check that the count in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_flat_array_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is the same as the count just retrieved:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    if (! flatten_array(value2.array_cookie, &amp; flat_array)) {
+        printf("dump_array_and_delete: could not flatten array\n");
+        goto out;
+    }
+
+    if (flat_array-&gt;count != count) {
+        printf("dump_array_and_delete: flat_array-&gt;count (%lu)"
+               " != count (%lu)\n",
+                (unsigned long) flat_array-&gt;count,
+                (unsigned long) count);
+        goto out;
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The fourth step is to retrieve the index of the element to be deleted, which was passed as the second argument. Remember that argument counts passed to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>get_argument()</CODE>are zero-based, thus the second argument is numbered one:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    if (! get_argument(1, AWK_STRING, &amp; value3)) {
+        printf("dump_array_and_delete: get_argument(1) failed\n");
+        goto out;
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The fifth step is where the &#8220;real work&#8221; is done. The function loops over every element in the array, printing the index and element values. In addition, upon finding the element with the index that is supposed to be deleted, the function sets the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AWK_ELEMENT_DELETE</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>bit in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>flags</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>field of the element. When the array is released,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>traverses the flattened array, and deletes any elements which have this flag bit set:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    for (i = 0; i &lt; flat_array-&gt;count; i++) {
+        printf("\t%s[\"%.*s\"] = %s\n",
+            name,
+            (int) flat_array-&gt;elements[i].index.str_value.len,
+            flat_array-&gt;elements[i].index.str_value.str,
+            valrep2str(&amp; flat_array-&gt;elements[i].value));
+
+        if (strcmp(value3.str_value.str,
+                   flat_array-&gt;elements[i].index.str_value.str)
+                   == 0) {
+            flat_array-&gt;elements[i].flags |= AWK_ELEMENT_DELETE;
+            printf("dump_array_and_delete: marking element \"%s\" "
+                   "for deletion\n",
+                flat_array-&gt;elements[i].index.str_value.str);
+        }
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The sixth step is to release the flattened array. This tells<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>that the extension is no longer using the array, and that it should delete any elements marked for deletion.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>also frees any storage that was allocated, so you should not use the pointer (<CODE>flat_array</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in this code) once you have called<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>release_flattened_array()</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    if (! release_flattened_array(value2.array_cookie, flat_array)) {
+        printf("dump_array_and_delete: could not release flattened array\n");
+        goto out;
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Finally, since everything was successful, the function sets the return value to success, and returns:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    make_number(1.0, result);
+out:
+    return result;
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here is the output from running this part of the test:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>pets has 5 elements
+dump_array_and_delete: sym_lookup of pets passed
+dump_array_and_delete: incoming size is 5
+        pets["1"] = "blacky"
+        pets["2"] = "rusty"
+        pets["3"] = "sophie"
+dump_array_and_delete: marking element "3" for deletion
+        pets["4"] = "raincloud"
+        pets["5"] = "lucky"
+dump_array_and_delete(pets) returned 1
+dump_array_and_delete() did remove index "3"!</PRE></DIV>

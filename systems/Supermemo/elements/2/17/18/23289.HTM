@@ -1,0 +1,153 @@
+<H3 id=700181-807 class=docSection1Title>13.1. GNU Debugger (GDB)</H3>
+<P class=docText>If you spend much time developing Linux applications, you will undoubtedly spend many hours getting to know the GNU Debugger. GDB is arguably the most important tool in the developer's toolbox. It has a long history, and its capabilities have blossomed to include low-level hardware-specific debugging support for a wide variety of architectures and microprocessors. It should be noted that the user manual for GDB is nearly as large as this book. Our intention here is to introduce GDB to get you started. You are encouraged to study the user manual referenced later under <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec7.html#ch13lev2sec22">Section 13.7.1</A>, "Suggestions for Additional Reading."</P>
+<P class=docText>Because this is a book about embedded Linux development, we use a version of GDB that has been compiled as a cross-debugger. That is, the debugger itself runs on your development host, but it understands binary executables in the architecture for which it was configured at compile time. In the next few examples, we use GDB compiled for a Red Hat Linux-compatible development host, and an XScale <A name=iddle1241></A><A name=iddle1284></A><A name=iddle1534></A>(ARM) target processor. Although we use the short name <TT>gdb</TT>, we are presenting examples based on the XScale-enabled cross-gdb from the Monta Vista embedded Linux distribution for ARM XScale. The binary is called <TT>xscale_be-gdb</TT>. It is still GDB, simply configured for a cross-development environment.</P>
+<P class=docText>The GDB debugger is a complex program with many configuration options during the build process. It is not our intention to provide guidance on building <TT>gdb</TT>that has been covered in other literature. For the purposes of this chapter, we assume that you have obtained a working GDB configured for the architecture and host development environment you will be using.</P><A name=ch13lev2sec1></A>
+<H4 id=title-IDA04GCD class=docSection2Title>13.1.1. Debugging a Core Dump</H4>
+<P class=docText>One of the most common reasons to drag GDB out of the toolbox is to evaluate a <SPAN class=docEmphasis>core dump</SPAN>. It is quick and easy, and often leads to immediate identification of the offending code. A core dump results when an application program generates a fault, such as accessing a memory location that it does not own. Many conditions can trigger a core dump,<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13fn1">[1]</A></SUP> but SIGSEGV (segmentation fault) is by far the most common. A SIGSEGV is a Linux kernel <SPAN class=docEmphasis>signal</SPAN> that is generated on illegal memory accesses by a user process. When this signal is generated, the kernel terminates the process. The kernel then dumps a core image, if so enabled.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch13fn1>[1]</A></SUP> See SIG_KERNEL_COREDUMP_MASK in <TT>.../kernel/signal.c</TT> for a definition of which signals generate a core dump.</P></BLOCKQUOTE>
+<P class=docText>To enable generation of a core dump, your process must have the resource limits to enable a core dump. This is achieved by setting the process's resource limits using the <TT>setrlimit()</TT> function call, or from a BASH or BusyBox shell command prompt, using <TT>ulimit</TT>. It is not uncommon to find the following line in the initialization scripts of an embedded system to enable the generation of core dumps on process errors:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ulimit -c unlimited</SPAN></PRE></DIV><BR>
+<P class=docText>This BASH built-in command is used to set the size limit of a core dump. In the previous instance, the size is set to unlimited.</P>
+<P class=docText>When an application program generates a segmentation fault (for example, by writing to a memory address outside its permissible range), Linux terminates the process and generates a core dump, if so enabled. The core dump is a snapshot of the running process at the time the segmentation fault occurred.</P>
+<P class=docText><A name=iddle1872></A>It helps to have debugging symbols enabled in your binary. GDB produces much more useful output with debugging symbols (<TT>gcc -g</TT>) enabled during the build. However, it is still possible to determine the sequence of events leading to the segmentation fault, even if the binary was compiled without debugging symbols. You might need to do a bit more investigative work without the aid of debugging symbols. You must manually correlate virtual addresses to locations within your program.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list01">Listing 13-1</A> shows the results of a core dump analysis session using GDB. The output has been reformatted slightly to fit the page. We have used some demonstration software to intentionally produce a segmentation fault. Here is the output of the process (called <TT>webs</TT>) that generated the segmentation fault:</P>
+<DIV class=docText><PRE>root@coyote:/workspace/websdemo# <SPAN class=docEmphStrong>./webs</SPAN>
+   Segmentation fault (core dumped)</PRE></DIV><BR><A name=ch13list01></A>
+<H5 id=title-IDAXJHCD class=docExampleTitle>Listing 13-1. Core Dump Analysis Using GDB</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>xscale_be-gdb webs core</SPAN>
+GNU gdb 6.3 (MontaVista 6.3-20.0.22.0501131 2005-07-23)
+Copyright 2004 Free Software Foundation, Inc.
+GDB is free software, covered by the GNU General Public
+License, and you are welcome to change it and/or distribute cop-
+ies of it under certain conditions.
+Type "show copying" to see the conditions.
+There is absolutely no warranty for GDB.  Type "show warranty"
+for details.
+This GDB was configured as "--host=i686-pc-linux-gnu -target=armv5teb-montavista-linuxeabi"...
+
+
+Core was generated by './webs'.
+Program terminated with signal 11, Segmentation fault.
+Reading symbols from /opt/montavista/pro/.../libc.so.6...done.
+Loaded symbols for /opt/montavista/pro/.../libc.so.6
+Reading symbols from /opt/montavista/pro/.../ld-linux.so.3...done.
+Loaded symbols for /opt/montavista/pro/.../ld-linux.so.3
+#0  0x00012ac4 in ClearBlock (RealBigBlockPtr=0x0, l=100000000) at led.c:43
+43                       *ptr = 0;
+
+(gdb) <SPAN class=docEmphStrong>l</SPAN>
+38
+39    static int ClearBlock(char * BlockPtr, int l)
+40    {
+41        char * ptr;
+42        for (ptr = BlockPtr; (ptr - BlockPtr) &lt; l; ptr++)
+43            *ptr = 0;
+44        return 0;
+45    }
+46    static int InitBlock(char * ptr, int n)
+47    {
+(gdb) <SPAN class=docEmphStrong>p ptr</SPAN>
+$1 = 0x0
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch13lev2sec2></A>
+<H4 id=title-IDAWKHCD class=docSection2Title>13.1.2. Invoking GDB</H4>
+<P class=docText><A name=iddle1193></A><A name=iddle1538></A><A name=iddle1546></A><A name=iddle1684></A>The first line of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list01">Listing 13-1</A> shows how GDB was invoked from the command line. Because we are doing cross-debugging, we need the cross-version of GDB that has been compiled for our host and target system. We invoke our version of cross-gdb as shown and pass <TT>xscale_be-gdb</TT> the name of the binary followed by the name of the core dump filein this case, simply <TT>core</TT>. After GDB prints several banner lines describing its configuration and other information, it prints the reason for the termination: signal 11, the indication of a segmentation fault.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13fn2">[2]</A></SUP> Several lines follow as GDB loads the binary, the libraries it depends on, and the core file. The last line printed upon GDB startup is the current location of the program when the fault occurred. The line preceded by the <TT>#0</TT> string indicates the stack frame (stack frame zero in a function called <TT>ClearBlock()</TT> at virtual address 0x00012ac4). The following line preceded by <TT>43</TT> is the line number of the offending source line from a file called <TT>led.c</TT>. From there, GDB displays its command prompt and waits for input.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch13fn2>[2]</A></SUP> Signals and their associated numbers are defined in <TT>.../asm-&lt;arch&gt;/signal.h</TT> in your Linux kernel source tree.</P></BLOCKQUOTE>
+<P class=docText>To provide some context, we enter the <TT>gdb list</TT> command, using its abbreviated form <TT>l</TT>. GDB recognizes command abbreviations where there is no ambiguity. Here the program error begins to present itself. The offending line, according to GDB's analysis of the core dump is:</P>
+<DIV class=docText><PRE>43            *ptr = 0;</PRE></DIV><BR>
+<P class=docText>Next we issue the <TT>gdb print</TT> command on the <TT>ptr</TT> variable, again abbreviated as <TT>p</TT>. As you can see from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list01">Listing 13-1</A>, the value of the pointer <TT>ptr</TT> is <TT>0</TT>. So we conclude that the reason for the segmentation fault is the dereference of a null pointer, <A name=iddle1056></A><A name=iddle1185></A><A name=iddle1186></A><A name=iddle1192></A><A name=iddle1545></A><A name=iddle1847></A><A name=iddle1986></A><A name=iddle2432></A>a common programming error. From here, we can elect to use the backtrace command to see the call chain leading to this error, which might lead us back to the actual source of the error. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list02">Listing 13-2</A> displays these results.</P><A name=ch13list02></A>
+<H5 id=title-IDAYQHCD class=docExampleTitle>Listing 13-2. Backtrace Command</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>bt</SPAN>
+#0  0x00012ac4 in ClearBlock (RealBigBlockPtr=0x0, l=100000000) at led.c:43
+#1  0x00012b08 in InitBlock (ptr=0x0, n=100000000) at led.c:48
+#2  0x00012b50 in ErrorInHandler (wp=0x325c8, urlPrefix=0x2f648 "/Error",
+    webDir=0x2f660 "", arg=0, url=0x34f30 "/Error", path=0x34d68 "/Error",
+    query=0x321d8 "") at led.c:61
+#3  0x000126cc in websUrlHandlerRequest (wp=0x325c8) at handler.c:273
+#4  0x0001f518 in websGetInput (wp=0x325c8, ptext=0xbefffc40,
+    pnbytes=0xbefffc38) at webs.c:664
+#5  0x0001ede0 in websReadEvent (wp=0x325c8) at webs.c:362
+#6  0x0001ed34 in websSocketEvent (sid=1, mask=2, iwp=206280) at webs.c:319
+#7  0x00019740 in socketDoEvent (sp=0x34fc8) at sockGen.c:903
+#8  0x00019598 in socketProcess (sid=1) at sockGen.c:845
+#9  0x00012be8 in main (argc=1, argv=0xbefffe14) at main.c:99
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The backtrace displays the call chain all the way back to <TT>main()</TT>, the start of the user's program. A stack frame number precedes each line of the backtrace. You can switch to any given stack frame using the <TT>gdb frame</TT> command. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list03">Listing 13-3</A> is an example of this. Here we switch to stack frame 2 and display the source code in that frame. As in the previous examples, the lines preceded with (<TT>gdb</TT>) are the commands we issue to GDB, and the other lines are the GDB output.</P><A name=ch13list03></A>
+<H5 id=title-IDAASHCD class=docExampleTitle>Listing 13-3. Moving Around Stack Frames in GDB</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>frame 2</SPAN>
+#2  0x00012b50 in ErrorInHandler (wp=0x325c8, urlPrefix=0x2f648 "/Error",
+    webDir=0x2f660 "", arg=0, url=0x34f30 "/Error", path=0x34d68 "/Error",
+    query=0x321d8 "") at led.c:61
+61               return InitBlock(p, siz);
+(gdb) <SPAN class=docEmphStrong>l</SPAN>
+56
+57               siz = 10000 * sizeof(BigBlock);
+58
+59               p = malloc(siz);
+60           /*  if (p) */
+61                 return InitBlock(p, siz);
+62          /*  else return (0);  */
+63      }
+64
+65
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1272></A><A name=iddle1536></A>As you can see, with a little help from the source code available using the <TT>list</TT> command, it would not be difficult to trace the code back to the source of the errant null pointer. In fact, the astute reader will notice the source of the segmentation fault we have produced for this example. From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list03">Listing 13-3</A>, we see that the check of the return value in the call to <TT>malloc()</TT> has been commented out. In this example, the <TT>malloc()</TT> call failed, leading to the operation on a null pointer two frames later in the call chain. Although this example is both contrived and trivial, many crashes of this type are remarkably easy to track down using a similar method with GDB and core dumps. You can also see the null pointer by looking at the parameter values in the function call. This often leads you directly to the frame where the null pointer originated.</P><A name=ch13lev2sec3></A>
+<H4 id=title-IDA3THCD class=docSection2Title>13.1.3. Debug Session in GDB</H4>
+<P class=docText>We conclude this introduction to GDB by showing a typical debug session. In the previous demonstration of a program crash, we could have elected to step through the code to narrow down the cause of the failure. Of course, if you get a core dump, you should always start there. However, in other situations, you might want to set breakpoints and step through running code. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list04">Listing 13-4</A> details how we start GDB in preparation for a debug session. Note that the program must have been compiled with the debug flag enabled in the <TT>gcc</TT> command line for GDB to be useful in this context. Refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#ch12fig01">Figure 12-1</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12.html#ch12">Chapter 12</A>, "Embedded Development Environment"; this is a cross-debug session with GDB running on your development host, debugging a program running on your target. We cover complete details of remote application debugging in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15.html#ch15">Chapter 15</A>, "Debugging Embedded Linux Applications."</P>
+<P class=docText></P><A name=ch13list04></A>
+<H5 id=title-IDALVHCD class=docExampleTitle>Listing 13-4. Initiating a GDB Debug Session</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>xscale_be-gdb -silent webs</SPAN>
+
+
+(gdb) <SPAN class=docEmphStrong>target remote 192.168.1.21:2001</SPAN>
+0x40000790 in ?? ()
+(gdb) <SPAN class=docEmphStrong>b main</SPAN>
+Breakpoint 1 at 0x12b74: file main.c, line 78.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+
+Breakpoint 1, main (argc=1, argv=0xbefffe04) at main.c:78
+78               bopen(NULL, (60 * 1024), B_USE_MALLOC);
+(gdb) <SPAN class=docEmphStrong>b ErrorInHandler</SPAN>
+Breakpoint 2 at 0x12b30: file led.c, line 57.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+
+Breakpoint 2, ErrorInHandler (wp=0x311a0, urlPrefix=0x2f648 "/Error",
+    webDir=0x2f660 "", arg=0, url=0x31e88 "/Error", path=0x31918 "/Error",
+    query=0x318e8 "") at led.c:57
+57                  siz = 10000 * sizeof(BigBlock);
+(gdb) <SPAN class=docEmphStrong>next</SPAN>
+59                  p = malloc(siz);
+(gdb) <SPAN class=docEmphStrong>next</SPAN>
+61                  return InitBlock(p, siz);
+(gdb) <SPAN class=docEmphStrong>p p</SPAN>
+$1 =(unsigned char *) 0x0
+(gdb) <SPAN class=docEmphStrong>p siz</SPAN>
+$2 =  100000000
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1190></A><A name=iddle1234></A><A name=iddle1934></A><A name=iddle2071></A>Following through this simple debug session, first we connect to our target board using the <TT>gdb target</TT> command. We cover remote debugging in more detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15.html#ch15">Chapter 15</A>. When we are connected to our target hardware, we set a breakpoint at <TT>main()</TT> using the <TT>gdb break</TT> (abbreviated <TT>b</TT>) command. Then we issue the <TT>gdb continue</TT> (abbreviated <TT>c</TT>) command to resume execution of the program. If we had any program arguments, we could have issued them on the command line when we invoked GDB.</P>
+<P class=docText>We hit the breakpoint set at <TT>main()</TT>, and set another one at <TT>ErrorInHandler()</TT>, followed by the <TT>continue</TT> command, again abbreviated. When this new breakpoint is hit, we begin to step through the code using the <TT>next</TT> command. There we encounter the call to <TT>malloc()</TT>. Following the <TT>malloc()</TT> call, <A name=iddle1268></A>we examine the return value and discover the failure as indicated by the null return value. Finally, we print the value of the parameter in the <TT>malloc()</TT> call and see that a very large memory region (100 million bytes) is being requested, which fails.</P>
+<P class=docText>Although trivial, the GDB examples in this section should enable the newcomer to become immediately productive with GDB. Few of us have really mastered GDBit is very complex and has many capabilities. Later in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec2.html#ch13lev1sec2">Section 13.2</A>, "Data Display Debugger," we introduce a graphical front end to GDB that can ease the transition for those unfamiliar with GDB.</P>
+<P class=docText>One final note about GDB: No doubt you have noticed the many banner lines GDB displays on the console when it is first invoked, as in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list01">Listing 13-1</A>. In these examples, as stated earlier, we used a cross-gdb from the Monta Vista embedded Linux distribution. The banner lines contain a vital piece of information that the embedded developer must be aware of: GDB's host and target specifications. From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec1.html#ch13list01">Listing 13-1</A>, we saw the following output when GDB was invoked:</P>
+<DIV class=docText><PRE>This GDB was configured as "--host=i686-pc-linux-gnu -
+  target=armv5teb-montavista-linuxeabi"</PRE></DIV><BR>
+<P class=docText>In this instance, we were invoking a version of GDB that was compiled to execute from a Linux PCspecifically, an i686 running the GNU/Linux operating system. Equally critical, this instance of GDB was compiled to debug ARM binary code generated from the <TT>armv5teb</TT> big endian toolchain.</P>
+<P class=docText>One of the most common mistakes made by newcomers to embedded development is to use the wrong GDB while trying to debug target executables. If something isn't working right, you should immediately check your GDB configuration to make sure that it makes sense for your environment. You cannot use your native GDB to debug target code!

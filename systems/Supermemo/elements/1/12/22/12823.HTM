@@ -1,0 +1,55 @@
+<DIV class=NAVHEADER style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>Secure Programming for Linux and Unix HOWTO</TH></TR>
+<TR>
+<TD vAlign=bottom align=left width="10%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/limit-time.html">Prev</A></TD>
+<TD vAlign=bottom align=middle width="80%"></TD>
+<TD vAlign=bottom align=right width="10%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/dangers-c.html">Next</A></TD></TR></TBODY></TABLE>
+<HR align=left width="100%">
+</DIV>
+<DIV class=CHAPTER style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<H1><A name=BUFFER-OVERFLOW>Chapter 6. Avoid Buffer Overflow</A></H1>
+<TABLE class=EPIGRAPH cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TD width="45%">&nbsp;</TD>
+<TD vAlign=top align=left width="45%"><I>
+<P><I>An enemy will overrun the land; he will pull down your strongholds and plunder your fortresses.</I></P></I></TD></TR>
+<TR>
+<TD width="45%">&nbsp;</TD>
+<TD vAlign=top align=right width="45%"><I><SPAN class=ATTRIBUTION>Amos 3:11 (NIV)</SPAN></I></TD></TR></TBODY></TABLE>
+<DIV class=TOC>
+<DL>
+<DT><B>Table of Contents</B></DT>
+<DT>6.1.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/dangers-c.html">Dangers in C/C++</A></DT>
+<DT>6.2.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/library-c.html">Library Solutions in C/C++</A></DT>
+<DD>
+<DL>
+<DT>6.2.1.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/library-c.html#BUFFER-STANDARD-SOLUTION">Standard C Library Solution</A></DT>
+<DT>6.2.2.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/library-c.html#STATIC-VS-DYNAMIC-BUFFERS">Static and Dynamically Allocated Buffers</A></DT>
+<DT>6.2.3.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/library-c.html#STRLCPY">strlcpy and strlcat</A></DT>
+<DT>6.2.4.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/library-c.html#LIBMIB">libmib</A></DT>
+<DT>6.2.5.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/library-c.html#STD-STRING">C++ std::string class</A></DT>
+<DT>6.2.6.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/library-c.html#LIBSAFE">Libsafe</A></DT>
+<DT>6.2.7.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/library-c.html#OTHER-BUFFER-LIBRARIES">Other Libraries</A></DT></DL></DD>
+<DT>6.3.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/compilation-c.html">Compilation Solutions in C/C++</A></DT>
+<DT>6.4.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/other-languages.html">Other Languages</A></DT></DL></DIV>
+<P>An extremely common security flaw is vulnerability to a ``buffer overflow''. Buffer overflows are also called ``buffer overruns'', and there are many kinds of buffer overflow attacks (including ``stack smashing'' and ``heap smashing'' attacks). Technically, a buffer overflow is a problem with the program's internal implementation, but it's such a common and serious problem that I've placed this information in its own chapter. To give you an idea of how important this subject is, at the CERT, 9 of 13 advisories in 1998 and at least half of the 1999 advisories involved buffer overflows. An informal 1999 survey on Bugtraq found that approximately 2/3 of the respondents felt that buffer overflows were the leading cause of system security vulnerability (the remaining respondents identified ``mis-configuration'' as the leading cause) [Cowan 1999]. This is an old, well-known problem, yet it continues to resurface [McGraw 2000].</P>
+<P>A buffer overflow occurs when you write a set of values (usually a string of characters) into a fixed length buffer and write at least one value outside that buffer's boundaries (usually past its end). A buffer overflow can occur when reading input from the user into a buffer, but it can also occur during other kinds of processing in a program.</P>
+<P>If a secure program permits a buffer overflow, the overflow can often be exploited by an adversary. If the buffer is a local C variable, the overflow can be used to force the function to run code of an attackers' choosing. This specific variation is often called a ``stack smashing'' attack. A buffer in the heap isn't much better; attackers may be able to use such overflows to control other variables in the program. More details can be found from Aleph1 [1996], Mudge [1995], LSD [2001], or the Nathan P. Smith's "Stack Smashing Security Vulnerabilities" website at<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://destroy.net/machines/security/" target=_top>http://destroy.net/machines/security/</A>. A discussion of the problem and some ways to counter them is given by Crispin Cowan et al, 2000, at<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://immunix.org/StackGuard/discex00.pdf" target=_top>http://immunix.org/StackGuard/discex00.pdf</A>. A discussion of the problem and some ways to counter them in Linux is given by Pierre-Alain Fayolle and Vincent Glaume at<A href="http://www.enseirb.fr/~glaume/indexen.html" target=_top>http://www.enseirb.fr/~glaume/indexen.html</A>.</P>
+<P>Most high-level programming languages are essentially immune to this problem, either because they automatically resize arrays (e.g., Perl), or because they normally detect and prevent buffer overflows (e.g., Ada95). However, the C language provides no protection against such problems, and C++ can be easily used in ways to cause this problem too. Assembly language also provides no protection, and some languages that normally include such protection (e.g., Ada and Pascal) can have this protection disabled (for performance reasons). Even if most of your program is written in another language, many library routines are written in C or C++, as well as ``glue'' code to call them, so other languages often don't provide as complete a protection from buffer overflows as you'd like.</P></DIV>
+<DIV class=NAVFOOTER style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR align=left width="100%">
+
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TD vAlign=top align=left width="33%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/limit-time.html">Prev</A></TD>
+<TD vAlign=top align=middle width="34%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/index.html">Home</A></TD>
+<TD vAlign=top align=right width="33%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/dangers-c.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="33%">Limit Valid Input Time and Load Level</TD>
+<TD vAlign=top align=middle width="34%">&nbsp;</TD>
+<TD vAlign=top align=right width="33%">Dangers in C/C++</TD></TR></TBODY></TABLE></DIV>

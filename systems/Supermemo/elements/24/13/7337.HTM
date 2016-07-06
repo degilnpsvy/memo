@@ -1,0 +1,45 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">8.5.&nbsp;</SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Is it possible to write kernel modules in assembly?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Yes, indeed it is. While in general it is not a good idea (it hardly will speedup anything), there may be a need of such wizardy. The process of writing a module itself is not that hard - - a module must have some predefined global function, it may also need to call some external functions from the kernel. Examine kernel source code (that can be built as module) for details.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Meanwhile, here's an example of a minimum dumb kernel module (module.asm) (source is based on example by mammon_ from APJ #8):</SPAN></P>
+<TABLE class=MsoNormalTable style="BACKGROUND: #e0e0e0; WIDTH: 100%; mso-cellspacing: 1.5pt" cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes; mso-yfti-lastrow: yes">
+<TD style="BORDER-RIGHT: #ffffff; PADDING-RIGHT: 0.75pt; BORDER-TOP: #ffffff; PADDING-LEFT: 0.75pt; PADDING-BOTTOM: 0.75pt; BORDER-LEFT: #ffffff; PADDING-TOP: 0.75pt; BORDER-BOTTOM: #ffffff; BACKGROUND-COLOR: transparent">
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">section .text</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>global init_module</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>global cleanup_module</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>global kernel_version</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>extern printk</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">init_module:</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>push<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>dword str1</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>call<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>printk</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>pop<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>eax</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>xor<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>eax,eax</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>ret</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">cleanup_module:</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>push<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>dword str2</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>call<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>printk</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>pop<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>eax</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>ret</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">str1<SPAN style="mso-tab-count: 2">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>db<SPAN style="mso-tab-count: 1">&nbsp; </SPAN>"init_module done",0xa,0</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">str2<SPAN style="mso-tab-count: 2">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>db<SPAN style="mso-tab-count: 1">&nbsp; </SPAN>"cleanup_module done",0xa,0</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">kernel_version<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>db<SPAN style="mso-tab-count: 1">&nbsp; </SPAN>"2.2.18",0</SPAN></P></TD></TR></TBODY></TABLE>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">The only thing this example does is reporting its actions. Modify&nbsp;kernel_version&nbsp;to match yours, and build module with:</SPAN></P>
+<TABLE class=MsoNormalTable style="BACKGROUND: #e0e0e0; WIDTH: 100%; mso-cellspacing: 1.5pt" cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes; mso-yfti-lastrow: yes">
+<TD style="BORDER-RIGHT: #ffffff; PADDING-RIGHT: 0.75pt; BORDER-TOP: #ffffff; PADDING-LEFT: 0.75pt; PADDING-BOTTOM: 0.75pt; BORDER-LEFT: #ffffff; PADDING-TOP: 0.75pt; BORDER-BOTTOM: #ffffff; BACKGROUND-COLOR: transparent">
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">$ nasm -f elf -o module.m module.asm</SPAN></P></TD></TR></TBODY></TABLE>
+<p><SPAN lang=EN-US style="DISPLAY: none; FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt; mso-hide: all">&nbsp;</SPAN></P>
+<TABLE class=MsoNormalTable style="BACKGROUND: #e0e0e0; WIDTH: 100%; mso-cellspacing: 1.5pt" cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes; mso-yfti-lastrow: yes">
+<TD style="BORDER-RIGHT: #ffffff; PADDING-RIGHT: 0.75pt; BORDER-TOP: #ffffff; PADDING-LEFT: 0.75pt; PADDING-BOTTOM: 0.75pt; BORDER-LEFT: #ffffff; PADDING-TOP: 0.75pt; BORDER-BOTTOM: #ffffff; BACKGROUND-COLOR: transparent">
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">$ ld -r -o module.o module.m</SPAN></P></TD></TR></TBODY></TABLE>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Now you can play with it using&nbsp;<B>insmod/rmmod/lsmod</B>&nbsp;(root privilidged are required); a lot of fun, huh?</SPAN>

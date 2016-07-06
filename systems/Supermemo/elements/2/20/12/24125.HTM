@@ -1,0 +1,11 @@
+<H4 id=title-ID0EMZOM class=docSection2Title>Short Delays</H4>
+<P class=docText><A name="commonly requested"></A><FONT class=extract>In kernel terms, sub-jiffy delays qualify as short durations. Such delays are commonly requested from both process and interrupt contexts. Because it is not possible to use jiffy-based methods to implement sub-jiffy delays, the methods discussed in the previous section to sleep-wait cannot be used for small timeouts. The only solution is to busy-wait.</FONT></P>
+<P class=docText><A name=are></A><FONT class=extract>Kernel APIs that implement short delays are <TT>mdelay()</TT>, <TT>udelay()</TT>, and <TT>ndelay()</TT></FONT><A name="these functions"></A><FONT class=extract>, which support millisecond, microsecond, and nanosecond delays, respectively. The actual implementations of these functions are architecture-specific and may not be available on all platforms.</FONT></P>
+<P class=docText><A name="short durations"></A><FONT class=extract>Busy-waiting for short durations is accomplished by measuring the time the processor takes to execute an instruction and looping for the necessary number of iterations. As discussed earlier in this chapter, the kernel performs this measurement during boot and stores the value in a variable called <TT>loops_per_jiffy</TT>.</FONT> The short-delay APIs use <TT>loops_per_jiffy</TT><A name="achieve a"></A> to decide the number of times they need to busy-loop. To achieve a 1-microsecond delay during a handshake process, the USB host controller driver, <SPAN class=docEmphasis>drivers/usb/host/ehci-hcd.c</SPAN><A name=calls></A>, calls <TT>udelay()</TT><A name=uses></A>, which internally uses <TT>loops_per_jiffy</TT>:</P>
+<DIV class=docText><PRE>do {
+  result = ehci_readl(ehci, ptr);
+  /* ... */
+  if (result == done) return 0;
+  <SPAN class=docEmphStrong>udelay(1);     /* Internally uses loops_per_jiffy */</SPAN>
+  usec--;
+} while (usec &gt; 0);</PRE></DIV>

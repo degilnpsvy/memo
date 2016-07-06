@@ -1,0 +1,308 @@
+<H3 id=-100000 class=docSection1Title>Interrupt Handling</H3>
+<P class=docText><A name=iddle1597></A><A name=iddle1972></A><A name=iddle2178></A><A name=iddle2422></A><A name=iddle2426></A><A name=iddle2428></A><A name=iddle2432></A><A name=iddle2446></A><A name=iddle2447></A><A name=iddle2484></A><A name=iddle2497></A><A name="Because of"></A>Because of the indeterminate nature of I/O, and speed mismatches between I/O devices and the processor, devices request the processor's attention by asserting certain hardware signals asynchronously. These hardware signals are called <SPAN class=docEmphasis>interrupts.</SPAN><A name="device is"></A> Each interrupting device is assigned an associated identifier called an <SPAN class=docEmphasis>interrupt request</SPAN><A name="the processor"></A> (IRQ) number. When the processor detects that an interrupt has been generated on an IRQ, it abruptly stops what it's doing and invokes an <SPAN class=docEmphasis>interrupt service routine</SPAN> (ISR) registered for the corresponding IRQ. <SPAN class=docEmphasis>Interrupt handlers</SPAN> (ISRs) execute in interrupt context.</P><A name=ch04lev2sec1></A>
+<H4 id=title-ID0E2ROM class=docSection2Title>Interrupt Context</H4>
+<P class=docText><A name="with the"></A>ISRs are critical pieces of code that directly converse with the hardware. They are given the privilege of instant execution in the larger interest of system performance. However, if ISRs are not quick and lightweight, they contradict their own philosophy. VIPs are given preferential treatment, but it's incumbent on them to minimize the resulting inconvenience to the public. <FONT class=extract>To compensate for rudely interrupting the current thread </FONT><A name=iddle2374></A><A name=iddle3886></A><A name="execute in"></A><FONT class=extract>of execution, ISRs have to politely execute in a restricted environment called interrupt context (or <SPAN class=docEmphasis>atomic context</SPAN>).</FONT></P>
+<P class=docText><A name="in interrupt"></A><FONT class=extract>Here is a list of do's and don'ts for code executing in interrupt context:</FONT></P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="context code"></A><FONT class=extract>It's a jailable offense if your interrupt context code goes to sleep. Interrupt handlers cannot relinquish the processor by calling sleepy functions such as <TT>schedule_timeout()</TT></FONT><A name="penetrate the"></A><FONT class=extract>. Before invoking a kernel API from your interrupt handler, penetrate the nested invocation train and ensure that it does not internally trigger a blocking wait. For example, <TT>input_register_device()</TT></FONT><A name="harmless from"></A><FONT class=extract> looks harmless from the surface, but tosses a call to <TT>kmalloc()</TT> under the hood specifying <TT>GFP_KERNEL</TT> as an argument. As you saw in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02.html#ch02"><FONT class=extract>Chapter 2</FONT></A><FONT class=extract>, "A Peek Inside the Kernel," if your system's free memory dips below a watermark, <TT>kmalloc()</TT></FONT><A name="invoke it"></A><FONT class=extract> sleep-waits for memory to get freed up by the swapper, if you invoke it in this manner.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="For protecting"></A><FONT class=extract>For protecting critical sections inside interrupt handlers, you can't use mutexes because they may go to sleep. Use spinlocks instead, and use them only if you must.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="cannot directly"></A><FONT class=extract>Interrupt handlers cannot directly exchange data with user space because they are not connected to user land via process contexts. This brings us to another reason why interrupt handlers cannot sleep: The scheduler works at the granularity of processes, so if interrupt handlers sleep and are scheduled out, how can they be put back into the run queue?</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="handlers are"></A><FONT class=extract>Interrupt handlers are supposed to get out of the way quickly but are expected to get the job done. To circumvent this Catch-22, interrupt handlers usually split their work into two. The slim <SPAN class=docEmphasis>top half</SPAN></FONT><A name="has serviced"></A><FONT class=extract> of the handler flags an acknowledgment claiming that it has serviced the interrupt but, in reality, offloads all the hard work to a fat <SPAN class=docEmphasis>bottom half.</SPAN></FONT><A name="is deferred"></A><FONT class=extract> Execution of the bottom half is deferred to a later point in time when all interrupts are enabled. You will learn to develop bottom halves while discussing <SPAN class=docEmphasis>softirqs</SPAN> and <SPAN class=docEmphasis>tasklets</SPAN> later.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="an interrupt"></A><FONT class=extract>You need not design interrupt handlers to be reentrant. When an interrupt handler is running, the corresponding IRQ is disabled until the handler returns. So, unlike process context code, different instances of the same handler will not run simultaneously on multiple processors.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="handlers associated"></A><FONT class=extract>Interrupt handlers can be interrupted by handlers associated with IRQs that have higher priority. You can prevent this nested interruption by specifically requesting the kernel to treat your interrupt handler as a <SPAN class=docEmphasis>fast</SPAN></FONT><A name="the local"></A><FONT class=extract> handler. Fast handlers run with all interrupts disabled on the local processor. Before disabling </FONT><A name=iddle1136></A><A name=iddle1139></A><A name=iddle1779></A><A name=iddle2172></A><A name=iddle2322></A><A name=iddle2423></A><A name=iddle2424></A><A name=iddle2427></A><A name=iddle2433></A><A name=iddle2442></A><A name=iddle2445></A><A name=iddle2481></A><A name=iddle2482></A><A name=iddle2488></A><A name=iddle3811></A><A name=iddle3830></A><A name=iddle3833></A><A name=iddle4191></A><A name="or labeling"></A><FONT class=extract>interrupts or labeling your interrupt handler as fast, be aware that interrupt-off times are bad for system performance. More the interrupt-off times, more is the interrupt latency, or the delay before a generated interrupt is serviced. Interrupt latency is inversely proportional to the real time responsiveness of the system.</FONT></P></DIV></LI></OL></DIV>
+<P class=docText><FONT class=extract>A function can check the value returned by <TT>in_interrupt()</TT> to find out whether it's executing in interrupt context.</FONT></P>
+<P class=docText><A name="interrupts that"></A><FONT class=extract>Unlike asynchronous interrupts generated by external hardware, there are classes of interrupts that arrive synchronously. Synchronous interrupts are so called because they don't occur unexpectedly&#37413;&#25878;he processor itself generates them by executing an instruction. Both external and synchronous interrupts are handled by the kernel using identical mechanisms.</FONT></P>
+<P class=docText><A name="Examples of"></A><FONT class=extract>Examples of synchronous interrupts include the following:</FONT></P>
+<UL>
+<LI>
+<P class=docList><A name="used to"></A><FONT class=extract>Exceptions, which are used to report grave runtime errors</FONT></P>
+<LI>
+<P class=docList><A name="interrupts such"></A><FONT class=extract>Software interrupts such as the <TT>int 0x80</TT> instruction used to implement system calls on the x86 architecture</FONT></P></LI></UL><A name=ch04lev2sec2></A>
+<H4 id=title-ID0EV2OM class=docSection2Title>Assigning IRQs</H4>
+<P class=docText><A name="an interrupt"></A>Device drivers have to connect their IRQ number to an interrupt handler. For this, they need to know the IRQ assigned to the device they're driving. IRQ assignments can be straightforward or may require complex probing. In the PC architecture, for example, timer interrupts are assigned IRQ 0, and RTC interrupts answer to IRQ 8. Modern bus technologies such as PCI are sophisticated enough to respond to queries regarding their IRQs (assigned by the BIOS when it walks the bus during boot). PCI drivers can poke into earmarked regions in the device's configuration space and figure out the IRQ. For older devices such as <SPAN class=docEmphasis>Industries Standard Architecture</SPAN><A name="leverage hardware"></A> (ISA)-based cards, the driver might have to leverage hardware-specific knowledge to probe and decipher the IRQ.</P>
+<P class=docText><FONT class=extract>Take a look at <SPAN class=docEmphasis>/proc/interrupts</SPAN> for a list of active IRQs on your system.</FONT></P><A name=ch04lev2sec3></A>
+<H4 id=title-ID0EI3OM class=docSection2Title><FONT class=extract>Device Example: Roller Wheel</FONT></H4>
+<P class=docText><A name="implement an"></A><FONT class=extract>Now that you have learned the basics of interrupt handling, let's implement an interrupt handler for an example roller wheel device. Roller wheels can be found on some phones and PDAs for easy menu navigation and are capable of three movements: clockwise rotation, anticlockwise rotation, and key-press. Our imaginary roller wheel is wired such that any of these movements interrupt the processor on IRQ 7. Three </FONT><A name=iddle2135></A><A name=iddle2157></A><A name=iddle2431></A><A name=iddle2436></A><A name=iddle2440></A><A name=iddle2487></A><A name=iddle3800></A><A name=iddle3834></A><A name=iddle3838></A><FONT class=extract>low order bits of <SPAN class=docEmphasis>General Purpose I/O</SPAN></FONT><A name="connected to"></A><FONT class=extract> (GPIO) Port D of the processor are connected to the roller device. The waveforms generated on these pins corresponding to different wheel movements are shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04fig03"><FONT class=extract>Figure 4.3</FONT></A><A name="decipher the"></A><FONT class=extract>. The job of the interrupt handler is to decipher the wheel movements by looking at the Port D GPIO data register.</FONT></P><A name=ch04fig03></A>
+<P><FONT class=extract></FONT>
+<CENTER>
+<H5 class=docFigureTitle><A name="Sample wave"></A><FONT class=extract>Figure 4.3. Sample wave forms generated by the roller wheel.</FONT></H5>
+<P class=docText><FONT class=extract><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzNoaWc0c2M-.jpg" width=450 height=495></FONT></P></CENTER>
+<P><FONT class=extract></FONT></P><BR>
+<P class=docText><A name="an interrupt"></A><FONT class=extract>The driver has to first request the IRQ and associate an interrupt handler with it:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#define ROLLER_IRQ  7
+static irqreturn_t roller_interrupt(int irq, void *dev_id);
+
+
+if (request_irq(ROLLER_IRQ, roller_interrupt, IRQF_DISABLED |
+                IRQF_TRIGGER_RISING, "roll", NULL)) {
+  printk(KERN_ERR "Roll: Can't register IRQ %d\n", ROLLER_IRQ);
+  return -EIO;
+}</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle1892></A><A name=iddle2102></A><A name=iddle2105></A><A name=iddle2430></A><A name=iddle2434></A><A name=iddle2435></A><A name=iddle2475></A><A name=iddle2476></A><A name=iddle2477></A><A name=iddle2478></A><A name=iddle2479></A><A name=iddle2480></A><A name=iddle2486></A><A name=iddle2733></A><A name=iddle3831></A><A name=iddle3832></A><A name="look at"></A><FONT class=extract>Let's look at the arguments passed to <TT>request_irq()</TT></FONT><A name="number is"></A><FONT class=extract>. The IRQ number is not queried or probed but hard-coded to <TT>ROLLER_IRQ</TT></FONT><A name="this simple"></A><FONT class=extract> in this simple case as per the hardware connection. The second argument, <TT>roller_interrupt()</TT></FONT><A name="type of"></A><FONT class=extract>, is the interrupt handler routine. Its prototype specifies a return type of <TT>irqreturn_t</TT>, which can be <TT>IRQ_HANDLED</TT></FONT><A name="successfully or"></A><FONT class=extract> if the interrupt is handled successfully or <TT>IRQ_NONE</TT></FONT><A name="technologies such"></A><FONT class=extract> if it isn't. The return value assumes more significance for I/O technologies such as PCI, where multiple devices can share the same IRQ.</FONT></P>
+<P class=docText><FONT class=extract>The <TT>IRQF_DISABLED</TT></FONT><A name="has to"></A><FONT class=extract> flag specifies that this interrupt handler has to be treated as a fast handler, so the kernel has to disable interrupts while invoking the handler. <TT>IRQF_TRIGGER_RISING</TT></FONT><A name="edge on"></A><FONT class=extract> announces that the roller wheel generates a rising edge on the interrupt line when it wants to signal an interrupt. In other words, the roller wheel is an <SPAN class=docEmphasis>edge-sensitive</SPAN></FONT><A name="devices are"></A><FONT class=extract> device. Some devices are instead <SPAN class=docEmphasis>level-sensitive</SPAN></FONT><A name="To flag"></A><FONT class=extract> and keep the interrupt line asserted until the CPU services it. To flag an interrupt as level-sensitive, use the <TT>IRQF_TRIGGER_HIGH</TT></FONT><A name="Other possible"></A><FONT class=extract> flag. Other possible values for this argument include <TT>IRQF_SAMPLE_RANDOM</TT> (used in the section, "</FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec6.html#ch05lev1sec6"><FONT class=extract>Pseudo Char Drivers</FONT></A><FONT class=extract>" in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05"><FONT class=extract>Chapter 5</FONT></A><FONT class=extract>, "Character Drivers") and <TT>IRQF_SHARED</TT></FONT><A name="that this"></A><FONT class=extract> (used to specify that this IRQ is shared among multiple devices).</FONT></P>
+<P class=docText><A name="next argument"></A><FONT class=extract>The next argument, <TT>"roll"</TT></FONT><A name="by files"></A><FONT class=extract>, is used to identify this device in data generated by files such as <SPAN class=docEmphasis>/proc/interrupts.</SPAN> The final parameter, set to <TT>NULL</TT></FONT><A name="for shared"></A><FONT class=extract> in this case, is relevant only for shared interrupt handlers and is used to identify each device sharing the IRQ line.</FONT></P><A name=ch04note01></A>
+<DIV class=docNote>
+<P><FONT class=extract></FONT>
+<P class=docText><A name="the interrupt"></A><FONT class=extract>Starting with the 2.6.19 kernel, there have been some changes to the interrupt handler interface. Interrupt handlers used to take a third argument (<TT>struct pt_regs *</TT></FONT><A name="but this"></A><FONT class=extract>) that contained a pointer to CPU registers, but this has been removed starting with the 2.6.19 kernel. Also, the <TT>IRQF_xxx</TT> family of interrupt flags replaced the <TT>SA_xxx</TT> family. For example, with earlier kernels, you had to use <TT>SA_INTERRUPT</TT> rather than <TT>IRQF_DISABLED</TT> to mark an interrupt handler as fast.</FONT></P>
+<P><FONT class=extract></FONT></P></DIV><BR>
+<P class=docText><A name="requesting an"></A><FONT class=extract>Driver initialization is not a good place for requesting an IRQ because that can hog that valuable resource even when the device is not in use. So, device drivers usually request the IRQ when the device is opened by an application. Similarly, the IRQ is freed when the application closes the device and not while exiting the driver module. Freeing an IRQ is done as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>free_irq(int irq, void *dev_id);</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle2437></A><A name=iddle3827></A><A name=iddle3835></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex01"><FONT class=extract>Listing 4.1</FONT></A><A name="the implementation"></A><FONT class=extract> shows the implementation of the roller interrupt handler. <TT>roller_interrupt()</TT></FONT><A name="the final"></A><FONT class=extract> takes two arguments: the IRQ and the device identifier passed as the final argument to the associated <TT>request_irq()</TT></FONT><A name="Look at"></A><FONT class=extract>. Look at </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04fig03"><FONT class=extract>Figure 4.3</FONT></A><A name="side with"></A><FONT class=extract> side by side with this listing.</FONT></P><A name=ch04ex01></A>
+<H5 id=title-ID0E2JPM class=docExampleTitle><FONT class=extract>Listing 4.1. The Roller Interrupt Handler</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>spinlock_t roller_lock = SPIN_LOCK_UNLOCKED;
+static DECLARE_WAIT_QUEUE_HEAD(roller_poll);
+
+static irqreturn_t
+roller_interrupt(int irq, void *dev_id)
+{
+  int i, PA_t, PA_delta_t, movement = 0;
+
+  /* Get the waveforms from bits 0, 1 and 2
+     of Port D as shown in Figure 4.3 */
+  PA_t = PORTD &amp; 0x07;
+
+  /* Wait until the state of the pins change.
+     (Add some timeout to the loop) */
+  for (i=0; (PA_t==PA_delta_t); i++){
+    PA_delta_t = PORTD &amp; 0x07;
+  }
+
+  movement = determine_movement(PA_t, PA_delta_t); /* See below */
+
+  spin_lock(&amp;roller_lock);
+
+  /* Store the wheel movement in a buffer for
+     later access by the read()/poll() entry points */
+  store_movements(movement);
+
+  spin_unlock(&amp;roller_lock);
+
+  /* Wake up the poll entry point that might have
+     gone to sleep, waiting for a wheel movement */
+  wake_up_interruptible(&amp;roller_poll);
+
+  return IRQ_HANDLED;
+}
+int
+determine_movement(int PA_t, int PA_delta_t)
+{
+  switch (PA_t){
+    case 0:
+      switch (PA_delta_t){
+      case 1:
+        movement = ANTICLOCKWISE;
+        break;
+      case 2:
+        movement = CLOCKWISE;
+        break;
+      case 4:
+        movement = KEYPRESSED;
+        break;
+      }
+      break;
+    case 1:
+      switch (PA_delta_t){
+      case 3:
+        movement = ANTICLOCKWISE;
+        break;
+      case 0:
+        movement = CLOCKWISE;
+        break;
+      }
+      break;
+    case 2:
+      switch (PA_delta_t){
+      case 0:
+        movement = ANTICLOCKWISE;
+        break;
+      case 3:
+        movement = CLOCKWISE;
+        break;
+      }
+      break;
+    case 3:
+      switch (PA_delta_t){
+      case 2:
+        movement = ANTICLOCKWISE;
+        break;
+      case 1:
+        movement = CLOCKWISE;
+        break;
+      }
+    case 4:
+      movement = KEYPRESSED;
+      break;
+  }
+}
+
+					  </FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><FONT class=extract>&nbsp;</FONT></P>
+<P class=docText><A name=iddle1802></A><A name=iddle1804></A><A name=iddle1806></A><A name=iddle1984></A><A name=iddle1986></A><A name=iddle2429></A><A name=iddle2441></A><A name=iddle2443></A><A name=iddle2485></A><A name=iddle4078></A><A name=iddle4228></A><A name="entry points"></A><FONT class=extract>Driver entry points such as <TT>read()</TT> and <TT>poll()</TT> operate in tandem with <TT>roller_interrupt()</TT></FONT><A name="any waiting"></A><FONT class=extract>. For example, when the handler deciphers wheel movement, it wakes up any waiting <TT>poll()</TT></FONT><A name="to sleep"></A><FONT class=extract> threads that may have gone to sleep in response to a <TT>select()</TT></FONT><A name=Revisit></A><FONT class=extract> system call issued by an application such as X Windows. Revisit </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex01"><FONT class=extract>Listing 4.1</FONT></A><A name="after learning"></A><FONT class=extract> and implement the complete roller driver after learning the internals of character drivers in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05"><FONT class=extract>Chapter 5</FONT></A><FONT class=extract>.</FONT></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07ex03"><FONT class=extract>Listing 7.3</FONT></A><FONT class=extract> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07"><FONT class=extract>Chapter 7</FONT></A><FONT class=extract>, "Input Drivers," takes advantage of the kernel's <SPAN class=docEmphasis>input</SPAN></FONT><A name="roller mouse"></A><FONT class=extract> interface to convert this roller wheel into a roller mouse.</FONT></P>
+<P class=docText><A name="this section"></A><FONT class=extract>Let's end this section by introducing some functions that enable and disable interrupts on a particular IRQ. <TT>enable_irq(ROLLER_IRQ)</TT> enables interrupt generation when the roller wheel moves, while <TT>disable_irq(ROLLER_IRQ)</TT> does the reverse. <TT>disable_irq_nosync(ROLLER_IRQ)</TT></FONT><A name="executing instance"></A><FONT class=extract> disables roller interrupts but does not wait for any currently executing instance of <TT>roller_interrupt()</TT></FONT><A name="to return"></A><FONT class=extract> to return. This <TT>nosync</TT> flavor of <TT>disable_irq()</TT></FONT><A name="but can"></A><FONT class=extract> is faster but can potentially cause race conditions. Use this only when you know that there can be no races. An example user of <TT>disable_irq_nosync()</TT> is <SPAN class=docEmphasis>drivers/ide/ide-io.c</SPAN></FONT><A name="blocks interrupts"></A><FONT class=extract>, which blocks interrupts during initialization, because some systems have trouble with that.</FONT></P><A name=ch04lev2sec4></A>
+<H4 id=title-ID0ERPPM class=docSection2Title><FONT class=extract>Softirqs and Tasklets</FONT></H4>
+<P class=docText><A name="responsible for"></A><FONT class=extract>As discussed previously, interrupt handlers have two conflicting requirements: They are responsible for the bulk of device data processing, but they have to exit as fast as possible. To bail out of this situation, interrupt handlers are designed in two parts: a hurried and harried top half that interacts with the hardware, and a relaxed bottom half that does most of the processing with all interrupts enabled. Unlike interrupts, bottom halves are synchronous because the kernel decides when to execute them. The following mechanisms are available in the kernel to defer work to a bottom half: softirqs, tasklets, and work queues.</FONT></P>
+<P class=docText><A name=iddle2438></A><A name=iddle3825></A><A name=iddle3826></A><A name=iddle3836></A><A name=iddle4079></A><A name=iddle4080></A><A name="half mechanism"></A><FONT class=extract>Softirqs are the basic bottom half mechanism and have strong locking requirements. They are used only by a few performance-sensitive subsystems such as the networking layer, SCSI layer, and kernel timers. Tasklets are built on top of softirqs and are easier to use. It's recommended to use tasklets unless you have crucial scalability or speed requirements. A primary difference between a softirq and a tasklet is that the former is reentrant whereas the latter isn't. Different instances of a softirq can run simultaneously on different processors, but that is not the case with tasklets.</FONT></P>
+<P class=docText><A name="the roller"></A><FONT class=extract>To illustrate the usage of softirqs and tasklets, assume that the roller wheel in the previous example has inherent hardware problems due to the presence of moving parts (say, the wheel gets stuck occasionally) resulting in the generation of out-of-spec waveforms. A stuck wheel can continuously generate spurious interrupts and potentially freeze the system. To get around this problem, capture the wave stream, run some analysis on it, and dynamically switch from interrupt mode to a polled mode if the wheel looks stuck, and vice versa if it's unstuck. Capture the wave stream from the interrupt handler and perform the analysis from a bottom half. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex02"><FONT class=extract>Listing 4.2</FONT></A><FONT class=extract> implements this using softirqs, and </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex03"><FONT class=extract>Listing 4.3</FONT></A><FONT class=extract> uses tasklets. Both are simplified variants of </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex01"><FONT class=extract>Listing 4.1</FONT></A><FONT class=extract>. This reduces the handler to two functions: <TT>roller_capture()</TT></FONT><A name="GPIO Port"></A><FONT class=extract> that obtains a wave snippet from GPIO Port D, and <TT>roller_analyze()</TT></FONT><A name="and switches"></A><FONT class=extract> that runs an algorithmic analysis on the wave and switches to polled mode if required.</FONT></P><A name=ch04ex02></A>
+<H5 id=title-ID0EWSPM class=docExampleTitle><FONT class=extract>Listing 4.2. Using Softirqs to Offload Work from Interrupt Handlers</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>void __init
+roller_init()
+{
+  /* ... */
+
+  /* Open the softirq. Add an entry for ROLLER_SOFT_IRQ in
+     the enum list in <SPAN class=docEmphasis>include/linux/interrupt.h</SPAN> */
+  open_softirq(ROLLER_SOFT_IRQ, roller_analyze, NULL);
+}
+
+
+/* The bottom half */
+void
+roller_analyze()
+{
+  /* Analyze the waveforms and switch to polled mode if required */
+}
+/* The interrupt handler */
+static irqreturn_t
+roller_interrupt(int irq, void *dev_id)
+{
+  /* Capture the wave stream */
+  roller_capture();
+
+  /* Mark softirq as pending */
+  raise_softirq(ROLLER_SOFT_IRQ);
+
+  return IRQ_HANDLED;
+}
+
+					  </FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2439></A><A name=iddle3711></A><A name=iddle3837></A><A name="define a"></A><FONT class=extract>To define a softirq, you have to statically add an entry to <SPAN class=docEmphasis>include/linux/interrupt.h.</SPAN> You can't define one dynamically. <TT>raise_softirq()</TT></FONT><A name="execute it"></A><FONT class=extract> announces that the corresponding softirq is pending execution. The kernel will execute it at the next available opportunity. This can be during exit from an interrupt handler or via the <SPAN class=docEmphasis>ksoftirqd</SPAN></FONT><A name="kernel thread"></A><FONT class=extract> kernel thread.</FONT></P><A name=ch04ex03></A>
+<H5 id=title-ID0EWUPM class=docExampleTitle><FONT class=extract>Listing 4.3. Using Tasklets to Offload Work from Interrupt Handlers</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>struct roller_device_struct { /* Device-specific structure */
+  /* ... */
+  struct tasklet_struct tsklt;
+  /* ... */
+}
+
+void __init roller_init()
+{
+  struct roller_device_struct *dev_struct;
+  /* ... */
+
+  /* Initialize tasklet */
+  tasklet_init(&amp;dev_struct-&gt;tsklt, roller_analyze, dev);
+}
+
+
+/* The bottom half */
+void
+roller_analyze()
+{
+/* Analyze the waveforms and switch to
+   polled mode if required */
+}
+/* The interrupt handler */
+static irqreturn_t
+roller_interrupt(int irq, void *dev_id)
+{
+  struct roller_device_struct *dev_struct;
+
+  /* Capture the wave stream */
+  roller_capture();
+
+  /* Mark tasklet as pending */
+  tasklet_schedule(&amp;dev_struct-&gt;tsklt);
+
+  return IRQ_HANDLED;
+}
+
+					  </FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle4217></A><A name=iddle4219></A><A name=iddle4221></A><A name=iddle4223></A><A name=iddle4225></A><TT><FONT class=extract>tasklet_init()</FONT></TT><A name="a tasklet"></A><FONT class=extract> dynamically initializes a tasklet. The function does not allocate memory for a <TT>tasklet_struct</TT></FONT><A name="you have"></A><FONT class=extract>, rather you have to pass the address of an allocated one. <TT>tasklet_schedule()</TT></FONT><A name="the kernel"></A><FONT class=extract> announces that the corresponding tasklet is pending execution. Like for interrupts, the kernel offers a bunch of functions to control the execution state of tasklets on systems having multiple processors:</FONT></P>
+<UL>
+<LI>
+<P class=docList><FONT class=extract><TT>tasklet_enable()</TT> enables tasklets.</FONT></P>
+<LI>
+<P class=docList><TT><FONT class=extract>tasklet_disable()</FONT></TT><A name="any currently"></A><FONT class=extract> disables tasklets and waits until any currently executing tasklet instance has exited.</FONT></P>
+<LI>
+<P class=docList><FONT class=extract><TT>tasklet_disable_nosync()</TT> has semantics similar to <TT>disable_irq_nosync()</TT></FONT><A name="the tasklet"></A><FONT class=extract>. The function does not wait for active instances of the tasklet to finish execution.</FONT></P></LI></UL>
+<P class=docText><A name="interrupt handlers"></A><FONT class=extract>You have seen the differences between interrupt handlers and bottom halves, but there are a few similarities, too. Interrupt handlers and tasklets are both not reentrant. And neither of them can go to sleep. Also, interrupt handlers, tasklets, and softirqs cannot be preempted.</FONT></P>
+<P class=docText><A name="work from"></A><FONT class=extract>Work queues are a third way to defer work from interrupt handlers. They execute in process context and are allowed to sleep, so they can use drowsy functions such as mutexes. We discussed work queues in the preceding chapter when we looked at various kernel helper facilities. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04tab01"><FONT class=extract>Table 4.1</FONT></A><A name="and work"></A><FONT class=extract> compares softirqs, tasklets, and work queues.</FONT></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch04tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><FONT class=extract>Table 4.1. Comparing Softirqs, Tasklets, and Work Queues</FONT></H5></CAPTION>
+<COLGROUP span=4 align=left><FONT class=extract>
+<COL width=100>
+<COL width=150>
+<COL width=150>
+<COL width=150></FONT></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>&nbsp;</FONT></TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><A name=iddle1785></A><A name=iddle1787></A><A name=iddle2779></A><A name=iddle2781></A><A name=iddle3703></A><A name=iddle4379></A><A name=iddle4649></A><FONT class=extract>Softirqs</FONT></TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Tasklets</FONT></TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Work Queues</FONT></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>Execution context</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Deferred work runs in interrupt context.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Deferred work runs in interrupt context.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Deferred work runs in process context.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>Reentrancy</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Can run simultaneously on different CPUs.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Cannot run simultaneously on different CPUs. Different CPUs can run different tasklets, however.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Can run simultaneously on different CPUs.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>Sleep semantics</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Cannot go to sleep.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Cannot go to sleep.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>May go to sleep.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>Preemption</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Cannot be preempted/scheduled.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Cannot be preempted/scheduled.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>May be preempted/scheduled.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>Ease of use</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Not easy to use.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Easy to use.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Easy to use.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>When to use</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><A name="you have"></A><FONT class=extract>If deferred work will not go to sleep and if you have crucial scalability or speed requirements.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="If deferred"></A><FONT class=extract>If deferred work will not go to sleep.</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="work may"></A><FONT class=extract>If deferred work may go to sleep.</FONT></TD></TR></TBODY></TABLE></P><BR><A name=ch04note02></A>
+<DIV class=docNote>
+<P><FONT class=extract></FONT>
+<P class=docText><A name="is an"></A><FONT class=extract>There is an ongoing debate in LKML on the feasibility of getting rid of the tasklet interface. Tasklets enjoy more priority than process context code, so they present latency problems. Moreover, as you learned, they are constrained not to sleep and to execute on the same CPU. It's being suggested that all existing tasklets be converted to softirqs or work queues on a case-by-case basis.</FONT></P>
+<P class=docText><FONT class=extract>The <TT>&#37413;&#25617;t</TT> patch-set alluded to in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02.html#ch02"><FONT class=extract>Chapter 2</FONT></A><A name="preemption coverage"></A><FONT class=extract> moves interrupt handling to kernel threads to achieve wider preemption coverage.</FONT></P></DIV>

@@ -1,0 +1,206 @@
+<H3 class=section>9.3 Indirect Function Calls</H3><A name=index-indirect-function-calls></A><A name=index-function-calls_002c-indirect></A><A name=index-function-pointers></A><A name=index-pointers-to-functions></A><A name=index-differences-in-awk-and-gawk_002c-indirect-function-calls></A>
+<P>This section describes a <CODE>gawk</CODE>-specific extension. </P>
+<P>Often, you may wish to defer the choice of function to call until runtime. For example, you may have different kinds of records, each of which should be processed differently. </P>
+<P>Normally, you would have to use a series of <CODE>if</CODE>-<CODE>else</CODE> statements to decide which function to call. By using <EM>indirect</EM> function calls, you can specify the name of the function to call as a string variable, and then call the function. Let&#8217;s look at an example. </P>
+<P>Suppose you have a file with your test scores for the classes you are taking. The first field is the class name. The following fields are the functions to call to process the data, up to a &#8220;marker&#8221; field &#8216;<SAMP>data:</SAMP>&#8217;. Following the marker, to the end of the record, are the various numeric test scores. </P>
+<P>Here is the initial file; you wish to get the sum and the average of your test scores: </P>
+<DIV class=example><PRE class=example>Biology_101 sum average data: 87.0 92.4 78.5 94.9
+Chemistry_305 sum average data: 75.2 98.3 94.7 88.2
+English_401 sum average data: 100.0 95.6 87.1 93.4
+</PRE></DIV>
+<P>To process the data, you might write initially: </P>
+<DIV class=example><PRE class=example>{
+    class = $1
+    for (i = 2; $i != "data:"; i++) {
+        if ($i == "sum")
+            sum()   # processes the whole record
+        else if ($i == "average")
+            average()
+        &#8230;           # and so on
+    }
+}
+</PRE></DIV>
+<P>This style of programming works, but can be awkward. With <EM>indirect</EM> function calls, you tell <CODE>gawk</CODE> to use the <EM>value</EM> of a variable as the name of the function to call. </P>
+<P>The syntax is similar to that of a regular function call: an identifier immediately followed by a left parenthesis, any arguments, and then a closing right parenthesis, with the addition of a leading &#8216;<SAMP>@</SAMP>&#8217; character: </P>
+<DIV class=example><PRE class=example>the_func = "sum"
+result = @the_func()   # calls the sum() function
+</PRE></DIV>
+<P>Here is a full program that processes the previously shown data, using indirect function calls. </P>
+<DIV class=example><PRE class=example># indirectcall.awk --- Demonstrate indirect function calls
+
+# average --- return the average of the values in fields $first - $last
+
+function average(first, last,   sum, i)
+{
+    sum = 0;
+    for (i = first; i &lt;= last; i++)
+        sum += $i
+
+    return sum / (last - first + 1)
+}
+
+# sum --- return the sum of the values in fields $first - $last
+
+function sum(first, last,   ret, i)
+{
+    ret = 0;
+    for (i = first; i &lt;= last; i++)
+        ret += $i
+
+    return ret
+}
+</PRE></DIV>
+<P>These two functions expect to work on fields; thus the parameters <CODE>first</CODE> and <CODE>last</CODE> indicate where in the fields to start and end. Otherwise they perform the expected computations and are not unusual. </P>
+<DIV class=example><PRE class=example># For each record, print the class name and the requested statistics
+
+{
+    class_name = $1
+    gsub(/_/, " ", class_name)  # Replace _ with spaces
+
+    # find start
+    for (i = 1; i &lt;= NF; i++) {
+        if ($i == "data:") {
+            start = i + 1
+            break
+        }
+    }
+
+    printf("%s:\n", class_name)
+    for (i = 2; $i != "data:"; i++) {
+        the_function = $i
+        printf("\t%s: &lt;%s&gt;\n", $i, @the_function(start, NF) "")
+    }
+    print ""
+}
+</PRE></DIV>
+<P>This is the main processing for each record. It prints the class name (with underscores replaced with spaces). It then finds the start of the actual data, saving it in <CODE>start</CODE>. The last part of the code loops through each function name (from <CODE>$2</CODE> up to the marker, &#8216;<SAMP>data:</SAMP>&#8217;), calling the function named by the field. The indirect function call itself occurs as a parameter in the call to <CODE>printf</CODE>. (The <CODE>printf</CODE> format string uses &#8216;<SAMP>%s</SAMP>&#8217; as the format specifier so that we can use functions that return strings, as well as numbers. Note that the result from the indirect call is concatenated with the empty string, in order to force it to be a string value.) </P>
+<P>Here is the result of running the program: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk -f indirectcall.awk class_data1</EM></KBD>
+-| Biology 101:
+-|     sum: &lt;352.8&gt;
+-|     average: &lt;88.2&gt;
+-| 
+-| Chemistry 305:
+-|     sum: &lt;356.4&gt;
+-|     average: &lt;89.1&gt;
+-| 
+-| English 401:
+-|     sum: &lt;376.1&gt;
+-|     average: &lt;94.025&gt;
+</PRE></DIV>
+<P>The ability to use indirect function calls is more powerful than you may think at first. The C and C++ languages provide &#8220;function pointers,&#8221; which are a mechanism for calling a function chosen at runtime. One of the most well-known uses of this ability is the C <CODE>qsort()</CODE> function, which sorts an array using the famous &#8220;quick sort&#8221; algorithm (see <A href="http://en.wikipedia.org/wiki/Quick_sort">the Wikipedia article</A> for more information). To use this function, you supply a pointer to a comparison function. This mechanism allows you to sort arbitrary data in an arbitrary fashion. </P>
+<P>We can do something similar using <CODE>gawk</CODE>, like this: </P>
+<DIV class=example><PRE class=example># quicksort.awk --- Quicksort algorithm, with user-supplied
+#                   comparison function
+# quicksort --- C.A.R. Hoare's quick sort algorithm. See Wikipedia
+#               or almost any algorithms or computer science text
+
+function quicksort(data, left, right, less_than,    i, last)
+{
+    if (left &gt;= right)  # do nothing if array contains fewer
+        return          # than two elements
+
+    quicksort_swap(data, left, int((left + right) / 2))
+    last = left
+    for (i = left + 1; i &lt;= right; i++)
+        if (@less_than(data[i], data[left]))
+            quicksort_swap(data, ++last, i)
+    quicksort_swap(data, left, last)
+    quicksort(data, left, last - 1, less_than)
+    quicksort(data, last + 1, right, less_than)
+}
+
+# quicksort_swap --- helper function for quicksort, should really be inline
+
+function quicksort_swap(data, i, j, temp)
+{
+    temp = data[i]
+    data[i] = data[j]
+    data[j] = temp
+}
+</PRE></DIV>
+<P>The <CODE>quicksort()</CODE> function receives the <CODE>data</CODE> array, the starting and ending indices to sort (<CODE>left</CODE> and <CODE>right</CODE>), and the name of a function that performs a &#8220;less than&#8221; comparison. It then implements the quick sort algorithm. </P>
+<P>To make use of the sorting function, we return to our previous example. The first thing to do is write some comparison functions: </P>
+<DIV class=example><PRE class=example># num_lt --- do a numeric less than comparison
+
+function num_lt(left, right)
+{
+    return ((left + 0) &lt; (right + 0))
+}
+
+# num_ge --- do a numeric greater than or equal to comparison
+
+function num_ge(left, right)
+{
+    return ((left + 0) &gt;= (right + 0))
+}
+</PRE></DIV>
+<P>The <CODE>num_ge()</CODE> function is needed to perform a descending sort; when used to perform a &#8220;less than&#8221; test, it actually does the opposite (greater than or equal to), which yields data sorted in descending order. </P>
+<P>Next comes a sorting function. It is parameterized with the starting and ending field numbers and the comparison function. It builds an array with the data and calls <CODE>quicksort()</CODE> appropriately, and then formats the results as a single string: </P>
+<DIV class=example><PRE class=example># do_sort --- sort the data according to `compare'
+#             and return it as a string
+
+function do_sort(first, last, compare,      data, i, retval)
+{
+    delete data
+    for (i = 1; first &lt;= last; first++) {
+        data[i] = $first
+        i++
+    }
+
+    quicksort(data, 1, i-1, compare)
+
+    retval = data[1]
+    for (i = 2; i in data; i++)
+        retval = retval " " data[i]
+    
+    return retval
+}
+</PRE></DIV>
+<P>Finally, the two sorting functions call <CODE>do_sort()</CODE>, passing in the names of the two comparison functions: </P>
+<DIV class=example><PRE class=example># sort --- sort the data in ascending order and return it as a string
+
+function sort(first, last)
+{
+    return do_sort(first, last, "num_lt")
+}
+
+# rsort --- sort the data in descending order and return it as a string
+
+function rsort(first, last)
+{
+    return do_sort(first, last, "num_ge")
+}
+</PRE></DIV>
+<P>Here is an extended version of the data file: </P>
+<DIV class=example><PRE class=example>Biology_101 sum average sort rsort data: 87.0 92.4 78.5 94.9
+Chemistry_305 sum average sort rsort data: 75.2 98.3 94.7 88.2
+English_401 sum average sort rsort data: 100.0 95.6 87.1 93.4
+</PRE></DIV>
+<P>Finally, here are the results when the enhanced program is run: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk -f quicksort.awk -f indirectcall.awk class_data2</EM></KBD>
+-| Biology 101:
+-|     sum: &lt;352.8&gt;
+-|     average: &lt;88.2&gt;
+-|     sort: &lt;78.5 87.0 92.4 94.9&gt;
+-|     rsort: &lt;94.9 92.4 87.0 78.5&gt;
+-| 
+-| Chemistry 305:
+-|     sum: &lt;356.4&gt;
+-|     average: &lt;89.1&gt;
+-|     sort: &lt;75.2 88.2 94.7 98.3&gt;
+-|     rsort: &lt;98.3 94.7 88.2 75.2&gt;
+-| 
+-| English 401:
+-|     sum: &lt;376.1&gt;
+-|     average: &lt;94.025&gt;
+-|     sort: &lt;87.1 93.4 95.6 100.0&gt;
+-|     rsort: &lt;100.0 95.6 93.4 87.1&gt;
+</PRE></DIV>
+<P>Remember that you must supply a leading &#8216;<SAMP>@</SAMP>&#8217; in front of an indirect function call. </P>
+<P>Unfortunately, indirect function calls cannot be used with the built-in functions. However, you can generally write &#8220;wrapper&#8221; functions which call the built-in ones, and those can be called indirectly. (Other than, perhaps, the mathematical functions, there is not a lot of reason to try to call the built-in functions indirectly.) </P>
+<P><CODE>gawk</CODE> does its best to make indirect function calls efficient. For example, in the following case: </P>
+<DIV class=example><PRE class=example>for (i = 1; i &lt;= n; i++)
+    @the_func()
+</PRE></DIV>
+<P><CODE>gawk</CODE> will look up the actual function to call only once.

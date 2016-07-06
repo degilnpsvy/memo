@@ -1,0 +1,39 @@
+<H3 id=700181-819 class=docSection1Title>10.1. Enabling MTD Services</H3>
+<P class=docText>To use MTD services, your kernel must be configured with MTD enabled. Many configuration options exist for MTD, some of which can be confusing. The best way to understand the myriad choices is simply to begin working with them. To illustrate the mechanics of the MTD subsystem and how it fits in with the system, we begin with some very simple examples that you can perform on your Linux development workstation. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec1.html#ch10fig01">Figure 10-1</A> shows the kernel configuration (invoked per the usual <TT>make ARCH=&lt;arch&gt; gconfig</TT>) necessary to enable the bare-minimum MTD functionality. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec1.html#ch10list01">Listing 10-1</A> displays the <TT>.config</TT> file entries resulting from the selections shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec1.html#ch10fig01">Figure 10-1</A>.</P><A name=ch10list01></A>
+<H5 id=title-IDACRGCD class=docExampleTitle>Listing 10-1. Basic MTD Configuration from <TT>.config</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>CONFIG_MTD=y
+CONFIG_MTD_CHAR=y
+CONFIG_MTD_BLOCK=y
+CONFIG_MTD_MTDRAM=m
+CONFIG_MTDRAM_TOTAL_SIZE=8192
+CONFIG_MTDRAM_ERASE_SIZE=128</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1228></A>The MTD subsystem is enabled via the first configuration option, which is selected via the first check box shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec1.html#ch10fig01">Figure 10-1</A>, Memory Technology Device (MTD) Support. The next two entries from the configuration shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec1.html#ch10fig01">Figure 10-1</A> enable special device-level access to the MTD devices, such as Flash memory, from user space. The first one (<TT>CONFIG_MTD_CHAR</TT>) enables character device mode access, essentially a sequential access characterized by byte-at-a-time sequential read and write access. The second (<TT>CONFIG_MTD_BLOCK</TT>) enables access to the MTD device in block device mode, the access method used for disk drives, in which blocks of multiple bytes of data are read or written at a time. These access modes allow the use of familiar Linux commands to read and write data to the Flash memory, as you shall shortly see.</P><A name=ch10fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 10-1. MTD configuration</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/10elp01_alt.jpg" target=_self>[View full size image]</A></DIV><IMG id=195131084202 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/10elp01.jpg" width=500 height=408>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText>The <TT>CONFIG_MTD_MTDRAM</TT> element enables a special test driver that enables us to examine the MTD subsystem even if we don't have any MTD devices (such as Flash memory) available. Coupled with this configuration selection are two parameters <A name=iddle1159></A><A name=iddle1728></A><A name=iddle1729></A><A name=iddle1993></A><A name=iddle2122></A><A name=iddle2195></A><A name=iddle2196></A>associated with the RAM-based test driver: the device size and the erase size. For this example, we have specified 8192KB total size and 128KB erase size. The objective of this test driver is to emulate a Flash device, primarily to facilitate MTD subsystem testing and development. Because Flash memory is architected using fixed-size erase blocks, the test driver also contains the concept of erase blocks. You will see how these parameters are used shortly.</P><A name=ch10lev2sec1></A>
+<H4 id=title-IDASVGCD class=docSection2Title>10.1.1. Building MTD</H4>
+<P class=docText>MTD is included in any recent snapshot of the Linux kernel. However, if you need to take advantage of MTD features that have been added since your kernel version was released, you must download and build the MTD drivers and utilities. Because the MTD package contains both kernel components and user space programs, it is useful to keep the MTD package in a separate project directory and connect it to your kernel source tree. The simplest way to integrate the MTD and your kernel source tree(s) is to use the scripts provided by the MTD package.</P>
+<P class=docText>Download the MTD package from the location given at the end of this chapter. Unpack the archive into a directory of your choice using the tar utility. Enter the directory and run the <TT>patchkernel.sh</TT> script. This script provides several options. Execute the script with no parameters for a detailed usage. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec1.html#ch10list02">Listing 10-2</A> shows how to install the kernel components.</P><A name=ch10list02></A>
+<H5 id=title-IDALWGCD class=docExampleTitle>Listing 10-2. Patching Your Kernel for MTD</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>./patchkernel.sh -2 ../sources/linux-2.6.10-mtd</SPAN>
+Patching ../sources/linux-2.6.10-mtd/
+Include JFFS2 file system: jffs2
+Include JFFS3 file system (experimental): no
+Method: ln      &lt;&lt; Will actually create symbolic links
+Can we start now ? [y/N]<SPAN class=docEmphStrong>y</SPAN>
+
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Invoking the <TT>patchkernel.sh</TT> script with the <TT>-2</TT> parameter indicates that we want support for the JFFS2 file system. We provide the path to the kernel source directory as <TT>../sources/linux-2.6.10-mtd</TT>. By default, <TT>patchkernel.sh</TT> does not copy any files into the kernel source directory. Instead, it creates symbolic links from the kernel source tree pointing into the MTD subdirectory itself. In this way, <A name=iddle1465></A><A name=iddle1695></A><A name=iddle1707></A><A name=iddle1984></A><A name=iddle2113></A><A name=iddle2134></A>you can maintain a common source tree for MTD for any number of kernels that you happen to have on your development workstation. This allows the MTD kernel drivers to be built with the kernel build system, including information about your specific kernel configuration.

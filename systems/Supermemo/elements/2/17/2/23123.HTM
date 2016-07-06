@@ -1,0 +1,316 @@
+<H3 id=-100000 class=docSection1Title>Infrared</H3>
+<P class=docText><SPAN class=docEmphasis>Infrared</SPAN><A name="rays are"></A> (IR) rays are optical waves lying between the visible and the microwave regions of the electromagnetic spectrum. One use of IR is in point-to-point data communication. Using IR, you can exchange visiting cards between PDAs, network two laptops, or dispatch a document to a printer. IR has a range of up to 1 meter within a 30-degree cone, spreading from &#37413;?to +15 degrees.</P>
+<P class=docText><A name="two popular"></A>There are two popular flavors of IR communication: <SPAN class=docEmphasis>Standard IR</SPAN><A name="supports speeds"></A> (SIR), which supports speeds of up to 115.20 Kbaud; and <SPAN class=docEmphasis>Fast IR</SPAN> (FIR), which has a bandwidth of 4Mbps.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16fig04">Figure 16.4</A><A name="is IR"></A> shows IR connection on a laptop. UART1 in the Super I/O chipset is IR-enabled, so an IR transceiver is directly connected to it. Laptops having no IR support in their Super I/O chip may rely on an external IR dongle (see the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16lev2sec12">Device Example: IR Dongle</A><A name="to UART"></A>") similar to the one connected to UART0. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16fig05">Figure 16.5</A><A name="IR dongle"></A> shows IR connection on an embedded SoC having a built-in IR dongle connected to a system UART.</P><A name=ch16fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 16.4. IrDA on a laptop.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzRmNmhpZ2Y-.jpg" width=275 height=311></P></CENTER>
+<P></P><BR><A name=ch16fig05></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 16.5. IrDA on an embedded device (for example, EP7211).</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzVmNmhpZ2Y-.jpg" width=400 height=285></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle2339></A><A name=iddle2469></A><A name=iddle2470></A><A name=iddle2472></A><A name=iddle2473></A><A name=iddle2489></A><A name=iddle2786></A><A name=iddle3310></A><A name=iddle3312></A><A name=iddle4277></A>Linux supports IR communication on two planes:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Intelligent data-transfer via protocols specified by the <SPAN class=docEmphasis>Infrared Data Association</SPAN> (IrDA). This is implemented by the Linux-IrDA project.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="implemented by"></A>Controlling applications via a remote control. This is implemented by the <SPAN class=docEmphasis>Linux Infrared Remote Control</SPAN> (LIRC) project.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="LIRC before"></A>This section primarily explores Linux-IrDA but takes a quick look at LIRC before wrapping up.</P><A name=ch16lev2sec10></A>
+<H4 id=title-ID0EORAO class=docSection2Title>Linux-IrDA</H4>
+<P class=docText>The Linux-IrDA project (<A class=docLink href="http://irda.sourceforge.net/" target=_blank>http://irda.sourceforge.net/</A><A name="to the"></A>) brings IrDA capabilities to the kernel. To get an idea of how Linux-IrDA components relate vis-&#224;-vis the IrDA stack and possible hardware configurations, let's criss-cross through <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16fig06">Figure 16.6</A>:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="constitute the"></A>Device drivers constitute the bottom layer. SIR chipsets that are 16550-compatible can reuse the native Linux serial driver after shaping its behavior using the IrDA line discipline, IrTTY. An alternative to this combo is the IrPort driver. FIR chipsets have their own special drivers.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="Next comes"></A>Next comes the core protocol stack. This consists of the <SPAN class=docEmphasis><A name="Access Protocol"></A>IR Link Access Protocol</SPAN> (IrLAP), <SPAN class=docEmphasis><A name="Link Management"></A>IR Link Management Protocol</SPAN> (IrLMP), <SPAN class=docEmphasis>Tiny Transport Protocol</SPAN> (TinyTP), and the <SPAN class=docEmphasis>IrDA socket</SPAN><A name="state machine"></A> (IrSock) interface. IrLAP provides a reliable transport as well as the state machine to discover neighboring devices. IrLMP is a multiplexer over IrLAP. TinyTP provides segmentation, reassembly, and flow control. IrSock offers a socket interface over IrLMP and TinyTP.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="marry IrDA"></A>Higher regions of the stack marry IrDA to data-transfer applications. IrLAN and IrNET enable networking, while IrComm allows serial communication.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="break the"></A>You also need the applications that ultimately make or break the technology. An example is <SPAN class=docEmphasis>openobex</SPAN> (<A class=docLink href="http://openobex.sourceforge.net/" target=_blank>http://openobex.sourceforge.net/</A>), which implements the <SPAN class=docEmphasis>OBject EXchange</SPAN><A name="documents and"></A> (OBEX) protocol used to exchange objects such as documents and visiting cards. To configure Linux-IrDA, you need the <SPAN class=docEmphasis>irda-utils</SPAN><A name=as></A> package that comes bundled with many distributions. This provides tools such as <SPAN class=docEmphasis>irattach</SPAN>, <SPAN class=docEmphasis>irdadump</SPAN>, and <SPAN class=docEmphasis>irdaping</SPAN>.</P></DIV></LI></OL></DIV>
+<P class=docText></P><A name=ch16fig06></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 16.6. Communicating over Linux-IrDA.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZy5wX2xjc2kwMXQvNjZoZmlnaWFm.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzZmNmhpZ2Y-.jpg" width=500 height=617>
+<P></P></CENTER>
+<P></P><BR><A name=ch16lev2sec11></A>
+<H4 id=title-ID0EKUAO class=docSection2Title>Device Example: Super I/O Chip</H4>
+<P class=docText><A name=iddle2343></A><A name=iddle4175></A><A name="first taste"></A>To get a first taste of Linux-IrDA, let's get two laptops talking to each other over IR. Each laptop is IR-enabled via National Semiconductor's NSC PC87382 Super I/O chip.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16fn02">[2]</A></SUP> UART1 in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16fig04">Figure 16.4</A><A name="connection scenario"></A> shows the connection scenario. The PC87382 chip can work in both SIR and FIR modes. We will look at each in turn.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn02>[2]</A></SUP><A name="Super I"></A> Super I/O chipsets typically support several peripherals besides IrDA, such as serial ports, parallel ports, <SPAN class=docEmphasis><A name="Digital Interface"></A>Musical Instrument Digital Interface</SPAN><A name="floppy controllers"></A> (MIDI), and floppy controllers.</P></BLOCKQUOTE>
+<P class=docText><A name="For communicating"></A>SIR chips offer a UART interface to the host computer. For communicating in SIR mode, attach the associated UART port (<SPAN class=docEmphasis>/dev/ttyS1</SPAN><A name="to the"></A> in this example) of each laptop to the IrDA stack:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; irattach /dev/ttyS1 -s</SPAN></PRE></DIV><BR>
+<P class=docText>Verify that IrDA kernel modules (<SPAN class=docEmphasis>irda.ko</SPAN>, <SPAN class=docEmphasis>sir_dev.ko</SPAN>, and <SPAN class=docEmphasis>irtty_sir.ko</SPAN>) are loaded and that the <SPAN class=docEmphasis>irda_sir_wq</SPAN><A name="an appearance"></A> kernel thread is running. The irda0 interface should also have made an appearance in the <TT>ifconfig</TT> output. The <TT>-s</TT> option to <TT>irattach</TT><A name="the neighborhood"></A> triggers a search for IR activity in the neighborhood. If you slide the laptops such that their IR transceivers lie within the range cone, they will be able to spot each other:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /proc/net/irda/discovery</SPAN>
+nickname: localhost, hint: 0x4400, saddr: 0x55529048, daddr: 0x8fefb350</PRE></DIV><BR>
+<P class=docText><A name="and destination"></A>The other laptop makes a similar announcement, but with the source and destination addresses (<TT>saddr</TT> and <TT>daddr</TT><A name="the desired"></A>) reversed. You may set the desired communication speed using stty on ttyS1. To set the baud rate to 19200, do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; stty speed 19200 &lt; /dev/ttyS1</SPAN></PRE></DIV><BR>
+<P class=docText><A name="way to"></A>The easiest way to cull IR activity from the air is by using the debug tool, <SPAN class=docEmphasis>irdadump</SPAN><A name="a sample"></A>. Here's a sample dump obtained during the preceding connection establishment, which shows the negotiated parameters:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; irdadump -i irda0</SPAN>
+...
+22:05:07.831424 snrm:cmd ca=fe pf=1 6fb7ff33 &gt; 2c0ce8b6 new-ca=40
+LAP QoS: Baud Rate=19200bps Max Turn Time=500ms Data Size=2048B Window Size=7 Add
+BOFS=0 Min Turn Time=5000us Link Disc=12s (32)
+22:05:07.987043 ua:rsp ca=40 pf=1 6fb7ff33 &lt; 2c0ce8b6
+LAP QoS: Baud Rate=19200bps Max Turn Time=500ms Data Size=2048B Window Size=7 Add
+BOFS=0 Min Turn Time=5000us Link Disc=12s (31)
+...
+
+					  </PRE></DIV><BR>
+<P class=docText><A name=iddle1846></A><A name=iddle2335></A><A name="also obtain"></A>You can also obtain debug information out of the IrDA stack by controlling the verbosity level in <SPAN class=docEmphasis>/proc/sys/net/irda/debug</SPAN>.</P>
+<P class=docText><A name="set the"></A>To set the laptops in FIR mode, dissociate ttyS1 from the native serial driver and instead attach it to the NSC FIR driver, <SPAN class=docEmphasis>nsc-ircc.ko</SPAN>:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; setserial /dev/ttyS1 uart none</SPAN>
+<SPAN class=docEmphStrong>bash&gt; modprobe nsc-ircc dongle_id=0x09</SPAN>
+<SPAN class=docEmphStrong>bash&gt; irattach irda0 -s</SPAN></PRE></DIV><BR>
+<P class=docText><TT>dongle_id</TT><A name="from your"></A> depends on your IR hardware and can be found from your hardware documentation. As you did for SIR, take a look at <SPAN class=docEmphasis>/proc/net/irda/discovery</SPAN><A name="okay thus"></A> to see whether things are okay thus far. Sometimes, FIR communication hangs at higher speeds. If irdadump shows a communication freeze, either put on your kernel hacking hat and fix the code, or try lowering the negotiated speed by tweaking <SPAN class=docEmphasis>/proc/sys/net/irda/max_baud_rate</SPAN>.</P>
+<P class=docText><A name="establish one"></A>Note that unlike the Bluetooth physical layer that can establish one-to-many connections, IR can support only a single connection per physical device at a time.</P><A name=ch16lev2sec12></A>
+<H4 id=title-ID0ETZAO class=docSection2Title>Device Example: IR Dongle</H4>
+<P class=docText><SPAN class=docEmphasis>Dongles</SPAN><A name="or USB"></A> are IR devices that plug into serial or USB ports. Some microcontrollers (such as Cirrus Logic's EP7211 shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16fig05">Figure 16.5</A><A name="considered dongles"></A>) that have on-chip IR controllers wired to their UARTs are also considered dongles.</P>
+<P class=docText><A name="a set"></A>Dongle drivers are a set of control methods responsible for operations such as changing the communication speed. They have four entry points: <TT>open()</TT>, <TT>reset()</TT>, <TT>change_speed()</TT>, and <TT>close()</TT><A name="points are"></A>. These entry points are defined as part of a <TT>dongle_driver</TT><A name="structure and"></A> structure and are invoked from the context of the IrDA kernel thread, <SPAN class=docEmphasis>irda_sir_wq</SPAN><A name="methods are"></A>. Dongle driver methods are allowed to block because they are invoked from process context with no locks held. The IrDA core offers three helper functions to dongle drivers: <TT>sirdev_raw_write()</TT> and <TT>sirdev_raw_read()</TT><A name="exchange control"></A> to exchange control data with the associated UART, and <TT>sirdev_set_dtr_rts()</TT> to wiggle modem control lines connected to the UART.</P>
+<P class=docText><A name="dongles than"></A>Because you're probably more likely to add kernel support for dongles than modify other parts of Linux-IrDA, let's implement an example dongle driver. Assume that you're enabling a yet-unsupported simple serial IR dongle that communicates only at 19200 or 57600 baud. Assume also that when the user wants to toggle the baud rate between these two values, you have to hold the UART's <SPAN class=docEmphasis>Request-to-Send</SPAN><A name="pull it"></A> (RTS) pin low for 50 microseconds and pull it back high for 25 microseconds. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16ex02">Listing 16.2</A> implements a dongle driver for this device.</P><A name=ch16ex02></A>
+<H5 id=title-ID0EK2AO class=docExampleTitle>Listing 16.2. An Example Dongle Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX delay.h="">
+#include <NET irda="" irda.h="">
+#include "sir-dev.h"   /* Assume that this sample driver lives in
+                          <SPAN class=docEmphasis>drivers/net/irda/</SPAN> */
+
+/* Open Method. This is invoked when an irattach is issued on the
+   associated UART */
+static int
+mydongle_open(struct sir_dev *dev)
+{
+  struct qos_info *qos = &amp;dev-&gt;qos;
+
+  /* Power the dongle by setting modem control lines, DTR/RTS. */
+  sirdev_set_dtr_rts(dev, TRUE, TRUE);
+
+  /* Speeds that mydongle can accept */
+  qos-&gt;baud_rate.bits &amp;= IR_19200|IR_57600;
+
+  irda_qos_bits_to_value(qos); /* Set QoS */
+  return 0;
+}
+
+/* Change baud rate */
+static int
+mydongle_change_speed(struct sir_dev *dev, unsigned speed)
+{
+  if ((speed == 19200) || (speed = 57600)){
+    /* Toggle the speed by pulsing RTS low
+       for 50 us and back high for 25 us */
+    sirdev_set_dtr_rts(dev, TRUE, FALSE);
+    udelay(50);
+    sirdev_set_dtr_rts(dev, TRUE, TRUE);
+    udelay(25);
+    return 0;
+  } else {
+    return -EINVAL;
+  }
+}
+
+/* Reset */
+static int
+mydongle_reset(struct sir_dev *dev)
+{
+  /* Reset the dongle as per the spec, for example,
+     by pulling DTR low for 50 us */
+  sirdev_set_dtr_rts(dev, FALSE, TRUE);
+  udelay(50);
+  sirdev_set_dtr_rts(dev, TRUE, TRUE);
+  dev-&gt;speed = 19200; /* Reset speed is 19200 baud */
+  return 0;
+}
+
+/* Close */
+static int
+mydongle_close(struct sir_dev *dev)
+{
+  /* Power off the dongle as per the spec,
+     for example, by pulling DTR and RTS low.. */
+  sirdev_set_dtr_rts(dev, FALSE, FALSE);
+  return 0;
+}
+
+/* Dongle Driver Methods */
+static struct dongle_driver mydongle = {
+  .owner     = THIS_MODULE,
+  .type      = MY_DONGLE,             /* Add this to the enumeration
+                                         in <SPAN class=docEmphasis>include/linux/irda.h</SPAN> */
+  .open      = mydongle_open,         /* Open */
+  .reset     = mydongle_reset,        /* Reset */
+  .set_speed = mydongle_change_speed, /* Change Speed */
+  .close     = mydongle_close,        /* Close */
+};
+
+/* Initialize */
+static int __init
+mydongle_init(void)
+{
+  /* Register the entry points */
+  return irda_register_dongle(&amp;mydongle);
+}
+/* Release */
+static void __exit
+mydongle_cleanup(void)
+{
+  /* Unregister entry points */
+  irda_unregister_dongle(&amp;mydongle);
+}
+
+module_init(mydongle_init);
+module_exit(mydongle_cleanup);
+
+					  </NET></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A name=iddle2336></A><A name=iddle2341></A><A name=iddle2468></A><A name=iddle3251></A>For real-life examples, look at <SPAN class=docEmphasis>drivers/net/irda/tekram.c</SPAN> and <SPAN class=docEmphasis>drivers/net/irda/ep7211_ir.c</SPAN>.</P>
+<P class=docText><A name="look at"></A>Now that you have the physical layer running, let's venture to look at IrDA protocols.</P><A name=ch16lev2sec13></A>
+<H4 id=title-ID0EV4AO class=docSection2Title>IrComm</H4>
+<P class=docText><A name="emulators and"></A>IrComm emulates serial ports. Applications such as terminal emulators and protocols such as PPP can run unchanged over the virtual serial interfaces created by IrComm. IrComm is implemented by two related modules, <SPAN class=docEmphasis>ircomm.ko</SPAN> and <SPAN class=docEmphasis>ircomm_tty.ko</SPAN><A name="manages the"></A>. The former provides core protocol support, while the latter creates and manages the emulated serial port nodes <SPAN class=docEmphasis>/dev/ircommX</SPAN>.</P><A name=ch16lev2sec14></A>
+<H4 id=title-ID0EH5AO class=docSection2Title>Networking</H4>
+<P class=docText><A name="ways to"></A>There are three ways to get TCP/IP applications running over IrDA:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="over IrComm"></A>Asynchronous PPP over IrComm</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="Synchronous PPP"></A>Synchronous PPP over IrNET</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="with IrLAN"></A>Ethernet emulation with IrLAN</P></DIV></LI></OL></DIV>
+<P class=docText><A name="over IrComm"></A>Networking over IrComm is equivalent to running asynchronous PPP over a serial port, so there is nothing out of the ordinary in this scenario.</P>
+<P class=docText><A name="of frames"></A>Asynchronous PPP needs to mark the start and end of frames using techniques such as byte stuffing, but if PPP is running over data links such as Ethernet, it need not be burdened with the overhead of a framing protocol. This is called synchronous PPP and is used to configure networking over IrNET.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16fn03">[3]</A></SUP> Passage through the PPP <A name=iddle2337></A><A name=iddle2471></A><A name="IP address"></A>layer provides features such as on-demand IP address configuration, compression, and authentication.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn03>[3]</A></SUP> For a scholarly discussion on networking over IrNET, read <A class=docLink href="http://www.hpl.hp.com/personal/Jean_Tourrilhes/Papers/IrNET.Demand.html" target=_blank>www.hpl.hp.com/personal/Jean_Tourrilhes/Papers/IrNET.Demand.html</A>.</P></BLOCKQUOTE>
+<P class=docText>To start IrNET, insert <SPAN class=docEmphasis>irnet.ko</SPAN>. This also creates the character device node <SPAN class=docEmphasis>/dev/irnet</SPAN><A name="attach the"></A>, which is a control channel over which you can attach the PPP daemon:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; pppd /dev/irnet 9600 noauth a.b.c.d:a.b.c.e</SPAN></PRE></DIV><BR>
+<P class=docText>This yields the <TT>pppX</TT><A name="respective IP"></A> network interfaces at either ends with the respective IP addresses set to a.b.c.d and a.b.c.e. The interfaces can now beam TCP/IP packets.</P>
+<P class=docText><A name="using IrLAN"></A>IrLAN provides raw Ethernet emulation over IrDA. To network your laptops using IrLAN, do the following at both ends:</P>
+<UL>
+<LI>
+<P class=docList>Insert <SPAN class=docEmphasis>irlan.ko</SPAN><A name="network interface"></A>. This creates the network interface, <TT>irlanX</TT>, where <TT>X</TT><A name="assigned interface"></A> is the assigned interface number.</P></LI>
+<LI>
+<P class=docList><A name="Configure the"></A>Configure the <TT>irlanX</TT><A name="the IP"></A> interfaces. To set the IP address, do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ifconfig irlanX a.b.c.d</SPAN></PRE></DIV>
+<P class=docList><A name="automate it"></A>Or automate it by adding the following line to <SPAN class=docEmphasis>/etc/sysconfig/network-scripts/-ifcfg-irlan0</SPAN>:<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16fn04">[4]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn04>[4]</A></SUP> The location of this file is distribution-dependent.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>DEVICE=irlanX IPADDR=a.b.c.d</PRE></DIV></LI></UL>
+<P class=docText>You can now telnet between the laptops over the <TT>irlanX</TT> interfaces.</P><A name=ch16lev2sec15></A>
+<H4 id=title-ID0EOCBO class=docSection2Title>IrDA Sockets</H4>
+<P class=docText><A name="create a"></A>To develop custom applications over IrDA, use the IrSock interface. To create a socket over TinyTP, do this:</P>
+<DIV class=docText><PRE>int fd = socket(AF_IRDA, SOCK_STREAM, 0);</PRE></DIV><BR>
+<P class=docText><A name="do this"></A>For a datagram socket over IrLMP, do this:</P>
+<DIV class=docText><PRE>int fd = socket(AF_IRDA, SOCK_DGRAM, 0);</PRE></DIV><BR>
+<P class=docText>Look at the <SPAN class=docEmphasis>irsockets/</SPAN> directory in the <SPAN class=docEmphasis>irda-utils</SPAN> package for code examples.</P><A name=ch16lev2sec16></A>
+<H4 id=title-ID0ETDBO class=docSection2Title>Linux Infrared Remote Control</H4>
+<P class=docText><A name=iddle2340></A><A name=iddle2807></A><A name="you control"></A>The goal of the LIRC project is to let you control your Linux computer via a remote. For example, you can use LIRC to control applications that play MP3 music or DVD movies via buttons on your remote. LIRC is architected into</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>A base LIRC module called <SPAN class=docEmphasis>lirc_dev</SPAN>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="via serial"></A>A hardware-specific physical layer driver. IR hardware that interface via serial ports use <SPAN class=docEmphasis>lirc_serial.</SPAN> To allow <SPAN class=docEmphasis>lirc_serial</SPAN><A name="dissociate the"></A> to do its job without interference from the kernel serial driver, dissociate the latter as you did earlier for FIR:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; setserial /dev/ttySX uart none</SPAN></PRE></DIV>
+<P class=docList><A name="to replace"></A>You may have to replace <SPAN class=docEmphasis>lirc_serial</SPAN><A name="more suitable"></A> with a more suitable low-level LIRC driver depending on your IR device.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="A user"></A>A user mode daemon called <SPAN class=docEmphasis>lircd</SPAN><A name="over the"></A> that runs over the low-level LIRC driver. Lircd decodes signals arriving from the remote and is the centerpiece of LIRC. Support for many remotes are implemented in the form of user-space drivers that are part of lircd. Lircd exports a UNIX-domain socket interface <SPAN class=docEmphasis>/dev/lircd</SPAN><A name="higher applications"></A> to higher applications. Connecting to lircd via <SPAN class=docEmphasis>/dev/lircd</SPAN> is the key to writing LIRC-aware applications.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>An LIRC mouse daemon called <SPAN class=docEmphasis>lircmd</SPAN><A name="lircd to"></A> that runs on top of lircd. Lircmd converts messages from lircd to mouse events. These events can be read from a named pipe <SPAN class=docEmphasis>/dev/lircm</SPAN><A name=as></A> and input to programs such as <SPAN class=docEmphasis>gpm</SPAN> or X Windows.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Tools such as <SPAN class=docEmphasis>irrecord</SPAN> and <SPAN class=docEmphasis>irsend.</SPAN><A name="helps you"></A> The former records signals received from your remote and helps you generate IR configuration files for a new remote. The latter streams IR commands from your Linux machine.</P></DIV></LI></OL></DIV>
+<P class=docText>Visit the LIRC home page hosted at <A class=docLink href="http://www.lirc.org/" target=_blank>www.lirc.org</A><A name="insights on"></A> to download all these and to obtain insights on its design and usage.</P><A name=ch16sb03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>IR Char Drivers</H2>
+<P class=docText><A name="might be"></A>If your embedded device requires only simple Infrared receive capabilities, it might be using a miniaturized IR receiver (such as the TSOP1730 chip from Vishay Semiconductors). An example application device is an IR locator installed in hospital rooms to read data emitted by IR badges worn by nurses. In this scenario, the IrDA stack is not relevant because of the absence of IrDA protocol interactions. It may also be an overkill to port LIRC to the locator if it's using a lean proprietary protocol to parse received data. An easy solution might be to implement a tiny read-only char or misc driver that exports raw IR data to a suitable application via <SPAN class=docEmphasis>/dev</SPAN> or <SPAN class=docEmphasis>/sys</SPAN> interfaces.</P></TD></TR></TBODY></TABLE></P><BR><A name=ch16lev2sec17></A>
+<H4 id=title-ID0EKHBO class=docSection2Title>Looking at the Sources</H4>
+<P class=docText><A name=iddle2334></A><A name=iddle2338></A><A name=iddle2342></A><A name=iddle4632></A><A name=iddle4637></A>Look inside <SPAN class=docEmphasis>drivers/net/irda/</SPAN> for IrDA low-level drivers, <SPAN class=docEmphasis>net/irda/</SPAN><A name=and></A> for the protocol implementation, and <SPAN class=docEmphasis>include/net/irda/</SPAN><A name="header files"></A> for the header files. Experiment with <SPAN class=docEmphasis>proc/sys/net/irda/*</SPAN><A name="to tune"></A> to tune the IrDA stack and explore <SPAN class=docEmphasis>/proc/net/irda/*</SPAN><A name="information pertaining"></A> for state information pertaining to different IrDA layers.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16tab03">Table 16.3</A><A name="the main"></A> contains the main data structures used in this section and their location in the source tree. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec2.html#ch16tab04">Table 16.4</A><A name="in this"></A> lists the main kernel programming interfaces that you used in this section along with the location of their definitions.</P><A name=ch16tab03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 16.3. Summary of Data Structures</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=150>
+<COL width=200>
+<COL width=200></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Data Structure</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Location</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>dongle_driver</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/net/irda/sir-dev.h</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>Dongle driver entry points</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>sir_dev</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/net/irda/sir-dev.h</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>Representation of an SIR device</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>qos_info</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>include/net/irda/qos.h</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>Quality-of-Service information</TD></TR></TBODY></TABLE></P><BR><A name=ch16tab04></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 16.4. Summary of Kernel Programming Interfaces</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=200>
+<COL width=150>
+<COL width=200></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Kernel Interface</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Location</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>irda_register_dongle()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/net/irda/sir_dongle.c</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>Registers a dongle driver</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>irda_unregister_dongle()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/net/irda/sir_dongle.c</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>Unregisters a dongle driver</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>sirdev_set_dtr_rts()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/net/irda/sir_dev.c</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><A name="the serial"></A>Wiggles modem control lines on the serial port attached to the IR device</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>sirdev_raw_write()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/net/irda/sir_dev.c</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>Writes to the serial port attached to the IR device</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>sirdev_raw_read()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/net/irda/sir_dev.c</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>Reads from the serial port attached to the IR device</TD></TR></TBODY></TABLE>

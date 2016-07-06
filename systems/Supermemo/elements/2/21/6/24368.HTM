@@ -1,0 +1,59 @@
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* '<SPAN class=docEmphStrong>+</SPAN>' and '-' show the differences from Listing 3.7 */
+
+#include <LINUX kthread.h="">
+
+/* Assistant Thread */
+static int
+my_thread(void *unused)
+{
+   DECLARE_WAITQUEUE(wait, current);
+-   daemonize("my_thread");
+
+-   while (1) {
+<SPAN class=docEmphStrong>+   /* Continue work if no other thread has</SPAN>
+<SPAN class=docEmphStrong>+    * invoked kthread_stop() */</SPAN>
+<SPAN class=docEmphStrong>+   while (<FONT class=clozed>!kthread_should_stop()</FONT>) {</SPAN>
+      /* ... */
+-     /* Quit if let go */
+-     if (pink_slip) {
+-       break;
+-     }
+      /* ... */
+    }
+    __set_current_state(TASK_RUNNING);
+    remove_wait_queue(&amp;my_thread_wait, &amp;wait);
+
+-   complete_and_exit(&amp;my_thread_exit, 0);
+<SPAN class=docEmphStrong>+   return 0;</SPAN>
+ }
+
+<SPAN class=docEmphStrong>+   struct task_struct *my_task;</SPAN>
+
+ /* Module Initialization */
+ static int __init
+ my_init(void)
+ {
+    /* ... */
+-   kernel_thread(my_thread, NULL,
+-                 CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
+                  SIGCHLD);
+<SPAN class=docEmphStrong>+   my_task = <FONT class=clozed>kthread_create(my_thread, NULL, "%s", "my_thread")</FONT>;</SPAN>
+<SPAN class=docEmphStrong>+   if (my_task) <FONT class=clozed>wake_up_process(my_task)</FONT>;</SPAN>
+
+    /* ... */
+ }
+
+ /* Module Release */
+ static void __exit
+ my_release(void)
+ {
+    /* ... */
+-   pink_slip = 1;
+-   wake_up(&amp;my_thread_wait);
+-   wait_for_completion(&amp;my_thread_exit);
+<SPAN class=docEmphStrong>+   <FONT class=clozed>kthread_stop</FONT>(my_task);</SPAN>
+
+    /* ... */
+ }
+
+</PRE>

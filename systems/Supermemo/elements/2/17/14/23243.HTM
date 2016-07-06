@@ -1,0 +1,31 @@
+<H3 id=title-IDACF2PF class=docSection1Title>6.5. Using initramfs</H3>
+<P class=docText><TT>initramfs</TT> is a relatively new (Linux 2.6) mechanism for executing early user space programs. It is conceptually similar to <TT>initrd</TT>, as described in the previous section. Its purpose is also similar: to enable loading of drivers that might be required before mounting the real root file system. However, it differs in significant ways from the <TT>initrd</TT> mechanism.</P>
+<P class=docText>The technical implementation details differ significantly between <TT>initrd</TT> and <TT>initramfs</TT>. For example, <TT>initramfs</TT> is loaded before the call to <TT>do_basic_setup()</TT>,<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec5.html#ch06fn09">[9]</A></SUP> which provides a mechanism for loading firmware for devices before its driver has been loaded. For more details, the Linux kernel documentation for this subsystem is relatively up-to-date. See</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn09>[9]</A></SUP> <TT>do_basic_setup</TT> is called from <TT>.../init/main.c</TT> and calls <TT>do_initcalls()</TT>. This causes driver module initialization routines to be called. This was described in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A> and shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05list10">Listing 5-10</A>.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>.../Documentation/filesystems/ramfs-rootfs-initramfs.txt.</PRE></DIV><BR>
+<P class=docText>From a practical perspective, <TT>initramfs</TT> is much easier to use. <TT>initramfs</TT> is a <TT>cpio</TT> archive, whereas <TT>initrd</TT> is a gzipped file system image. This simple difference contributes to the easy of use of <TT>initramfs</TT>. It is integrated into the Linux kernel source tree and is built automatically when you build the kernel image. Making changes to it is far easier than building and loading a new <TT>initrd</TT> image. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec5.html#ch06list13">Listing 6-13</A> shows the contents of the Linux kernel <TT>.../usr</TT> directory, where the <TT>initramfs</TT> image is built. The contents of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec5.html#ch06list13">Listing 6-13</A> are shown after a kernel has been built.</P>
+<P class=docText></P><A name=ch06list13></A>
+<H5 id=title-IDAGI2PF class=docExampleTitle>Listing 6-13. Kernel <TT>initramfs</TT> Build Directory</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ls -l</SPAN>
+total 56
+-rw-rw-r--  1 chris chris   834 Mar 25 11:13 built-in.o
+-rwxrwxr-x  1 chris chris 11512 Mar 25 11:13 gen_init_cpio
+-rw-rw-r--  1 chris chris 10587 Oct 27  2005 gen_init_cpio.c
+-rw-rw-r--  1 chris chris   512 Mar 25 11:13 initramfs_data.cpio
+-rw-rw-r--  1 chris chris   133 Mar 25 11:13 initramfs_data.cpio.gz
+-rw-rw-r--  1 chris chris   786 Mar 25 11:13 initramfs_data.o
+-rw-rw-r--  1 chris chris  1024 Oct 27  2005 initramfs_data.S
+-rw-rw-r--  1 chris chris   113 Mar 25 11:13 initramfs_list
+-rw-rw-r--  1 chris chris  1619 Oct 27  2005 Kconfig
+-rw-rw-r--  1 chris chris  2048 Oct 27  2005 Makefile</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1947></A><A name=iddle2416></A>The file <TT>initramfs_list</TT> contains a list of files that will be included in the <TT>initramfs</TT> archive. The default for recent Linux kernels looks like this:</P>
+<DIV class=docText><PRE>dir /dev 0755 0 0
+nod /dev/console 0600 0 0 c 5 1
+dir /root 0700 0 0</PRE></DIV><BR>
+<P class=docText>This produces a small default directory structure containing the <TT>/root</TT> and <TT>/dev</TT> top-level directories, as well as a single device node representing the console. Add to this file to build your own initramfs. You can also specify a source for your <TT>initramfs</TT> files via the kernel-configuration facility. Enable <TT>INITRAMFS_SOURCE</TT> in your kernel configuration and point it to a location on your development workstation; the kernel build system will use those files as the source for your <TT>initramfs</TT> image.</P>
+<P class=docText>The final output of this build directory is the <TT>initramfs_data_cpio.gz</TT> file. This is a compressed archive containing the files you specified (either through the <TT>initramfs_list</TT> or via the <TT>INITRAMFS_SOURCE</TT> kernel-configuration option). This archive is linked into the final kernel image. This is another advantage of <TT>initramfs</TT> over <TT>initrd</TT>: There is no need to load a separate <TT>initrd</TT> image at boot time, as is the case with <TT>initrd</TT>.

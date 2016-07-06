@@ -1,0 +1,36 @@
+# Documentation/driver-model/overview.txt 
+<P></P>
+<P>The Linux Kernel Device Model</P>
+<P></P>
+<P>Patrick Mochel&nbsp;&lt;<A href="mailto:mochel@digitalimplant.org">mochel@digitalimplant.org</A>&gt;</P>
+<P>Drafted 26 August 2002<BR>Updated 31 January 2006</P>
+<P><BR>Overview<BR>~~~~~~~~</P>
+<P><FONT class=extract>The Linux Kernel Driver Model is a unification of all the disparate driver<BR>models that were previously used in the kernel. It is intended to augment the<BR>bus-specific drivers for bridges and devices by consolidating a set of data<BR>and operations into globally accessible data structures.</FONT></P>
+<P>Traditional driver models implemented some sort of tree-like structure<BR>(sometimes just a list) for the devices they control. There wasn't any<BR>uniformity across the different bus types.</P>
+<P>The current driver model provides a common, uniform data model for describing<BR>a bus and the devices that can appear under the bus. The unified bus<BR>model includes a set of common attributes which all busses carry, and a set<BR>of common callbacks, such as device discovery during bus probing, bus<BR>shutdown, bus power management, etc.</P>
+<P><FONT class=extract>The common device and bridge interface reflects the goals of the modern<BR>computer: namely the ability to do seamless device "plug and play", power<BR>management, and hot plug. In particular, the model dictated by Intel and<BR>Microsoft (namely ACPI) ensures that almost every device on almost any bus<BR>on an x86-compatible system can work within this paradigm.&nbsp; Of course,<BR>not every bus is able to support all such operations, although most<BR>buses support most of those operations.</FONT></P>
+<P><BR><FONT class=extract>Downstream Access<BR>~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>Common data fields have been moved out of individual bus layers into a common<BR>data structure. These fields must still be accessed by the bus layers,<BR>and sometimes by the device-specific drivers.</FONT></P>
+<P><FONT class=extract>Other bus layers are encouraged to do what has been done for the PCI layer.<BR>struct pci_dev now looks like this:</FONT></P>
+<P><FONT class=extract>struct pci_dev {<BR>&nbsp;...</FONT></P>
+<P><FONT class=extract>&nbsp;struct device dev;&nbsp;&nbsp;&nbsp;&nbsp; /* Generic device interface */<BR>&nbsp;...<BR>};</FONT></P>
+<P><FONT class=extract>Note first that the struct device dev within the struct pci_dev is<BR>statically allocated. This means only one allocation on device discovery.</FONT></P>
+<P><FONT class=extract>Note also that that struct device dev is not necessarily defined at the<BR>front of the pci_dev structure.&nbsp; This is to make people think about what<BR>they're doing when switching between the bus driver and the global driver,<BR>and to discourage meaningless and incorrect casts between the two.</FONT></P>
+<P><FONT class=extract>The PCI bus layer freely accesses the fields of struct device. It knows about<BR>the structure of struct pci_dev, and it should know the structure of struct<BR>device. Individual PCI device drivers that have been converted to the current<BR>driver model generally do not and should not touch the fields of struct device,<BR>unless there is a compelling reason to do so.</FONT></P>
+<P><FONT class=extract>The above abstraction prevents unnecessary pain during transitional phases.<BR>If it were not done this way, then when a field was renamed or removed, every<BR>downstream driver would break.&nbsp; On the other hand, if only the bus layer<BR>(and not the device layer) accesses the struct device, it is only the bus<BR>layer that needs to change.</FONT></P>
+<P><BR><FONT class=extract>User Interface<BR>~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>By virtue of having a complete hierarchical view of all the devices in the<BR>system, exporting a complete hierarchical view to userspace becomes relatively<BR>easy. This has been accomplished by implementing a special purpose virtual<BR>file system named sysfs.</FONT></P>
+<P><FONT class=extract>Almost all mainstream Linux distros mount this filesystem automatically; you<BR>can see some variation of the following in the output of the "mount" command:</FONT></P>
+<P><FONT class=extract>$ mount<BR>...<BR>none on /sys type sysfs (rw,noexec,nosuid,nodev)<BR>...<BR>$</FONT></P>
+<P><FONT class=extract>The auto-mounting of sysfs is typically accomplished by an entry similar to<BR>the following in the /etc/fstab file:</FONT></P>
+<P><FONT class=extract>none&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;/sys&nbsp;sysfs&nbsp;&nbsp;&nbsp; defaults&nbsp;&nbsp; &nbsp;0 0</FONT></P>
+<P><FONT class=extract>or something similar in the /lib/init/fstab file on Debian-based systems:</FONT></P>
+<P><FONT class=extract>none&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /sys&nbsp;&nbsp;&nbsp; sysfs&nbsp;&nbsp;&nbsp; nodev,noexec,nosuid&nbsp;&nbsp;&nbsp; 0 0</FONT></P>
+<P><FONT class=extract>If sysfs is not automatically mounted, you can always do it manually with:</FONT></P>
+<P><FONT class=extract># mount -t sysfs sysfs /sys</FONT></P>
+<P><FONT class=extract>Whenever a device is inserted into the tree, a directory is created for it.<BR>This directory may be populated at each layer of discovery - the global layer,<BR>the bus layer, or the device layer.</FONT></P>
+<P><FONT class=extract>The global layer currently creates two files - 'name' and 'power'. The<BR>former only reports the name of the device. The latter reports the<BR>current power state of the device. It will also be used to set the current<BR>power state. </FONT></P>
+<P><FONT class=extract>The bus layer may also create files for the devices it finds while probing the<BR>bus. For example, the PCI layer currently creates 'irq' and 'resource' files<BR>for each PCI device.</FONT></P>
+<P><FONT class=extract>A device-specific driver may also export files in its directory to expose<BR>device-specific data or tunable interfaces.</FONT></P>
+<P><FONT class=extract>More information about the sysfs directory layout can be found in<BR>the other documents in this directory and in the file <BR>Documentation/filesystems/sysfs.txt.</FONT></P>
+<P>&nbsp;

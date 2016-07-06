@@ -1,0 +1,41 @@
+<H3 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=section>8.2<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+load</CODE>: Executing code before main</H3>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This section is specific for the GNU Objective-C runtime. If you are using a different runtime, you can skip it.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The GNU Objective-C runtime provides a way that allows you to execute code before the execution of the program enters the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>main</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function. The code is executed on a per-class and a per-category basis, through a special class method<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+load</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This facility is very useful if you want to initialize global variables which can be accessed by the program directly, without sending a message to the class first. The usual way to initialize global variables, in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+initialize</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>method, might not be useful because<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+initialize</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is only called when the first message is sent to a class object, which in some cases could be too late.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Suppose for example you have a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>FileStream</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>class that declares<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>Stdin</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>Stdout</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>Stderr</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>as global variables, like below:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     
+     FileStream *Stdin = nil;
+     FileStream *Stdout = nil;
+     FileStream *Stderr = nil;
+     
+     @implementation FileStream
+     
+     + (void)initialize
+     {
+         Stdin = [[FileStream new] initWithFd:0];
+         Stdout = [[FileStream new] initWithFd:1];
+         Stderr = [[FileStream new] initWithFd:2];
+     }
+     
+     /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>Other methods here</SPAN> */
+     @end
+     
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">In this example, the initialization of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>Stdin</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>Stdout</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>Stderr</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+initialize</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>occurs too late. The programmer can send a message to one of these objects before the variables are actually initialized, thus sending messages to the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>nil</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>object. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+initialize</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>method which actually initializes the global variables is not invoked until the first message is sent to the class object. The solution would require these variables to be initialized just before entering<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>main</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The correct solution of the above problem is to use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+load</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>method instead of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+initialize</CODE>:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     
+     @implementation FileStream
+     
+     + (void)load
+     {
+         Stdin = [[FileStream new] initWithFd:0];
+         Stdout = [[FileStream new] initWithFd:1];
+         Stderr = [[FileStream new] initWithFd:2];
+     }
+     
+     /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>Other methods here</SPAN> */
+     @end
+     
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+load</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a method that is not overridden by categories. If a class and a category of it both implement<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+load</CODE>, both methods are invoked. This allows some additional initializations to be performed in a category.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This mechanism is not intended to be a replacement for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+initialize</CODE>. You should be aware of its limitations when you decide to use it instead of<CODE>+initialize</CODE>.</P>
+<UL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=menu>
+<LI><A accessKey=1 href="https://gcc.gnu.org/onlinedocs/gcc-4.9.1/gcc/What-you-can-and-what-you-cannot-do-in-_002bload.html#What-you-can-and-what-you-cannot-do-in-_002bload">What you can and what you cannot do in +load</A></LI></UL>

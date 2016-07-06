@@ -1,0 +1,64 @@
+<DIV style="TEXT-ALIGN: center; TEXT-TRANSFORM: none; MARGIN-TOP: 1em; TEXT-INDENT: 0px; FONT: medium Simsun; MAX-WIDTH: 75em; WHITE-SPACE: normal; MARGIN-BOTTOM: 2em; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=PageHeadline>
+<H1 style="PADDING-BOTTOM: 0px; MARGIN: 0px 0px 0.2em; PADDING-LEFT: 0px; PADDING-RIGHT: 0px; COLOR: black; PADDING-TOP: 0px">DMA buffer sharing in 3.3</H1></DIV>
+<DIV style="BORDER-BOTTOM: rgb(221,221,221) thin; BORDER-LEFT: rgb(221,221,221) thin; PADDING-BOTTOM: 0px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0px; PADDING-LEFT: 0px; PADDING-RIGHT: 2px; FONT: medium Simsun; MAX-WIDTH: 75em; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); BORDER-TOP: rgb(221,221,221) thin; BORDER-RIGHT: rgb(221,221,221) thin; WORD-SPACING: 0px; PADDING-TOP: 0px; -webkit-text-stroke-width: 0px" class=ArticleText>
+<DIV style="BORDER-BOTTOM-STYLE: groove; PADDING-BOTTOM: 5px; BORDER-RIGHT-STYLE: groove; BACKGROUND-COLOR: rgb(238,238,238); MARGIN: 2px 5px 2px 0px; PADDING-LEFT: 5px; PADDING-RIGHT: 25px; MAX-WIDTH: 20em; BORDER-TOP-STYLE: groove; FLOAT: left; BORDER-LEFT-STYLE: groove" class=FeatureByline>By<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>Jonathan Corbet</B><BR>January 11, 2012</DIV>Back in August 2011, LWN<SPAN class=Apple-converted-space>&nbsp;</SPAN><A style="COLOR: rgb(0,0,139); TEXT-DECORATION: none" href="https://lwn.net/Articles/454389/">looked at</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>the DMA buffer sharing patch set posted by Marek Szyprowski. Since then, that patch has been picked up by Sumit Semwal, who modified it considerably in response to comments from a number of developers. The version of this patch that was merged for 3.3 differs enough from its predecessors that it merits another look here.
+<P>The core idea remains the same, though: this mechanism allows DMA buffers to be shared between drivers that might otherwise be unaware of each other. The initial target use is sharing buffers between producers and consumers of video streams; a camera device, for example, could acquire a stream of frames into a series of buffers that are shared with the graphics adapter, enabling the capture and display of the data with no copying in the kernel.</P>
+<P>In the 3.3 sharing scheme, one driver will set itself up as an exporter of sharable buffers. That requires providing a set of callbacks to the buffer sharing code:</P>
+<P></P><PRE>    struct dma_buf_ops {
+	int (*attach)(struct dma_buf *buf, struct device *dev,
+		      struct dma_buf_attachment *dma_attach);
+	void (*detach)(struct dma_buf *buf, struct dma_buf_attachment *dma_attach);
+	struct sg_table *(*map_dma_buf)(struct dma_buf_attachment *dma_attach,
+					enum dma_data_direction dir);
+	void (*unmap_dma_buf)(struct dma_buf_attachment *dma_attach, struct sg_table *sg);
+	void (*release)(struct dma_buf *);
+    };
+</PRE>
+<P>Briefly,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>attach()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>detach()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>inform the exporting driver when others take or release references to the buffer. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>map_dma_buf()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>unmap_dma_buf()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>callbacks, instead, cause the buffer to be prepared (or unprepared) for DMA and pass ownership between drivers. A call to<TT>release()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>will be made when the last reference to the buffer is released.</P>
+<P>The exporting driver makes the buffer available with a call to:</P>
+<P></P><PRE>    struct dma_buf *dma_buf_export(void *priv, struct dma_buf_ops *ops,
+			           size_t size, int flags);
+</PRE>
+<P>Note that the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>size</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>of the buffer is specified here, but there is no pointer to the buffer itself. In fact, the current version of the interface never passes around CPU-accessible buffer pointers at all. One of the actions performed by<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dma_buf_export()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>is the creation of an anonymous file to represent the buffer;<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>flags</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>is used to set the mode bits on that file.</P>
+<P>Since the file is anonymous, it is not visible to the rest of the kernel (or user space) in any useful way. Truly exporting the buffer, instead, requires obtaining a file descriptor for it and making that descriptor available to user space. The descriptor can be had with:</P>
+<P></P><PRE>    int dma_buf_fd(struct dma_buf *dmabuf);
+</PRE>
+<P>There is no standardized mechanism for passing that file descriptor to user space, so it seems likely that any subsystem implementing this functionality will add its own special<TT>ioctl()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>operation to get a buffer's file descriptor. The same is true for the act of passing a file descriptor to drivers that will share this buffer; it is something that will happen outside of the buffer-sharing API.</P>
+<P>A driver wishing to share a DMA buffer has to go through a series of calls after obtaining the corresponding file descriptor, the first of which is:</P>
+<P></P><PRE>    struct dma_buf *dma_buf_get(int fd);
+</PRE>
+<P>This function obtains a reference to the buffer and returns a<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dma_buf</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>structure pointer that can be used with the other API calls to refer to the buffer. When the driver is finished with the buffer, it should be returned with a call to<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dma_buf_put()</TT>.</P>
+<P>The next step is to "attach" to the buffer with:</P>
+<P></P><PRE>    struct dma_buf_attachment *dma_buf_attach(struct dma_buf *dmabuf,
+					      struct device *dev);
+</PRE>
+<P>This function will allocate and fill in yet another structure:</P>
+<P></P><PRE>    struct dma_buf_attachment {
+	struct dma_buf *dmabuf;
+	struct device *dev;
+	struct list_head node;
+	void *priv;
+    };
+</PRE>
+<P>That structure will then be passed to the exporting driver's<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>attach()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>callback. There seems to be a couple of reasons for the existence of this step, the first of which is simply to let the exporting driver know about the consumers of the buffer. Beyond that, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>device</TT>structure passed by the calling driver can contain a pointer (in its<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>dma_params</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>field) to one of these structures:</P>
+<P></P><PRE>    struct device_dma_parameters {
+	unsigned int max_segment_size;
+	unsigned long segment_boundary_mask;
+    };
+</PRE>
+<P>The exporting driver should look at these constraints and ensure that the buffer it is exporting can satisfy them; if not, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>attach()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>call should fail. If multiple drivers attach to the buffer, the exporting driver will need to allocate the buffer in a way that satisfies all of their constraints.</P>
+<P>The final step is to map the buffer for DMA:</P>
+<P></P><PRE>    struct sg_table *dma_buf_map_attachment(struct dma_buf_attachment *attach,
+					    enum dma_data_direction direction);
+</PRE>
+<P>This call turns into a call to the exporting driver's<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>map_dma_buf()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>callback. If this call succeeds, the return value will be a scatterlist that can be used to program the DMA operation into the device. A successful return also means that the calling driver's device owns the buffer; it should not be touched by the CPU during this time.</P>
+<P>Note that mapping a buffer is an operation that can block for a number of reasons; if the buffer is busy elsewhere, for example. Also worth noting is that, until this call is made, the buffer need not necessarily be allocated anywhere. The exporting driver can wait until others have attached to the buffer so that it can see their DMA constraints and allocate the buffer accordingly. Of course, if the buffer lives in device memory or is otherwise constrained on the exporting side, it can be allocated sooner.</P>
+<P>After the DMA operation is completed, the sharing driver should unmap the buffer with:</P>
+<P></P><PRE>    void dma_buf_unmap_attachment(struct dma_buf_attachment *attach,
+				  struct sg_table *sg_table);
+</PRE>
+<P>That will, in turn, generate a call to the exporting driver's<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>unmap_dma_buf()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>function. Detaching from the buffer (when it is no longer needed) can be done with:</P>
+<P></P><PRE>    void dma_buf_detach(struct dma_buf *dmabuf, struct dma_buf_attachment *attach);
+</PRE>
+<P>As might be expected, this function will call the exporting driver's<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>detach()</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>callback.</P>
+<P>As of 3.3, there are no users for this interface in the mainline kernel. There seems to be a fair amount of interest in using it, though, so Dave Airlie<SPAN class=Apple-converted-space>&nbsp;</SPAN><A style="COLOR: rgb(0,0,139); TEXT-DECORATION: none" href="https://lwn.net/Articles/474828/">pushed it into the mainline</A>with the idea that it would make the development of users easier. Some of those users can be seen (in an early form) in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A style="COLOR: rgb(0,0,139); TEXT-DECORATION: none" href="http://cgit.freedesktop.org/~airlied/linux/log/?h=drm-prime-dmabuf">Dave's drm-prime repository</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><A style="COLOR: rgb(0,0,139); TEXT-DECORATION: none" href="https://github.com/robclark/kernel-omap4/commit/0cb96b221cc28da2dea586279a5a1b7d696573a1">Rob Clark's OMAP4 tree</A>.</P></DIV>

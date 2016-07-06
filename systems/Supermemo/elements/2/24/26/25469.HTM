@@ -1,0 +1,7 @@
+#ifdef CONFIG_SMP
+<P></P>
+<P>struct work_for_cpu {<BR>&nbsp;struct work_struct work;<BR>&nbsp;long (*fn)(void *);<BR>&nbsp;void *arg;<BR>&nbsp;long ret;<BR>};</P>
+<P>static void work_for_cpu_fn(struct work_struct *work)<BR>{<BR>&nbsp;struct work_for_cpu *wfc = container_of(work, struct work_for_cpu, work);</P>
+<P>&nbsp;wfc-&gt;ret = wfc-&gt;fn(wfc-&gt;arg);<BR>}</P>
+<P>/**<BR>&nbsp;* work_on_cpu - run a function in user context on a particular cpu<BR>&nbsp;* @cpu: the cpu to run on<BR>&nbsp;* @fn: the function to run<BR>&nbsp;* @arg: the function arg<BR>&nbsp;*<BR>&nbsp;* It is up to the caller to ensure that the cpu doesn't go offline.<BR>&nbsp;* The caller must not hold any locks which would prevent @fn from completing.<BR>&nbsp;*<BR>&nbsp;* Return: The value @fn returns.<BR>&nbsp;*/<BR>long work_on_cpu(int cpu, long (*fn)(void *), void *arg)<BR>{<BR>&nbsp;struct work_for_cpu wfc = { .fn = fn, .arg = arg };</P>
+<P>&nbsp;INIT_WORK_ONSTACK(&amp;wfc.work, work_for_cpu_fn);<BR>&nbsp;schedule_work_on(cpu, &amp;wfc.work);<BR>&nbsp;flush_work(&amp;wfc.work);<BR>&nbsp;destroy_work_on_stack(&amp;wfc.work);<BR>&nbsp;return wfc.ret;<BR>}<BR>EXPORT_SYMBOL_GPL(work_on_cpu);<BR>#endif /* CONFIG_SMP */

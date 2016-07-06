@@ -1,0 +1,16 @@
+struct drm_dp_aux<BR>Prev &nbsp;Display Port Helper Functions Reference&nbsp; Next<BR>Name</P>
+<P>struct drm_dp_aux &#8212; DisplayPort AUX channel<BR>Synopsis</P>
+<P>struct drm_dp_aux {<BR>&nbsp; const char * name;<BR>&nbsp; struct i2c_adapter ddc;<BR>&nbsp; struct device * dev;<BR>&nbsp; struct mutex hw_mutex;<BR>&nbsp; ssize_t (* transfer) (struct drm_dp_aux *aux,struct drm_dp_aux_msg *msg);<BR>};&nbsp; </P>
+<P>Members</P>
+<P>name</P>
+<P>&nbsp;&nbsp;&nbsp; user-visible name of this AUX channel and the I2C-over-AUX adapter <BR>ddc</P>
+<P>&nbsp;&nbsp;&nbsp; I2C adapter that can be used for I2C-over-AUX communication <BR>dev</P>
+<P>&nbsp;&nbsp;&nbsp; pointer to struct device that is the parent for this AUX channel <BR>hw_mutex</P>
+<P>&nbsp;&nbsp;&nbsp; internal mutex used for locking transfers <BR>transfer</P>
+<P>&nbsp;&nbsp;&nbsp; transfers a message representing a single AUX transaction </P>
+<P>Description</P>
+<P>The .dev field should be set to a pointer to the device that implements the AUX channel.</P>
+<P>The .name field may be used to specify the name of the I2C adapter. If set to NULL, dev_name of .dev will be used.</P>
+<P>Drivers provide a hardware-specific implementation of how transactions are executed via the .transfer function. A pointer to a drm_dp_aux_msg structure describing the transaction is passed into this function. Upon success, the implementation should return the number of payload bytes that were transferred, or a negative error-code on failure. Helpers propagate errors from the .transfer function, with the exception of the -EBUSY error, which causes a transaction to be retried. On a short, helpers will return -EPROTO to make it simpler to check for failure.</P>
+<P>An AUX channel can also be used to transport I2C messages to a sink. A typical application of that is to access an EDID that's present in the sink device. The .transfer function can also be used to execute such transactions. The drm_dp_aux_register_i2c_bus function registers an I2C adapter that can be passed to drm_probe_ddc. Upon removal, drivers should call drm_dp_aux_unregister_i2c_bus to remove the I2C adapter.</P>
+<P>Note that the aux helper code assumes that the .transfer function only modifies the reply field of the drm_dp_aux_msg structure. The retry logic and i2c helpers assume this is the case.<BR>Prev &nbsp;Up&nbsp; Next<BR>struct drm_dp_aux_msg &nbsp;Home&nbsp; drm_dp_dpcd_readb

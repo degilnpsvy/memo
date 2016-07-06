@@ -1,0 +1,83 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>11.2.&nbsp;Introduction</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;11.&nbsp;Reentrant and Recursive Subprograms</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s03.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title=11.2.&nbsp;Introduction style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=reentrance></A>11.2.&nbsp;Introduction</H2></DIV></DIV></DIV>
+<P>A<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>reentrant</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286963874></A>subprogram is one that can be called (invoked, entered) again while another invocation of the same subprogram has yet to complete. In other words, there can be multiple invocations of the subprogram executing at the same time.</P>
+<P>Reentrance is an important property for many subprograms in many settings, particularly related to recursion and multitasking with shared libraries. On modern operating systems, library functions that may be used by more than one program are only loaded into memory once, into a shared text segment, and all programs that call them can use the same copy of the code. These shared libraries can save a significant amount of memory if many programs are running at once and using the same library functions. This is especially valuable for graphical user interfaces, where all programs share a large amount of code that provides the common graphical interface.</P>
+<P>In order to be reentrant, each invocation of a subprogram must have its own set of variables. For example, if two invocations of the sqrt() function below are to run at the same time, each must have it's own copy of n, sqrt_n, and i. That is, n must represent a different memory address for each invocation of the sqrt() function. The same must be true for each of the other variables.</P><PRE class=programlisting>	double  sqrt(double n)
+	{
+	    double  sqrt_n;
+	    int     i;
+	    
+	    ...
+	}
+	</PRE>
+<P>A typical C function or Java method using only automatic local variables is reentrant by default. Since the formal argument variables and automatic local variables are allocated on the stack when the subprogram is invoked, each invocation of the subprogram will have its own stack frame, and therefore can have a different set of values for local variables. While the machine code is shared by all invocations, each invocation has a separate block of memory for variables.</P>
+<P>Suppose the following function is called as sqrt(4.0), and before this invocation completes, the same function is called again as sqrt(32.67).</P><PRE class=programlisting>	double  sqrt(double n)
+	
+	{
+	    double  sqrt_n;
+	    int     i;
+	    
+	    // Code to compute square root
+	}
+	</PRE>
+<P>Each invocation will allocate a stack frame of its own, so the execution of the two can overlap without a problem:</P><PRE class=screen>	 Text
+	+-------------------+
+	| addi  $sp, $sp, -8|
+	| sw    $ra, ($sp)  |
+	| ...               |   Code, shared by all invocations
+	| lw    $ra, ($sp)  |
+	| addi  $sp, $sp, 4 |
+	| jr    $ra         |
+	+-------------------+
+	
+	 Stack
+	+-------------------+
+	| x = 4.0           |   Invocation 1
+	| n                 |
+	| i                 |
+	| Return address    |   
+	| Saved registers   |
+	+-------------------+
+	| x = 32.67         |   Invocation 2
+	| n                 |
+	| i                 |
+	| Return address    |   
+	| Saved registers   |
+	+-------------------+
+	</PRE>
+<P>To be truly reentrant, a subprogram must meet several criteria, some of which are beyond the scope of this course:</P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist type=disc>
+<LI class=listitem>It must not depend on any static modifiable data. (Static data would be shared by all invocations, and is an example of a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>singleton resource</EM>.) It may use static constants, but not static variables that may change during execution of the subprogram.</LI>
+<LI class=listitem>It must not return the address of static modifiable data.</LI>
+<LI class=listitem>It must work only with data provided by the caller. (No reading directly from files, etc.)</LI>
+<LI class=listitem>It must not rely on locks to singleton resources (resources of which only one instance exists).</LI>
+<LI class=listitem>It must not modify its own code (this is a bad idea for other reasons as well).</LI>
+<LI class=listitem>It must not call any non-reentrant subprograms. (Child subprograms are effectively part of the parent subprogram for execution purposes, so this should be obvious.)</LI></UL></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch11s03.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">Chapter&nbsp;11.&nbsp;Reentrant and Recursive Subprograms&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;11.3.&nbsp;Reentrance in Assembly Language</TD></TR></TBODY></TABLE></DIV>

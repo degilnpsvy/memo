@@ -1,0 +1,219 @@
+<H3 id=-100000 class=docSection1Title>Input Event Drivers</H3>
+<P class=docText><A name=iddle2020></A><A name=iddle2022></A><A name=iddle2023></A><A name=iddle2024></A><A name=iddle2131></A><A name=iddle2159></A><A name=iddle2401></A><A name=iddle2402></A><A name=iddle2403></A><A name=iddle2986></A><A name=iddle4594></A><A name="the input"></A>The event interfaces exported by the input subsystem have evolved into a standard that many graphical windowing systems understand. Event drivers offer a hardware-independent abstraction to talk to input devices, just as the frame buffer interface (discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12.html#ch12">Chapter 12</A><A name="in tandem"></A>, "Video Drivers") presents a generic mechanism to communicate with display devices. Event drivers, in tandem with frame buffer drivers, insulate <SPAN class=docEmphasis>graphical user interfaces</SPAN> (GUIs) from the vagaries of the underlying hardware.</P><A name=ch07lev2sec1></A>
+<H4 id=title-ID0EOKPM class=docSection2Title><FONT class=extract>The Evdev Interface</FONT></H4>
+<P class=docText><SPAN class=docEmphasis><FONT class=extract>Evdev</FONT></SPAN><A name="event packet"></A><FONT class=extract> is a generic input event driver. Each event packet produced by evdev has the following format, defined in <SPAN class=docEmphasis>include/linux/input.h</SPAN>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>struct input_event {
+  struct timeval time;  /* Timestamp */
+  __u16 type;           /* Event Type */
+  __u16 code;           /* Event Code */
+  __s32 value;          /* Event Value */
+};</FONT></PRE></DIV><BR>
+<P class=docText><A name="device driver"></A>To learn how to use evdev, let's implement an input device driver for a virtual mouse.</P><A name=ch07lev3sec1></A>
+<H5 id=title-ID0EFLPM class=docSection3Title><FONT class=extract>Device Example: Virtual Mouse</FONT></H5>
+<P class=docText><A name="is how"></A><FONT class=extract>This is how our virtual mouse works: An application (<SPAN class=docEmphasis>coord.c</SPAN></FONT><A name="mouse driver"></A><FONT class=extract>) emulates mouse movements and dispatches coordinate information to the virtual mouse driver (<SPAN class=docEmphasis>vms.c</SPAN></FONT><A name="via a"></A><FONT class=extract>) via a sysfs node, <SPAN class=docEmphasis>/sys/devices/platform/vms/coordinates.</SPAN></FONT><A name="mouse driver"></A><FONT class=extract> The virtual mouse driver (<SPAN class=docEmphasis>vms</SPAN></FONT><A name="for short"></A><FONT class=extract> driver for short) channels these movements upstream via evdev. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07fig02"><FONT class=extract>Figure 7.2</FONT></A><FONT class=extract> shows the details.</FONT></P><A name=ch07fig02></A>
+<P><FONT class=extract></FONT>
+<CENTER>
+<H5 class=docFigureTitle><FONT class=extract>Figure 7.2. An input driver for a virtual mouse.</FONT></H5>
+<P class=docText><FONT class=extract></FONT>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC8yaGlnN2NzZ2ku.jpg" target=_blank><FONT class=extract>[View full size image]</FONT></A></DIV><FONT class=extract><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzJoaWc3c2M-.jpg" width=500 height=429> </FONT>
+<P></P></CENTER>
+<P><FONT class=extract></FONT></P><BR>
+<P class=docText><FONT class=extract><SPAN class=docEmphasis>General-purpose mouse</SPAN> (<SPAN class=docEmphasis>gpm</SPAN></FONT><A name="in text"></A><FONT class=extract>) is a server that lets you use a mouse in text mode without assistance from an X server. Gpm understands evdev messages, so the vms driver can directly communicate with it. After you have everything in place, you can see the cursor dancing over your screen to the tune of the virtual mouse movements streamed by <SPAN class=docEmphasis>coord.c</SPAN>.</FONT></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07ex01"><FONT class=extract>Listing 7.1</FONT></A><FONT class=extract> contains <SPAN class=docEmphasis>coord.c</SPAN></FONT><A name="and Y"></A><FONT class=extract>, which continuously generates random X and Y coordinates. Mice, unlike joysticks or touch screens, produce relative coordinates, so that is what <SPAN class=docEmphasis>coord.c</SPAN> does. The vms driver is shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07ex02"><FONT class=extract>Listing 7.2</FONT></A><FONT class=extract>.</FONT><A name=iddle1612></A><A name=iddle4006></A><A name=iddle4595></A></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch07ex01></A>
+<H5 id=title-ID0EPOPM class=docExampleTitle><FONT class=extract>Listing 7.1. Application to Simulate Mouse Movements (coord.c)</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>#include <FCNTL.H>
+
+int
+main(int argc, char *argv[])
+{
+  int sim_fd;
+  int x, y;
+  char buffer[10];
+
+  /* Open the sysfs coordinate node */
+  sim_fd = open("/sys/devices/platform/vms/coordinates", O_RDWR);
+  if (sim_fd &lt; 0) {
+    perror("Couldn't open vms coordinate file\n");
+    exit(-1);
+  }
+  while (1) {
+    /* Generate random relative coordinates */
+    x = random()%20;
+    y = random()%20;
+    if (x%2) x = -x; if (y%2) y = -y;
+
+    /* Convey simulated coordinates to the virtual mouse driver */
+    sprintf(buffer, "%d %d %d", x, y, 0);
+    write(sim_fd, buffer, strlen(buffer));
+    fsync(sim_fd);
+    sleep(1);
+  }
+
+  close(sim_fd);
+}
+
+					  </FCNTL.H></FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch07ex02></A>
+<H5 id=title-ID0EGPPM class=docExampleTitle><FONT class=extract>Listing 7.2. Input Driver for the Virtual Mouse (vms.c)</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>#include <LINUX fs.h="">
+#include <ASM uaccess.h="">
+#include <LINUX pci.h="">
+#include <LINUX input.h="">
+#include <LINUX platform_device.h="">
+
+struct input_dev *vms_input_dev;        /* Representation of an input device */
+static struct platform_device *vms_dev; /* Device structure */
+
+                                        /* Sysfs method to input simulated
+                                           coordinates to the virtual
+                                           mouse driver */
+static ssize_t
+write_vms(struct device *dev,
+          struct device_attribute *attr,
+          const char *buffer, size_t count)
+{
+  int x,y;
+  sscanf(buffer, "%d%d", &amp;x, &amp;y);
+                                        /* Report relative coordinates via the
+                                           event interface */
+  input_report_rel(vms_input_dev, REL_X, x);
+  input_report_rel(vms_input_dev, REL_Y, y);
+  input_sync(vms_input_dev);
+
+  return count;
+}
+
+/* Attach the sysfs write method */
+DEVICE_ATTR(coordinates, 0644, NULL, write_vms);
+
+/* Attribute Descriptor */
+static struct attribute *vms_attrs[] = {
+  &amp;dev_attr_coordinates.attr,
+  NULL
+};
+
+/* Attribute group */
+static struct attribute_group vms_attr_group = {
+  .attrs = vms_attrs,
+};
+
+/* Driver Initialization */
+int __init
+vms_init(void)
+{
+
+  /* Register a platform device */
+  vms_dev = platform_device_register_simple("vms", -1, NULL, 0);
+  if (IS_ERR(vms_dev)) {
+    PTR_ERR(vms_dev);
+    printk("vms_init: error\n");
+  }
+
+  /* Create a sysfs node to read simulated coordinates */
+  sysfs_create_group(&amp;vms_dev-&gt;dev.kobj, &amp;vms_attr_group);
+
+  /* Allocate an input device data structure */
+  vms_input_dev = input_allocate_device();
+  if (!vms_input_dev) {
+    printk("Bad input_alloc_device()\n");
+  }
+
+  /* Announce that the virtual mouse will generate
+     relative coordinates */
+  set_bit(EV_REL, vms_input_dev-&gt;evbit);
+  set_bit(REL_X, vms_input_dev-&gt;relbit);
+  set_bit(REL_Y, vms_input_dev-&gt;relbit);
+
+  /* Register with the input subsystem */
+  input_register_device(vms_input_dev);
+
+  printk("Virtual Mouse Driver Initialized.\n");
+  return 0;
+}
+
+/* Driver Exit */
+void
+vms_cleanup(void)
+{
+
+  /* Unregister from the input subsystem */
+  input_unregister_device(vms_input_dev);
+
+  /* Cleanup sysfs node */
+  sysfs_remove_group(&amp;vms_dev-&gt;dev.kobj, &amp;vms_attr_group);
+
+  /* Unregister driver */
+  platform_device_unregister(vms_dev);
+
+  return;
+}
+
+module_init(vms_init);
+module_exit(vms_cleanup);
+
+					  </LINUX></LINUX></LINUX></ASM></LINUX></FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2987></A><A name=iddle4596></A><A name=iddle4604></A><A name=iddle2368></A><FONT class=extract>Let's take a closer look at </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07ex02"><FONT class=extract>Listing 7.2</FONT></A><A name="device driver"></A><FONT class=extract>. During initialization, the vms driver registers itself as an input device driver. For this, it first allocates an <TT>input_dev</TT> structure using the core API, <TT>input_allocate_device()</TT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>vms_input_dev = input_allocate_device();</FONT></PRE></DIV><BR>
+<P class=docText><A name="mouse generates"></A><FONT class=extract>It then announces that the virtual mouse generates relative events:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>set_bit(EV_REL, vms_input_dev-&gt;evbit);  /* Event Type is EV_REL */</FONT></PRE></DIV><BR>
+<P class=docText><A name="mouse produces"></A><FONT class=extract>Next, it declares the event codes that the virtual mouse produces:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>set_bit(REL_X, vms_input_dev-&gt;relbit); /* Relative 'X' movement */
+set_bit(REL_Y, vms_input_dev-&gt;relbit); /* Relative 'Y' movement */</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle2375></A><A name=iddle2383></A><A name=iddle4605></A><A name=iddle4659></A><A name="your virtual"></A><FONT class=extract>If your virtual mouse is also capable of generating button clicks, you need to add this to <TT>vms_init()</TT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>set_bit(EV_KEY, vms_input_dev-&gt;evbit);  /* Event Type is EV_KEY */
+set_bit(BTN_0,  vms_input_dev-&gt;keybit); /* Event Code is BTN_0 */</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Finally, the registration:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>input_register_device(vms_input_dev);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract><TT>write_vms()</TT> is the sysfs <TT>store()</TT> method that attaches to <SPAN class=docEmphasis>/sys/devices/platform/vms/coordinates.</SPAN> When <SPAN class=docEmphasis>coord.c</SPAN> writes an X/Y pair to this file, <TT>write_vms()</TT> does the following:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>input_report_rel(vms_input_dev, REL_X, x);
+input_report_rel(vms_input_dev, REL_Y, y);
+input_sync(vms_input_dev);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>The first statement generates a <TT>REL_X</TT></FONT><A name="second produces"></A><FONT class=extract> event or a relative device movement in the X direction. The second produces a <TT>REL_Y</TT></FONT><A name="event or"></A><FONT class=extract> event or a relative movement in the Y direction. <TT>input_sync()</TT></FONT><A name="this event"></A><FONT class=extract> indicates that this event is complete, so the input subsystem collects these two events into a single evdev packet and sends it out of the door through <SPAN class=docEmphasis>/dev/input/eventX</SPAN>, where <SPAN class=docEmphasis>X</SPAN></FONT><A name="the interface"></A><FONT class=extract> is the interface number assigned to the vms driver. An application reading this file will receive event packets in the <TT>input_event</TT></FONT><A name="event interface"></A><FONT class=extract> format described earlier. To request gpm to attach to this event interface and accordingly chase the cursor around your screen, do this:</FONT></P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong><FONT class=extract>bash&gt; gpm -m /dev/input/eventX -t evdev</FONT></SPAN></PRE></DIV><BR>
+<P class=docText><A name="the accelerometer"></A><FONT class=extract>The ADS7846 touch controller driver and the accelerometer driver, discussed respectively under the sections "</FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07lev2sec5"><FONT class=extract>Touch Controllers</FONT></A><FONT class=extract>" and "</FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07lev2sec6"><FONT class=extract>Accelerometers</FONT></A><FONT class=extract>" later, are also evdev users.</FONT></P><A name=ch07lev3sec2></A>
+<H5 id=title-ID0EXVPM class=docSection3Title><FONT class=extract>More Event Interfaces</FONT></H5>
+<P class=docText><A name="input devices"></A><FONT class=extract>The vms driver utilizes the generic evdev event interface, but input devices such as keyboards, mice, and touch controllers have custom event drivers. We will look at them when we discuss the corresponding device drivers.</FONT></P>
+<P class=docText><A name=iddle2025></A><A name=iddle2372></A><A name=iddle2404></A><A name=iddle4663></A><A name="and export"></A><FONT class=extract>To write your own event driver and export it to user space via <SPAN class=docEmphasis>/dev/input/mydev</SPAN>, you have to populate a structure called <TT>input_handler</TT> and register it with the input core as follows:</FONT></P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>static struct input_handler my_event_handler = {
+  .event      = mydev_event,      /* Handle event reports sent by
+                                     input device drivers that use
+                                     this event driver's services */
+  .fops       = &amp;mydev_fops,      /* Methods to manage
+                                     <SPAN class=docEmphasis>/dev/input/mydev</SPAN> */
+  .minor      = MYDEV_MINOR_BASE, /* Minor number of
+                                     <SPAN class=docEmphasis>/dev/input/mydev</SPAN> */
+  .name       = "mydev",          /* Event driver name */
+  .id_table   = mydev_ids,        /* This event driver can handle
+                                     requests from these IDs */
+  .connect    = mydev_connect,    /* Invoked if there is an
+                                     ID match */
+  .disconnect = mydev_disconnect, /* Called when the driver unregisters
+                                   */
+};
+
+/* Driver Initialization */
+static int __init
+mydev_init(void)
+{
+  /* ... */
+
+  input_register_handler(&amp;my_event_handler);
+
+  /* ... */
+  return 0;
+}
+
+					  </FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Look at the implementation of mousedev (<SPAN class=docEmphasis>drivers/input/mousedev.c</SPAN>) for a complete example.</FONT>

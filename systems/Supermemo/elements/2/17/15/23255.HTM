@@ -1,0 +1,117 @@
+<H3 id=title-IDANFDLH class=docSection1Title>8.2. Module Utilities</H3>
+<P class=docText>We had a brief introduction to module utilities in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list05">Listing 8-5</A>. There we used the module utility <TT>modprobe</TT> to insert and remove a device driver module from a Linux kernel. A number of small utilities are used to manage device driver modules. This section introduces them. You are encouraged to refer to the <TT>man</TT> page for each utility, for complete details. In fact, those interested in a greater knowledge of Linux loadable modules should consult the source code for these utilities. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec6.html#ch08lev2sec16">Section 8.6.1</A>, "Suggestions for Additional Reading" at the end of this chapter contains a reference for where they can be found.</P><A name=ch08lev2sec7></A>
+<H4 id=title-IDALGDLH class=docSection2Title>8.2.1. insmod</H4>
+<P class=docText>The insmod utility is the simplest way to insert a module into a running kernel. You supply a complete pathname, and insmod does the work. For example:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>insmod /lib/modules/2.6.14/kernel/drivers/char/examples/hello1.ko</SPAN></PRE></DIV><BR>
+<P class=docText>This loads the module <TT>hello1.ko</TT> into the kernel. The output would be the same as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list05">Listing 8-5</A>namely, the <TT>Hello</TT> message. The insmod utility is a simple program that does not require or accept any options. It requires a full pathname because it has no logic for searching for the module. Most often, you will use modprobe, described shortly, because it has many more features and capabilities.</P><A name=ch08lev2sec8></A>
+<H4 id=title-IDAQHDLH class=docSection2Title>8.2.2. Module Parameters</H4>
+<P class=docText>Many device driver modules can accept parameters to modify their behavior. Examples include enabling debug mode, setting verbose reporting, or specifying module-specific options. The insmod utility accepts parameters (also called <SPAN class=docEmphasis>options</SPAN> in some contexts) by specifying them after the module name. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list06">Listing 8-6</A> shows our <A name=iddle1898></A>modified <TT>hello1.c</TT> example, adding a single module parameter to enable debug mode.</P><A name=ch08list06></A>
+<H5 id=title-IDAYIDLH class=docExampleTitle>Listing 8-6. Example Driver with Parameter</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>/* Example Minimal Character Device Driver */
+#include &lt;linux/module.h&gt;
+
+static int debug_enable = 0;       /* Added driver parameter */
+module_param(debug_enable, int, 0);  /* and these 2 lines */
+MODULE_PARM_DESC(debug_enable, "Enable module debug mode.");
+
+static int __init hello_init(void)
+{
+    /* Now print value of new module parameter */
+    printk("Hello Example Init - debug mode is %s\n",
+            debug_enable ? "enabled" : "disabled")
+
+    return 0;
+}
+
+static void __exit hello_exit(void)
+{
+    printk("Hello Example Exit\n");
+}
+
+module_init(hello_init);
+module_exit(hello_exit);
+
+MODULE_AUTHOR("Chris Hallinan");
+MODULE_DESCRIPTION("Hello World Example");
+MODULE_LICENSE("GPL");</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Three lines have been added to our example device driver module. The first declares a static integer to hold our debug flag. The second line is a macro defined in <TT>.../include/linux/moduleparam.h</TT> that registers the module parameter with the kernel module subsystem. The third new line is a macro that registers a string description associated with the parameter with the kernel module subsystem. The purpose of this will become clear when we examine the <TT>modinfo</TT> command later in this chapter.</P>
+<P class=docText><A name=iddle1340></A><A name=iddle1343></A><A name=iddle1969></A><A name=iddle2053></A><A name=iddle2101></A><A name=iddle2588></A><A name=iddle2591></A>If we now use insmod to insert our example module, and add the <TT>debug_enable</TT> option, we should see the resulting output, based on our modified <TT>hello1.c</TT> module in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list06">Listing 8-6</A>.</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>insmod /lib/modules/.../examples/hello1.ko debug_enable=1</SPAN>
+   Hello Example Init - debug mode is enabled</PRE></DIV><BR>
+<P class=docText>Or, if we omit the optional module parameter:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>insmod /lib/modules/.../examples/hello1.ko</SPAN>
+   Hello Example Init - debug mode is disabled</PRE></DIV><BR><A name=ch08lev2sec9></A>
+<H4 id=title-IDAFNDLH class=docSection2Title>8.2.3. lsmod</H4>
+<P class=docText>The lsmod utility is also quite trivial. It simply displays a formatted list of the modules that are inserted into the kernel. Recent versions take no parameters and simply format the output of <TT>/proc/modules</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08fn05">[5]</A></SUP> <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list07">Listing 8-7</A> is an example of the output from lsmod.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch08fn05>[5]</A></SUP> <TT>/proc/modules</TT> is part of the <TT>proc</TT> file system, which is introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, "File Systems".</P></BLOCKQUOTE><A name=ch08list07></A>
+<H5 id=title-IDAMODLH class=docExampleTitle>Listing 8-7. lsmod Example Output Format</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>lsmod</SPAN>
+Module                 Size  Used by
+ext3                  121096  0
+jbd                    49656  1 ext3
+loop                   12712  0
+hello1                  1412  0
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice the rightmost column labeled <TT>Used by</TT>. This column indicates that the device driver module is in use and shows the dependency chain. In this example, the <TT>jbd</TT> module (journaling routines for journaling file systems) is being used by the <TT>ext3</TT> module, the default journaling file system for many popular Linux desktop distributions. This means that the <TT>ext3</TT> device driver depends on the presence of <TT>jbd</TT>.</P><A name=ch08lev2sec10></A>
+<H4 id=title-IDANPDLH class=docSection2Title>8.2.4. modprobe</H4>
+<P class=docText>This is where the cleverness of modprobe comes into play. In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list07">Listing 8-7</A>, we see the relationship between the <TT>ext3</TT> and <TT>jbd</TT> modules. The <TT>ext3</TT> module depends on the <A name=iddle1980></A><TT>jbd</TT> module. The modprobe utility can discover this relationship and load the dependent modules in the proper order. The following command loads both the <TT>jbd.ko</TT> and <TT>ext3.ko</TT> driver modules:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>modprobe ext3</SPAN></PRE></DIV><BR>
+<P class=docText>The modprobe utility has several command line options that control its behavior. As we saw earlier, modprobe can be used to remove modules, including the modules upon which a given module depends. Here is an example of module removal that removes both <TT>jbd.ko</TT> and <TT>ext3.ko</TT>:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>modprobe -r ext3</SPAN></PRE></DIV><BR>
+<P class=docText>The modprobe utility is driven by a configuration file called <TT>modprobe.conf</TT>. This enables a system developer to associate devices with device drivers. For a simple embedded system, <TT>modprobe.conf</TT> might be empty or might contain very few lines. The modprobe utility is compiled with a set of default rules that establish the defaults in the absence of a valid <TT>modprobe.conf</TT>. Invoking modprobe with only the <TT>-c</TT> option displays the set of default rules used by modprobe.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list08">Listing 8-8</A> represents a typical <TT>modprobe.conf</TT>, which might be found on a system containing two Ethernet interfaces; one is a wireless adapter based on the Prism2 chipset, and the other is a typical PCI Ethernet card. This system also contains a sound subsystem based on an integrated Intel sound chipset.</P><A name=ch08list08></A>
+<H5 id=title-IDAOSDLH class=docExampleTitle>Listing 8-8. Typical <TT>modprobe.conf</TT> File</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>cat /etc/modprobe.conf</SPAN>
+alias eth1 orinoci_pci
+options eth1 orinoco_debug=9
+alias eth0 e100
+alias snd-card-0 snd-intel8x0
+options snd-card-0 index=0
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>When the kernel boots and discovers the wireless chipset, this configuration file instructs modprobe to load the <TT>orinoco_pci</TT> device driver, bound to kernel device <TT>eth1</TT>, and pass the optional module parameter <TT>orinoco_debug=9</TT> to the device driver. The same action is taken upon discovery of the sound card hardware. Notice the optional parameters associated with the sound driver <TT>snd-intel8x0</TT>.</P><A name=ch08lev2sec11></A>
+<H4 id=title-IDASTDLH class=docSection2Title>8.2.5. depmod</H4>
+<P class=docText><A name=iddle1314></A><A name=iddle1315></A><A name=iddle1317></A><A name=iddle1338></A><A name=iddle1345></A><A name=iddle2375></A><A name=iddle2586></A><A name=iddle2593></A>How does modprobe know about the dependencies of a given module? The depmod utility plays a key role in this process. When modprobe is executed, it searches for a file called <TT>modules.dep</TT> in the same location where the modules are installed. The depmod utility creates this module-dependency file.</P>
+<P class=docText>This file contains a list of all the modules that the kernel build system is configured for, along with dependency information for each. It is a simple file format: Each device driver module occupies one line in the file. If the module has dependencies, they are listed in order following the module name. For example, from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list07">Listing 8-7</A>, we saw that the <TT>ext3</TT> module had a dependency on the <TT>jbd</TT> module. The dependency line in <TT>modules.dep</TT> would look like this:</P>
+<DIV class=docText><PRE>ext3.ko: jbd.ko</PRE></DIV><BR>
+<P class=docText>In actual practice, each module name is preceded by its absolute path in the file system, to avoid ambiguity. We have omitted the path information for readability. A more complicated dependency chain, such as sound drivers, might look like this:</P>
+<DIV class=docText><PRE>snd-intel8x0.ko: snd-ac97-codec.ko snd-pcm.ko snd-timer.ko \
+   snd.ko soundcore.ko snd-page-alloc.ko</PRE></DIV><BR>
+<P class=docText>Again, we have removed the leading path components for readability. Each module filename in the <TT>modules.dep</TT> file is an absolute filename, with complete path information, and exists on a single line. The previous example has been truncated to two lines, to fit in the space on this page.</P>
+<P class=docText>Normally, depmod is run automatically during a kernel build. However, in a cross-development environment, you must have a cross-version of depmod that knows how to read the modules that are compiled in the native format of your target architecture. Alternatively, most embedded distributions have a method and <TT>init</TT> script entries to run depmod on each boot, to guarantee that the module dependencies are kept up-to-date.</P><A name=ch08lev2sec12></A>
+<H4 id=title-IDAFYDLH class=docSection2Title>8.2.6. rmmod</H4>
+<P class=docText>This utility is also quite trivial. It simply removes a module from a running kernel. Pass it the module name as a parameter. There is no need to include a pathname or file extension. For example:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>rmmod hello1</SPAN>
+   Hello Example Exit</PRE></DIV><BR>
+<P class=docText><A name=iddle1342></A><A name=iddle1979></A><A name=iddle2100></A><A name=iddle2590></A>The only interesting point to understand here is that when you use rmmod, it executes the module's <TT>*_exit()</TT> function, as shown in the previous example, from our <TT>hello1.c</TT> example of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listings 8-1</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list06">8-6</A>.</P>
+<P class=docText>It should be noted that, unlike modprobe, rmmod does not remove dependent modules. Use <TT>modprobe -r</TT> for this.</P><A name=ch08lev2sec13></A>
+<H4 id=title-IDAD1DLH class=docSection2Title>8.2.7. modinfo</H4>
+<P class=docText>You might have noticed the last three lines of the skeletal driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A>, and later in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list06">Listing 8-6</A>. These macros are there to place tags in the binary module to facilitate their administration and management. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list09">Listing 8-9</A> is the result of modinfo executed on our <TT>hello1.ko</TT> module.</P><A name=ch08list09></A>
+<H5 id=title-IDAH2DLH class=docExampleTitle>Listing 8-9. modinfo Output</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>modinfo hello1</SPAN>
+filename:       /lib/modules/.../char/examples/hello1.ko
+author:         Chris Hallinan
+description:    Hello World Example
+license:        GPL
+vermagic:       2.6.14 ARMv5 gcc-3.3
+depends:
+parm:           debug_enable:Enable module debug mode. (int)
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The first field is obvious: It is the full filename of the device driver module. For readability in this listing, we have truncated the path again. The next lines are a direct result of the descriptive macros found at the end of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list06">Listing 8-6</A>namely, the filename, author, and license information. These are simply tags for use by the module utilities and do not affect the behavior of the device driver itself. You can learn more about modinfo from its <TT>man</TT> page and the modinfo source itself.</P>
+<P class=docText>One very useful feature of modinfo is to learn what parameters the module supports. From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list09">Listing 8-9</A>, you can see that this module supports just one parameter. This was the one we added in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec2.html#ch08list06">Listing 8-6</A>, <TT>debug_enable</TT>. The listing gives the name, type (in this case, an <TT>int</TT>), and descriptive text field we entered with the <TT>MODULE_PARM_DESC()</TT> macro. This can be very handy, especially for modules in which you might not have easy access to the source code.

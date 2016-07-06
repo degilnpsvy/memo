@@ -1,0 +1,160 @@
+<H1 class=SECT1><A name=DECLAREREF></A>9.2. Typing variables: <B class=COMMAND>declare</B> or <B class=COMMAND>typeset</B></H1>
+<P><A name=DECLARE1REF></A></P>
+<P>The <I class=FIRSTTERM>declare</I> or <I class=FIRSTTERM>typeset</I> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BUILTINREF">builtins</A>, which are exact synonyms, permit modifying the properties of variables. This is a very weak form of the <I class=FIRSTTERM>typing</I> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN5685" name=AEN5685><SPAN class=footnote>[46]</SPAN></A> available in certain programming languages. The <I class=FIRSTTERM>declare</I> command is specific to version 2 or later of Bash. The <I class=FIRSTTERM>typeset</I> command also works in ksh scripts.</P>
+<P></P>
+<DIV class=VARIABLELIST>
+<P><B><A name=DECLAREOPSREF1></A>declare/typeset options</B></P>
+<DL>
+<DT><SPAN class=TOKEN>-r</SPAN> <TT class=REPLACEABLE><I>readonly</I></TT> 
+<DD>
+<P>(<TT class=USERINPUT><B>declare -r var1</B></TT> works the same as <TT class=USERINPUT><B>readonly var1</B></TT>)</P>
+<P>This is the rough equivalent of the <B class=COMMAND>C</B> <I class=FIRSTTERM>const</I> type qualifier. An attempt to change the value of a <I class=FIRSTTERM>readonly</I> variable fails with an error message.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>declare -r var1=1
+echo "var1 = $var1"   # var1 = 1
+
+(( var1++ ))          # x.sh: line 4: var1: readonly variable</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DT><SPAN class=TOKEN>-i</SPAN> <TT class=REPLACEABLE><I>integer</I></TT> 
+<DD>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>declare -i number
+# The script will treat subsequent occurrences of "number" as an integer.		
+
+number=3
+echo "Number = $number"     # Number = 3
+
+number=three
+echo "Number = $number"     # Number = 0
+# Tries to evaluate the string "three" as an integer.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Certain arithmetic operations are permitted for declared integer variables without the need for <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXPRREF">expr</A> or <A href="http://tldp.org/LDP/abs/html/abs-guide.html#LETREF">let</A>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>n=6/3
+echo "n = $n"       # n = 6/3
+
+declare -i n
+n=6/3
+echo "n = $n"       # n = 2</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DT><A name=ARRAYDECLARE></A><SPAN class=TOKEN>-a</SPAN> <TT class=REPLACEABLE><I>array</I></TT> 
+<DD>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>declare -a indices</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>The variable <TT class=PARAMETER><I>indices</I></TT> will be treated as an <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ARRAYREF">array</A>.</P>
+<DT><SPAN class=TOKEN>-f</SPAN> <TT class=REPLACEABLE><I>function(s)</I></TT> 
+<DD>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>declare -f</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>A <TT class=USERINPUT><B>declare -f</B></TT> line with no arguments in a script causes a listing of all the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FUNCTIONREF">functions</A> previously defined in that script.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>declare -f function_name</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>A <TT class=USERINPUT><B>declare -f function_name</B></TT> in a script lists just the function named.</P>
+<DT><SPAN class=TOKEN>-x</SPAN> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXPORTREF">export</A> 
+<DD>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>declare -x var3</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>This declares a variable as available for exporting outside the environment of the script itself.</P>
+<DT>-x var=$value 
+<DD>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>declare -x var3=373</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>The <B class=COMMAND>declare</B> command permits assigning a value to a variable in the same statement as setting its properties.</P></DD></DL></DIV>
+<DIV class=EXAMPLE><A name=EX20></A>
+<P><B>Example 9-10. Using <I class=FIRSTTERM>declare</I> to type variables</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+func1 ()
+{
+  echo This is a function.
+}
+
+declare -f        # Lists the function above.
+
+echo
+
+declare -i var1   # var1 is an integer.
+var1=2367
+echo "var1 declared as $var1"
+var1=var1+1       # Integer declaration eliminates the need for 'let'.
+echo "var1 incremented by 1 is $var1."
+# Attempt to change variable declared as integer.
+echo "Attempting to change var1 to floating point value, 2367.1."
+var1=2367.1       # Results in error message, with no change to variable.
+echo "var1 is still $var1"
+
+echo
+
+declare -r var2=13.36         # 'declare' permits setting a variable property
+                              #+ and simultaneously assigning it a value.
+echo "var2 declared as $var2" # Attempt to change readonly variable.
+var2=13.37                    # Generates error message, and exit from script.
+
+echo "var2 is still $var2"    # This line will not execute.
+
+exit 0                        # Script will not exit here.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P>Using the <I class=FIRSTTERM>declare</I> builtin restricts the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SCOPEREF">scope</A> of a variable. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>foo ()
+{
+FOO="bar"
+}
+
+bar ()
+{
+foo
+echo $FOO
+}
+
+bar   # Prints bar.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>However . . . 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>foo (){
+declare FOO="bar"
+}
+
+bar ()
+{
+foo
+echo $FOO
+}
+
+bar  # Prints nothing.
+
+
+# Thank you, Michael Iatrou, for pointing this out.</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>

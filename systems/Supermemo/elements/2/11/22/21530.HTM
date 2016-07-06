@@ -1,0 +1,166 @@
+<H1 class=SECT1><A name=VARSUBN></A>4.1. Variable Substitution</H1>
+<P>The <I class=FIRSTTERM>name</I> of a variable is a placeholder for its <I class=FIRSTTERM>value</I>, the data it holds. Referencing (retrieving) its value is called <I class=FIRSTTERM>variable substitution</I>.</P>
+<P></P>
+<DIV class=VARIABLELIST>
+<DL>
+<DT><SPAN class=TOKEN>$</SPAN> 
+<DD>
+<P><A name=VARNAMEVAL></A></P>
+<P>Let us carefully distinguish between the <I class=FIRSTTERM>name</I> of a variable and its <I class=FIRSTTERM>value</I>. If <TT class=USERINPUT><B>variable1</B></TT> is the name of a variable, then <TT class=USERINPUT><B>$variable1</B></TT> is a reference to its <I class=FIRSTTERM>value</I>, the data item it contains. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN2258" name=AEN2258><SPAN class=footnote>[25]</SPAN></A> </P>
+<P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>variable1=23</B></TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>echo variable1</B></TT>
+<TT class=COMPUTEROUTPUT>variable1</TT>
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>echo $variable1</B></TT>
+<TT class=COMPUTEROUTPUT>23</TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>The only times a variable appears <SPAN class=QUOTE>"naked"</SPAN> -- without the <SPAN class=TOKEN>$</SPAN> prefix -- is when declared or assigned, when <I class=FIRSTTERM>unset</I>, when <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXPORTREF">exported</A>, in an arithmetic expression within <A href="http://tldp.org/LDP/abs/html/abs-guide.html#DBLPARENS">double parentheses (( ... ))</A>, or in the special case of a variable representing a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SIGNALD">signal</A> (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX76">Example 32-5</A>). Assignment may be with an <SPAN class=TOKEN>=</SPAN> (as in <TT class=PARAMETER><I>var1=27</I></TT>), in a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#READREF">read</A> statement, and at the head of a loop (<TT class=PARAMETER><I>for var2 in 1 2 3</I></TT>).</P>
+<P><A name=DBLQUO></A>Enclosing a referenced value in <I class=FIRSTTERM>double quotes</I> (<SPAN class=TOKEN>" ... "</SPAN>) does not interfere with variable substitution. This is called <I class=FIRSTTERM>partial quoting</I>, sometimes referred to as <SPAN class=QUOTE>"weak quoting."</SPAN> <A name=SNGLQUO></A>Using single quotes (<SPAN class=TOKEN>' ... '</SPAN>) causes the variable name to be used literally, and no substitution will take place. This is <I class=FIRSTTERM>full quoting</I>, sometimes referred to as 'strong quoting.' See <A href="http://tldp.org/LDP/abs/html/abs-guide.html#QUOTING">Chapter 5</A> for a detailed discussion.</P>
+<P>Note that <TT class=USERINPUT><B>$variable</B></TT> is actually a simplified form of <TT class=USERINPUT><B>${variable}</B></TT>. In contexts where the <TT class=USERINPUT><B>$variable</B></TT> syntax causes an error, the longer form may work (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PARAMETER-SUBSTITUTION">Section 10.2</A>, below).</P>
+<P><A name=VARUNSETTING></A></P>
+<DIV class=EXAMPLE><A name=EX9></A>
+<P><B>Example 4-1. Variable assignment and substitution</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# ex9.sh
+
+# Variables: assignment and substitution
+
+a=375
+hello=$a
+#   ^ ^
+
+#-------------------------------------------------------------------------
+# No space permitted on either side of = sign when initializing variables.
+# What happens if there is a space?
+
+#  "VARIABLE =value"
+#           ^
+#% Script tries to run "VARIABLE" command with one argument, "=value".
+
+#  "VARIABLE= value"
+#            ^
+#% Script tries to run "value" command with
+#+ the environmental variable "VARIABLE" set to "".
+#-------------------------------------------------------------------------
+
+
+echo hello    # hello
+# Not a variable reference, just the string "hello" ...
+
+echo $hello   # 375
+#    ^          This *is* a variable reference.
+echo ${hello} # 375
+#               Likewise a variable reference, as above.
+
+# Quoting . . .
+echo "$hello"    # 375
+echo "${hello}"  # 375
+
+echo
+
+hello="A B  C   D"
+echo $hello   # A B C D
+echo "$hello" # A B  C   D
+# As we see, echo $hello   and   echo "$hello"   give different results.
+# =======================================
+# Quoting a variable preserves whitespace.
+# =======================================
+
+echo
+
+echo '$hello'  # $hello
+#    ^      ^
+#  Variable referencing disabled (escaped) by single quotes,
+#+ which causes the "$" to be interpreted literally.
+
+# Notice the effect of different types of quoting.
+
+
+hello=    # Setting it to a null value.
+echo "\$hello (null value) = $hello"      # $hello (null value) =
+#  Note that setting a variable to a null value is not the same as
+#+ unsetting it, although the end result is the same (see below).
+
+# --------------------------------------------------------------
+
+#  It is permissible to set multiple variables on the same line,
+#+ if separated by white space.
+#  Caution, this may reduce legibility, and may not be portable.
+
+var1=21  var2=22  var3=$V3
+echo
+echo "var1=$var1   var2=$var2   var3=$var3"
+
+# May cause problems with legacy versions of "sh" . . .
+
+# --------------------------------------------------------------
+
+echo; echo
+
+numbers="one two three"
+#           ^   ^
+other_numbers="1 2 3"
+#               ^ ^
+#  If there is whitespace embedded within a variable,
+#+ then quotes are necessary.
+#  other_numbers=1 2 3                  # Gives an error message.
+echo "numbers = $numbers"
+echo "other_numbers = $other_numbers"   # other_numbers = 1 2 3
+#  Escaping the whitespace also works.
+mixed_bag=2\ ---\ Whatever
+#           ^    ^ Space after escape (\).
+
+echo "$mixed_bag"         # 2 --- Whatever
+
+echo; echo
+
+echo "uninitialized_variable = $uninitialized_variable"
+# Uninitialized variable has null value (no value at all!).
+uninitialized_variable=   #  Declaring, but not initializing it --
+                          #+ same as setting it to a null value, as above.
+echo "uninitialized_variable = $uninitialized_variable"
+                          # It still has a null value.
+
+uninitialized_variable=23       # Set it.
+unset uninitialized_variable    # Unset it.
+echo "uninitialized_variable = $uninitialized_variable"
+                                # uninitialized_variable =
+                                # It still has a null value.
+echo
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P><A name=UNINITVAR1></A></P>
+<P>An uninitialized variable has a <SPAN class=QUOTE>"null"</SPAN> value -- no assigned value at all (<EM>not</EM> zero!). 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>if [ -z "$unassigned" ]
+then
+  echo "\$unassigned is NULL."
+fi     # $unassigned is NULL.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Using a variable before assigning a value to it may cause problems. It is nevertheless possible to perform arithmetic operations on an uninitialized variable. 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>echo "$uninitialized"                                # (blank line)
+let "uninitialized += 5"                             # Add 5 to it.
+echo "$uninitialized"                                # 5
+
+#  Conclusion:
+#  An uninitialized variable has no value,
+#+ however it evaluates as 0 in an arithmetic operation.</PRE></FONT></TD></TR></TBODY></TABLE>See also <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SELFSOURCE">Example 15-23</A>.</P></TD></TR></TBODY></TABLE></DIV></DD></DL></DIV>

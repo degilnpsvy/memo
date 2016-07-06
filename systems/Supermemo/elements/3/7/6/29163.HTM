@@ -1,0 +1,8 @@
+For example, if you allocate some data and then pass it to another<BR>thread to process: 
+<P></P>
+<P>void data_release(struct kref *ref)<BR>{<BR>&nbsp;struct my_data *data = container_of(ref, struct my_data, refcount);<BR>&nbsp;kfree(data);<BR>}</P>
+<P>void more_data_handling(void *cb_data)<BR>{<BR>&nbsp;struct my_data *data = cb_data;<BR>&nbsp;.<BR>&nbsp;. do stuff with data here<BR>&nbsp;.<BR>&nbsp;kref_put(&amp;data-&gt;refcount, data_release);<BR>}</P>
+<P>int my_data_handler(void)<BR>{<BR>&nbsp;int rv = 0;<BR>&nbsp;struct my_data *data;<BR>&nbsp;struct task_struct *task;<BR>&nbsp;data = kmalloc(sizeof(*data), GFP_KERNEL);<BR>&nbsp;if (!data)<BR>&nbsp;&nbsp;return -ENOMEM;<BR>&nbsp;kref_init(&amp;data-&gt;refcount);</P>
+<P>&nbsp;kref_get(&amp;data-&gt;refcount);<BR>&nbsp;task = kthread_run(more_data_handling, data, "more_data_handling");<BR>&nbsp;if (task == ERR_PTR(-ENOMEM)) {<BR>&nbsp;&nbsp;rv = -ENOMEM;<BR>&nbsp;&nbsp;goto out;<BR>&nbsp;}</P>
+<P>&nbsp;.<BR>&nbsp;. do stuff with data here<BR>&nbsp;.<BR>&nbsp;out:<BR>&nbsp;kref_put(&amp;data-&gt;refcount, data_release);<BR>&nbsp;return rv;<BR>}</P>
+<P>This way, it doesn't matter what order the two threads handle the<BR>data, the kref_put() handles knowing when the data is not referenced<BR>any more and releasing it.&nbsp; The kref_get() does not require a lock,<BR>since <FONT class=clozed>we already have a valid pointer that we own a refcount for</FONT>.&nbsp; The<BR>put needs no lock because <SPAN class=cloze>[...]</SPAN>.

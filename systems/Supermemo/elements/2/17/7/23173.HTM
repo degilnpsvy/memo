@@ -1,0 +1,358 @@
+<H3 id=-100000 class=docSection1Title>Kernel Probes</H3>
+<P class=docText><A name="Kernel probes"></A>Kernel probes can intrude into a kernel function and extract debug information or apply a medicated patch. It's a useful addition to your debugging repertoire for investigating inexplicable behavior at a customer site, especially when you don't have the luxury of rebooting the system. Linux supports a generic form of kernel probes called <SPAN class=docEmphasis>Kprobes</SPAN><A name="specialized variants"></A> and two specialized variants, <SPAN class=docEmphasis>Jprobes</SPAN> and <SPAN class=docEmphasis>return probes</SPAN>.</P><A name=ch21lev2sec7></A>
+<H4 id=title-ID0E6UAO class=docSection2Title>Kprobes</H4>
+<P class=docText><A name="the trouble"></A>Kprobes can save you the trouble of building and booting a debug kernel by providing capabilities to dynamically dump kernel data structures or insert code into a running kernel. You can, for example, add a few <TT>printk</TT><A name="scheduler without"></A>s on-the-fly inside the scheduler without recompiling the kernel. You can even patch a bug on a Mars rover without rebooting it.</P>
+<P class=docText>To insert a kprobe inside a kernel function, follow these steps:</P><A name=ch21pro02></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Turn on <TT>CONFIG_KPROBES</TT> (<SPAN class=docEmphasis>Instrumentation Support</SPAN> <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphasis>Kprobes</SPAN>) in the kernel configuration menu.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Implement a kernel module that registers a kprobe at the instruction of interest. You need to register a <SPAN class=docEmphasis>pre-handler</SPAN> that Kprobes will run just before executing the probed instruction and a <SPAN class=docEmphasis>post-handler</SPAN> that Kprobes will run after executing the probed instruction. You may also supply a <SPAN class=docEmphasis>fault-handler</SPAN> that will run if a fault is detected while executing the pre- or post-handlers (because you don't want to "oops" due to a debugging bug!).<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name=iddle1710></A><A name=iddle1795></A><A name=iddle2537></A><A name=iddle2679></A><A name=iddle2680></A><A name=iddle2682></A><A name=iddle3161></A><A name=iddle3644></A><A name=iddle3646></A><A name="replaces it"></A>When a kprobe is registered, it saves the probed instruction and replaces it with an instruction that generates a breakpoint (<TT>int 0x03</TT><A name="is hit"></A> on x86-based systems). When the breakpoint is hit, the kernel generates a <SPAN class=docEmphasis>die</SPAN> notification. (We discussed notifier chains in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03">Chapter 3</A><A name="so it"></A>, "Kernel Facilities.") Kprobes inserts itself into the die notifier chain, so it gets notified about the breakpoint hit.</P>
+<P class=docText><A name="it steps"></A>When notified, Kprobes executes the registered pre-handler. Next, it steps through a copy of the probed instruction. It executes a copy instead of swapping the probed instruction with the breakpoint instruction for reasons of SMP consistency. Finally, it runs the post-handler. The pre- and post-handler windows are the hooks offered to the Kprobes user to inject debug code. The handlers can be registered and unregistered on-the-fly, so serviceability is not merely static at compile time but programmable during runtime.</P>
+<P class=docText><A name="an example"></A>Let's learn to use Kprobes with the help of an example. Consider the code snippet in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex02">Listing 21.2</A>, which is a kernel thread that adds <TT>npages</TT><A name="whenever a"></A> number of pages to the free memory pool, whenever a <TT>SIGUSR1</TT><A name="signal is"></A> signal is delivered to it. Most of the logic has been scissored out of the listing because it's not relevant. Assume that you are at a customer site to debug a problem reported with this code. You notice bad things whenever <TT>npages</TT> crosses <TT>10</TT><A name="want to"></A>, so you want to apply a runtime patch that limits it to <TT>10</TT>.</P><A name=ch21ex02></A>
+<H5 id=title-ID0EB2AO class=docExampleTitle>Listing 21.2. Problem Code (mydrv.c)</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>int npages=0;
+EXPORT_SYMBOL(npages);
+
+static int memwalkd(void *unused)
+{
+  long curr_pfn = (64*1024*1024 &gt;&gt; PAGE_SHIFT);
+  struct page *curr_page;
+  /* ... */
+
+  daemonize("memwalkd"); /* kernel thread */
+
+  sigfillset(&#164;t-&gt;blocked);
+  allow_signal(SIGUSR1);
+
+  for (;;) {
+    /* Dequeue a signal if it's pending */
+    if (signal_pending(current)) {
+      sig = dequeue_signal(current, &#164;t-&gt;blocked, &amp;info);
+      /* Point A */
+      /* Free npages pages when SIGUSR1 is received */
+      if (sig == SIGUSR1) {
+      /* Point B */
+        <SPAN class=docEmphStrong>/* Problem manifests when npages crosses 10 in the following</SPAN>
+           <SPAN class=docEmphStrong>loop. Let's apply run time medication here via Kprobes */</SPAN>
+        for (i=0; i &lt; npages; i++, curr_pfn++) {
+          /* ... */
+        }
+      }
+      /* ... */
+  }
+  /* ... */
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText></P><A name=ch21ex03></A>
+<H5 id=title-ID0E42AO class=docExampleTitle>Listing 21.3. Registering Kprobe Handlers</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX kernel.h="">
+#include <LINUX module.h="">
+#include <LINUX kprobes.h="">
+#include <LINUX kallsyms.h="">
+#include <LINUX sched.h="">
+
+extern int npages; /* Defined in Listing 21.2 */
+
+/* Per-probe structure */
+static struct kprobe bandaid;
+
+/* Pre Handler: Invoked before running probed instruction */
+int bandaid_pre(struct kprobe *p, struct pt_regs *regs)
+{
+  if (npages &gt; 10) npages = 10;
+  return 0;
+}
+
+/* Post Handler: Invoked after running probed instruction */
+void bandaid_post(struct kprobe *p, struct pt_regs *regs,
+                  unsigned long flags)
+{
+  /* Nothing to do */
+}
+/* Fault Handler: Invoked if the pre/post-handlers
+   encounter a fault */
+int bandaid_fault(struct kprobe *p, struct pt_regs *regs,
+                  int trapnr)
+{
+  return 0;
+}
+
+int init_module(void)
+{
+  int retval;
+
+  /* Fill the kprobe structure */
+  bandaid.pre_handler   = bandaid_pre;
+  bandaid.post_handler  = bandaid_post;
+  bandaid.fault_handler = bandaid_fault;
+
+  /* Arrive at the target address as explained */
+  bandaid.addr = (kprobe_opcode_t*)
+                 kallsyms_lookup_name("memwalkd") + 0xaa;
+
+  if (!bandaid.addr) {
+    printk("Bad Probe Point\n");
+    return -1;
+  }
+
+  /* Register the kprobe */
+  if ((retval = register_kprobe(&amp;bandaid)) &lt; 0) {
+    printk("register_kprobe error, return value=%d\n",
+            retval);
+    return -1;
+  }
+  return 0;
+}
+
+void module_cleanup(void)
+{
+  unregister_kprobe(&amp;bandaid);
+}
+
+MODULE_LICENSE("GPL"); /* You can't link the Kprobes API
+                          unless your user module is GPL'ed */
+
+					  </LINUX></LINUX></LINUX></LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;<A name=iddle2681></A><A name=iddle3773></A></P>
+<P class=docText><A name=iddle2683></A><A name=iddle3311></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex03">Listing 21.3</A><A name="a patch"></A> uses Kprobes to insert a patch at <TT>kallsyms_lookup_name("memwalkd") + 0xaa</TT>, which limits <TT>npages</TT> to <TT>10</TT><A name="how to"></A>. To figure out how to arrive at this probe address, take another look at <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex02">Listing 21.2</A><A name="calculate the"></A>. You want the patch to be inserted at Point B. To calculate the kernel address at Point B, disassemble the contents of <SPAN class=docEmphasis>mydrv.ko</SPAN> using <SPAN class=docEmphasis>objdump</SPAN>:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; objdump -D mydrv.ko</SPAN>
+
+mydrv.ko:     file format elf32-i386
+
+Disassembly of section .text:
+
+00000000 <MEMWALKD>:
+   0:    55                         push   %ebp
+   1:    bd 00 40 00 00             mov    $0x4000,%ebp
+   6:    57                         push   %edi
+   7:    56                         push   %esi
+   8:    53                         push   %ebx
+   9:    bb 00 f0 ff ff             mov    $0xfffff000,%ebx
+   e:    81 ec 90 00 00 00          sub    $0x90,%esp
+  ...
+  ...
+  7a:    83 f8 0a                   cmp    $0xa,%eax   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Point A
+  7d:    74 2b                      je     aa <MEMWALKD+0XAA>
+  7f:    83 f8 09                   cmp    $0x9,%eax
+  82:    75 cc                      jne    50 <MEMWALKD+0X50>
+  ...
+  a9:    c3 ret
+  aa:    a1 00 00 00 00             mov    0x0,%eax    <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Point B
+  af:    85 c0                      test   %eax,%eax
+  b1:    0f 8e b5 00 00 00          jle    16c <MEMWALKD+0X16C>
+  b7:    81 fd 7b f6 00 00          cmp    $0xf67b,%ebp
+  ...
+  fa:    a1 00 00 00 00             mov    0x0,%eax
+
+					  </MEMWALKD+0X16C></MEMWALKD+0X50></MEMWALKD+0XAA></MEMWALKD></PRE></DIV><BR><A name=ch21note02></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="an architecture"></A>You have to use an architecture-specific objdump if you're cross-compiling for a different processor platform. You will need something like arm-linux-objdump if you're disassembling a binary cross-compiled for an ARM-based target device. Pass the -S option to objdump to mix source code with the disassembled output:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; arm-linux-objdump &#37413;&#25593; &#37413;&#25565; mydrv.ko</SPAN></PRE></DIV><BR>
+<P></P></DIV><BR>
+<P class=docText><A name=iddle1713></A><A name=iddle2508></A><A name=iddle2513></A><A name=iddle2686></A><A name=iddle2977></A><A name="code in"></A>If you try and match the C code in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex02">Listing 21.2</A><A name="can associate"></A> with its disassembled dump above, you can associate Point A and Point B with the shown kernel addresses. <TT>kallsyms_lookup_name()</TT><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21fn06">[6]</A></SUP> locates the address of <TT>memwalkd()</TT>, and <TT>0xaa</TT><A name="the kprobe"></A> is the offset where Point B resides, so apply the kprobe at <TT>kallsyms_lookup_name("memwalkd") + 0xaa</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch21fn06>[6]</A></SUP> You have to enable <TT>CONFIG_KALLSYMS</TT><A name="of this"></A> during kernel configuration to obtain the services of this function.</P></BLOCKQUOTE>
+<P class=docText><A name="After you"></A>After you register the kprobe, <TT>memwalkd()</TT><A name="like this"></A> equivalently looks like this:</P>
+<DIV class=docText><PRE>static int memwalkd(void *unused)
+{
+  /* ...*/
+  for (;;) {
+    /* ... */
+    /* Point A */
+    /* Free npages pages when SIGUSR1 is received */
+    if (sig == SIGUSR1) {
+    /* Point B */
+      <SPAN class=docEmphStrong>if (npages &gt; 10) npages = 10; /* The medicated patch! */</SPAN>
+
+      for (i=0; i &lt; npages; i++, curr_pfn++) {
+        /* ... */
+      }
+    }
+    /* ... */
+  }
+  /* ... */
+}</PRE></DIV><BR>
+<P class=docText>Whenever <TT>npages</TT><A name="greater than"></A> is assigned a value greater than <TT>10</TT><A name="pulls it"></A>, the kprobed patch pulls it back to <TT>10</TT>, thus stepping around the problem.</P>
+<P class=docText><A name="facilities that"></A>In the next two sections, let's look at a couple of helper facilities that make it easier to use Kprobes during function entry and exit.</P><A name=ch21lev2sec8></A>
+<H4 id=title-ID0ERCBO class=docSection2Title>Jprobes</H4>
+<P class=docText>A <SPAN class=docEmphasis>jprobe</SPAN><A name="eases the"></A> is a specialized kprobe. It eases the work of adding a probe when the point of investigation is at the entry to a kernel function. The jprobe handler has the same prototype as the probed function. It's invoked with the same argument list as the probed function, so you can easily access the function arguments from the jprobe handler. If you use Kprobes rather than Jprobes, imagine the hassles your probe handler needs to <A name=iddle3638></A><A name=iddle3772></A><A name="function stack"></A>undergo, wading through the dark alleys of the function stack to extract function arguments! And this code that delves into the stack to elicit argument values has to be heavily function-specific, not to mention being architecture-dependent and unportable.</P>
+<P class=docText><A name="revert to"></A>To learn how to use Jprobes, let's revert to an example. Assume that you're debugging a network device driver (that is built as part of the kernel) by looking at the <TT>printk()</TT><A name="octal "></A> messages it's generating. The driver is emitting crucial values in octal (base 8), but to your horror, the driver writer has introduced a typo in the print format string by coding <TT>%O</TT> rather than <TT>%o</TT><A name="as this"></A>. So, all you can see are messages such as this:</P>
+<DIV class=docText><PRE>Number of Free Receive buffers = %O.</PRE></DIV><BR>
+<P class=docText><A name="Jprobes to"></A>Jprobes to the rescue. You can fix this in a few seconds, without recompiling or rebooting the kernel. First, take a look at <TT>printk()</TT> defined in <SPAN class=docEmphasis>kernel/printk.c</SPAN>:</P>
+<DIV class=docText><PRE>asmlinkage int printk(const char *fmt, ...)
+{
+  va_list args;
+  int r;
+
+  va_start(args, fmt);
+  r = vprintk(fmt, args);
+  va_end(args);
+  return r;
+}</PRE></DIV><BR>
+<P class=docText><A name="simple jprobe"></A>Let's add a simple jprobe at the entry to <TT>printk()</TT> and transform every %O into <TT>%o</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex04">Listing 21.4</A><A name="the jprobe"></A> does this job. Note that the jprobe handler needs to have the same prototype as <TT>printk()</TT><A name="marked with"></A>. Both functions are marked with the <TT>asmlinkage</TT><A name="than from"></A> tag that asks them to expect arguments from the stack, rather than from CPU registers.</P><A name=ch21ex04></A>
+<H5 id=title-ID0EFFBO class=docExampleTitle>Listing 21.4. Registering Jprobe Handlers</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX kernel.h="">
+#include <LINUX module.h="">
+#include <LINUX kprobes.h="">
+#include <LINUX kallsyms.h="">
+
+/* Jprobe the entrance to printk */
+asmlinkage int
+jprintk(const char *fmt, ...)
+{
+   for (; *fmt; ++fmt) {
+     if ((*fmt=='%')&amp;&amp;(*(fmt+1) == 'O')) *(char *)(fmt+1) = 'o';
+   }
+   jprobe_return();
+   return 0;
+}
+
+/* Per-probe structure */
+static struct jprobe jprobe_eg = {
+  .entry = (kprobe_opcode_t *) jprintk
+};
+
+int
+init_module(void)
+{
+  int retval;
+
+  jprobe_eg.kp.addr = (kprobe_opcode_t*)
+                      kallsyms_lookup_name("printk");
+
+  if (!jprobe_eg.kp.addr) {
+    printk("Bad probe point\n");
+    return -1;
+  }
+
+  /* Register the Jprobe */
+  if ((retval = register_jprobe(&amp;jprobe_eg) &lt; 0)) {
+    printk("register_jprobe error, return value=%d\n",
+            retval);
+    return -1;
+  }
+  printk("Jprobe registered.\n");
+  return 0;
+}
+
+void
+module_cleanup(void)
+{
+  unregister_jprobe(&amp;jprobe_eg);
+}
+
+MODULE_LICENSE("GPL");
+
+					  </LINUX></LINUX></LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1714></A><A name=iddle2506></A><A name=iddle2507></A><A name=iddle2687></A><A name=iddle2697></A><A name=iddle3766></A><A name=iddle3779></A><A name=iddle3817></A><A name=iddle4330></A>When <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex04">Listing 21.4</A> invokes <TT>register_jprobes()</TT><A name="kprobe is"></A> to register the jprobe, a kprobe is inserted at the beginning of <TT>printk()</TT><A name="saved return"></A>. When this probe is hit, Kprobes replace the saved return address with that of the registered jprobe handler, <TT>jprintk()</TT><A name="of the"></A>. It then copies a portion of the stack and returns, thus passing control to <TT>jprintk()</TT> with <TT>printk()</TT>'s argument list. When <TT>jprintk()</TT> calls <TT>jprobe_return()</TT>, the original call state is restored, and <TT>printk()</TT> continues to execute normally.</P>
+<P class=docText><A name="driver no"></A>When you insert this jprobe user module, the network driver no longer emits useless messages announcing <TT>%O</TT> buffers, rather it prints saner information such as this:</P>
+<DIV class=docText><PRE>Number of Free Receive buffers = 12.</PRE></DIV><BR><A name=ch21lev2sec9></A>
+<H4 id=title-ID0EMJBO class=docSection2Title>Return Probes</H4>
+<P class=docText>A <SPAN class=docEmphasis>return probe</SPAN> (or a <SPAN class=docEmphasis>kretprobe</SPAN><A name="eases the"></A> in Kprobes terminology) is another specialized Kprobes helper. It eases the work of inserting a kprobe when you need to probe a function's return point. If you use vanilla Kprobes to investigate return points, you might need to register them at multiple places because a function can return via multiple code paths. However, if you use return probes, you need to insert only one kretprobe, rather than register, say, 20 Kprobes to cover a function's 20 return paths.</P>
+<P class=docText><A name="The function"></A>The function <TT>tty_open()</TT> defined in <SPAN class=docEmphasis>drivers/char/tty_io.c</SPAN><A name="return paths"></A> has seven return paths. The successful path returns <TT>0</TT><A name="values such"></A>, and others return error values such as <TT>&#37413;&#25544;NXIO</TT> and <TT>-ENODEV</TT><A name="is sufficient"></A>. A single kretprobe is sufficient to alert you about failures, irrespective of the associated code path. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex05">Listing 21.5</A> implements this kretprobe.</P><A name=ch21ex05></A>
+<H5 id=title-ID0ESKBO class=docExampleTitle>Listing 21.5. Registering Return Probe Handlers</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX kernel.h="">
+#include <LINUX module.h="">
+#include <LINUX kprobes.h="">
+#include <LINUX kallsyms.h="">
+
+/* kretprobe at exit from tty_open() */
+static int
+kret_tty_open(struct kretprobe_instance *kreti,
+              struct pt_regs *regs)
+{
+  /* The EAX register contains the function return value
+     on x86 systems */
+  if ((int) regs-&gt;eax) {
+    /* tty_open() failed. Announce the return code */
+    printk("tty_open returned %d\n", (int)regs-&gt;eax);
+  }
+  return 0;
+}
+
+/* Per-probe structure */
+static struct kretprobe kretprobe_eg = {
+  .handler = (kretprobe_handler_t)kret_tty_open
+};
+
+int
+init_module(void)
+{
+  int retval;
+
+  kretprobe_eg.kp.addr = (kprobe_opcode_t*)
+                         kallsyms_lookup_name("tty_open");
+
+  if (!kretprobe_eg.kp.addr) {
+    printk("Bad Probe Point\n");
+    return -1;
+  }
+
+  /* Register the kretprobe */
+  if ((retval = register_kretprobe(&amp;kretprobe_eg) &lt; 0)) {
+    printk("register_kretprobe error, return value=%d\n",
+            retval);
+    return -1;
+  }
+  printk("kretprobe registered.\n");
+  return 0;
+}
+
+void module_cleanup(void)
+{
+  unregister_kretprobe(&amp;kretprobe_eg);
+}
+
+MODULE_LICENSE("GPL");
+
+					  </LINUX></LINUX></LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1715></A><A name=iddle2688></A><A name=iddle2696></A><A name=iddle3767></A><A name=iddle4209></A>When <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex05">Listing 21.5</A> invokes <TT>register_kretprobes()</TT>, a kprobe is internally inserted at the beginning of <TT>tty_open()</TT><A name="function return"></A>. When this probe gets hit, this internal kprobe handler replaces the function return address with that of a special routine (called a <SPAN class=docEmphasis>trampoline</SPAN> in Kprobes terminology). Look at <SPAN class=docEmphasis>arch/your-arch/kernel/kprobes.c</SPAN><A name="the trampoline"></A> for the implementation of the trampoline.</P>
+<P class=docText>When <TT>tty_open()</TT><A name="control returns"></A> returns via any of its seven return paths, control returns to the trampoline instead of the caller function. The trampoline invokes the kretprobe handler, <TT>kret_tty_open()</TT> registered by <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec2.html#ch21ex05">Listing 21.5</A><A name=if></A>, which prints the return value if <TT>tty_open()</TT> has not returned successfully.</P><A name=ch21lev2sec10></A>
+<H4 id=title-ID0ERNBO class=docSection2Title>Limitations</H4>
+<P class=docText><A name="for example"></A>Kprobes has its limitations. Some of them are obvious. You won't, for example, see desired results if you insert a kprobe inside an inline function. And, of course, you can't probe Kprobes code.</P>
+<P class=docText><A name="inside the"></A>Kprobes are more useful for applying probes inside the base kernel. If the subject code is part of a dynamically loadable module, you might as well rewrite and recompile your module rather than write and compile a new module to "kprobe" it. However, you might still want to use Kprobes if bringing down the module is not acceptable.</P>
+<P class=docText><A name="There are"></A>There are less-obvious limitations, too. Optimizations are done at compile time, whereas Kprobes are inserted during runtime. So, the effect of inserting instructions via Kprobes is not equivalent to adding code in the original source files. For example, the buggy code snippet</P>
+<DIV class=docText><PRE>volatile int *integerp = 0xFF;
+int integerd = *integerp;</PRE></DIV><BR>
+<P class=docText><A name="by the"></A>is reduced by the compiler to</P>
+<DIV class=docText><PRE>mov 0xff, %eax</PRE></DIV><BR>
+<P class=docText><A name="if you"></A>So, you can't easily use Kprobes if you want to sneak in between those two lines of C code, allocate a word of memory, point <TT>integerp</TT><A name="and circumvent"></A> to the allocated word, and circumvent a kernel crash.</P><A name=ch21note03></A>
+<DIV class=docNote>
+<P>
+<P class=docText>SystemTap (<A class=docLink href="http://sourceware.org/systemtap/" target=_blank>http://sourceware.org/systemtap/</A>) is a diagnostic tool that eases the use of Kprobes.</P>
+<P></P></DIV><BR><A name=ch21lev2sec11></A>
+<H4 id=title-ID0EEPBO class=docSection2Title>Looking at the Sources</H4>
+<P class=docText><A name=iddle1705></A><A name=iddle1707></A><A name=iddle1718></A><A name=iddle2647></A><A name=iddle2650></A><A name=iddle2691></A><A name=iddle3363></A><A name=iddle4094></A>The Kprobes implementation consists of a generic portion defined in <SPAN class=docEmphasis>kernel/kprobes.c</SPAN> (and <SPAN class=docEmphasis>include/linux/kprobes.h</SPAN>) and an architecture-dependent part that lives in <SPAN class=docEmphasis>arch/your-arch/kernel/kprobes.c</SPAN> (and <SPAN class=docEmphasis>include/asm-your-arch/kprobes.h</SPAN>).</P>
+<P class=docText>Peek inside <SPAN class=docEmphasis>Documentation/kprobes.txt</SPAN> for further information about Kprobes, Jprobes, and Kretprobes.

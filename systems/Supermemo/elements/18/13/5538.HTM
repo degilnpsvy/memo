@@ -1,0 +1,51 @@
+Deleting Branches 
+<P></P>
+<P><FONT class=extract>The command git branch -d branch removes the named branch from a repository.</FONT> Git prevents you from removing the current branch: </P>
+<P>$ git branch -d bug/pr-3 </P>
+<P>error: Cannot delete the branch 'bug/pr-3' which you are currently on.</P>
+<P>Removing the current branch would leave Git unable to determine what the resulting working directory tree should look like. Instead, you must always name a noncurrent branch.</P>
+<P>But there is another subtle issue. Git won&#8217;t allow you to delete a branch that contains commits that are not also present on the current branch. That is, Git prevents you from accidentally removing development in commits that will be lost if the branch were to be deleted.</P>
+<P>$ git checkout master </P>
+<P>Switched to branch "master" </P>
+<P>$ git branch -d bug/pr-3 </P>
+<P>error: The branch 'bug/pr-3' is not an ancestor of your current HEAD.</P>
+<P>If you are sure you want to delete it, run 'git branch -D bug/pr-3'. </P>
+<P>In this git show-branch output, the commit &#8220;Added a bug fix for pr-3&#8221; is found only on the bug/pr-3 branch. If that branch were to be deleted, there would no longer be a way to access that commit.</P>
+<P>By stating that the bug/pr-3 branch is not an ancestor of your current HEAD, Git is telling you that the line of development represented by the bug/pr-3 branch does not contribute to the development of the current branch, master.</P>
+<P>Git is not mandating that all branches be merged into the master branch before they can be deleted. Remember, a branch is simply a name or pointer to a commit that has actual content. Instead, Git is keeping you from accidentally losing content from the branch to be deleted that is not merged into your current branch.</P>
+<P>If the content from the deleted branch is already present on another branch, checking that branch out and then requesting the branch deletion from that context would work. Another approach is to merge the content from the branch you want to delete into your current branch (see Chapter 9). Then the other branch can be safely deleted.</P>
+<P>$ git merge bug/pr-3 </P>
+<P>Updating 7933438..401b78d</P>
+<P>Fast forward </P>
+<P>NewStuff | 1 +</P>
+<P>1 files changed, 1 insertions(+), 0 deletions(-)</P>
+<P>$ git show-branch </P>
+<P>! [bug/pr-1] Fix Problem Report 1 </P>
+<P>&nbsp;! [bug/pr-2] Added Bob's fixes. </P>
+<P>&nbsp; ! [bug/pr-3] Added a bug fix for pr-3. </P>
+<P>&nbsp;&nbsp; ! [dev] Started developing NewStuff </P>
+<P>&nbsp;&nbsp;&nbsp; * [master] Added a bug fix for pr-3.</P>
+<P>----- </P>
+<P>&nbsp;+ * [bug/pr-3] Added a bug fix for pr-3. </P>
+<P>&nbsp; + [dev] Started developing NewStuff </P>
+<P>&nbsp; + [dev^] Improve the new development </P>
+<P>&nbsp; + [dev~2] Start some new development. </P>
+<P>+ [bug/pr-1] Fix Problem Report1</P>
+<P>++++* [bug/pr-2] Added Bob's fixes. </P>
+<P>$ git branch -d bug/pr-3</P>
+<P>Deleted branch bug/pr-3. </P>
+<P>$ git show-branch </P>
+<P>! [bug/pr-1] Fix Problem Report 1 </P>
+<P>&nbsp;! [bug/pr-2] Added Bob's fixes. </P>
+<P>&nbsp; ! [dev] Started developing NewStuff </P>
+<P>&nbsp;&nbsp; * [master] Added a bug fix for pr-3.</P>
+<P>---- </P>
+<P>&nbsp;&nbsp; * [master] Added a bug fix for pr-3. </P>
+<P>&nbsp; + [dev] Started developing NewStuff </P>
+<P>&nbsp; + [dev^] Improve the new development </P>
+<P>&nbsp; + [dev~2] Start some new development. </P>
+<P>+ [bug/pr-1] Fix Problem Report 1 </P>
+<P>+++* [bug/pr-2] Added Bob's fixes.</P>
+<P>Finally, as the error message suggests, you can override Git&#8217;s safety check by using -D instead of -d. Do this if you are certain you don&#8217;t want the extra content in that branch. Git does not maintain any form of historical record of branch names being created, moved, manipulated, merged, or deleted. Once a branch name has been removed, it is gone.</P>
+<P>The commit history on that branch, however, is a separate question. <FONT class=extract>Git will eventually prune away commits that are no longer referenced and reachable from some named ref such as a branch or tag name. If you want to keep those commits, you must either merge them into a different branch, make a branch for them, or point a tag reference to them. Otherwise, without a reference to them, commits and blobs are unreachable and will eventually be collected as garbage by the git gctool.</FONT></P>
+<P><FONT class=extract>After accidentally removing a branch or other ref, you can recover it by using the git reflog command. Other commands such as git fsck and configuration options such as gc.reflogExpire and gc.pruneExpire can also help recover lost commits, files, and branch heads.</FONT>

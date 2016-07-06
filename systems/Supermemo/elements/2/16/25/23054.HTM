@@ -1,0 +1,64 @@
+<H3 id=-100000 class=docSection1Title>The Serial Peripheral Interface Bus</H3>
+<P class=docText><A name=The></A>The <SPAN class=docEmphasis>Serial Peripheral Interface</SPAN><A name="a serial"></A> (SPI) bus is a serial master-slave interface similar to I<SUP>2</SUP><A name="and comes"></A>C and comes built in on many microcontrollers. It uses four wires (compared to two on <A name=iddle1452></A><A name=iddle1635></A><A name=iddle2908></A><A name=iddle2909></A><A name=iddle3007></A><A name=iddle3040></A><A name=iddle3707></A><A name=iddle3818></A><A name=iddle3891></A><A name=iddle3939></A><A name=iddle4113></A><A name=iddle4117></A><A name=iddle4125></A>I<SUP>2</SUP>C): <SPAN class=docEmphasis>Serial CLocK</SPAN> (SCLK), <SPAN class=docEmphasis>Chip Select</SPAN> (CS), <SPAN class=docEmphasis>Master Out Slave In</SPAN> (MOSI), and <SPAN class=docEmphasis>Master In Slave Out</SPAN><A name="and MISO"></A> (MISO). MOSI is used for shifting data into the slave device, and MISO is used for shifting data out of the slave device. Because the SPI bus has dedicated wires for transmitting and receiving data, it can operate in full-duplex mode, unlike the I<SUP>2</SUP><A name="operation of"></A>C bus. The typical speed of operation of SPI is in the low-megahertz range, unlike the mid-kilohertz range on I<SUP>2</SUP>C, so the former yields higher throughput.</P>
+<P class=docText>SPI peripherals available in the market today include <SPAN class=docEmphasis>Radio Frequency</SPAN> (RF) chips, smart card interfaces, EEPROMs, RTCs, touch sensors, and ADCs.</P>
+<P class=docText><A name="over the"></A>The kernel provides a core API for exchanging messages over the SPI bus. A typical SPI client driver does the following:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Registers <TT>probe()</TT> and <TT>remove()</TT> methods with the SPI core. Optionally registers <TT>suspend()</TT> and <TT>resume()</TT> methods:</P>
+<DIV class=docText><PRE>  #include <LINUX spi="" spi.h="">
+
+  static struct spi_driver myspi_driver = {
+    .driver  = {
+      .name  = "myspi",
+      .bus   = &amp;spi_bus_type,
+      .owner = THIS_MODULE,
+    },
+    .probe   = myspidevice_probe,
+    .remove  = __devexit_p(myspidevice_remove),
+  }
+
+  spi_register_driver(&amp;myspi_driver);</LINUX></PRE></DIV>
+<P class=docList>The SPI core creates an <TT>spi_device</TT><A name="passes this"></A> structure corresponding to this device and passes this as an argument when it invokes the registered driver methods.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="functions such"></A>Exchanges messages with the SPI device using access functions such as <TT>spi_sync()</TT> and <TT>spi_async()</TT><A name="former waits"></A>. The former waits for the operation to complete, whereas the latter asynchronously triggers invocation of a registered callback routine when message transfer completes. These data access routines are invoked from suitable places such as the SPI interrupt handler, a sysfs method, or a timer handler. The following code snippet illustrates SPI message submission: 
+<DIV class=docText><PRE>#include <LINUX spi="" spi.h="">
+
+struct spi_device *spi;  /* Representation of a
+                            SPI device */
+struct spi_transfer xfer;         /* Contains transfer buffer
+                                     details */
+struct spi_message sm;            /* Sequence of spi_transfer
+                                     segments */
+u8 *command_buffer;               /* Data to be transferred */
+int len;                          /* Length of data to be
+                                     transferred */
+
+spi_message_init(&amp;sm);            /* Initialize spi_message */
+xfer.tx_buf = command_buffer;     /* Device-specific data */
+xfer.len = len;                   /* Data length */
+spi_message_add_tail(&amp;xfer, &amp;sm); /* Add the message */
+spi_sync(spi, &amp;sm);               /* Blocking transfer request */</LINUX></PRE></DIV>
+<P></P></DIV></LI></OL></DIV>
+<P class=docText><A name=iddle1224></A><A name=iddle2377></A><A name=iddle2380></A><A name=iddle3802></A><A name=iddle4114></A><A name=iddle4116></A><A name=iddle4123></A><A name="discussed in"></A>For an example SPI device, consider the ADS7846 touch-screen controller that we briefly discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07">Chapter 7</A><A name="This driver"></A>. This driver does the following:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Registers <TT>probe()</TT>, <TT>remove()</TT>, <TT>suspend()</TT>, and <TT>resume()</TT><A name="the SPI"></A> methods with the SPI core using <TT>spi_register_driver()</TT>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The <TT>probe()</TT><A name="registers the"></A> method registers the driver with the input subsystem using <TT>input_register_device()</TT> and requests an IRQ using <TT>request_irq()</TT>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=using></A>The driver gathers touch coordinates from its interrupt handler using <TT>spi_async</TT><TT>()</TT><A name="a registered"></A>. This function triggers invocation of a registered callback routine when the SPI message transfer completes.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="via the"></A>The callback function in turn, reports touch coordinates and clicks via the input event interface, <SPAN class=docEmphasis>/dev/input/eventX</SPAN>, using <TT>input_report_abs()</TT> and <TT>input_report_key()</TT>, as discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07">Chapter 7</A><A name="gpm seamlessly"></A>. Applications such as X Windows and gpm seamlessly work with the event interface and respond to touch input.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="to talk"></A>A driver that wiggles I/O pins to get them to talk a protocol is called a <SPAN class=docEmphasis>bit-banging</SPAN><A name="an example"></A> driver. For an example SPI bit-banging driver, look at <SPAN class=docEmphasis>drivers/spi/spi_butterfly.c</SPAN><A name="are present"></A>, which is a driver to talk to DataFlash chips that are present on <SPAN class=docEmphasis>Butterfly</SPAN><A name="boards built"></A> boards built by Atmel around their AVR processor family. For this, connect your host system's parallel port to the AVR Butterfly using a specially made dongle and use the <SPAN class=docEmphasis>spi_butterfly</SPAN><A name="the bit"></A> driver do the bit banging. Look at <SPAN class=docEmphasis>Documentation/spi/butterfly</SPAN><A name="a detailed"></A> for a detailed description of this driver.</P>
+<P class=docText><A name="drivers "></A>Currently there is no support for user space SPI drivers &#224; la i2c-dev. You only have the option of writing a kernel driver to talk to your SPI device.</P><A name=ch08note02></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name=iddle1003></A><A name=iddle1356></A><A name=iddle1689></A><A name=iddle2107></A><A name=iddle2250></A><A name=iddle2254></A><A name=iddle3591></A><A name=iddle3622></A><A name=iddle4613></A><A name=iddle4614></A><A name=iddle4615></A><A name="come across"></A>In the embedded world, you may come across solutions where the processor uses a companion chip that integrates various functions. An example is the Freescale MC13783 Power Management and Audio Component (PMAC) used in tandem with the ARM9-based i.MX27 controller. The PMAC integrates an RTC, a battery charger, a touch-screen interface, an ADC module, and an audio codec. The processor and the PMAC communicate over SPI. The SPI bus does not contain an interrupt line, so the PMAC has the capability to externally interrupt the processor using a GPIO pin configured for this purpose.</P></DIV>

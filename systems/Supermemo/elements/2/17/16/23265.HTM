@@ -1,0 +1,49 @@
+<H3 id=title-IDAPDOWC class=docSection1Title>9.5. JFFS2</H3>
+<P class=docText><A name=iddle1461></A><A name=iddle1691></A><A name=iddle1703></A>Flash memory has been used extensively in embedded products. Because of the nature of Flash memory technology, it is inherently less efficient and more prone to data corruption caused by power loss from much larger write times. The inefficiency stems from the block size. Block sizes of Flash memory devices are often measured in the tens or hundreds of kilobytes. Flash memory can be erased only a block at a time, although writes can usually be executed 1 byte or word at a time. To update a single file, an entire block must be erased and rewritten.</P>
+<P class=docText>It is well known that the distribution of file sizes on any given Linux machine (or other OS) contains many more smaller files than larger files. The histogram in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec5.html#ch09fig02">Figure 9-2</A>, generated with <TT>gnuplot</TT>, illustrates the distribution of file sizes on a typical Linux development system.</P><A name=ch09fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 9-2. File sizes in bytes</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/09elp02_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/09elp02.jpg" width=500 height=362>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1464></A><A name=iddle1694></A><A name=iddle1706></A>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec5.html#ch09fig02">Figure 9-2</A>, we can see that the bulk of the file sizes are well below approximately 10KB. The spike at 4096 represents directories. Directory entries (also files themselves) are exactly 4096 bytes in length, and there are many of them. The spike above 40,000 bytes is an artifact of the measurement. It is a count of the number of files greater than approximately 40KB, the end of the measurement quantum. It is interesting to note that the vast majority of files are very small.</P>
+<P class=docText>Small file sizes present a unique challenge to the Flash file system designer. Because Flash memory must be erased one entire block at a time, and the size of a Flash block is often many multiples of the smaller file sizes, Flash is subject to time-consuming block rewriting. For example, assume that a 128KB block of Flash is being used to hold a couple dozen files of 4096 bytes or less. Now assume that one of those files needs to be modified. This causes the Flash file system to invalidate the entire 128KB block and rewrite every file in the block to a newly erased block. This can be a time-consuming process.</P>
+<P class=docText>Because Flash writes can be time-consuming (much slower than hard disk writes), this increases the window where data corruption can occur due to sudden loss of power. Unexpected power loss is a common occurrence in embedded systems. For instance, if power is lost during the rewrite of the 128KB data block referenced in the previous paragraph, all of the couple dozen files could potentially be lost.</P>
+<P class=docText>Enter JFFS2. These issues just discussed and other problems have been largely reduced or eliminated by the design of the second-generation Journaling Flash File System, or JFFS2. The original JFFS was designed by Axis Communications AB of Sweden and was targeted specifically at the commonly available Flash memory devices at the time. The JFFS had knowledge of the Flash architecture and, more important, architectural limitations imposed by the devices.</P>
+<P class=docText>Another problem with Flash file systems is that Flash memory has a limited lifetime. Typical Flash memory devices are specified for a minimum of 100,000 write cycles, and, more recently, 1,000,000-cycle devices have become common. This specification is applicable to each block of the Flash device. This unusual limitation imposes the requirement to spread the writes evenly across the blocks of a Flash memory device. JFFS2 uses a technique called wear leveling to accomplish this function.</P>
+<P class=docText>Building a JFFS2 image is relatively straightforward. As always, you must ensure that your kernel has support for JFFS2 and that your development workstation <A name=iddle1157></A><A name=iddle1194></A><A name=iddle1462></A><A name=iddle1692></A><A name=iddle1704></A><A name=iddle1884></A><A name=iddle1978></A><A name=iddle2094></A>contains a compatible version of the <TT>mkfs.jffs2</TT> utility. JFFS2 images are built from a directory that contains the desired files on the file system image. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec5.html#ch09list08">Listing 9-8</A> shows a typical directory structure for a Flash device designed to be used as a root file system.</P><A name=ch09list08></A>
+<H5 id=title-IDAZKOWC class=docExampleTitle>Listing 9-8. Directory Layout for JFFS2 File System</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ls -l</SPAN>
+total 44
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 bin
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 dev
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 etc
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 home
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 lib
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 proc
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 root
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 sbin
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 tmp
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 usr
+drwxr-xr-x  2 root root 4096 Aug 14 11:27 var
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>When suitably populated with runtime files, this directory layout can be used as a template for the <TT>mkfs.jffs2</TT> command. The <TT>mkfs.jffs2</TT> command produces a properly formatted JFFS2 file system image from a directory tree such as that in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec5.html#ch09list08">Listing 9-8</A>. Command line parameters are used to pass <TT>mkfs.jffs2</TT> the directory location as well as the name of the output file to receive the JFFS2 image. The default is to create the JFFS2 image from the current directory. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec5.html#ch09list09">Listing 9-9</A> shows the command for building the JFFS2 image.</P><A name=ch09list09></A>
+<H5 id=title-IDAEMOWC class=docExampleTitle>Listing 9-9. <TT>mkfs.jffs2</TT> Command Example</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>mkfs.jffs2 -d ./jffs2-image-dir -o jffs2.bin</SPAN>
+# <SPAN class=docEmphStrong>ls -l</SPAN>
+total 4772
+-rw-r--r--   1 root  root   1098640 Sep 17 22:03 jffs2.bin
+drwxr-xr-x  13 root  root      4096 Sep 17 22:02 jffs2-image-dir
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The directory structure and files from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec5.html#ch09list08">Listing 9-8</A> are in the <TT>jffs2-image-dir</TT> directory in our example. We arbitrarily execute the <TT>mkfs.jffs2</TT> command from the directory above our file system image. Using the <TT>-d</TT> flag, we tell the <A name=iddle1156></A><A name=iddle1247></A><A name=iddle1248></A><A name=iddle1440></A><A name=iddle1441></A><A name=iddle1977></A><A name=iddle2091></A><A name=iddle2599></A><TT>mkfs.jffs2</TT> command where the file system template is located. We use the <TT>-o</TT> flag to name the output file to which the resulting JFFS2 image is written. The resulting image, <TT>jffs2.bin</TT>, is used in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10.html#ch10">Chapter 10</A>, "MTD Subsystem," when we examine the JFFS2 file together with the MTD subsystem.</P>
+<P class=docText>It should be pointed out that any Flash-based file system that supports write operations is subject to conditions that can lead to premature failure of the underlying Flash device. For example, enabling system loggers (<TT>syslogd</TT> and <TT>klogd</TT>) configured to write their data to Flash-based file systems can easily overwhelm a Flash device with continuous writes. Some categories of program errors can also lead to continuous writes. Care must be taken to limit Flash writes to values within the lifetime of Flash devices.

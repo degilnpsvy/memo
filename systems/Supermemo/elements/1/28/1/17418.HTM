@@ -1,0 +1,24 @@
+<DIV class=sect2 title="Batchbuffer Parsing">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=idp11528816></A>Batchbuffer Parsing</H3></DIV></DIV></DIV>
+<DIV class=toc>
+<DL>
+<DT><SPAN class=refentrytitle><A href="https://www.kernel.org/doc/htmldocs/drm/API-i915-cmd-parser-init-ring.html"><SPAN>i915_cmd_parser_init_ring</SPAN></A></SPAN><SPAN class=refpurpose><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8212; set cmd parser related fields for a ringbuffer</SPAN> 
+<DT><SPAN class=refentrytitle><A href="https://www.kernel.org/doc/htmldocs/drm/API-i915-cmd-parser-fini-ring.html"><SPAN>i915_cmd_parser_fini_ring</SPAN></A></SPAN><SPAN class=refpurpose><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8212; clean up cmd parser related fields</SPAN> 
+<DT><SPAN class=refentrytitle><A href="https://www.kernel.org/doc/htmldocs/drm/API-i915-needs-cmd-parser.html"><SPAN>i915_needs_cmd_parser</SPAN></A></SPAN><SPAN class=refpurpose><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8212; should a given ring use software command parsing?</SPAN> 
+<DT><SPAN class=refentrytitle><A href="https://www.kernel.org/doc/htmldocs/drm/API-i915-parse-cmds.html"><SPAN>i915_parse_cmds</SPAN></A></SPAN><SPAN class=refpurpose><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8212; parse a submitted batch buffer for privilege violations</SPAN> 
+<DT><SPAN class=refentrytitle><A href="https://www.kernel.org/doc/htmldocs/drm/API-i915-cmd-parser-get-version.html"><SPAN>i915_cmd_parser_get_version</SPAN></A></SPAN><SPAN class=refpurpose><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8212; get the cmd parser version number</SPAN></DT></DL></DIV>
+<P></P>
+<P>Motivation: Certain OpenGL features (e.g. transform feedback, performance monitoring) require userspace code to submit batches containing commands such as MI_LOAD_REGISTER_IMM to access various registers. Unfortunately, some generations of the hardware will noop these commands in<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=quote>&#8220;<SPAN class=quote>unsecure</SPAN>&#8221;</SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>batches (which includes all userspace batches submitted via i915) even though the commands may be safe and represent the intended programming model of the device.</P>
+<P>The software command parser is similar in operation to the command parsing done in hardware for unsecure batches. However, the software parser allows some operations that would be noop'd by hardware, if the parser determines the operation is safe, and submits the batch as<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=quote>&#8220;<SPAN class=quote>secure</SPAN>&#8221;</SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>to prevent hardware parsing.</P>
+<P>Threats: At a high level, the hardware (and software) checks attempt to prevent granting userspace undue privileges. There are three categories of privilege.</P>
+<P>First, commands which are explicitly defined as privileged or which should only be used by the kernel driver. The parser generally rejects such commands, though it may allow some from the drm master process.</P>
+<P>Second, commands which access registers. To support correct/enhanced userspace functionality, particularly certain OpenGL extensions, the parser provides a whitelist of registers which userspace may safely access (for both normal and drm master processes).</P>
+<P>Third, commands which access privileged memory (i.e. GGTT, HWS page, etc). The parser always rejects such commands.</P>
+<P>The majority of the problematic commands fall in the MI_* range, with only a few specific commands on each ring (e.g. PIPE_CONTROL and MI_FLUSH_DW).</P>
+<P>Implementation: Each ring maintains tables of commands and registers which the parser uses in scanning batch buffers submitted to that ring.</P>
+<P>Since the set of commands that the parser must check for is significantly smaller than the number of commands supported, the parser tables contain only those commands required by the parser. This generally works because command opcode ranges have standard command length encodings. So for commands that the parser does not need to check, it can easily skip them. This is implementated via a per-ring length decoding vfunc.</P>
+<P>Unfortunately, there are a number of commands that do not follow the standard length encoding for their opcode range, primarily amongst the MI_* commands. To handle this, the parser provides a way to define explicit<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=quote>&#8220;<SPAN class=quote>skip</SPAN>&#8221;</SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>entries in the per-ring command tables.</P>
+<P>Other command table entries map fairly directly to high level categories mentioned above: rejected, master-only, register whitelist. The parser implements a number of checks, including the privileged memory checks, via a general bitmasking mechanism.</P></DIV>

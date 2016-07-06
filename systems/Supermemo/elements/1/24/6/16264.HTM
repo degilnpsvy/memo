@@ -1,0 +1,52 @@
+<H4 class=subsection>12.2.3 Loaded Object Interface</H4>
+<P><A name=index-loaded-object-API-1066></A><A name=index-interface-for-loaded-objects-1067></A>
+<P>
+<TABLE class=cartouche border=1 summary=cartouche>
+<TBODY>
+<TR>
+<TD>
+<BLOCKQUOTE><B>Warning:</B> For this feature to be useful your extensions will need to invoke various functions internal to GNU <CODE>make</CODE>. The programming interfaces provided in this release should not be considered stable: functions may be added, removed, or change calling signatures or implementations in future versions of GNU <CODE>make</CODE>. </BLOCKQUOTE></TD></TR></TBODY></TABLE>
+<P>To be useful, loaded objects must be able to interact with GNU <CODE>make</CODE>. This interaction includes both interfaces the loaded object provides to makefiles and also interfaces <CODE>make</CODE> provides to the loaded object to manipulate <CODE>make</CODE>'s operation. 
+<P>The interface between loaded objects and <CODE>make</CODE> is defined by the <SAMP><SPAN class=file>gnumake.h</SPAN></SAMP> C header file. All loaded objects written in C should include this header file. Any loaded object not written in C will need to implement the interface defined in this header file. 
+<P>Typically, a loaded object will register one or more new GNU <CODE>make</CODE> functions using the <CODE>gmk_add_function</CODE> routine from within its setup function. The implementations of these <CODE>make</CODE> functions may make use of the <CODE>gmk_expand</CODE> and <CODE>gmk_eval</CODE> routines to perform their tasks, then optionally return a string as the result of the function expansion. 
+<H5 class=subsubheading>Loaded Object Licensing</H5>
+<P><A name=index-loaded-object-licensing-1068></A><A name=index-plugin_005fis_005fGPL_005fcompatible-1069></A>Every dynamic extension should define the global symbol <CODE>plugin_is_GPL_compatible</CODE> to assert that it has been licensed under a GPL-compatible license. If this symbol does not exist, <CODE>make</CODE> emits a fatal error and exits when it tries to load your extension. 
+<P>The declared type of the symbol should be <CODE>int</CODE>. It does not need to be in any allocated section, though. The code merely asserts that the symbol exists in the global scope. Something like this is enough: <PRE class=example>     int plugin_is_GPL_compatible;
+</PRE>
+<H5 class=subsubheading>Data Structures</H5>
+<DL>
+<DT><CODE>gmk_floc</CODE> 
+<DD>This structure represents a filename/location pair. It is provided when defining items, so GNU <CODE>make</CODE> can inform the user later where the definition occurred if necessary. </DD></DL>
+<H5 class=subsubheading>Registering Functions</H5>
+<P><A name=index-gmk_005fadd_005ffunction-1070></A>There is currently one way for makefiles to invoke operations provided by the loaded object: through the <CODE>make</CODE> function call interface. A loaded object can register one or more new functions which may then be invoked from within the makefile in the same way as any other function. 
+<P>Use <CODE>gmk_add_function</CODE> to create a new <CODE>make</CODE> function. Its arguments are as follows: 
+<DL>
+<DT><CODE>name</CODE> 
+<DD>The function name. This is what the makefile should use to invoke the function. The name must be between 1 and 255 characters long and it may only contain alphanumeric, period (&#8216;<SAMP><SPAN class=samp>.</SPAN></SAMP>&#8217;), dash (&#8216;<SAMP><SPAN class=samp>-</SPAN></SAMP>&#8217;), and underscore (&#8216;<SAMP><SPAN class=samp>_</SPAN></SAMP>&#8217;) characters. It may not begin with a period. <BR>
+<DT><CODE>func_ptr</CODE> 
+<DD>A pointer to a function that <CODE>make</CODE> will invoke when it expands the function in a makefile. This function must be defined by the loaded object. <BR>
+<DT><CODE>min_args</CODE> 
+<DD>The minimum number of arguments the function will accept. Must be between 0 and 255. GNU <CODE>make</CODE> will check this and fail before invoking <CODE>func_ptr</CODE> if the function was invoked with too few arguments. <BR>
+<DT><CODE>max_args</CODE> 
+<DD>The maximum number of arguments the function will accept. Must be between 0 and 255. GNU <CODE>make</CODE> will check this and fail before invoking <CODE>func_ptr</CODE> if the function was invoked with too few arguments. If the value is 0, then any number of arguments is accepted. If the value is greater than 0, then it must be greater than or equal to <CODE>min_args</CODE>. <BR>
+<DT><CODE>flags</CODE> 
+<DD>Flags that specify how this function will operate; the desired flags should be OR'd together. If the <CODE>GMK_FUNC_NOEXPAND</CODE> flag is given then the function arguments will not be expanded before the function is called; otherwise they will be expanded first. </DD></DL>
+<H5 class=subsubheading>Registered Function Interface</H5>
+<P><A name=index-gmk_005ffunc_005fptr-1071></A>A function registered with <CODE>make</CODE> must match the <CODE>gmk_func_ptr</CODE> type. It will be invoked with three parameters: <CODE>name</CODE> (the name of the function), <CODE>argc</CODE> (the number of arguments to the function), and <CODE>argv</CODE> (an array of pointers to arguments to the function). The last pointer (that is, <CODE>argv[argc]</CODE>) will be null (<CODE>0</CODE>). 
+<P>The return value of the function is the result of expanding the function. If the function expands to nothing the return value may be null. Otherwise, it must be a pointer to a string created with <CODE>gmk_alloc</CODE>. Once the function returns, <CODE>make</CODE> owns this string and will free it when appropriate; it cannot be accessed by the loaded object. 
+<H5 class=subsubheading>GNU <CODE>make</CODE> Facilities</H5>
+<P>There are some facilities exported by GNU <CODE>make</CODE> for use by loaded objects. Typically these would be run from within the setup function and/or the functions registered via <CODE>gmk_add_function</CODE>, to retrieve or modify the data <CODE>make</CODE> works with. 
+<DL>
+<DT><CODE>gmk_expand</CODE> 
+<DD><A name=index-gmk_005fexpand-1072></A>This function takes a string and expands it using <CODE>make</CODE> expansion rules. The result of the expansion is returned in a nil-terminated string buffer. The caller is responsible for calling <CODE>gmk_free</CODE> with a pointer to the returned buffer when done. <BR>
+<DT><CODE>gmk_eval</CODE> 
+<DD><A name=index-gmk_005feval-1073></A>This function takes a buffer and evaluates it as a segment of makefile syntax. This function can be used to define new variables, new rules, etc. It is equivalent to using the <CODE>eval</CODE> <CODE>make</CODE> function. </DD></DL>
+<P>Note that there is a difference between <CODE>gmk_eval</CODE> and calling <CODE>gmk_expand</CODE> with a string using the <CODE>eval</CODE> function: in the latter case the string will be expanded <EM>twice</EM>; once by <CODE>gmk_expand</CODE> and then again by the <CODE>eval</CODE> function. Using <CODE>gmk_eval</CODE> the buffer is only expanded once, at most (as it's read by the <CODE>make</CODE> parser). 
+<H5 class=subsubheading>Memory Management</H5>
+<P>Some systems allow for different memory management schemes. Thus you should never pass memory that you've allocated directly to any <CODE>make</CODE> function, nor should you attempt to directly free any memory returned to you by any <CODE>make</CODE> function. Instead, use the <CODE>gmk_alloc</CODE> and <CODE>gmk_free</CODE> functions. 
+<P>In particular, the string returned to <CODE>make</CODE> by a function registered using <CODE>gmk_add_function</CODE> <EM>must</EM> be allocated using <CODE>gmk_alloc</CODE>, and the string returned from the <CODE>make</CODE> <CODE>gmk_expand</CODE> function <EM>must</EM> be freed (when no longer needed) using <CODE>gmk_free</CODE>. 
+<DL>
+<DT><CODE>gmk_alloc</CODE> 
+<DD><A name=index-gmk_005falloc-1074></A>Return a pointer to a newly-allocated buffer. This function will always return a valid pointer; if not enough memory is available <CODE>make</CODE> will exit. <BR>
+<DT><CODE>gmk_free</CODE> 
+<DD><A name=index-gmk_005ffree-1075></A>Free a buffer returned to you by <CODE>make</CODE>. Once the <CODE>gmk_free</CODE> function returns the string will no longer be valid. </DD></DL>

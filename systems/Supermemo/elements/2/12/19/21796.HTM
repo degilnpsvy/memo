@@ -1,0 +1,31 @@
+# Documentation/driver-model/design-patterns.txt 
+<P></P>
+<P>Device Driver Design Patterns<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</P>
+<P></P>
+<P>This document describes a few common design patterns found in device drivers.<BR>It is likely that subsystem maintainers will ask driver developers to<BR>conform to these design patterns.</P>
+<P>1. State Container<BR>2. container_of()</P>
+<P><BR><FONT class=extract>1. State Container<BR>~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>While the kernel contains a few device drivers that assume that they will<BR>only be probed() once on a certain system (singletons), it is custom to assume<BR>that the device the driver binds to will appear in several instances. This<BR>means that the probe() function and all callbacks need to be reentrant.</FONT></P>
+<P><FONT class=extract>The most common way to achieve this is to use the state container design<BR>pattern. It usually has this form:</FONT></P>
+<P><FONT class=extract>struct foo {<BR>&nbsp;&nbsp;&nbsp; spinlock_t lock; /* Example member */<BR>&nbsp;&nbsp;&nbsp; (...)<BR>};</FONT></P>
+<P><FONT class=extract>static int foo_probe(...)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; foo = devm_kzalloc(dev, sizeof(*foo), GFP_KERNEL);<BR>&nbsp;&nbsp;&nbsp; if (!foo)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return -ENOMEM;<BR>&nbsp;&nbsp;&nbsp; spin_lock_init(&amp;foo-&gt;lock);<BR>&nbsp;&nbsp;&nbsp; (...)<BR>}</FONT></P>
+<P><FONT class=extract>This will create an instance of struct foo in memory every time probe() is<BR>called. This is our state container for this instance of the device driver.<BR>Of course it is then necessary to always pass this instance of the<BR>state around to all functions that need access to the state and its members.</FONT></P>
+<P><FONT class=extract>For example, if the driver is registering an interrupt handler, you would<BR>pass around a pointer to struct foo like this:</FONT></P>
+<P><FONT class=extract>static irqreturn_t foo_handler(int irq, void *arg)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo = arg;<BR>&nbsp;&nbsp;&nbsp; (...)<BR>}</FONT></P>
+<P><FONT class=extract>static int foo_probe(...)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; (...)<BR>&nbsp;&nbsp;&nbsp; ret = request_irq(irq, foo_handler, 0, "foo", foo);<BR>}</FONT></P>
+<P><FONT class=extract>This way you always get a pointer back to the correct instance of foo in<BR>your interrupt handler.</FONT></P>
+<P><BR><FONT class=extract>2. container_of()<BR>~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>Continuing on the above example we add an offloaded work:</FONT></P>
+<P><FONT class=extract>struct foo {<BR>&nbsp;&nbsp;&nbsp; spinlock_t lock;<BR>&nbsp;&nbsp;&nbsp; struct workqueue_struct *wq;<BR>&nbsp;&nbsp;&nbsp; struct work_struct offload;<BR>&nbsp;&nbsp;&nbsp; (...)<BR>};</FONT></P>
+<P><FONT class=extract>static void foo_work(struct work_struct *work)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo = container_of(work, struct foo, offload);</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; (...)<BR>}</FONT></P>
+<P><FONT class=extract>static irqreturn_t foo_handler(int irq, void *arg)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo = arg;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; queue_work(foo-&gt;wq, &amp;foo-&gt;offload);<BR>&nbsp;&nbsp;&nbsp; (...)<BR>}</FONT></P>
+<P><FONT class=extract>static int foo_probe(...)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; foo-&gt;wq = create_singlethread_workqueue("foo-wq");<BR>&nbsp;&nbsp;&nbsp; INIT_WORK(&amp;foo-&gt;offload, foo_work);<BR>&nbsp;&nbsp;&nbsp; (...)<BR>}</FONT></P>
+<P><FONT class=extract>The design pattern is the same for an hrtimer or something similar that will<BR>return a single argument which is a pointer to a struct member in the<BR>callback.</FONT></P>
+<P><FONT class=extract>container_of() is a macro defined in &lt;linux/kernel.h&gt;</FONT></P>
+<P><FONT class=extract>What container_of() does is to obtain a pointer to the containing struct from<BR>a pointer to a member by a simple subtraction using the offsetof() macro from<BR>standard C, which allows something similar to object oriented behaviours.<BR>Notice that the contained member must not be a pointer, but an actual member<BR>for this to work.</FONT></P>
+<P><FONT class=extract>We can see here that we avoid having global pointers to our struct foo *<BR>instance this way, while still keeping the number of parameters passed to the<BR>work function to a single pointer.</FONT>

@@ -1,0 +1,95 @@
+<H4 class=subsubsection>9.2.3.2 Controlling Variable Scope</H4><A name=index-local-variables_002c-in-a-function></A><A name=index-variables_002c-local-to-a-function></A>
+<P>There is no way to make a variable local to a <CODE>{ &#8230; }</CODE> block in <CODE>awk</CODE>, but you can make a variable local to a function. It is good practice to do so whenever a variable is needed only in that function. </P>
+<P>To make a variable local to a function, simply declare the variable as an argument after the actual function arguments (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Definition-Syntax">Definition Syntax</A>). Look at the following example where variable <CODE>i</CODE> is a global variable used by both functions <CODE>foo()</CODE> and <CODE>bar()</CODE>: </P>
+<DIV class=example><PRE class=example>function bar()
+{
+    for (i = 0; i &lt; 3; i++)
+        print "bar's i=" i
+}
+
+function foo(j)
+{
+    i = j + 1
+    print "foo's i=" i
+    bar()
+    print "foo's i=" i
+}
+
+BEGIN { 
+      i = 10
+      print "top's i=" i
+      foo(0)
+      print "top's i=" i
+}
+</PRE></DIV>
+<P>Running this script produces the following, because the <CODE>i</CODE> in functions <CODE>foo()</CODE> and <CODE>bar()</CODE> and at the top level refer to the same variable instance: </P>
+<DIV class=example><PRE class=example>top's i=10
+foo's i=1
+bar's i=0
+bar's i=1
+bar's i=2
+foo's i=3
+top's i=3
+</PRE></DIV>
+<P>If you want <CODE>i</CODE> to be local to both <CODE>foo()</CODE> and <CODE>bar()</CODE> do as follows (the extra-space before <CODE>i</CODE> is a coding convention to indicate that <CODE>i</CODE> is a local variable, not an argument): </P>
+<DIV class=example><PRE class=example>function bar(    i)
+{
+    for (i = 0; i &lt; 3; i++) 
+        print "bar's i=" i
+}
+
+function foo(j,    i)
+{
+    i = j + 1
+    print "foo's i=" i
+    bar()
+    print "foo's i=" i
+}
+
+BEGIN { 
+      i = 10
+      print "top's i=" i
+      foo(0) 
+      print "top's i=" i
+}
+</PRE></DIV>
+<P>Running the corrected script produces the following: </P>
+<DIV class=example><PRE class=example>top's i=10
+foo's i=1
+bar's i=0
+bar's i=1
+bar's i=2
+foo's i=1
+top's i=10
+</PRE></DIV>
+<P>Besides scalar values (strings and numbers), you may also have local arrays. By using a parameter name as an array, <CODE>awk</CODE> treats it as an array, and it is local to the function. In addition, recursive calls create new arrays. Consider this example: </P>
+<DIV class=example><PRE class=example>function some_func(p1,      a)
+{
+    if (p1++ &gt; 3)
+        return
+
+    a[p1] = p1
+
+    some_func(p1)
+
+    printf("At level %d, index %d %s found in a\n",
+         p1, (p1 - 1), (p1 - 1) in a ? "is" : "is not")
+    printf("At level %d, index %d %s found in a\n",
+         p1, p1, p1 in a ? "is" : "is not")
+    print ""
+}
+
+BEGIN {
+    some_func(1)
+}
+</PRE></DIV>
+<P>When run, this program produces the following output: </P>
+<DIV class=example><PRE class=example>At level 4, index 3 is not found in a
+At level 4, index 4 is found in a
+
+At level 3, index 2 is not found in a
+At level 3, index 3 is found in a
+
+At level 2, index 1 is not found in a
+At level 2, index 2 is found in a
+</PRE></DIV>

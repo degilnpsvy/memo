@@ -1,0 +1,39 @@
+concurrency protection 
+<P></P>
+<P>Case 4: Process and Interrupt Contexts, SMP Machine, Preemption</P>
+<P class=docText><A name="SMP machine"></A>Let's now assume that the critical section executes on an SMP machine. Your kernel has been configured with <TT>CONFIG_SMP</TT> and <TT>CONFIG_PREEMPT</TT> turned on.</P>
+<P class=docText><A name="spinlock primitives"></A>In the scenarios discussed this far, spinlock primitives have done little more than enable/disable preemption and interrupts. The actual locking functionality has been compiled away. In the presence of SMP, the locking logic gets compiled in, <A name=iddle1210></A><A name=iddle1331></A><A name=iddle1572></A><A name=iddle3393></A><A name=iddle4129></A><A name=iddle4132></A><A name=iddle4135></A><A name=iddle4137></A><A name="as follows"></A>and the spinlock primitives are rendered SMP-safe. The SMP-enabled semantics is as follows:</P>
+<DIV class=docText><PRE>unsigned long flags;
+
+Point A:
+  /*
+    - Save interrupt state on the local CPU
+    - Disable interrupts on the local CPU. This implicitly disables
+      preemption.
+    - Lock the section to regulate access by other CPUs
+   */
+  spin_lock_irqsave(&amp;mylock, flags);
+
+  /* ... Critical Section ... */
+
+  /*
+    - Restore interrupt state and preemption to what it
+      was at Point A for the local CPU
+    - Release the lock
+   */
+  spin_unlock_irqrestore(&amp;mylock, flags);</PRE></DIV><BR>
+<P class=docText><A name="local CPU"></A>On SMP systems, only interrupts on the local CPU are disabled when a spinlock is acquired. So, a process context thread (say Thread A in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02">Figure 2.4</A><A name="handler "></A>) might be running on one CPU, while an interrupt handler (say Thread C in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02">Figure 2.4</A><A name="executing on"></A>) is executing on another CPU. An interrupt handler on a nonlocal processor thus needs to spin-wait until the process context code on the local processor exits the critical section. The interrupt context code calls <TT>spin_lock()</TT>/<TT>spin_unlock()</TT> to do this:</P>
+<DIV class=docText><PRE>spin_lock(&amp;mylock);
+
+/* ... Critical Section ... */
+
+spin_unlock(&amp;mylock);</PRE></DIV><BR>
+<P class=docText>Similar to the irq variants, spinlocks also have <SPAN class=docEmphasis>bottom half</SPAN> (BH) flavors. <TT>spin_lock_bh()</TT> disables bottom halves when the lock is acquired, whereas <TT>spin_unlock_bh()</TT><A name="halves in"></A> reenables bottom halves when the lock is released. We discuss bottom halves in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A>.</P>
+<P class=docText></P><A name=ch02sb04></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle><A name=The></A>The <TT>-rt</TT> tree</H2>
+<P class=docText><A name=iddle1154></A><A name=iddle1547></A><A name=iddle2555></A><A name=iddle3335></A><A name=iddle3750></A><A name=iddle3850></A><A name=iddle4017></A><A name=iddle4020></A><A name=time></A>The real time <TT>(-rt</TT><A name="called the"></A>) tree, also called the <TT>CONFIG_PREEMPT_RT</TT> patch-set, implements low-latency modifications to the kernel. The patch-set, downloadable from <A class=docLink href="http://www.kernel.org/pub/linux/kernel/projects/rt" target=_blank>www.kernel.org/pub/linux/kernel/projects/rt</A><A name="replacing many"></A>, allows most of the kernel to be preempted, partly by replacing many spinlocks with mutexes. It also incorporates high-resolution timers. Several <TT>-rt</TT><A name="the mainline"></A> features have been integrated into the mainline kernel. You will find detailed documentation at the project's wiki hosted at <A class=docLink href="http://rt.wiki.kernel.org/" target=_blank>http://rt.wiki.kernel.org/</A>.</P></TD></TR></TBODY></TABLE>

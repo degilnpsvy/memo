@@ -1,0 +1,156 @@
+<H1 class=SECT1><A name=BASHVER3></A>37.2. Bash, version 3</H1>
+<P><A name=BASH3REF></A></P>
+<P>On July 27, 2004, Chet Ramey released version 3 of Bash. This update fixed quite a number of bugs and added new features.</P>
+<P>Some of the more important added features: 
+<P></P>
+<UL>
+<LI>
+<P><A name=BRACEEXPREF3></A></P>
+<P>A new, more generalized <B class=COMMAND>{a..z}</B> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BRACEEXPREF">brace expansion</A> operator.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+for i in {1..10}
+#  Simpler and more straightforward than
+#+ for i in $(seq 10)
+do
+  echo -n "$i "
+done
+
+echo
+
+# 1 2 3 4 5 6 7 8 9 10
+
+
+
+# Or just . . .
+
+echo {a..z}    #  a b c d e f g h i j k l m n o p q r s t u v w x y z
+echo {e..m}    #  e f g h i j k l m
+echo {z..a}    #  z y x w v u t s r q p o n m l k j i h g f e d c b a
+               #  Works backwards, too.
+echo {25..30}  #  25 26 27 28 29 30
+echo {3..-2}   #  3 2 1 0 -1 -2
+echo {X..d}    #  X Y Z [  ] ^ _ ` a b c d
+               #  Shows (some of) the ASCII characters between Z and a,
+               #+ but don't rely on this type of behavior because . . .
+echo {]..a}    #  {]..a}
+               #  Why?
+
+
+# You can tack on prefixes and suffixes.
+echo "Number #"{1..4}, "..."
+     # Number #1, Number #2, Number #3, Number #4, ...
+
+
+# You can concatenate brace-expansion sets.
+echo {1..3}{x..z}" +" "..."
+     # 1x + 1y + 1z + 2x + 2y + 2z + 3x + 3y + 3z + ...
+     # Generates an algebraic expression.
+     # This could be used to find permutations.
+
+# You can nest brace-expansion sets.
+echo {{a..c},{1..3}}
+     # a b c 1 2 3
+     # The "comma operator" splices together strings.
+
+# ########## ######### ############ ########### ######### ###############
+# Unfortunately, brace expansion does not lend itself to parameterization.
+var1=1
+var2=5
+echo {$var1..$var2}   # {1..5}
+
+
+# Yet, as Emiliano G. points out, using "eval" overcomes this limitation.
+
+start=0
+end=10
+for index in $(eval echo {$start..$end})
+do
+  echo -n "$index "   # 0 1 2 3 4 5 6 7 8 9 10 
+done
+
+echo</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P>The <B class=COMMAND>${!array[@]}</B> operator, which expands to all the indices of a given <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ARRAYREF">array</A>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+Array=(element-zero element-one element-two element-three)
+
+echo ${Array[0]}   # element-zero
+                   # First element of array.
+
+echo ${!Array[@]}  # 0 1 2 3
+                   # All the indices of Array.
+
+for i in ${!Array[@]}
+do
+  echo ${Array[i]} # element-zero
+                   # element-one
+                   # element-two
+                   # element-three
+                   #
+                   # All the elements in Array.
+done</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=REGEXMATCHREF></A></P>
+<P>The <B class=COMMAND>=~</B> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#REGEXREF">Regular Expression</A> matching operator within a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#DBLBRACKETS">double brackets</A> test expression. (Perl has a similar operator.)</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+variable="This is a fine mess."
+
+echo "$variable"
+
+# Regex matching with =~ operator within [[ double brackets ]].
+if [[ "$variable" =~ T.........fin*es* ]]
+# NOTE: As of version 3.2 of Bash, expression to match no longer quoted.
+then
+  echo "match found"
+      # match found
+fi</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Or, more usefully:</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+input=$1
+
+
+if [[ "$input" =~ "[0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][0-9][0-9]" ]]
+#                 ^ NOTE: Quoting not necessary, as of version 3.2 of Bash.
+# NNN-NN-NNNN (where each N is a digit).
+then
+  echo "Social Security number."
+  # Process SSN.
+else
+  echo "Not a Social Security number!"
+  # Or, ask for corrected input.
+fi</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>For additional examples of using the <B class=COMMAND>=~</B> operator, see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#WHX">Example A-29</A>, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#MAILBOXGREP">Example 19-14</A>, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FINDSPLIT">Example A-35</A>, and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#TOHTML">Example A-24</A>.</P>
+<LI>
+<P><A name=PIPEFAILREF></A></P>
+<P>The new <TT class=OPTION>set -o pipefail</TT> option is useful for debugging <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PIPEREF">pipes</A>. If this option is set, then the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITSTATUSREF">exit status</A> of a pipe is the exit status of the last command in the pipe to <EM>fail</EM> (return a non-zero value), rather than the actual final command in the pipe.</P>
+<P>See <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FC4UPD">Example 16-43</A>.</P></LI></UL>
+<P></P>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P>The update to version 3 of Bash breaks a few scripts that worked under earlier versions. <EM>Test critical legacy scripts to make sure they still work!</EM></P>
+<P>As it happens, a couple of the scripts in the <EM>Advanced Bash Scripting Guide</EM> had to be fixed up (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#TOUT">Example 9-4</A>, for instance).</P></TD></TR></TBODY></TABLE></DIV>

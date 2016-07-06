@@ -1,0 +1,17 @@
+<H4 id=title-ID0E2YOM class=docSection2Title>Atomic Operators</H4>
+<P class=docText><SPAN class=docEmphasis>Atomic operators</SPAN><A name="such as"></A> are used to perform lightweight one-shot operations such as bumping counters, conditional increments, and setting bit positions. Atomic operations are guaranteed to be serialized and do not need locks for protection against concurrent access. The implementation of atomic operators is architecture-dependent.</P>
+<P class=docText><A name="references before"></A>To check whether there are any remaining data references before freeing a kernel network buffer (called an <TT>skbuff</TT>), the <TT>skb_release_data()</TT><A name="defined in"></A> routine defined in <SPAN class=docEmphasis>net/core/skbuff.c</SPAN> does the following:</P>
+<DIV class=docText><PRE>if (!skb-&gt;cloned ||
+  /* Atomically decrement and check if the returned value is zero */
+    !atomic_sub_return(skb-&gt;nohdr ? (1 &lt;&lt; SKB_DATAREF_SHIFT) + 1 :
+                       1,&amp;skb_shinfo(skb)-&gt;dataref)) {
+  /* ... */
+  kfree(skb-&gt;head);
+}</PRE></DIV><BR>
+<P class=docText>While <TT>skb_release_data()</TT> is thus executing, another thread using <TT>skbuff_clone()</TT> (defined in the same file) might be simultaneously incrementing the data reference counter:</P>
+<DIV class=docText><PRE>/* ... */
+/* Atomically bump up the data reference count */
+atomic_inc(&amp;(skb_shinfo(skb)-&gt;dataref));
+/* ... */</PRE></DIV><BR>
+<P class=docText><A name=iddle1553></A><A name=iddle2467></A><A name=iddle2558></A><A name=iddle2844></A><A name=iddle3726></A><A name=iddle3728></A><A name=iddle3735></A><A name=iddle4654></A><A name=iddle4656></A><A name=iddle4657></A><A name="from being"></A>The use of atomic operators protects the data reference counter from being trampled by these two threads. It also eliminates the hassle of using locks to protect a single integer variable from concurrent access.</P>
+<P class=docText><A name="The kernel"></A>The kernel also supports operators such as <TT>set_bit()</TT>, <TT>clear_bit()</TT>, and <TT>test_and_set_bit()</TT><A name="engage in"></A> to atomically engage in bit manipulations. Look at <SPAN class=docEmphasis>include/asm-your-arch/atomic.h</SPAN><A name="the atomic"></A> for the atomic operators supported on your architecture.

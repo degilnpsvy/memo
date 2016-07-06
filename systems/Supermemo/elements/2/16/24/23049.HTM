@@ -1,0 +1,47 @@
+<H3 id=-100000 class=docSection1Title>Bus Transactions</H3>
+<P class=docText><A name="Before implementing"></A>Before implementing an example driver, let's get a better understanding of the I<SUP>2</SUP><A name="by peering"></A>C protocol by peering at the wires through a magnifying glass. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec3.html#ch08ex01">Listing 8.1</A><A name="a code"></A> shows a code snippet that talks to an I<SUP>2</SUP><A name="the bus"></A>C EEPROM and the corresponding transactions that occur on the bus. The transactions were captured by connecting an I<SUP>2</SUP><A name="the code"></A>C bus analyzer while running the code snippet. The code uses user mode I<SUP>2</SUP>C functions. (We talk more about user mode I<SUP>2</SUP>C programming in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A>, "Drivers in User Space.")</P><A name=ch08ex01></A>
+<H5 id=title-ID0E1CPM class=docExampleTitle>Listing 8.1. Transactions on the I<SUP>2</SUP>C Bus</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* ... */
+/*
+ * Connect to the EEPROM. 0x50 is the device address.
+ * smbus_fp is a file pointer into the SMBus device.
+ */
+ioctl(smbus_fp, 0x50, slave);
+
+/* Write a byte (0xAB) at memory offset 0 on the EEPROM */
+i2c_smbus_write_byte_data(smbus_fp, 0, 0xAB);
+
+/*
+ * This is the corresponding transaction observed
+ * on the bus after the write:
+ <SPAN class=docEmphStrong>* S 0x50 Wr [A] 0 [A] 0xAB [A] P</SPAN>
+ *
+ * <SPAN class=docEmphStrong>S</SPAN> is the start bit, <SPAN class=docEmphStrong>0x50</SPAN> is the 7-bit slave address (0101000b),
+ * <SPAN class=docEmphStrong>Wr</SPAN> is the write command (0b), <SPAN class=docEmphStrong>A</SPAN> is the Accept bit (or
+ * acknowledgment) received by the host from the slave, <SPAN class=docEmphStrong>0</SPAN> is the
+ * address offset on the slave device where the byte is to be
+ * written, <SPAN class=docEmphStrong>0xAB</SPAN> is the data to be written, and <SPAN class=docEmphStrong>P</SPAN> is the stop bit.
+ * The data enclosed within <SPAN class=docEmphStrong>[]</SPAN> is sent from the slave to the
+ * host, while the rest of the bits are sent by the host to the
+ * slave.
+ */
+/* Read a byte from offset 0 on the EEPROM */
+res = i2c_smbus_read_byte_data(smbus_fp, 0);
+
+/*
+ * This is the corresponding transaction observed
+ * on the bus after the read:
+ <SPAN class=docEmphStrong>* S 0x50 Wr [A] 0 [A] S 0x50 Rd [A] [0xAB] NA P</SPAN>
+ *
+ * The explanation of the bits is the same as before, except that
+ * <SPAN class=docEmphStrong>Rd</SPAN> stands for the Read command (1b), <SPAN class=docEmphStrong>0xAB</SPAN> is the data received
+ * from the slave, and <SPAN class=docEmphStrong>NA</SPAN> is the Reverse Accept bit (or the
+ * acknowledgment sent by the host to the slave).
+ */
+
+					  </PRE></TD></TR></TBODY></TABLE>

@@ -1,0 +1,379 @@
+<H1 class=SECT1><A name=BASIC></A>16.1. Basic Commands</H1>
+<P></P>
+<DIV class=VARIABLELIST>
+<P><B><A name=BASICCOMMANDS1></A>The first commands a novice learns</B></P>
+<DL>
+<DT><A name=LSREF></A><B class=COMMAND>ls</B> 
+<DD>
+<P>The basic file <SPAN class=QUOTE>"list"</SPAN> command. It is all too easy to underestimate the power of this humble command. For example, using the <TT class=OPTION>-R</TT>, recursive option, <B class=COMMAND>ls</B> provides a tree-like listing of a directory structure. Other useful options are <TT class=OPTION>-S</TT>, sort listing by file size, <TT class=OPTION>-t</TT>, sort by file modification time, <TT class=OPTION>-v</TT>, sort by (numerical) version numbers embedded in the filenames, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN10025" name=AEN10025><SPAN class=footnote>[70]</SPAN></A> <TT class=OPTION>-b</TT>, show escape characters, and <TT class=OPTION>-i</TT>, show file inodes (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#IDELETE">Example 16-4</A>).</P>
+<P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>ls -l</B></TT>
+<TT class=COMPUTEROUTPUT>-rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter10.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter11.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter12.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter1.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter2.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter3.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:49 Chapter_headings.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:49 Preface.txt</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>ls -lv</B></TT>
+<TT class=COMPUTEROUTPUT> total 0
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:49 Chapter_headings.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:49 Preface.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter1.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter2.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter3.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter10.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter11.txt
+ -rw-rw-r-- 1 bozo bozo 0 Sep 14 18:44 chapter12.txt</TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DIV class=TIP>
+<P></P>
+<TABLE class=TIP border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Tip src="http://tldp.org/LDP/abs/images/tip.gif"></TD>
+<TD vAlign=top align=left>
+<P>The <I class=FIRSTTERM>ls</I> command returns a non-zero <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITSTATUSREF">exit status</A> when attempting to list a non-existent file. 
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>ls abc</B></TT>
+<TT class=COMPUTEROUTPUT>ls: abc: No such file or directory</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>echo $?</B></TT>
+<TT class=COMPUTEROUTPUT>2</TT></PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=EXAMPLE><A name=EX40></A>
+<P><B>Example 16-1. Using <I class=FIRSTTERM>ls</I> to create a table of contents for burning a <SPAN class=ABBREV>CDR</SPAN> disk</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# ex40.sh (burn-cd.sh)
+# Script to automate burning a CDR.
+
+
+SPEED=10         # May use higher speed if your hardware supports it.
+IMAGEFILE=cdimage.iso
+CONTENTSFILE=contents
+# DEVICE=/dev/cdrom     For older versions of cdrecord
+DEVICE="1,0,0"
+DEFAULTDIR=/opt  # This is the directory containing the data to be burned.
+                 # Make sure it exists.
+                 # Exercise: Add a test for this.
+
+# Uses Joerg Schilling's "cdrecord" package:
+# http://www.fokus.fhg.de/usr/schilling/cdrecord.html
+
+#  If this script invoked as an ordinary user, may need to suid cdrecord
+#+ chmod u+s /usr/bin/cdrecord, as root.
+#  Of course, this creates a security hole, though a relatively minor one.
+
+if [ -z "$1" ]
+then
+  IMAGE_DIRECTORY=$DEFAULTDIR
+  # Default directory, if not specified on command-line.
+else
+    IMAGE_DIRECTORY=$1
+fi
+
+# Create a "table of contents" file.
+ls -lRF $IMAGE_DIRECTORY &gt; $IMAGE_DIRECTORY/$CONTENTSFILE
+# The "l" option gives a "long" file listing.
+# The "R" option makes the listing recursive.
+# The "F" option marks the file types (directories get a trailing /).
+echo "Creating table of contents."
+
+# Create an image file preparatory to burning it onto the CDR.
+mkisofs -r -o $IMAGEFILE $IMAGE_DIRECTORY
+echo "Creating ISO9660 file system image ($IMAGEFILE)."
+
+# Burn the CDR.
+echo "Burning the disk."
+echo "Please be patient, this will take a while."
+wodim -v -isosize dev=$DEVICE $IMAGEFILE
+#  In newer Linux distros, the "wodim" utility assumes the
+#+ functionality of "cdrecord."
+exitcode=$?
+echo "Exit code = $exitcode"
+
+exit $exitcode</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=CATREF></A><B class=COMMAND>cat</B>, <B class=COMMAND>tac</B> 
+<DD>
+<P><B class=COMMAND>cat</B>, an acronym for <I class=WORDASWORD>concatenate</I>, lists a file to <TT class=FILENAME>stdout</TT>. When combined with redirection (<SPAN class=TOKEN>&gt;</SPAN> or <SPAN class=TOKEN>&gt;&gt;</SPAN>), it is commonly used to concatenate files. <A name=CATUSES></A>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># Uses of 'cat'
+cat filename                          # Lists the file.
+
+cat file.1 file.2 file.3 &gt; file.123   # Combines three files into one.</PRE></FONT></TD></TR></TBODY></TABLE>The <TT class=OPTION>-n</TT> option to <B class=COMMAND>cat</B> inserts consecutive numbers before all lines of the target file(s). The <TT class=OPTION>-b</TT> option numbers only the non-blank lines. The <TT class=OPTION>-v</TT> option echoes nonprintable characters, using <SPAN class=TOKEN>^</SPAN> notation. The <TT class=OPTION>-s</TT> option squeezes multiple consecutive blank lines into a single blank line.</P>
+<P>See also <A href="http://tldp.org/LDP/abs/html/abs-guide.html#LNUM">Example 16-28</A> and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ROT13">Example 16-24</A>.</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P><A name=CATLESSEFF></A>In a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PIPEREF">pipe</A>, it may be more efficient to <A href="http://tldp.org/LDP/abs/html/abs-guide.html#IOREDIRREF">redirect</A> the <TT class=FILENAME>stdin</TT> to a file, rather than to <B class=COMMAND>cat</B> the file. </P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>cat filename | tr a-z A-Z
+
+tr a-z A-Z &lt; filename   #  Same effect, but starts one less process,
+                        #+ and also dispenses with the pipe.</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<P><B class=COMMAND>tac</B>, is the inverse of <I class=WORDASWORD>cat</I>, listing a file backwards from its end.</P>
+<DT><A name=REVREF></A><B class=COMMAND>rev</B> 
+<DD>
+<P>reverses each line of a file, and outputs to <TT class=FILENAME>stdout</TT>. This does not have the same effect as <B class=COMMAND>tac</B>, as it preserves the order of the lines, but flips each one around (mirror image).</P>
+<P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>cat file1.txt</B></TT>
+<TT class=COMPUTEROUTPUT>This is line 1.
+ This is line 2.</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>tac file1.txt</B></TT>
+<TT class=COMPUTEROUTPUT>This is line 2.
+ This is line 1.</TT>
+
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>rev file1.txt</B></TT>
+<TT class=COMPUTEROUTPUT>.1 enil si sihT
+ .2 enil si sihT</TT>
+	      </PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DT><A name=CPREF></A><B class=COMMAND>cp</B> 
+<DD>
+<P>This is the file copy command. <TT class=USERINPUT><B>cp file1 file2</B></TT> copies <TT class=FILENAME>file1</TT> to <TT class=FILENAME>file2</TT>, overwriting <TT class=FILENAME>file2</TT> if it already exists (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX42">Example 16-6</A>).</P>
+<DIV class=TIP>
+<P></P>
+<TABLE class=TIP border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Tip src="http://tldp.org/LDP/abs/images/tip.gif"></TD>
+<TD vAlign=top align=left>
+<P>Particularly useful are the <TT class=OPTION>-a</TT> archive flag (for copying an entire directory tree), the <TT class=OPTION>-u</TT> update flag (which prevents overwriting identically-named newer files), and the <TT class=OPTION>-r</TT> and <TT class=OPTION>-R</TT> recursive flags.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>cp -u source_dir/* dest_dir
+#  "Synchronize" dest_dir to source_dir
+#+  by copying over all newer and not previously existing files.</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=MVREF></A><B class=COMMAND>mv</B> 
+<DD>
+<P>This is the file <I class=FIRSTTERM>move</I> command. It is equivalent to a combination of <B class=COMMAND>cp</B> and <B class=COMMAND>rm</B>. It may be used to move multiple files to a directory, or even to rename a directory. For some examples of using <B class=COMMAND>mv</B> in a script, see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#RFE">Example 10-11</A> and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#RN">Example A-2</A>.</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>When used in a non-interactive script, <B class=COMMAND>mv</B> takes the <TT class=OPTION>-f</TT> (<I class=FIRSTTERM>force</I>) option to bypass user input.</P>
+<P>When a directory is moved to a preexisting directory, it becomes a subdirectory of the destination directory.</P>
+<P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>mv source_directory target_directory</B></TT>
+
+<TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>ls -lF target_directory</B></TT>
+<TT class=COMPUTEROUTPUT>total 1
+ drwxrwxr-x    2 bozo  bozo      1024 May 28 19:20 source_directory/</TT>
+	      </PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=RMREF></A><B class=COMMAND>rm</B> 
+<DD>
+<P>Delete (remove) a file or files. The <TT class=OPTION>-f</TT> option forces removal of even readonly files, and is useful for bypassing user input in a script.</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P><A name=DASHREM></A></P>
+<P>The <I class=FIRSTTERM>rm</I> command will, by itself, fail to remove filenames beginning with a dash. Why? Because <I class=FIRSTTERM>rm</I> sees a dash-prefixed filename as an <I class=FIRSTTERM>option</I>.</P>
+<P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>rm -badname</B></TT>
+<TT class=COMPUTEROUTPUT>rm: invalid option -- b
+ Try `rm --help' for more information.</TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>One clever workaround is to precede the filename with a <SPAN class=QUOTE>" -- "</SPAN> (the <I class=FIRSTTERM>end-of-options</I> flag). 
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>rm -- -badname</B></TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Another method to is to preface the filename to be removed with a <TT class=FILENAME>dot-slash</TT> . 
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><TT class=USERINPUT><B>rm ./-badname</B></TT></PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=WARNING>
+<P></P>
+<TABLE class=WARNING border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Warning src="http://tldp.org/LDP/abs/images/warning.gif"></TD>
+<TD vAlign=top align=left>
+<P><A name=RMRECURS></A>When used with the recursive flag <TT class=OPTION>-r</TT>, this command removes files all the way down the directory tree from the current directory. A careless <B class=COMMAND>rm -rf *</B> can wipe out a big chunk of a directory structure.</P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=RMDIRREF></A><B class=COMMAND>rmdir</B> 
+<DD>
+<P>Remove directory. The directory must be empty of all files -- including <SPAN class=QUOTE>"invisible"</SPAN> <I class=FIRSTTERM>dotfiles</I> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN10228" name=AEN10228><SPAN class=footnote>[71]</SPAN></A> -- for this command to succeed.</P>
+<DT><A name=MKDIRREF></A><B class=COMMAND>mkdir</B> 
+<DD>
+<P>Make directory, creates a new directory. For example, <TT class=USERINPUT><B>mkdir -p project/programs/December</B></TT> creates the named directory. The <TT class=REPLACEABLE><I>-p</I></TT> option automatically creates any necessary parent directories.</P>
+<DT><A name=CHMODREF></A><B class=COMMAND>chmod</B> 
+<DD>
+<P>Changes the attributes of an existing file or directory (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX44">Example 15-14</A>).</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>chmod +x filename
+# Makes "filename" executable for all users.
+
+chmod u+s filename
+# Sets "suid" bit on "filename" permissions.
+# An ordinary user may execute "filename" with same privileges as the file's owner.
+# (This does not apply to shell scripts.)</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>chmod 644 filename
+#  Makes "filename" readable/writable to owner, readable to others
+#+ (octal mode).
+
+chmod 444 filename
+#  Makes "filename" read-only for all.
+#  Modifying the file (for example, with a text editor)
+#+ not allowed for a user who does not own the file (except for root),
+#+ and even the file owner must force a file-save
+#+ if she modifies the file.
+#  Same restrictions apply for deleting the file.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>chmod 1777 directory-name
+#  Gives everyone read, write, and execute permission in directory,
+#+ however also sets the "sticky bit".
+#  This means that only the owner of the directory,
+#+ owner of the file, and, of course, root
+#+ can delete any particular file in that directory.
+
+chmod 111 directory-name
+#  Gives everyone execute-only permission in a directory.
+#  This means that you can execute and READ the files in that directory
+#+ (execute permission necessarily includes read permission
+#+ because you can't execute a file without being able to read it).
+#  But you can't list the files or search for them with the "find" command.
+#  These restrictions do not apply to root.
+
+chmod 000 directory-name
+#  No permissions at all for that directory.
+#  Can't read, write, or execute files in it.
+#  Can't even list files in it or "cd" to it.
+#  But, you can rename (mv) the directory
+#+ or delete it (rmdir) if it is empty.
+#  You can even symlink to files in the directory,
+#+ but you can't read, write, or execute the symlinks.
+#  These restrictions do not apply to root.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DT><A name=CHATTRREF></A><B class=COMMAND>chattr</B> 
+<DD>
+<P><B class=COMMAND>Ch</B>ange file <B class=COMMAND>attr</B>ibutes. This is analogous to <B class=COMMAND>chmod</B> above, but with different options and a different invocation syntax, and it works only on <I class=FIRSTTERM>ext2/ext3</I> filesystems.</P>
+<P>One particularly interesting <B class=COMMAND>chattr</B> option is <TT class=OPTION>i</TT>. A <B class=COMMAND>chattr +i <TT class=FILENAME>filename</TT></B> marks the file as immutable. The file cannot be modified, linked to, or deleted, <EM>not even by root</EM>. This file attribute can be set or removed only by <I class=FIRSTTERM>root</I>. In a similar fashion, the <TT class=OPTION>a</TT> option marks the file as append only.</P>
+<P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>root# </TT><TT class=USERINPUT><B>chattr +i file1.txt</B></TT>
+
+
+<TT class=PROMPT>root# </TT><TT class=USERINPUT><B>rm file1.txt</B></TT>
+
+<TT class=COMPUTEROUTPUT>rm: remove write-protected regular file `file1.txt'? y
+ rm: cannot remove `file1.txt': Operation not permitted</TT>
+	      </PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>If a file has the <TT class=OPTION>s</TT> (secure) attribute set, then when it is deleted its block is overwritten with binary zeroes. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN10301" name=AEN10301><SPAN class=footnote>[72]</SPAN></A> </P>
+<P>If a file has the <TT class=OPTION>u</TT> (undelete) attribute set, then when it is deleted, its contents can still be retrieved (undeleted).</P>
+<P>If a file has the <TT class=OPTION>c</TT> (compress) attribute set, then it will automatically be compressed on writes to disk, and uncompressed on reads.</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>The file attributes set with <B class=COMMAND>chattr</B> do not show in a file listing (<B class=COMMAND>ls -l</B>).</P></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=LINKREF></A><B class=COMMAND>ln</B> 
+<DD>
+<P>Creates links to pre-existings files. A <SPAN class=QUOTE>"link"</SPAN> is a reference to a file, an alternate name for it. The <B class=COMMAND>ln</B> command permits referencing the linked file by more than one name and is a superior alternative to aliasing (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX18">Example 4-6</A>).</P>
+<P>The <B class=COMMAND>ln</B> creates only a reference, a pointer to the file only a few bytes in size.</P>
+<P><A name=SYMLINKREF></A></P>
+<P>The <B class=COMMAND>ln</B> command is most often used with the <TT class=OPTION>-s</TT>, symbolic or <SPAN class=QUOTE>"soft"</SPAN> link flag. Advantages of using the <TT class=OPTION>-s</TT> flag are that it permits linking across file systems or to directories.</P>
+<P>The syntax of the command is a bit tricky. For example: <TT class=USERINPUT><B>ln -s oldfile newfile</B></TT> links the previously existing <TT class=FILENAME>oldfile</TT> to the newly created link, <TT class=FILENAME>newfile</TT>.</P>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P>If a file named <TT class=FILENAME>newfile</TT> has previously existed, an error message will result.</P></TD></TR></TBODY></TABLE></DIV>
+<TABLE class=SIDEBAR border=1 cellPadding=5>
+<TBODY>
+<TR>
+<TD>
+<DIV class=SIDEBAR><A name=AEN10336></A>
+<P><B>Which type of link to use?</B></P>
+<P>As John Macdonald explains it:</P>
+<P>Both of these [types of links] provide a certain measure of dual reference -- if you edit the contents of the file using any name, your changes will affect both the original name and either a hard or soft new name. The differences between them occurs when you work at a higher level. The advantage of a hard link is that the new name is totally independent of the old name -- if you remove or rename the old name, that does not affect the hard link, which continues to point to the data while it would leave a soft link hanging pointing to the old name which is no longer there. The advantage of a soft link is that it can refer to a different file system (since it is just a reference to a file name, not to actual data). And, unlike a hard link, a symbolic link can refer to a directory.</P></DIV></TD></TR></TBODY></TABLE>
+<P><A name=LINKMINVOK></A></P>
+<P>Links give the ability to invoke a script (or any other type of executable) with multiple names, and having that script behave according to how it was invoked.</P>
+<DIV class=EXAMPLE><A name=HELLOL></A>
+<P><B>Example 16-2. Hello or Good-bye</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# hello.sh: Saying "hello" or "goodbye"
+#+          depending on how script is invoked.
+
+# Make a link in current working directory ($PWD) to this script:
+#    ln -s hello.sh goodbye
+# Now, try invoking this script both ways:
+# ./hello.sh
+# ./goodbye
+
+
+HELLO_CALL=65
+GOODBYE_CALL=66
+
+if [ $0 = "./goodbye" ]
+then
+  echo "Good-bye!"
+  # Some other goodbye-type commands, as appropriate.
+  exit $GOODBYE_CALL
+fi
+
+echo "Hello!"
+# Some other hello-type commands, as appropriate.
+exit $HELLO_CALL</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=MANREF></A><B class=COMMAND>man</B>, <A name=INFOREF></A><B class=COMMAND>info</B> 
+<DD>
+<P>These commands access the manual and information pages on system commands and installed utilities. When available, the <I class=FIRSTTERM>info</I> pages usually contain more detailed descriptions than do the <I class=FIRSTTERM>man</I> pages.</P>
+<P>There have been various attempts at <SPAN class=QUOTE>"automating"</SPAN> the writing of <I class=FIRSTTERM>man pages</I>. For a script that makes a tentative first step in that direction, see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#MANED">Example A-39</A>.</P></DD></DL></DIV>

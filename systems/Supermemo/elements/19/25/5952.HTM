@@ -1,0 +1,148 @@
+<H3 class=section>12.1 Definitions for OS interface</H3>
+<P><A name=index-stubs-462></A><A name=index-subroutines-for-OS-interface-463></A><A name=index-OS-interface-subroutines-464></A>This is the complete set of system definitions (primarily subroutines) required; the examples shown implement the minimal functionality required to allow<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>libc </CODE>to link, and fail gracefully where OS services are not available.</P>
+<P><FONT class=extract>Graceful failure is permitted by returning an error code.</FONT> <FONT class=extract>A minor complication arises here: the C library must be compatible with development environments that supply fully functional versions of these subroutines. Such environments usually return error codes in a global<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>errno</CODE>. However, the Red Hat newlib C library provides a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>macro</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>definition for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>errno</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in the header file<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=file>errno.h</SPAN></SAMP>, as part of its support for reentrant routines (see<SPAN class=Apple-converted-space>&nbsp;</SPAN></FONT><A href="http://sourceware.org/newlib/libc.html#Reentrancy"><FONT class=extract>Reentrancy</FONT></A><FONT class=extract>).</FONT></P>
+<P><A name=index-g_t_0040code_007berrno_007d-global-vs-macro-465></A><FONT class=extract>The bridge between these two interpretations of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>errno</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is straightforward: the C library routines with OS interface calls capture the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>errno</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>values returned globally, and record them in the appropriate field of the reentrancy structure (so that you can query them using the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>errno</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro from<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=file>errno.h</SPAN></SAMP>).</FONT></P>
+<P><FONT class=extract>This mechanism becomes visible when you write stub routines for OS interfaces. You must include<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=file>errno.h</SPAN></SAMP>, then disable the macro, like this:</FONT></P><PRE class=example><FONT class=extract>     #include &lt;errno.h&gt;
+     #undef errno
+     extern int errno;
+</FONT></PRE>
+<P class=noindent><FONT class=extract>The examples in this chapter include this treatment of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>errno</CODE>.</FONT></P>
+<DL>
+<DT><CODE><FONT class=extract>_exit</FONT></CODE><A name=index-g_t_005fexit-466></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Exit a program without cleaning up files. If your system doesn't provide this, it is best to avoid linking with subroutines that require it (<CODE>exit</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>system</CODE>).<BR></FONT>
+<DT><CODE><FONT class=extract>close</FONT></CODE><A name=index-close-467></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Close a file. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          int close(int file) {
+            return -1;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>environ</FONT></CODE><A name=index-environ-468></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>A pointer to a list of environment variables and their values. For a minimal environment, this empty list is adequate:</FONT><PRE class=example><FONT class=extract>          char *__env[1] = { 0 };
+          char **environ = __env;
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>execve</FONT></CODE><A name=index-execve-469></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Transfer control to a new process. Minimal implementation (for a system without processes):</FONT><PRE class=example><FONT class=extract>          #include &lt;errno.h&gt;
+          #undef errno
+          extern int errno;
+          int execve(char *name, char **argv, char **env) {
+            errno = ENOMEM;
+            return -1;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>fork</FONT></CODE><A name=index-fork-470></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Create a new process. Minimal implementation (for a system without processes):</FONT><PRE class=example><FONT class=extract>          #include &lt;errno.h&gt;
+          #undef errno
+          extern int errno;
+          int fork(void) {
+            errno = EAGAIN;
+            return -1;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>fstat</FONT></CODE><A name=index-fstat-471></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Status of an open file. For consistency with other minimal implementations in these examples, all files are regarded as character special devices. The <SAMP><SPAN class=file>sys/stat.h</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>header file required is distributed in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=file>include</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>subdirectory for this C library.</FONT><PRE class=example><FONT class=extract>          #include &lt;sys/stat.h&gt;
+          int fstat(int file, struct stat *st) {
+            st-&gt;st_mode = S_IFCHR;
+            return 0;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>getpid</FONT></CODE><A name=index-getpid-472></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Process-ID; this is sometimes used to generate strings unlikely to conflict with other processes. Minimal implementation, for a system without processes:</FONT><PRE class=example><FONT class=extract>          int getpid(void) {
+            return 1;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>isatty</FONT></CODE><A name=index-isatty-473></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Query whether output stream is a terminal. For consistency with the other minimal implementations, which only support output to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stdout</CODE>, this minimal implementation is suggested:</FONT><PRE class=example><FONT class=extract>          int isatty(int file) {
+            return 1;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>kill</FONT></CODE><A name=index-kill-474></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Send a signal. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          #include &lt;errno.h&gt;
+          #undef errno
+          extern int errno;
+          int kill(int pid, int sig) {
+            errno = EINVAL;
+            return -1;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>link</FONT></CODE><A name=index-link-475></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Establish a new name for an existing file. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          #include &lt;errno.h&gt;
+          #undef errno
+          extern int errno;
+          int link(char *old, char *new) {
+            errno = EMLINK;
+            return -1;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>lseek</FONT></CODE><A name=index-lseek-476></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Set position in a file. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          int lseek(int file, int ptr, int dir) {
+            return 0;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>open</FONT></CODE><A name=index-open-477></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Open a file. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          int open(const char *name, int flags, int mode) {
+            return -1;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>read</FONT></CODE><A name=index-read-478></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Read from a file. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          int read(int file, char *ptr, int len) {
+            return 0;
+          }
+</FONT></PRE><BR>
+<DT><CODE><FONT class=extract>sbrk</FONT></CODE><A name=index-sbrk-479></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Increase program data space. As<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>malloc</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and related functions depend on this, it is useful to have a working implementation. The following suffices for a standalone system; it exploits the symbol<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_end</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>automatically defined by the GNU linker.</FONT><PRE class=example><FONT class=extract>          caddr_t sbrk(int incr) {
+            extern char _end;		/* <SPAN class=roman style="FONT-WEIGHT: normal; FONT-FAMILY: serif">Defined by the linker</SPAN> */
+            static char *heap_end;
+            char *prev_heap_end;
+          
+            if (heap_end == 0) {
+              heap_end = &amp;_end;
+            }
+            prev_heap_end = heap_end;
+            if (heap_end + incr &gt; stack_ptr) {
+              write (1, "Heap and stack collision\n", 25);
+              abort ();
+            }
+          
+            heap_end += incr;
+            return (caddr_t) prev_heap_end;
+          }</FONT>
+</PRE><BR>
+<DT><CODE><FONT class=extract>stat</FONT></CODE><A name=index-stat-480></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Status of a file (by name). Minimal implementation:</FONT><PRE class=example><FONT class=extract>          int stat(char *file, struct stat *st) {
+            st-&gt;st_mode = S_IFCHR;
+            return 0;
+          }</FONT>
+</PRE><BR>
+<DT><CODE><FONT class=extract>times</FONT></CODE><A name=index-times-481></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Timing information for current process. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          int times(struct tms *buf) {
+            return -1;
+          }</FONT>
+</PRE><BR>
+<DT><CODE><FONT class=extract>unlink</FONT></CODE><A name=index-unlink-482></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Remove a file's directory entry. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          #include &lt;errno.h&gt;
+          #undef errno
+          extern int errno;
+          int unlink(char *name) {
+            errno = ENOENT;
+            return -1;
+          }</FONT>
+</PRE><BR>
+<DT><CODE><FONT class=extract>wait</FONT></CODE><A name=index-wait-483></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Wait for a child process. Minimal implementation:</FONT><PRE class=example><FONT class=extract>          #include &lt;errno.h&gt;
+          #undef errno
+          extern int errno;
+          int wait(int *status) {
+            errno = ECHILD;
+            return -1;
+          }</FONT>
+</PRE><BR>
+<DT><CODE><FONT class=extract>write</FONT></CODE><A name=index-write-484></A><FONT class=extract> </FONT>
+<DD><FONT class=extract>Write to a file.<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=file>libc</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>subroutines will use this system routine for output to all files,<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>including</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stdout</CODE>&#8212;so if you need to generate any output, for example to a serial port for debugging, you should make your minimal<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>write</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>capable of doing this. The following minimal implementation is an incomplete example; it relies on a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>outbyte</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>subroutine (not shown; typically, you must write this in assembler from examples provided by your hardware manufacturer) to actually perform the output.</FONT><PRE class=example><FONT class=extract>          int write(int file, char *ptr, int len) {
+            int todo;
+          
+            for (todo = 0; todo &lt; len; todo++) {
+              outbyte (*ptr++);
+            }
+            return len;
+          }</FONT>
+</PRE></DD></DL>
+<DIV class=node><A style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px" name=Reentrant-Syscalls></A><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"></SPAN><BR class=Apple-interchange-newline></DIV>

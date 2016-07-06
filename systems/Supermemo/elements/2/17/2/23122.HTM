@@ -1,0 +1,269 @@
+<H3 id=-100000 class=docSection1Title>Bluetooth</H3>
+<P class=docText><SPAN class=docEmphasis>Bluetooth</SPAN><A name="technology that"></A> is a short-range cable-replacement technology that carries both data and voice. It supports speeds of up to 723Kbps (asymmetric) and 432Kbps (symmetric). <SPAN class=docEmphasis><A name="Class "></A>Class 3</SPAN><A name="have a"></A> Bluetooth devices have a range of 10 meters, and <SPAN class=docEmphasis>Class 1</SPAN><A name="can communicate"></A> transmitters can communicate up to 100 meters.</P>
+<P class=docText><A name="constrict and"></A>Bluetooth is designed to do away with wires that constrict and clutter your environment. It can, for example, turn your wristwatch into a front-end for a bulky <SPAN class=docEmphasis>Global Positioning System</SPAN><A name="for instance"></A> (GPS) hidden inside your backpack. Or it can, for instance, let you navigate a presentation via your handheld. Again, Bluetooth can be the answer if you want your laptop to be a hub that can Internet-enable your Bluetooth-aware MP3 player. If your wristwatch, handheld, laptop, or MP3 player is running Linux, knowledge of the innards of the Linux Bluetooth stack will help you extract maximum mileage out of your device.</P>
+<P class=docText><A name=iddle1277></A><A name=iddle1287></A><A name=iddle1288></A><A name=iddle1291></A><A name=iddle1298></A><A name=iddle2183></A><A name=iddle2230></A><A name=iddle2712></A><A name=iddle2849></A><A name=iddle3334></A><A name=iddle3347></A><A name=iddle3666></A><A name=iddle3708></A><A name=iddle3819></A><A name=iddle3906></A><A name=iddle3979></A><A name=iddle4411></A><A name="the layers"></A>As per the Bluetooth specification, the protocol stack consists of the layers shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16fig01">Figure 16.1</A><A name="to the"></A>. The radio, link controller, and link manager roughly correspond to the physical, data link, and network layers in the <SPAN class=docEmphasis>Open</SPAN><SPAN class=docEmphasis>Systems Interconnect</SPAN> (OSI) standard reference model. The <SPAN class=docEmphasis>Host Control Interface</SPAN><A name="the transport"></A> (HCI) is the protocol that carries data to/from the hardware and, hence, maps to the transport layer. The Bluetooth <SPAN class=docEmphasis><A name="and Adaptation"></A>Logical Link Control and Adaptation Protocol</SPAN><A name="the session"></A> (L2CAP) falls in the session layer. Serial port emulation using <SPAN class=docEmphasis><A name="Radio Frequency"></A>Radio Frequency Communication</SPAN><A name=using></A> (RFCOMM), Ethernet emulation using <SPAN class=docEmphasis><A name="Network Encapsulation"></A>Bluetooth Network Encapsulation Protocol</SPAN> (BNEP), and the <SPAN class=docEmphasis>Service Discovery Protocol</SPAN><A name="the stack"></A> (SDP) are part of the feature-rich presentation layer. At the top of the stack reside various application environments called <SPAN class=docEmphasis>profiles.</SPAN><A name="are usually"></A> The radio, link controller, and link manager are usually part of Bluetooth hardware, so operating system support starts at the HCI layer.</P><A name=ch16fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 16.1. The Bluetooth stack.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzFmNmhpZ2Y-.jpg" width=500 height=288></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="microcontroller is"></A>A common method of interfacing Bluetooth hardware with a microcontroller is by connecting the chipset's data lines to the controller's UART pins. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13fig04">Figure 13.4</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13.html#ch13">Chapter 13</A><A name="communicating with"></A>, "Audio Drivers," shows a Bluetooth chip on an MP3 player communicating with the processor via a UART. USB is another oft-used vehicle for communicating with Bluetooth chipsets. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec1.html#ch11fig02">Figure 11.2</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A><A name="with the"></A>, "Universal Serial Bus," shows a Bluetooth chip on an embedded device interfacing with the processor over <A name=iddle1279></A><A name=iddle1289></A><A name=iddle1293></A><A name=iddle1299></A><A name=iddle1401></A><A name=iddle1531></A><A name=iddle2184></A><A name=iddle2209></A><A name=iddle2237></A><A name=iddle2515></A><A name=iddle2713></A><A name=iddle3822></A><A name=iddle3892></A><A name=iddle3893></A><A name=iddle4189></A><A name="you use"></A>USB. Irrespective of whether you use UART or USB (we will look at both kinds of devices later), the packet format used to transport Bluetooth data is HCI.</P><A name=ch16lev2sec1></A>
+<H4 id=title-ID0EZHBO class=docSection2Title>BlueZ</H4>
+<P class=docText><A name="Bluetooth implementation"></A>The BlueZ Bluetooth implementation is part of the mainline kernel and is the official Linux Bluetooth stack. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16fig02">Figure 16.2</A><A name="shows how"></A> shows how BlueZ maps Bluetooth protocol layers to kernel modules, kernel threads, user space daemons, configuration tools, utilities, and libraries. The main BlueZ components are explained here:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis>bluetooth.ko</SPAN><A name="core BlueZ"></A> contains the core BlueZ infrastructure. All other BlueZ modules utilize its services. It's also responsible for exporting the Bluetooth family of sockets (<TT>AF_BLUETOOTH</TT><A name="user space"></A>) to user space and for populating related sysfs entries.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="HCI implementation"></A>For transporting Bluetooth HCI packets over UART, the corresponding BlueZ HCI implementation is <SPAN class=docEmphasis>hci_uart.ko.</SPAN> For USB transport, it's <SPAN class=docEmphasis>hci_usb.ko</SPAN>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis>l2cap.ko</SPAN><A name="is responsible"></A> implements the L2CAP adaptation layer that is responsible for segmentation and reassembly. It also multiplexes between different higher-layer protocols.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="ports over"></A>To run TCP/IP applications over Bluetooth, you have to emulate Ethernet ports over L2CAP using BNEP. This is accomplished by <SPAN class=docEmphasis>bnep.ko.</SPAN><A name="thread called"></A> To service BNEP connections, BlueZ spawns a kernel thread called <SPAN class=docEmphasis>kbnepd</SPAN>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="you need"></A>To run serial port applications such as terminal emulators over Bluetooth, you need to emulate serial ports over L2CAP. This is accomplished by <SPAN class=docEmphasis>rfcomm.ko.</SPAN><A name="as the"></A> RFCOMM also functions as the pillar that supports networking over PPP. To service incoming RFCOMM connections, <SPAN class=docEmphasis>rfcomm.ko</SPAN><A name="kernel thread"></A> spawns a kernel thread called <SPAN class=docEmphasis>krfcommd.</SPAN><A name="To set"></A> To set up and maintain connections to individual RFCOMM channels on target devices, use the <SPAN class=docEmphasis>rfcomm</SPAN> utility.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The <SPAN class=docEmphasis>Human Interface Devices</SPAN><A name="implemented via"></A> (HID) layer is implemented via <SPAN class=docEmphasis>hidp.ko</SPAN><A name="user mode"></A>. The user mode daemon, <SPAN class=docEmphasis>hidd</SPAN>, lets BlueZ handle input devices such as Bluetooth mice.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Audio is handled via the <SPAN class=docEmphasis>Synchronous Connection Oriented</SPAN> (SCO) layer implemented by <SPAN class=docEmphasis>sco.ko</SPAN>.</P></DIV></LI></OL></DIV><A name=ch16fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 16.2. Bluetooth protocol layers mapped to BlueZ kernel modules.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZy5wX2xjc2kwMXQvMjZoZmlnaWFm.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzJmNmhpZ2Y-.jpg" width=500 height=597>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="Bluetooth devices"></A>Let's now trace the kernel code flow for two example Bluetooth devices: a <SPAN class=docEmphasis>Compact Flash</SPAN> (CF) card and a USB adapter.</P><A name=ch16lev2sec2></A>
+<H4 id=title-ID0ENLBO class=docSection2Title>Device Example: CF Card</H4>
+<P class=docText><A name=iddle1206></A><A name=iddle1272></A><A name=iddle1280></A><A name=iddle1282></A><A name=iddle1294></A><A name=iddle1296></A><A name=iddle1364></A><A name=iddle1402></A><A name=iddle1639></A><A name=iddle4412></A><A name="card is"></A>The Sharp Bluetooth Compact Flash card is built using a Silicon Wave chipset and uses a serial transport to carry HCI packets. There are three different ways by which HCI packets can be transported serially:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="standard method"></A>H4 (UART), which is used by the Sharp CF card. H4 is the standard method to transfer Bluetooth data over UARTs as defined by the Bluetooth specification. Look at <SPAN class=docEmphasis>drivers/bluetooth/hci_h4.c</SPAN> for the BlueZ implementation.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="no support"></A>H3 (RS232). Devices using H3 are hard to find. BlueZ has no support for H3.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis>BlueCore Serial Protocol</SPAN> (BCSP), which is a proprietary protocol from <SPAN class=docEmphasis>Cambridge Silicon Radio</SPAN><A name="based on"></A> (CSR) that supports error checking and retransmission. BCSP is used on non-USB devices based on CSR BlueCore chips including PCMCIA and CF cards. The BlueZ BCSP implementation lives in <SPAN class=docEmphasis>drivers/-bluetooth/hci_bcsp.c</SPAN>.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="path for"></A>The read data path for the Sharp Bluetooth card is shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16fig03">Figure 16.3</A><A name="point of"></A>. The first point of contact between the card and the kernel is at the UART driver. As you saw in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec9.html#ch09fig05">Figure 9.5</A><A name=of></A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09.html#ch09">Chapter 9</A><A name="the serial"></A>, "PCMCIA and Compact Flash," the serial Card Services driver, <SPAN class=docEmphasis>drivers/serial/serial_cs.c</SPAN><A name="the rest"></A>, allows the rest of the operating system to see the Sharp card as if it were a serial device. The serial driver passes on the received HCI packets to BlueZ. BlueZ implements HCI processing in the form of a kernel line discipline. As you learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="its behavior"></A>, "Serial Drivers," line disciplines reside above the serial driver and shape its behavior. The HCI line discipline invokes associated protocol routines (H4 in this case) for assistance in data processing. From then on, L2CAP and higher BlueZ layers take charge.</P><A name=ch16fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="a Sharp"></A>Figure 16.3. Read data path from a Sharp Bluetooth CF card.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZy5wX2xjc2kwMXQvMzZoZmlnaWFm.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzNmNmhpZ2Y-.jpg" width=500 height=644>
+<P></P></CENTER>
+<P></P><BR><A name=ch16lev2sec3></A>
+<H4 id=title-ID0EJRBO class=docSection2Title>Device Example: USB Adapter</H4>
+<P class=docText><A name="transport HCI"></A>Let's now look at a device that uses USB to transport HCI packets. The Belkin Bluetooth USB adapter is one such gadget. In this case, the Linux USB layer (<SPAN class=docEmphasis>drivers/usb/*</SPAN>), the HCI USB transport driver (<SPAN class=docEmphasis>drivers/bluetooth/hci_usb.c</SPAN>), and the BlueZ protocol stack (<SPAN class=docEmphasis>net/bluetooth/*</SPAN><A name="data rolling"></A>) are the main players that get the data rolling. Let's see how these three kernel layers interact.</P>
+<P class=docText><A name=iddle1281></A><A name=iddle1295></A><A name=iddle3820></A>As you learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A><A name="For Bluetooth"></A>, USB devices exchange data using one or more of four pipes. For Bluetooth USB devices, each pipe is responsible for carrying a particular type of data:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="used to"></A>Control pipes are used to transport HCI commands.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="are responsible"></A>Interrupt pipes are responsible for carrying HCI events.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="Bulk pipes"></A>Bulk pipes transfer <SPAN class=docEmphasis>asynchronous connectionless</SPAN> (ACL) Bluetooth data.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="carry SCO"></A>Isochronous pipes carry SCO audio data.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="also saw"></A>You also saw in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A><A name="the host"></A> that when a USB device is plugged into a system, the host controller driver enumerates it using a control pipe and assigns endpoint addresses between 1 and 127. The configuration descriptor read by the USB subsystem during enumeration contains information about the device, such as its <TT>class</TT>, <TT>subclass</TT>, and <TT>protocol</TT>. The Bluetooth specification defines the (<TT>class</TT>, <TT>subclass</TT>, <TT>protocol)</TT><A name="as "></A> codes of Bluetooth USB devices as (<TT>0xE, 0x01, 0x01)</TT>. The HCI USB transport driver (<SPAN class=docEmphasis>hci_usb</SPAN><A name="the Belkin"></A>) registers these values with the USB core during initialization. When the Belkin USB adapter is plugged in, the USB core reads the (<TT>class</TT>, <TT>subclass</TT>, <TT>protocol)</TT><A name="information matches"></A> information from the device configuration descriptor. Because this information matches the values registered by <SPAN class=docEmphasis>hci_usb</SPAN>, this driver gets attached to the Belkin USB adapter. <SPAN class=docEmphasis>hci_usb</SPAN><A name="and passes"></A> reads Bluetooth data from the four USB pipes described previously and passes it on to the BlueZ protocol stack. Linux applications now run seamlessly over this device, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16fig02">Figure 16.2</A>.</P><A name=ch16lev2sec4></A>
+<H4 id=title-ID0EDVBO class=docSection2Title>RFCOMM</H4>
+<P class=docText><A name="ports over"></A>RFCOMM emulates serial ports over Bluetooth. Applications such as terminal emulators and protocols such as PPP can run unchanged over the virtual serial interfaces created by RFCOMM.</P><A name=ch16lev3sec1></A>
+<H5 id=title-ID0ENVBO class=docSection3Title>Device Example: Pill Dispenser</H5>
+<P class=docText><A name="an example"></A>To take an example, assume that you have a Bluetooth-aware pill dispenser. When you pop a pill out of the dispenser, it sends a message over a Bluetooth RFCOMM channel. A Linux cell phone, such as the one shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06fig05">Figure 6.5</A><A name=of></A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="alert using"></A>, reads this alert using a simple application that establishes an RFCOMM connection to the pill dispenser. The phone then dispatches this information to the health-care provider's server on the Internet via its GPRS interface.</P>
+<P class=docText><A name="skeletal application"></A>A skeletal application on the Linux cell phone that reads data arriving from the pill dispenser using the BlueZ socket API is shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16ex01">Listing 16.1</A><A name="basics of"></A>. The listing assumes that you are familiar with the basics of socket programming.</P><A name=ch16ex01></A>
+<H5 id=title-ID0EUWBO class=docExampleTitle>Listing 16.1. Communicating with a Pill Dispenser over RFCOMM</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <SYS socket.h="">
+#include <BLUETOOTH rfcomm.h="">  /* For struct sockaddr_rc */
+
+void
+sense_dispenser()
+{
+  int pillfd;
+  struct sockaddr_rc pill_rfcomm;
+  char buffer[1024];
+
+  /* ... */
+
+  /* Create a Bluetooth RFCOMM socket */
+  if ((pillfd = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM))
+       &lt; 0) {
+    printf("Bad Bluetooth RFCOMM socket");
+    exit(1);
+  }
+
+  /* Connect to the pill dispenser */
+  pill_rfcomm.rc_family  = AF_BLUETOOTH;
+  pill_rfcomm.rc_bdaddr  = PILL_DISPENSER_BLUETOOTH_ADDR;
+  pill_rfcomm.rc_channel = PILL_DISPENSER_RFCOMM_CHANNEL;
+
+  if (connect(pillfd, (struct sockaddr *)&amp;pill_rfcomm,
+              sizeof(pill_rfcomm))) {
+    printf("Cannot connect to Pill Dispenser\n");
+    exit(1);
+  }
+
+  printf("Connection established to Pill Dispenser\n");
+  /* Poll until data is ready */
+  select(pillfd, &amp;fds, NULL, NULL, &amp;timeout);
+
+  /* Data is available on this RFCOMM channel */
+  if (FD_ISSET(pillfd, fds)) {
+
+    /* Read pill removal alerts from the dispenser */
+    read(pillfd, buffer, sizeof(buffer));
+
+    /* Take suitable action; e.g., send a message to the health
+       care provider's server on the Internet via the GPRS
+       interface */
+    /* ... */
+  }
+
+  /* ... */
+}
+
+					  </BLUETOOTH></SYS></PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch16lev2sec5></A>
+<H4 id=title-ID0EJXBO class=docSection2Title>Networking</H4>
+<P class=docText><A name=iddle1792></A><A name=iddle1861></A><A name=iddle3248></A><A name=iddle3369></A><A name=iddle3563></A><A name="from the"></A>Trace down the code path from the <SPAN class=docEmphasis>telnet/ftp/ssh</SPAN> box in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16fig02">Figure 16.2</A><A name="you can"></A> to see how networking is architected over BlueZ Bluetooth. As you can see, there are two different ways to network over Bluetooth:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="is called"></A>By running TCP/IP directly over BNEP. The resulting network is called a <SPAN class=docEmphasis>personal area network</SPAN> (PAN).</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>By running TCP/IP over PPP over RFCOMM. This is called <SPAN class=docEmphasis>dialup networking</SPAN> (DUN).</P></DIV></LI></OL></DIV>
+<P class=docText><A name="the device"></A>The kernel implementation of Bluetooth networking is unlikely to interest the device driver writer and is not explored. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16tab02">Table 16.2</A><A name="required to"></A> shows the steps required to network two laptops using PAN, however. Networking with DUN resembles this and is not examined. The laptops are respectively Bluetooth-enabled using the Sharp CF card and the Belkin USB adapter discussed earlier. You can slip the CF card into the first laptop's PCMCIA slot using a passive CF-to-PCMCIA adapter. Look at <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16fig02">Figure 16.2</A><A name=with></A> in tandem with <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16tab02">Table 16.2</A><A name="to understand"></A> to understand the mappings to corresponding BlueZ components. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16tab02">Table 16.2</A> uses <SPAN class=docEmphStrong><TT>bash-sharp&gt;</TT></SPAN> and <SPAN class=docEmphStrong><TT>bash-belkin&gt;</TT></SPAN><A name="respective shell"></A> as the respective shell prompts of the two laptops.</P>
+<P class=docText></P><A name=ch16tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=none frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><A name="Networking Two"></A>Table 16.2. Networking Two Laptops Using Bluetooth PAN</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=200>
+<COL width=350></COLGROUP>
+<THEAD></THEAD>
+<TBODY>
+<TR>
+<TD class="docTableCell bottomBorder" vAlign=top align=left><A name=iddle3249></A>On the laptop with the Sharp Bluetooth CF card</TD>
+<TD class="docTableCell bottomBorder" vAlign=top align=left>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Start the HCI and service discovery daemons:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash-sharp&gt; hcid</SPAN>
+<SPAN class=docEmphStrong>bash-sharp&gt; sdpd</SPAN></PRE></DIV>
+<P class=docList><A name="attach the"></A>Because this device possesses a UART interface, you have to attach the BlueZ stack to the appropriate serial port. In this case, assume that <SPAN class=docEmphasis>serial_cs</SPAN> has allotted <SPAN class=docEmphasis>/dev/ttyS3</SPAN> to the card:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash-sharp&gt; hciattach ttyS3 any</SPAN></PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="is up"></A>Verify that the HCI interface is up:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash-sharp&gt; hciconfig -a</SPAN>
+ hci0:   Type: UART
+ BD Address: 08:00:1F:10:3B:13 ACL MTU: 60:20  SCO MTU: 31:1
+ UP RUNNING PSCAN ISCAN
+ ...
+Manufacturer: Silicon Wave (11)</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Verify that basic BlueZ modules are loaded:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash-sharp&gt; lsmod</SPAN>
+ Module                  Size  Used by
+ hci_uart               16728  3
+ l2cap                  26144  2
+ bluetooth              47684  6 hci_uart,l2cap
+ ...</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Insert the BlueZ module that implements network encapsulation:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash-sharp&gt; modprobe bnep</SPAN></PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Listen for incoming PAN connections:<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16fn01">[1]</A></SUP></P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash-sharp&gt; pand &#37413;&#25618;</SPAN></PRE></DIV></DIV></LI></OL></DIV></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>On the laptop with the Belkin USB Bluetooth adapter</TD>
+<TD class=docTableCell vAlign=top align=left>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="such as"></A>Start daemons, such as hcid and sdpd, and insert necessary kernel modules, such as <SPAN class=docEmphasis>bluetooth.ko</SPAN> and <SPAN class=docEmphasis>l2cap.ko</SPAN>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="to invoke"></A>Because this is a USB device, you don't need to invoke hciattach, but make sure that the <SPAN class=docEmphasis>hci_usb.ko</SPAN> module is inserted.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Verify that the HCI interface is up:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash-belkin&gt; hciconfig -a</SPAN>
+ hci0:   Type: USB BD Address: 00:02:72:B0:33:AB ACL MTU: 192:8  SCO MTU: 64:8
+ UP RUNNING PSCAN ISCAN
+ ...
+ Manufacturer: Cambridge Silicon Radio (10)
+
+					  </PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Search and discover devices in the neighborhood:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash-belkin&gt; hcitool -i hci0 scan --flush</SPAN>
+ Scanning....
+ 08:00:1F:10:3B:13 bash-sharp</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="Bluetooth address"></A>Establish a PAN with the first laptop. You can get its Bluetooth address (08:00:1F:10:3B:13) from its <TT>hciconfig</TT> output:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash-belkin&gt; pand -c 08:00:1F:10:3B:13</SPAN></PRE></DIV></DIV></LI></OL></DIV></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left><A name="look at"></A>If you now look at the <TT>ifconfig</TT><A name="the two"></A> output on the two laptops, you will find that a new interface named <TT>bnep0</TT><A name="has made"></A> has made an appearance at both ends. Assign IP addresses to both interfaces and get ready to telnet and FTP!</TD></TR></TBODY></TABLE></P><BR>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn01>[1]</A></SUP><A name="option to"></A> A useful command-line option to <TT>pand</TT> is <TT>--persist</TT><A name="automatically attempts"></A>, which automatically attempts to reconnect when a connection drops. Dig into the man pages for more invocation options.</P></BLOCKQUOTE><A name=ch16lev2sec6></A>
+<H4 id=title-ID0E5CCO class=docSection2Title>Human Interface Devices</H4>
+<P class=docText><A name=iddle1162></A><A name=iddle1275></A><A name=iddle1286></A><A name=iddle2145></A><A name=iddle2165></A><A name=iddle3250></A><A name=iddle3564></A><A name=iddle3568></A>Look at sections "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07lev3sec4">USB and Bluetooth Keyboards</A>" and "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07lev3sec9">USB and Bluetooth Mice</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07">Chapter 7</A>, "Input Drivers," for a discussion on Bluetooth human interface devices.</P><A name=ch16lev2sec7></A>
+<H4 id=title-ID0EEGCO class=docSection2Title>Audio</H4>
+<P class=docText><A name="to understand"></A>Let's take the example of an HBH-30 Sony Ericsson Bluetooth headset to understand Bluetooth SCO audio. Before the headset can start communicating with a Linux device, the Bluetooth link layer on the latter has to discover the former. For this, put the headset in <SPAN class=docEmphasis>discover</SPAN><A name="earmarked for"></A> mode by pressing the button earmarked for device discovery. In addition, you have to configure BlueZ with the headset's <SPAN class=docEmphasis>personal identification number</SPAN> (PIN) by adding it to <SPAN class=docEmphasis>/etc/bluetooth/pin.</SPAN><A name="SCO APIs"></A> An application on the Linux device that uses BlueZ SCO APIs can now send audio data to the headset. The audio data should be in a format that the headset understands. The HBH-30 uses the A-law PCM (<SPAN class=docEmphasis>pulse code modulation</SPAN><A name="audio into"></A>) format. There are public domain utilities for converting audio into various PCM formats.</P>
+<P class=docText><A name="the HCI"></A>Bluetooth chipsets commonly have PCM interface pins in addition to the HCI transport interface. If a device supports, for instance, both Bluetooth and <SPAN class=docEmphasis><A name="Mobile Communication"></A>Global System for Mobile Communication</SPAN><A name="lines from"></A> (GSM), the PCM lines from the GSM chipset may be directly wired to the Bluetooth chip's PCM audio lines. You might then have to configure the Bluetooth chip to receive and send SCO audio packets over its HCI interface instead of its PCM interface.</P><A name=ch16lev2sec8></A>
+<H4 id=title-ID0EAHCO class=docSection2Title>Debugging</H4>
+<P class=docText><A name=iddle1073></A><A name=iddle1278></A><A name=iddle1283></A><A name=iddle1292></A><A name=iddle1297></A><A name=iddle1682></A><A name=iddle2132></A><A name=iddle2155></A><A name=iddle2333></A><A name=iddle3872></A><A name=iddle3997></A><A name=iddle4003></A><A name="There are"></A>There are two BlueZ tools useful for debugging:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis>hcidump</SPAN><A name="packets flowing"></A> taps HCI packets flowing back and forth, and parses them into human-readable form. Here's an example dump while a device inquiry is in progress:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; hcidump -i hci0</SPAN>
+HCIDump - HCI packet analyzer ver 1.11
+device: hci0 snap_len: 1028 filter: 0xffffffff
+   HCI Command: Inquiry (0x01|0x0001) plen 5
+   HCI Event: Command Status (0x0f) plen 4
+   HCI Event: Inquiry Result (0x02) plen 15
+   ...
+   HCI Event: Inquiry Complete (0x01) plen 1 &lt; HCI Command:
+   Remote Name Request (0x01|0x0019) plen 10
+   ...</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="virtual HCI"></A>The virtual HCI driver (<SPAN class=docEmphasis>hci_vhci.ko</SPAN>), as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16fig02">Figure 16.2</A><A name="actual hardware"></A>, emulates a Bluetooth interface if you do not have actual hardware.</P></DIV></LI></OL></DIV><A name=ch16lev2sec9></A>
+<H4 id=title-ID0EULCO class=docSection2Title>Looking at the Sources</H4>
+<P class=docText>Look inside <SPAN class=docEmphasis>drivers/bluetooth/</SPAN> for BlueZ low-level drivers. Explore <SPAN class=docEmphasis>net/bluetooth/</SPAN><A name="protocol implementation"></A> for insights into the BlueZ protocol implementation.</P>
+<P class=docText>Bluetooth applications fall under different <SPAN class=docEmphasis>profiles</SPAN><A name="specifies how"></A> based on how they behave. For example, the cordless telephony profile specifies how a Bluetooth device can implement a cordless phone. We discussed profiles for PAN and serial access, but there are many more profiles out there such as fax profile, <SPAN class=docEmphasis>General Object Exchange Profile</SPAN> (GOEP) and <SPAN class=docEmphasis>SIM Access Profile</SPAN> (SAP). The <SPAN class=docEmphasis>bluez-utils</SPAN> package, downloadable from <A class=docLink href="http://www.bluez.org/" target=_blank>www.bluez.org</A>, provides support for several Bluetooth profiles.</P>
+<P class=docText>The official Bluetooth website is <A class=docLink href="http://www.bluetooth.org/" target=_blank>www.bluetooth.org</A><A name="about the"></A>. It contains Bluetooth specification documents and information about the <SPAN class=docEmphasis>Bluetooth Special Interest Group</SPAN> (SIG).</P>
+<P class=docText><SPAN class=docEmphasis>Affix</SPAN><A name=from></A> is an alternate Bluetooth stack on Linux. You can download Affix from <A class=docLink href="http://affix.sourceforge.net/" target=_blank>http://affix.sourceforge.net/</A>.

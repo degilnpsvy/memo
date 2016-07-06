@@ -1,0 +1,31 @@
+<H3 id=-100000 class=docSection1Title>Talking with Protocol Layers</H3>
+<P class=docText><A name="In the"></A>In the preceding section, you discovered the driver methods demanded by the <TT>net_device</TT><A name="a closer"></A> interface. Let's now take a closer look at how network data flows over this interface.</P><A name=ch15lev2sec9></A>
+<H4 id=title-ID0EEFAO class=docSection2Title>Receive Path</H4>
+<P class=docText><A name="learned in"></A>You learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="drivers use"></A> that softirqs are bottom half mechanisms used by performance-sensitive subsystems. NIC drivers use <TT>NET_RX_SOFTIRQ</TT><A name="posting received"></A> to offload the work of posting received data packets to protocol layers. The driver achieves this by calling <TT>netif_rx()</TT> from its receive interrupt handler:</P>
+<DIV class=docText><PRE>netif_rx(skb);   /* struct sk_buff *skb */</PRE></DIV><BR>
+<P class=docText><A name="demands on"></A>NAPI, alluded to earlier, improves this conventional interrupt-driven receive algorithm to lower demands on CPU utilization. When network load is heavy, the system might get bogged down by the large number of interrupts that it takes. NAPI's strategy is to use a polled mode when network activity is heavy but fall back to interrupt mode when the traffic gets light. NAPI-aware drivers switch between interrupt and polled modes based on network load. This is done as follows:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="packets to"></A>In interrupt mode, the interrupt handler posts received packets to protocol layers by scheduling <TT>NET_RX_SOFTIRQ</TT><A name="by adding"></A>. It then disables NIC interrupts and switches to polled mode by adding the device to a poll list:</P>
+<DIV class=docText><PRE>if (netif_rx_schedule_prep(netdev)) /* Housekeeping */ {
+  /* Disable NIC interrupt */
+  disable_nic_interrupt();
+  /* Post the packet to the protocol layer and
+     add the device to the poll list */
+  __netif_rx_schedule(netdev);
+}</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle2088></A><A name=iddle2174></A><A name=iddle3225></A><A name=iddle3231></A><A name=iddle3235></A><A name=iddle3237></A><A name=iddle3239></A><A name=iddle3284></A><A name=iddle3286></A><A name=iddle3600></A><A name=iddle4307></A><A name=a></A>The driver provides a <TT>poll()</TT><A name=its></A> method via its <TT>net_device</TT> structure.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="In the"></A>In the polled mode, the driver's <TT>poll()</TT><A name="packets in"></A> method processes packets in the ingress queue. When the queue becomes empty, the driver re-enables interrupts and switches back to interrupt mode by calling <TT>netif_rx_complete()</TT>.</P></DIV></LI></OL></DIV>
+<P class=docText><A name=at></A>Look at <TT>mycard_interrupt()</TT>, <TT>init_mycard()</TT>, and <TT>mycard_poll()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec4.html#ch15ex01">Listing 15.1</A> to see NAPI in action.</P><A name=ch15lev2sec10></A>
+<H4 id=title-ID0E4KAO class=docSection2Title>Transmit Path</H4>
+<P class=docText><A name="NIC driver"></A>For data transmission, the interaction between protocol layers and the NIC driver is straightforward. The protocol stack invokes the driver's <TT>hard_start_xmit()</TT> method with the outgoing <TT>sk_buff</TT><A name="packet out"></A> as argument. The driver gets the packet out of the door by DMA-ing packet data to the NIC. DMA and the management of related data structures for PCI NIC drivers were discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>.</P>
+<P class=docText><A name="after it"></A>The driver programs the NIC to interrupt the processor after it finishes transmitting a predetermined number of packets. Only when a transmit-complete interrupt occurs signaling completion of a transmit operation can the driver reclaim or free resources such as DMA descriptors, DMA buffers, and <TT>sk_buffs</TT> associated with the transmitted packet.</P><A name=ch15lev2sec11></A>
+<H4 id=title-ID0EYLAO class=docSection2Title>Flow Control</H4>
+<P class=docText><A name="to accept"></A>The driver conveys its readiness or reluctance to accept protocol data by, respectively, calling <TT>netif_start_queue()</TT> and <TT>netif_stop_queue()</TT>.</P>
+<P class=docText>During device <TT>open()</TT>, the NIC driver calls <TT>netif_start_queue()</TT><A name="to the"></A> to ask the protocol layer to start adding transmit packets to the egress queue. During normal operation, however, the driver might require egress queuing to stop on occasion. Examples include the time window when the driver is replenishing data structures, or when it's closing the device. Throttling the downstream flow is accomplished by calling <TT>netif_stop_queue()</TT><A name="networking stack"></A>. To request the networking stack to restart egress queuing, say when there are sufficient free buffers, the NIC driver invokes <TT>netif_wake_queue()</TT><A name="the current"></A>. To check the current flow-control state, toss a call to <TT>netif_queue_stopped()</TT>.

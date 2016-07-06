@@ -1,0 +1,9 @@
+#ifdef CONFIG_UEVENT_HELPER<BR>static int kobj_usermode_filter(struct kobject *kobj)<BR>{<BR>&nbsp;const struct kobj_ns_type_operations *ops;
+<P></P>
+<P>&nbsp;ops = kobj_ns_ops(kobj);<BR>&nbsp;if (ops) {<BR>&nbsp;&nbsp;const void *init_ns, *ns;<BR>&nbsp;&nbsp;ns = kobj-&gt;ktype-&gt;namespace(kobj);<BR>&nbsp;&nbsp;init_ns = ops-&gt;initial_ns();<BR>&nbsp;&nbsp;return ns != init_ns;<BR>&nbsp;}</P>
+<P>&nbsp;return 0;<BR>}</P>
+<P>static int init_uevent_argv(struct kobj_uevent_env *env, const char *subsystem)<BR>{<BR>&nbsp;int len;</P>
+<P>&nbsp;len = strlcpy(&amp;env-&gt;buf[env-&gt;buflen], subsystem,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; sizeof(env-&gt;buf) - env-&gt;buflen);<BR>&nbsp;if (len &gt;= (sizeof(env-&gt;buf) - env-&gt;buflen)) {<BR>&nbsp;&nbsp;WARN(1, KERN_ERR "init_uevent_argv: buffer size too small\n");<BR>&nbsp;&nbsp;return -ENOMEM;<BR>&nbsp;}</P>
+<P>&nbsp;env-&gt;argv[0] = uevent_helper;<BR>&nbsp;env-&gt;argv[1] = &amp;env-&gt;buf[env-&gt;buflen];<BR>&nbsp;env-&gt;argv[2] = NULL;</P>
+<P>&nbsp;env-&gt;buflen += len + 1;<BR>&nbsp;return 0;<BR>}</P>
+<P>static void cleanup_uevent_env(struct subprocess_info *info)<BR>{<BR>&nbsp;kfree(info-&gt;data);<BR>}<BR>#endif

@@ -1,0 +1,217 @@
+<H4 id=title-ID0EDOOM class=docSection2Title>Linked Lists</H4>
+<P class=docText><A name="of data"></A><FONT class=extract>To weave doubly linked lists of data structures, use the functions provided in <SPAN class=docEmphasis>include/linux/list.h.</SPAN> Essentially, you embed a <TT>struct list_head</TT> inside your data structure:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <LINUX list.h="">
+
+struct list_head {
+  struct list_head *next, *prev;
+};
+
+struct mydatastructure {
+  struct list_head mylist; /* Embed */
+  /* ... */                /* Actual Fields */
+};</LINUX></FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract><TT>mylist</TT> is the link that chains different instances of <TT>mydatastructure</TT>. If you have multiple <TT>list_head</TT>s embedded inside <TT>mydatastructure</TT>, each of them constitutes </FONT><A name=iddle2199></A><A name=iddle2351></A><A name=iddle2758></A><A name=iddle2808></A><A name=iddle2809></A><A name=iddle2810></A><A name=iddle2812></A><A name=iddle2813></A><A name=iddle2815></A><A name=iddle2817></A><A name=iddle2821></A><A name=iddle2822></A><A name=iddle2826></A><A name=iddle3166></A><FONT class=extract>a link that renders <TT>mydatastructure</TT></FONT><A name="list library"></A><FONT class=extract> a member of a new list. You can use the list library to add or delete membership from individual lists.</FONT></P>
+<P class=docText><A name="land before"></A>To get the lay of the land before the detail, let's summarize the linked list programming interface offered by the list library. This is done in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03tab01">Table 3.1</A>.</P><A name=ch03tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><FONT class=extract>Table 3.1. Linked List Manipulation Functions</FONT></H5></CAPTION>
+<COLGROUP span=2 align=left><FONT class=extract>
+<COL width=250>
+<COL width=300></FONT></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Function</FONT></TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Purpose</FONT></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>INIT_LIST_HEAD()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Initializes the list head</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_add()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Adds an element after the list head</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_add_tail()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Adds an element to the tail of the list</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_del()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Deletes an element from the list</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_replace()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Replaces an element in the list with another</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_entry()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Loops through all nodes in the list</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<DIV class=docText><PRE><FONT class=extract>list_for_each_entry()/
+list_for_each_entry_safe()</FONT></PRE></DIV><BR></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Simpler list iteration interfaces</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_empty()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Checks whether there are any elements in the list</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_splice()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Joins one list with another</FONT></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="serves as"></A><FONT class=extract>To illustrate list usage, let's implement an example. The example also serves as a foundation to understand the concept of work queues, which is discussed in the next section. Assume that your kernel driver needs to perform a heavy-duty task from an entry point. An example is a task that forces the calling thread to sleep-wait. Naturally, your driver doesn't like to block until the task finishes, because that slows down the responsiveness of applications relying on it. So, whenever the driver needs to perform this expensive work, it defers execution by adding the corresponding routine to a linked list of work functions. The actual work is performed by a kernel thread, which traverses the list and executes the work functions in the background. The driver submits work functions to the tail of the list, while the kernel thread ploughs its way from the head of the list, thus ensuring that work queued first gets done first. Of course, the rest of the driver needs to be designed to suit this scheme of deferred execution. Before understanding this example, however, be aware that we will use the work queue interface in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex05"><FONT class=extract>Listing 3.5</FONT></A><A name="implement the"></A><FONT class=extract> to implement the same task in a simpler manner.</FONT></P>
+<P class=docText><FONT class=extract>Let's first introduce the key driver data structures used by our example:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>static struct _mydrv_wq {
+  struct list_head mydrv_worklist; /* Work List */
+  spinlock_t lock;                 /* Protect the list */
+  wait_queue_head_t todo;          /* Synchronize submitter
+                                      and worker */
+} mydrv_wq;
+
+
+struct _mydrv_work {
+  struct list_head mydrv_workitem; /* The work chain */
+  void (*worker_func)(void *);     /* Work to perform */
+  void *worker_data;               /* Argument to worker_func */
+  /* ... */                        /* Other fields */
+} mydrv_work;</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle2198></A><A name=iddle2757></A><A name=iddle2825></A><A name=iddle3163></A><TT><FONT class=extract>mydrv_wq</FONT></TT><A name="to the"></A><FONT class=extract> is global to all work submissions. Its members include a pointer to the head of the work list, and a wait queue to communicate between driver functions that submit work and the kernel thread that performs the work. The list helper functions do not protect accesses to list members, so you need to use concurrency mechanisms to serialize simultaneous pointer references. This is done using a spinlock that is also a part of <TT>mydrv_wq</TT></FONT><A name="The driver"></A><FONT class=extract>. The driver initialization routine <TT>mydrv_init()</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02"><FONT class=extract>Listing 3.2</FONT></A><A name="the list"></A><FONT class=extract> initializes the spinlock, the list head, and the wait queue, and kick starts the worker thread.</FONT></P><A name=ch03ex02></A>
+<H5 id=title-ID0E21OM class=docExampleTitle><FONT class=extract>Listing 3.2. Initialize Data Structures</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE><FONT class=extract>static int __init
+mydrv_init(void)
+{
+  /* Initialize the lock to protect against
+     concurrent list access */
+  spin_lock_init(&amp;mydrv_wq.lock);
+
+  /* Initialize the wait queue for communication
+     between the submitter and the worker */
+  init_waitqueue_head(&amp;mydrv_wq.todo);
+
+  /* Initialize the list head */
+  INIT_LIST_HEAD(&amp;mydrv_wq.mydrv_worklist);
+
+  /* Start the worker thread. See Listing 3.4 */
+  kernel_thread(mydrv_worker, NULL,
+                  CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD);
+  return 0;
+}</FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2200></A><A name=iddle2760></A><A name=iddle2828></A><A name=iddle4170></A><A name=iddle4171></A><A name=iddle4173></A><A name=iddle4642></A><A name="examining the"></A><FONT class=extract>Before examining the worker thread that executes submitted work, let's look at work submission itself. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex03"><FONT class=extract>Listing 3.3</FONT></A><A name="can use"></A><FONT class=extract> implements a function that other parts of the kernel can use to submit work. It uses <TT>list_add_tail()</TT></FONT><A name="to the"></A><FONT class=extract> to add a work function to the tail of the list. Look at </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03fig01"><FONT class=extract>Figure 3.1</FONT></A><FONT class=extract> to see the physical structure of the work list.</FONT></P><A name=ch03fig01></A>
+<P><FONT class=extract></FONT>
+<CENTER>
+<H5 class=docFigureTitle><FONT class=extract>Figure 3.1. Linked list of work functions.</FONT></H5>
+<P class=docText><FONT class=extract></FONT>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC8xaGlnM2NzZ2ku.jpg" target=_blank><FONT class=extract>[View full size image]</FONT></A></DIV><FONT class=extract><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzFoaWczc2M-.jpg" width=500 height=258> </FONT>
+<P></P></CENTER>
+<P><FONT class=extract></FONT></P><BR><A name=ch03ex03></A>
+<H5 id=title-ID0EA6OM class=docExampleTitle><FONT class=extract>Listing 3.3. Submitting Work to Be Executed Later</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE><FONT class=extract>int
+submit_work(void (*func)(void *data), void *data)
+{
+  struct _mydrv_work *mydrv_work;
+
+  /* Allocate the work structure */
+  mydrv_work = kmalloc(sizeof(struct _mydrv_work), GFP_ATOMIC);
+  if (!mydrv_work) return -1;
+
+  /* Populate the work structure */
+  mydrv_work-&gt;worker_func = func; /* Work function */
+  mydrv_work-&gt;worker_data = data; /* Argument to pass */
+  spin_lock(&amp;mydrv_wq.lock);      /* Protect the list */
+
+  /* Add your work to the tail of the list */
+  list_add_tail(&amp;mydrv_work-&gt;mydrv_workitem,
+                  &amp;mydrv_wq.mydrv_worklist);
+
+  /* Wake up the worker thread */
+  wake_up(&amp;mydrv_wq.todo);
+
+  spin_unlock(&amp;mydrv_wq.lock);
+  return 0;
+}</FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2201></A><A name=iddle2759></A><A name=iddle2811></A><A name=iddle2814></A><A name=iddle2827></A><A name=iddle3165></A><A name=iddle4645></A><FONT class=extract>To submit a work function <TT>void job(void *)</TT> from a driver entry point, do this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>submit_work(job, NULL);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>After submitting the work function, </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex03"><FONT class=extract>Listing 3.3</FONT></A><A name="worker thread"></A><FONT class=extract> wakes up the worker thread. The general structure of the worker thread shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><A name="discussed in"></A><FONT class=extract> is similar to standard kernel threads discussed in the previous section. The thread uses <TT>list_entry()</TT></FONT><A name="the list"></A><FONT class=extract> to work its way through all nodes in the list. <TT>list_entry()</TT></FONT><A name="the container"></A><FONT class=extract> returns the container data structure inside which the list node is embedded. Take a closer look at the relevant line in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><FONT class=extract>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>mydrv_work = list_entry(mydrv_wq.mydrv_worklist.next,
+                        struct _mydrv_work, mydrv_workitem);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract><TT>mydrv_workitem</TT> is embedded inside <TT>mydrv_work</TT>, so <TT>list_entry()</TT> returns a pointer to the corresponding <TT>mydrv_work</TT> structure. The parameters passed to <TT>list_entry()</TT></FONT><A name="the container"></A><FONT class=extract> are the address of the embedded list node, the type of the container structure, and the field name of the embedded list node.</FONT></P>
+<P class=docText><A name="After executing"></A><FONT class=extract>After executing a submitted work function, the worker thread removes the corresponding node from the list using <TT>list_del()</TT>. Note that <TT>mydrv_wq.lock</TT></FONT><A name="and reacquired"></A><FONT class=extract> is released and reacquired in the time window when the submitted work function is executed. This is because work functions can go to sleep resulting in potential deadlocks if newly scheduled code tries to acquire the same spinlock.</FONT></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch03ex04></A>
+<H5 id=title-ID0EXDPM class=docExampleTitle><FONT class=extract>Listing 3.4. The Worker Thread</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>static int
+mydrv_worker(void *unused)
+{
+
+  DECLARE_WAITQUEUE(wait, current);
+  void (*worker_func)(void *);
+  void *worker_data;
+  struct _mydrv_work *mydrv_work;
+
+  set_current_state(TASK_INTERRUPTIBLE);
+
+  /* Spin until asked to die */
+  while (!asked_to_die()) {
+    add_wait_queue(&amp;mydrv_wq.todo, &amp;wait);
+
+    if (list_empty(&amp;mydrv_wq.mydrv_worklist)) {
+      schedule();
+      /* Woken up by the submitter */
+    } else {
+      set_current_state(TASK_RUNNING);
+    }
+    remove_wait_queue(&amp;mydrv_wq.todo, &amp;wait);
+
+    /* Protect concurrent access to the list */
+    spin_lock(&amp;mydrv_wq.lock);
+
+    /* Traverse the list and plough through the work functions
+       present in each node */
+    while (!list_empty(&amp;mydrv_wq.mydrv_worklist)) {
+
+      /* Get the first entry in the list */
+      mydrv_work = list_entry(mydrv_wq.mydrv_worklist.next,
+                              struct _mydrv_work, mydrv_workitem);
+      worker_func = mydrv_work-&gt;worker_func;
+      worker_data = mydrv_work-&gt;worker_data;
+
+      /* This node has been processed. Throw it
+         out of the list */
+      list_del(mydrv_wq.mydrv_worklist.next);
+      kfree(mydrv_work);   /* Free the node */
+
+      /* Execute the work function in this node */
+      spin_unlock(&amp;mydrv_wq.lock);  /* Release lock */
+      worker_func(worker_data);
+      spin_lock(&amp;mydrv_wq.lock);    /* Re-acquire lock */
+    }
+    spin_unlock(&amp;mydrv_wq.lock);
+    set_current_state(TASK_INTERRUPTIBLE);
+  }
+
+  set_current_state(TASK_RUNNING);
+  return 0;
+}
+
+					  </FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle3164></A><A name=iddle1126></A><A name=iddle2816></A><A name=iddle2818></A><A name="the example"></A><FONT class=extract>For simplicity, the example code does not perform error handling. For example, if the call to <TT>kernel_thread()</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02"><FONT class=extract>Listing 3.2</FONT></A><A name="work structure"></A><FONT class=extract> fails, you need to free memory allocated for the corresponding work structure. Also, <TT>asked_to_die()</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><A name="out of"></A><FONT class=extract> is left unwritten. It essentially breaks out of the loop if it either detects a delivered signal or receives a communication from the <TT>release()</TT></FONT><A name="unloaded from"></A><FONT class=extract> entry point that the module is about to be unloaded from the kernel.</FONT></P>
+<P class=docText><A name="at another"></A><FONT class=extract>Before ending this section, let's take a look at another useful list library routine, <TT>list_for_each_entry()</TT></FONT><A name="because you"></A><FONT class=extract>. With this macro, iteration becomes simpler and more readable because you don't have to use <TT>list_entry()</TT></FONT><A name="the loop"></A><FONT class=extract> inside the loop. Use the <TT>list_for_each_entry_safe()</TT></FONT><A name="can replace"></A><FONT class=extract> variant if you will delete list elements inside the loop. You can replace the following snippet in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><FONT class=extract>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>while (!list_empty(&amp;mydrv_wq.mydrv_worklist)) {
+  mydrv_work = list_entry(mydrv_wq.mydrv_worklist.next,
+                          struct _mydrv_work, mydrv_workitem);
+  /* ... */
+}</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>with:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>struct _mydrv_work *temp;
+list_for_each_entry_safe(mydrv_work, temp,
+                         &amp;mydrv_wq.mydrv_worklist,
+                         mydrv_workitem) {
+  /* ... */
+}</FONT></PRE></DIV><BR>
+<P class=docText><A name="You can"></A><FONT class=extract>You can't use <TT>list_for_each_entry()</TT></FONT><A name="case because"></A><FONT class=extract> in this case because you are removing the entry pointed to by <TT>mydrv_work</TT></FONT><A name="the loop"></A><FONT class=extract> inside the loop in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><FONT class=extract>. <TT>list_for_each_entry_safe()</TT></FONT><A name="the second"></A><FONT class=extract> solves this problem using the temporary variable passed as the second argument (<TT>temp</TT></FONT><A name="the next"></A><FONT class=extract>) to save the address of the next entry in the list.</FONT>

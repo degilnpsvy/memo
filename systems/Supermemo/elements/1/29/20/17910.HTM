@@ -1,0 +1,130 @@
+<H3 class=section>12.5 Profiling Your <CODE>awk</CODE> Programs</H3><A name=index-awk-programs_002c-profiling></A><A name=index-profiling-awk-programs></A><A name=index-awkprof_002eout-file></A><A name=index-files_002c-awkprof_002eout></A>
+<P>You may produce execution traces of your <CODE>awk</CODE> programs. This is done by passing the option <SAMP>--profile</SAMP> to <CODE>gawk</CODE>. When <CODE>gawk</CODE> has finished running, it creates a profile of your program in a file named <SAMP>awkprof.out</SAMP>. Because it is profiling, it also executes up to 45% slower than <CODE>gawk</CODE> normally does. </P><A name=index-_002d_002dprofile-option-1></A>
+<P>As shown in the following example, the <SAMP>--profile</SAMP> option can be used to change the name of the file where <CODE>gawk</CODE> will write the profile: </P>
+<DIV class=example><PRE class=example>gawk --profile=myprog.prof -f myprog.awk data1 data2
+</PRE></DIV>
+<P>In the above example, <CODE>gawk</CODE> places the profile in <SAMP>myprog.prof</SAMP> instead of in <SAMP>awkprof.out</SAMP>. </P>
+<P>Here is a sample session showing a simple <CODE>awk</CODE> program, its input data, and the results from running <CODE>gawk</CODE> with the <SAMP>--profile</SAMP> option. First, the <CODE>awk</CODE> program: </P>
+<DIV class=example><PRE class=example>BEGIN { print "First BEGIN rule" }
+
+END { print "First END rule" }
+
+/foo/ {
+    print "matched /foo/, gosh"
+    for (i = 1; i &lt;= 3; i++)
+        sing()
+}
+
+{
+    if (/foo/)
+        print "if is true"
+    else
+        print "else is true"
+}
+
+BEGIN { print "Second BEGIN rule" }
+
+END { print "Second END rule" }
+
+function sing(    dummy)
+{
+    print "I gotta be me!"
+}
+</PRE></DIV>
+<P>Following is the input data: </P>
+<DIV class=example><PRE class=example>foo
+bar
+baz
+foo
+junk
+</PRE></DIV>
+<P>Here is the <SAMP>awkprof.out</SAMP> that results from running the <CODE>gawk</CODE> profiler on this program and data. (This example also illustrates that <CODE>awk</CODE> programmers sometimes get up very early in the morning to work.) </P><A name=index-BEGIN-pattern_002c-and-profiling></A><A name=index-END-pattern_002c-and-profiling></A>
+<DIV class=example><PRE class=example>    # gawk profile, created Thu Feb 27 05:16:21 2014
+
+    # BEGIN block(s)
+
+    BEGIN {
+ 1          print "First BEGIN rule"
+    }
+
+    BEGIN {
+ 1          print "Second BEGIN rule"
+    }
+
+    # Rule(s)
+
+ 5  /foo/ { # 2
+ 2          print "matched /foo/, gosh"
+ 6          for (i = 1; i &lt;= 3; i++) {
+ 6                  sing()
+            }
+    }
+
+ 5  {
+ 5          if (/foo/) { # 2
+ 2                  print "if is true"
+ 3          } else {
+ 3                  print "else is true"
+            }
+    }
+
+    # END block(s)
+
+    END {
+ 1          print "First END rule"
+    }
+
+    END {
+ 1          print "Second END rule"
+    }
+
+
+    # Functions, listed alphabetically
+
+ 6  function sing(dummy)
+    {
+ 6          print "I gotta be me!"
+    }
+</PRE></DIV>
+<P>This example illustrates many of the basic features of profiling output. They are as follows: </P>
+<UL>
+<LI>The program is printed in the order <CODE>BEGIN</CODE> rules, <CODE>BEGINFILE</CODE> rules, pattern/action rules, <CODE>ENDFILE</CODE> rules, <CODE>END</CODE> rules and functions, listed alphabetically. Multiple <CODE>BEGIN</CODE> and <CODE>END</CODE> rules retain their separate identities, as do multiple <CODE>BEGINFILE</CODE> and <CODE>ENDFILE</CODE> rules. </LI>
+<LI><A name=index-patterns_002c-counts_002c-in-a-profile></A>Pattern-action rules have two counts. The first count, to the left of the rule, shows how many times the rule&#8217;s pattern was <EM>tested</EM>. The second count, to the right of the rule&#8217;s opening left brace in a comment, shows how many times the rule&#8217;s action was <EM>executed</EM>. The difference between the two indicates how many times the rule&#8217;s pattern evaluated to false. </LI>
+<LI>Similarly, the count for an <CODE>if</CODE>-<CODE>else</CODE> statement shows how many times the condition was tested. To the right of the opening left brace for the <CODE>if</CODE>&#8217;s body is a count showing how many times the condition was true. The count for the <CODE>else</CODE> indicates how many times the test failed. </LI>
+<LI><A name=index-loops_002c-count-for-header_002c-in-a-profile></A>The count for a loop header (such as <CODE>for</CODE> or <CODE>while</CODE>) shows how many times the loop test was executed. (Because of this, you can&#8217;t just look at the count on the first statement in a rule to determine how many times the rule was executed. If the first statement is a loop, the count is misleading.) </LI>
+<LI><A name=index-functions_002c-user_002ddefined_002c-counts_002c-in-a-profile></A><A name=index-user_002ddefined_002c-functions_002c-counts_002c-in-a-profile></A>For user-defined functions, the count next to the <CODE>function</CODE> keyword indicates how many times the function was called. The counts next to the statements in the body show how many times those statements were executed. </LI>
+<LI><A name=index-_007b_007d-_0028braces_0029></A><A name=index-braces-_0028_007b_007d_0029></A>The layout uses &#8220;K&amp;R&#8221; style with TABs. Braces are used everywhere, even when the body of an <CODE>if</CODE>, <CODE>else</CODE>, or loop is only a single statement. </LI>
+<LI><A name=index-_0028_0029-_0028parentheses_0029_002c-in-a-profile></A><A name=index-parentheses-_0028_0029_002c-in-a-profile></A>Parentheses are used only where needed, as indicated by the structure of the program and the precedence rules. For example, &#8216;<SAMP>(3 + 5) * 4</SAMP>&#8217; means add three plus five, then multiply the total by four. However, &#8216;<SAMP>3 + 5 * 4</SAMP>&#8217; has no parentheses, and means &#8216;<SAMP>3 + (5 * 4)</SAMP>&#8217;. </LI>
+<LI>Parentheses are used around the arguments to <CODE>print</CODE> and <CODE>printf</CODE> only when the <CODE>print</CODE> or <CODE>printf</CODE> statement is followed by a redirection. Similarly, if the target of a redirection isn&#8217;t a scalar, it gets parenthesized. </LI>
+<LI><CODE>gawk</CODE> supplies leading comments in front of the <CODE>BEGIN</CODE> and <CODE>END</CODE> rules, the <CODE>BEGINFILE</CODE> and <CODE>ENDFILE</CODE> rules, the pattern/action rules, and the functions. </LI></UL>
+<P>The profiled version of your program may not look exactly like what you typed when you wrote it. This is because <CODE>gawk</CODE> creates the profiled version by &#8220;pretty printing&#8221; its internal representation of the program. The advantage to this is that <CODE>gawk</CODE> can produce a standard representation. The disadvantage is that all source-code comments are lost. Also, things such as: </P>
+<DIV class=example><PRE class=example>/foo/
+</PRE></DIV>
+<P>come out as: </P>
+<DIV class=example><PRE class=example>/foo/   {
+    print $0
+}
+</PRE></DIV>
+<P>which is correct, but possibly surprising. </P><A name=index-profiling-awk-programs_002c-dynamically></A><A name=index-gawk-program_002c-dynamic-profiling></A><A name=index-dynamic-profiling></A>
+<P>Besides creating profiles when a program has completed, <CODE>gawk</CODE> can produce a profile while it is running. This is useful if your <CODE>awk</CODE> program goes into an infinite loop and you want to see what has been executed. To use this feature, run <CODE>gawk</CODE> with the <SAMP>--profile</SAMP> option in the background: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk --profile -f myprog &amp;</EM></KBD>
+[1] 13992
+</PRE></DIV><A name=index-kill-command_002c-dynamic-profiling></A><A name=index-USR1-signal_002c-for-dynamic-profiling></A><A name=index-SIGUSR1-signal_002c-for-dynamic-profiling></A><A name=index-signals_002c-USR1_002fSIGUSR1_002c-for-profiling></A>
+<P>The shell prints a job number and process ID number; in this case, 13992. Use the <CODE>kill</CODE> command to send the <CODE>USR1</CODE> signal to <CODE>gawk</CODE>: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>kill -USR1 13992</EM></KBD>
+</PRE></DIV>
+<P>As usual, the profiled version of the program is written to <SAMP>awkprof.out</SAMP>, or to a different file if one specified with the <SAMP>--profile</SAMP> option. </P>
+<P>Along with the regular profile, as shown earlier, the profile includes a trace of any active functions: </P>
+<DIV class=example><PRE class=example># Function Call Stack:
+
+#   3. baz
+#   2. bar
+#   1. foo
+# -- main --
+</PRE></DIV>
+<P>You may send <CODE>gawk</CODE> the <CODE>USR1</CODE> signal as many times as you like. Each time, the profile and function call trace are appended to the output profile file. </P><A name=index-HUP-signal_002c-for-dynamic-profiling></A><A name=index-SIGHUP-signal_002c-for-dynamic-profiling></A><A name=index-signals_002c-HUP_002fSIGHUP_002c-for-profiling></A>
+<P>If you use the <CODE>HUP</CODE> signal instead of the <CODE>USR1</CODE> signal, <CODE>gawk</CODE> produces the profile and the function call trace and then exits. </P><A name=index-INT-signal-_0028MS_002dWindows_0029></A><A name=index-SIGINT-signal-_0028MS_002dWindows_0029></A><A name=index-signals_002c-INT_002fSIGINT-_0028MS_002dWindows_0029></A><A name=index-QUIT-signal-_0028MS_002dWindows_0029></A><A name=index-SIGQUIT-signal-_0028MS_002dWindows_0029></A><A name=index-signals_002c-QUIT_002fSIGQUIT-_0028MS_002dWindows_0029></A>
+<P>When <CODE>gawk</CODE> runs on MS-Windows systems, it uses the <CODE>INT</CODE> and <CODE>QUIT</CODE> signals for producing the profile and, in the case of the <CODE>INT</CODE> signal, <CODE>gawk</CODE> exits. This is because these systems don&#8217;t support the <CODE>kill</CODE> command, so the only signals you can deliver to a program are those generated by the keyboard. The <CODE>INT</CODE> signal is generated by the <KBD><EM>Ctrl-<SPAN class=key>C</SPAN></EM></KBD> or <KBD><EM>Ctrl-<SPAN class=key>BREAK</SPAN></EM></KBD> key, while the <CODE>QUIT</CODE> signal is generated by the <KBD><EM>Ctrl-<SPAN class=key>\</SPAN></EM></KBD> key. </P>
+<P>Finally, <CODE>gawk</CODE> also accepts another option, <SAMP>--pretty-print</SAMP>. When called this way, <CODE>gawk</CODE> &#8220;pretty prints&#8221; the program into <SAMP>awkprof.out</SAMP>, without any execution counts. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> The <SAMP>--pretty-print</SAMP> option still runs your program. This will change in the next major release. </P></BLOCKQUOTE>

@@ -1,0 +1,26 @@
+<H3 class=section>8.7 The <CODE>call</CODE> Function</H3>
+<P><A name=index-call-651></A><A name=index-functions_002c-user-defined-652></A><A name=index-user-defined-functions-653></A>The <CODE>call</CODE> function is unique in that it can be used to create new parameterized functions. You can write a complex expression as the value of a variable, then use <CODE>call</CODE> to expand it with different values. 
+<P><FONT class=extract>The syntax of the <CODE>call</CODE> function is: </FONT><PRE class=example><FONT class=extract>     $(call <VAR>variable</VAR>,<VAR>param</VAR>,<VAR>param</VAR>,...)
+</FONT></PRE>
+<P><FONT class=extract>When <CODE>make</CODE> expands this function, it assigns each <VAR>param</VAR> to temporary variables <CODE>$(1)</CODE>, <CODE>$(2)</CODE>, etc. The variable <CODE>$(0)</CODE> will contain <VAR>variable</VAR>. There is no maximum number of parameter arguments. There is no minimum, either, but it doesn't make sense to use <CODE>call</CODE> with no parameters.</FONT> 
+<P>Then <VAR>variable</VAR> is expanded as a <CODE>make</CODE> variable in the context of these temporary assignments. Thus, any reference to <CODE>$(1)</CODE> in the value of <VAR>variable</VAR> will resolve to the first <VAR>param</VAR> in the invocation of <CODE>call</CODE>. 
+<P>Note that <VAR>variable</VAR> is the <EM>name</EM> of a variable, not a <EM>reference</EM> to that variable. Therefore you would not normally use a &#8216;<SAMP><SPAN class=samp>$</SPAN></SAMP>&#8217; or parentheses when writing it. (You can, however, use a variable reference in the name if you want the name not to be a constant.) 
+<P>If <VAR>variable</VAR> is the name of a built-in function, the built-in function is always invoked (even if a <CODE>make</CODE> variable by that name also exists). 
+<P><FONT class=extract>The <CODE>call</CODE> function expands the <VAR>param</VAR> arguments before assigning them to temporary variables. This means that <VAR>variable</VAR> values containing references to built-in functions that have special expansion rules, like <CODE>foreach</CODE> or <CODE>if</CODE>, may not work as you expect.</FONT> 
+<P>Some examples may make this clearer. 
+<P>This macro simply reverses its arguments: <PRE class=smallexample>     reverse = $(2) $(1)
+     
+     foo = $(call reverse,a,b)
+</PRE>
+<P class=noindent>Here <VAR>foo</VAR> will contain &#8216;<SAMP><SPAN class=samp>b a</SPAN></SAMP>&#8217;. 
+<P>This one is slightly more interesting: it defines a macro to search for the first instance of a program in <CODE>PATH</CODE>: <PRE class=smallexample>     pathsearch = $(firstword $(wildcard $(addsuffix /$(1),$(subst :, ,$(PATH)))))
+     
+     LS := $(call pathsearch,ls)
+</PRE>
+<P class=noindent>Now the variable LS contains <CODE>/bin/ls</CODE> or similar. 
+<P><FONT class=extract>The <CODE>call</CODE> function can be nested. Each recursive invocation gets its own local values for <CODE>$(1)</CODE>, etc. that mask the values of higher-level <CODE>call</CODE>. For example, here is an implementation of a <DFN>map</DFN> function: </FONT><PRE class=smallexample><FONT class=extract>     map = $(foreach a,$(2),$(call $(1),$(a)))
+</FONT></PRE>
+<P><FONT class=extract>Now you can <VAR>map</VAR> a function that normally takes only one argument, such as <CODE>origin</CODE>, to multiple values in one step: </FONT><PRE class=smallexample><FONT class=extract>     o = $(call map,origin,o map MAKE)
+</FONT></PRE>
+<P><FONT class=extract>and end up with <VAR>o</VAR> containing something like &#8216;<SAMP><SPAN class=samp>file file default</SPAN></SAMP>&#8217;. </FONT>
+<P><FONT class=extract>A final caution: be careful when adding whitespace to the arguments to <CODE>call</CODE>. As with other functions, any whitespace contained in the second and subsequent arguments is kept; this can cause strange effects. It's generally safest to remove all extraneous whitespace when providing parameters to <CODE>call</CODE>.</FONT>

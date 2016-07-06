@@ -1,0 +1,8 @@
+KMS Locking</P>
+<P>drm_modeset_lock_init &#8212; initialize lock<BR>drm_modeset_lock_fini &#8212; cleanup lock<BR>drm_modeset_is_locked &#8212; equivalent to mutex_is_locked<BR>drm_modeset_acquire_init &#8212; initialize acquire context<BR>drm_modeset_acquire_fini &#8212; cleanup acquire context<BR>drm_modeset_drop_locks &#8212; drop all locks<BR>drm_modeset_backoff &#8212; deadlock avoidance backoff<BR>drm_modeset_backoff_interruptible &#8212; deadlock avoidance backoff<BR>drm_modeset_lock &#8212; take modeset lock<BR>drm_modeset_lock_interruptible &#8212; take modeset lock<BR>drm_modeset_unlock &#8212; drop modeset lock</P>
+<P>As KMS moves toward more fine grained locking, and atomic ioctl where userspace can indirectly control locking order, it becomes necessary to use ww_mutex and acquire-contexts to avoid deadlocks. But because the locking is more distributed around the driver code, we want a bit of extra utility/tracking out of our acquire-ctx. This is provided by drm_modeset_lock / drm_modeset_acquire_ctx.</P>
+<P>For basic principles of ww_mutex, see: Documentation/ww-mutex-design.txt</P>
+<P>The basic usage pattern is to:</P>
+<P>drm_modeset_acquire_init(ctx) retry: foreach (lock in random_ordered_set_of_locks) { ret = drm_modeset_lock(lock, ctx) if (ret == -EDEADLK) { drm_modeset_backoff(ctx); goto retry; } }</P>
+<P>... do stuff ...</P>
+<P>drm_modeset_drop_locks(ctx); drm_modeset_acquire_fini(ctx);

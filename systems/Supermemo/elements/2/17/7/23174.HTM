@@ -1,0 +1,227 @@
+<H3 id=-100000 class=docSection1Title>Kexec and Kdump</H3>
+<P class=docText><A name="Now that"></A>Now that you have learned how to use Kprobes, let's continue and look at more facets of Linux RAS. <SPAN class=docEmphasis>Kexec</SPAN> and <SPAN class=docEmphasis>kdump</SPAN><A name="features introduced"></A> are serviceability features introduced in the 2.6 kernel.</P>
+<P class=docText><A name="overlay philosophy"></A>Kexec uses the image overlay philosophy of the UNIX <TT>exec()</TT><A name="spawn a"></A> system call to spawn a new kernel over a running kernel without the overhead of boot firmware. This can save several seconds of reboot time because boot firmware spends cycles walking buses and recognizing devices. The less the reboot latency, the less the system downtime; so, this was one of the main motivations for developing kexec. However, kexec's most popular user is kdump. Capturing a dump after a kernel crash is inherently unreliable because kernel code that accesses the dump device might be in an unstable state. Kdump circumvents this problem by collecting the dump after booting into a healthy kernel via kexec.</P><A name=ch21lev2sec12></A>
+<H4 id=title-ID0ELVAO class=docSection2Title>Kexec</H4>
+<P class=docText>Before you can kexec a kernel, you need to do some preparations:</P><A name=ch21pro03></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Compile and boot into a kernel that has kexec support. For this, turn on <TT>CONFIG_KEXEC</TT> (<SPAN class=docEmphasis>Processor Type and Features</SPAN> <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphasis>Kexec System Call</SPAN>) in the kernel configuration menu. This kernel is called the first kernel or the running kernel.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Prepare the kernel that is to be kexec-ed. This second kernel can be the same as the first kernel.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Download the <SPAN class=docEmphasis>kexec-tools</SPAN> package source tar ball from <A class=docLink href="http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/kexec-tools-testing.tar.gz" target=_blank>www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/kexec-tools-testing.tar.gz</A>. Build and produce the user-space tool called <SPAN class=docEmphasis>kexec</SPAN>.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name=iddle1694></A><A name=iddle1706></A><A name=iddle1709></A><A name=iddle2448></A><A name=iddle2519></A><A name=iddle2646></A><A name=iddle2649></A><A name="The first"></A>The kexec tool built in Step 3 is invoked in two stages. The first stage loads the second kernel image into the buffers of the running kernel, while the second stage actually overlays the running kernel:</P><A name=ch21pro04></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Load the second (overlay) kernel using the kexec command:<BR><BR>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; kexec -l /path/to/kernelsources/arch/x86/boot/bzImage --</SPAN>
+<SPAN class=docEmphStrong>append="root=/dev/hdaX" --initrd=/boot/myinitrd.img</SPAN></PRE></DIV><BR><SPAN class=docEmphasis>bzImage</SPAN> is the second kernel, <SPAN class=docEmphasis>hdaX</SPAN> is the root device, and <SPAN class=docEmphasis>myinitrd.img</SPAN> is the initial root filesystem. The kernel implementation of this stage is mostly architecture-independent. At the heart of this stage is the <TT>sys_kexec()</TT> system call. The kexec command loads the new kernel image into the running kernel's buffers using the services of this system call.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Boot into the second kernel:<BR><BR>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; kexec -e</SPAN>
+...                  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Kernel boot up messages</SPAN></PRE></DIV><BR>Kexec abruptly starts the new kernel without gracefully halting the operating system. To shut down prior to reboot, invoke kexec from the bottom of the <SPAN class=docEmphasis>halt</SPAN> script (usually /<SPAN class=docEmphasis>etc/rc.d/rc0.d/S01halt</SPAN>) and invoke halt instead.<BR><BR>The implementation of the second stage is architecture-dependent. The crux of this stage is a <TT>reboot_code_buffer</TT> that contains assembly code to put the new kernel in place to boot.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name="kernel code"></A>Kexec bypasses the initial kernel code that invokes the services of boot firmware and directly jumps to the protected mode entry point (for x86 processors). An important challenge to implement kexec is the interaction that happens between the kernel and the boot firmware (BIOS on x86-based systems, Openfirmware on POWER-based machines, and so on). On x86 systems, information such as the e820 memory map passed to the kernel by the BIOS (see <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app02.html#app02">Appendix B</A><A name="the kexec"></A>, "Linux and the BIOS") needs to be supplied to the kexec-ed kernel, too.</P><A name=ch21lev2sec13></A>
+<H4 id=title-ID0ET2AO class=docSection2Title>Kexec with Kdump</H4>
+<P class=docText><A name="somewhat special"></A>The kexec invocation semantics is somewhat special when it's used in tandem with kdump. In this case, kexec is required to automatically boot a new kernel when it <A name=iddle1630></A><A name=iddle1685></A><A name=iddle1692></A><A name=iddle2517></A><A name=iddle4603></A><A name="new kernel"></A>encounters a kernel panic. If the running kernel crashes, the new kernel (called the capture kernel) is booted to reliably collect the dump. A typical call syntax is this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; kexec -p /path/to/capture-kernel-sources/vmlinux</SPAN>
+            <SPAN class=docEmphStrong>--args-linux --append="root=/dev/hdaX irqpoll"</SPAN>
+            <SPAN class=docEmphStrong>--initrd=/boot/myinitrd.img</SPAN></PRE></DIV><BR>
+<P class=docText>The <TT>-p</TT><A name="when a"></A> option asks kexec to trigger a reboot when a kernel panic occurs. A <SPAN class=docEmphasis>vmlinux</SPAN><A name="ELF kernel"></A> ELF kernel image is used as the capture kernel. Because <SPAN class=docEmphasis>vmlinux</SPAN><A name="general ELF"></A> is a general ELF boot image and because kexec is theoretically OS agnostic, you need to specify via the <TT>--args-linux</TT><A name="arguments have"></A> option that the following arguments have to be interpreted in a Linux-specific manner. The capture kernel boots asynchronously during a kernel crash, so device drivers using shared interrupts may fatally express their unhappiness during boot. To be nice to such drivers, specify <TT>irqpoll</TT><A name="line passed"></A> in the command line passed to the capture kernel using <TT>--append</TT>.</P>
+<P class=docText><A name="The capture"></A>To use kexec with kdump, you need some additional kernel configuration settings. The capture kernel requires access to kernel memory of the crashed kernel to generate a full dump, so the latter cannot just overwrite the former as was done by kexec in the non-kdump case. The running kernel needs to reserve a memory region to run the capture kernel. To mark this region</P>
+<UL>
+<LI>
+<P class=docList><A name="with the"></A>Boot the first kernel with the command-line argument <TT>crashkernel=64M@16M</TT> (or other suitable <TT>size@start</TT><A name="image by"></A> values). Also include debug symbols in the kernel image by enabling <TT>CONFIG_DEBUG_INFO</TT> (<SPAN class=docEmphasis>Kernel Hacking</SPAN> <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphasis>Compile the Kernel with Debug Info</SPAN>) in the configuration menu.</P></LI>
+<LI>
+<P class=docList>While configuring the capture kernel, set <TT>CONFIG_PHYSICAL_START</TT> to the same <TT>start</TT><A name="If you"></A> value assigned above (16M in this case). If you kexec into the capture kernel and peek inside <SPAN class=docEmphasis>/proc/meminfo</SPAN>, you will find that <TT>size</TT><A name="memory that"></A> (64M in this case) is the total amount of physical memory that this kernel can see.</P></LI></UL>
+<P class=docText><A name="mastered it"></A>Now that you're comfortable with kexec and have mastered it from the perspective of a kdump user, let's delve into kdump and use it to analyze some real-world kernel crashes.</P><A name=ch21lev2sec14></A>
+<H4 id=title-ID0EO6AO class=docSection2Title>Kdump</H4>
+<P class=docText><A name="An image"></A>An image of system memory captured after a kernel crash or hang is called a <SPAN class=docEmphasis>crash dump.</SPAN><A name="crash dump"></A> Analyzing a crash dump can give valuable clues for postmortem analysis of kernel problems. However, obtaining a dump after a kernel crash is inherently unreliable <A name=iddle1695></A><A name=iddle2520></A><A name=iddle2787></A><A name=iddle2829></A><A name="responsible for"></A>because the storage driver responsible for logging data onto the dump device might be in an undefined state.</P>
+<P class=docText><A name="of kdump"></A>Until the advent of kdump, <SPAN class=docEmphasis>Linux Kernel Crash Dump</SPAN><A name="a temporary"></A> (LKCD) was the popular mechanism to obtain and analyze dumps. LKCD uses a temporary dump device (such as the swap partition) to capture the dump. It then warm reboots back to a healthy state and copies the dump from the temporary device to a permanent location. A tool called <SPAN class=docEmphasis>lcrash</SPAN><A name="the dump"></A> is used to analyze the dump. The disadvantages with LKCD include the following:</P>
+<UL>
+<LI>
+<P class=docList><A name="device might"></A>Even copying the dump to a temporary device might be unreliable on a crashed kernel.</P></LI>
+<LI>
+<P class=docList>Dump device configuration is nontrivial.</P></LI>
+<LI>
+<P class=docList><A name="because swap"></A>The reboot might be slow because swap space can be activated only after the dump has been safely saved away to a permanent location.</P></LI>
+<LI>
+<P class=docList><A name="installing the"></A>LKCD is not part of the mainline kernel, so installing the proper patches for your kernel version is a hurdle.</P></LI></UL>
+<P class=docText><A name="eliminates indeterminism"></A>Kdump is not burdened with these shortfalls. It eliminates indeterminism by collecting the dump after booting into a healthy kernel via kexec. Also, because memory state is preserved after a kexec reboot, the memory image can be accurately accessed from the capture kernel.</P>
+<P class=docText><A name="first get"></A>Let's first get the preliminary kdump setup out of the way:</P><A name=ch21pro05></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Ask the running kernel to kexec into a capture kernel if it encounters a panic. The capture kernel should additionally have <TT>CONFIG_HIMEM</TT> and <TT>CONFIG_CRASH_DUMP</TT> turned on. (Both these options sit inside <SPAN class=docEmphasis>Processor type and Features</SPAN> in the kernel configuration menu.)<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>After the capture kernel boots, copy the collected dump information from <TT>/proc/vmcore</TT> (obtained by enabling <TT>CONFIG_PROC_VMCORE</TT> in the kernel configuration menu) to a file on your hard disk:<BR><BR>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cp /proc/vmcore /dump/vmcore.dump</SPAN></PRE></DIV><BR>You can also save other information such as the raw memory snapshot of the crashed kernel, via <SPAN class=docEmphasis>/dev/oldmem</SPAN>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Boot back into the first kernel. You are now ready to start dump analysis.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name=iddle1629></A><A name=iddle1693></A><A name=iddle2238></A><A name=iddle2518></A><A name="collected dump"></A>Let's use the collected dump file and the <SPAN class=docEmphasis>crash</SPAN><A name="example kernel"></A> tool to analyze some example kernel crashes. Introduce this bug inside the interrupt handler of the RTC driver (<SPAN class=docEmphasis>drivers/char/rtc.c</SPAN>):</P>
+<DIV class=docText><PRE>irqreturn_t rtc_interrupt(int irq, void *dev_id)
+{
+<SPAN class=docEmphStrong>+  volatile int *integerp = 0xFF;</SPAN>
+<SPAN class=docEmphStrong>+  int integerd = *integerp;  /* Bad memory reference! */</SPAN>
+
+   spin_lock(&amp;rtc_lock);
+   /* ... */</PRE></DIV><BR>
+<P class=docText><A name="the handler"></A>Trigger execution of the handler by enabling interrupts via the <TT>hwclock</TT> command:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; hwclock</SPAN>
+...   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Kernel panic occurs when execution hits rtc_interrupt()</SPAN>
+        <SPAN class=docEmphStrong>causing kexec to boot into the capture kernel.</SPAN></PRE></DIV><BR>
+<P class=docText>Save <SPAN class=docEmphasis>/proc/vmcore</SPAN> to <SPAN class=docEmphasis>/dump/vmcore.dump</SPAN><A name="crash tool"></A>, reboot back into the first (crashed) kernel, and start analysis using the crash tool. In a real-world situation, of course, the dump might be captured at a customer site, whereas the analysis is done at a support center:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; crash /usr/src/linux/vmlinux /dump/vmcore.dump</SPAN>
+crash 4.0-2.24
+...
+
+      KERNEL: /usr/src/linux/vmlinux
+    DUMPFILE: /root/vmcore.dumpfile
+        CPUS: 1
+        DATE: Mon Nov 26 04:15:49 2007
+      UPTIME: 00:17:22
+LOAD AVERAGE: 0.82, 1.02, 0.87
+       TASKS: 63
+       ...
+       PANIC: "Oops: 0000 [#1]" (check log for details)
+crash&gt;</PRE></DIV><BR>
+<P class=docText><A name="to understand"></A>Examine the stack trace to understand the cause of the crash:</P>
+<DIV class=docText><PRE>crash&gt; bt
+PID: 0      TASK: c03a32e0  CPU: 0   COMMAND: "swapper"
+ #0 [c0431eb8] crash_kexec at c013a8e7
+ #1 [c0431f04] die at c0103a73
+ #2 [c0431f44] do_page_fault at c0343381
+ #3 [c0431f84] error_code (via page_fault) at c010312d
+    EAX: 00000008  EBX: c59a5360  ECX: c03fbf90  EDX: 00000000
+    EBP: 00000000
+    DS:  007b      ESI: 00000000  ES:  007b      EDI: c03fbf90
+    CS:  0060      EIP: f8a8c004  ERR: ffffffff  EFLAGS: 00010092
+ #4 [c0431fb8] rtc_interrupt at f8a8c004
+ #5 [c0431fc4] handle_IRQ_event at c013de51
+ #6 [c0431fdc] __do_IRQ at c013df0f</PRE></DIV><BR>
+<P class=docText><A name=iddle2474></A><A name=iddle3862></A><A name="suspicion at"></A>The stack trace points the needle of suspicion at <TT>rtc_interrupt()</TT>. Let's disassemble the instructions near <TT>rtc_interrupt()</TT>:</P>
+<DIV class=docText><PRE>crash&gt; dis 0xf8a8c000 5
+0xf8a8c000 <RTC_INTERRUPT>:     push   %ebx
+0xf8a8c001 <RTC_INTERRUPT+1>:   sub    $0x4,%esp
+0xf8a8c004 <RTC_INTERRUPT+4>:   mov    0xff,%eax
+0xf8a8c009 <RTC_INTERRUPT+9>:   mov    $0xc03a6640,%eax
+0xf8a8c00e <RTC_INTERRUPT+14>:  call   0xc0342300 &lt;_spin_lock&gt;</RTC_INTERRUPT+14></RTC_INTERRUPT+9></RTC_INTERRUPT+4></RTC_INTERRUPT+1></RTC_INTERRUPT></PRE></DIV><BR>
+<P class=docText>The instruction at address <TT>0xf8a8c004</TT><A name="contents of"></A> is attempting to move the contents of the <TT>EAX</TT> register to address <TT>0xff</TT><A name="the crash"></A>, which is clearly the invalid deference that caused the crash. Fix this and build a new kernel.</P>
+<P class=docText>If you use the <TT>irq</TT><A name="the interrupt"></A> command, you can figure out the identity of the interrupt that was in progress during the time of the crash. In this case, the output confirms that the RTC interrupt was indeed active:</P>
+<DIV class=docText><PRE>crash&gt; irq
+    IRQ: 8
+ STATUS: 1 (IRQ_INPROGRESS)
+...
+...
+handler: f8a8c000  <RTC_INTERRUPT>
+            flags: 20000000  (SA_INTERRUPT)
+             mask: 0
+             name: f8a8c29d  "rtc"
+
+crash&gt; quit
+<SPAN class=docEmphStrong>bash&gt;</SPAN></RTC_INTERRUPT></PRE></DIV><BR>
+<P class=docText><A name="now shift"></A>Let's now shift gears and look at a case where the kernel freezes, rather than generate an "oops." Consider the following buggy driver <TT>init()</TT> routine:</P>
+<DIV class=docText><PRE>static int __init
+mydrv_init(void)
+{
+
+  spin_lock(&amp;mydrv_wq.lock);  /* Usage before initialization! */
+  spin_lock_init(&amp;mydrv_wq.lock);
+
+  /* ... */
+}</PRE></DIV><BR>
+<P class=docText><A name="is erroneously"></A>The code is erroneously using a spinlock before initializing it. Effectively, the CPU spins forever trying to acquire the lock, and the kernel appears to hang. Let's debug this problem using kdump. In this case, there will be no auto-trigger because there is no panic, so force a crash dump by pressing the magic Sysrq key combination, Alt-Sysrq-c. You may need to enable Sysrq by writing a 1 to <SPAN class=docEmphasis>/proc/sys/kernel/sysrq</SPAN>:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; echo 1 &gt; /proc/sys/kernel/sysrq</SPAN>
+<SPAN class=docEmphStrong>bash&gt; insmod mydrv.ko</SPAN></PRE></DIV><BR>
+<P class=docText><A name="to hang"></A>This induces the kernel to hang inside <TT>mydrv_init()</TT><A name="combination to"></A>. Press the Alt-Sysrq-c key combination to trigger a crash dump:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>Alt-Sysrq-c</SPAN>
+...                       <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Messages announcing that a crash dump</SPAN>
+                            <SPAN class=docEmphStrong>has been triggered</SPAN></PRE></DIV><BR>
+<P class=docText><A name="boot back"></A>Save the dump to disk after kexec boots the capture kernel, boot back to the original kernel, and run crash on the saved dump:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; crash vmlinux vmcore.dump</SPAN>
+       ...
+       PANIC: "SysRq : Trigger a crashdump"
+         PID: 2115
+     COMMAND: "insmod"
+        TASK: f7c57000  [THREAD_INFO: f6170000]
+         CPU: 0
+       STATE: TASK_RUNNING (SYSRQ)
+crash&gt;</PRE></DIV><BR>
+<P class=docText><A name=iddle2846></A><A name="checking the"></A>Test the waters by checking the identity of the process that was running at the time of the crash. In this case, it was apparently <SPAN class=docEmphasis>insmod</SPAN>(of <SPAN class=docEmphasis>mydrv.ko</SPAN>):</P>
+<DIV class=docText><PRE>crash&gt; ps
+    ...
+    2171   2137  0  f6bb7000  IN  0.5   11728  5352  emacs-x
+    2214      1  0  f6b5b000  IN  0.1    2732  1192  login
+    2230   2214  0  f6bb0550  IN  0.1    4580  1528  bash
+  &gt; 2261   2230  0  c596f550  RU  0.0    1572   376  insmod</PRE></DIV><BR>
+<P class=docText><A name="than telling"></A>The stack trace doesn't yield much information other than telling you that a Sysrq key press was responsible for the dump:</P>
+<DIV class=docText><PRE>crash&gt; bt
+PID: 2115   TASK: f7c57000  CPU: 0   COMMAND: "insmod"
+ #0 [c0431e68] crash_kexec at c013a8e7
+ #1 [c0431eb4] __handle_sysrq at c0254664
+ #2 [c0431edc] handle_sysrq at c0254713</PRE></DIV><BR>
+<P class=docText><A name="log messages"></A>Let's next try peeking at the log messages generated by the crashed kernel. The <TT>log</TT> command reads the messages from the kernel <TT>printk</TT> ring buffer present on the dump file:</P>
+<DIV class=docText><PRE>crash&gt; log
+...
+BUG: soft lockup detected on CPU#0!
+
+Pid: 2261, comm:               insmod
+EIP: 0060:[<C010EC1B>] CPU: 0
+EIP is at delay_pmtmr+0xb/0x20
+EFLAGS: 00000246    Tainted: P       (2.6.16.16 #11)
+EAX: 5caaa48c EBX: 00000001 ECX: 5caaa459 EDX: 00000012
+ESI: 02e169c9 EDI: 00000000 EBP: 00000001 DS: 007b ES: 007b
+CR0: 8005003b CR2: 08062017 CR3: 35e89000 CR4: 000006d0
+ [<C01FEDE9>] __delay+0x9/0x10
+ [<C0200089>] _raw_spin_lock+0xa9/0x150
+ [<F893D00D>] mydrv_init+0xd/0xb2 [wqdrv]
+ [<C0136565>] sys_init_module+0x175/0x17a2
+ [<C015D834>] do_sync_read+0xc4/0x100
+ [<C013CE4D>] audit_syscall_entry+0x13d/0x170
+ [<C0105578>] do_syscall_trace+0x208/0x21a
+ [<C0102F05>] syscall_call+0x7/0xb
+SysRq : Trigger a crashdump
+crash&gt;</C0102F05></C0105578></C013CE4D></C015D834></C0136565></F893D00D></C0200089></C01FEDE9></C010EC1B></PRE></DIV><BR>
+<P class=docText><A name=iddle4082></A><A name=iddle4131></A><A name=iddle4133></A><A name="it lets"></A>The log offers two useful pieces of debug information. First, it lets you know that a soft lockup was detected on the crashed kernel. As discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec7.html#ch05lev2sec9">Device Example: Watchdog Timer</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A><A name="kernel watchdog"></A>, "Character Drivers," the kernel detects soft lockups as follows: A kernel watchdog thread runs once a second and touches a per-CPU timestamp variable. If the CPU sits in a tight loop, the watchdog thread cannot update this timestamp. An update check is carried out during timer interrupts using <TT>softlockup_tick()</TT><A name=in></A> (defined in <SPAN class=docEmphasis>kernel/softlockup.c</SPAN><A name="watchdog timestamp"></A>). If the watchdog timestamp is more than 10 seconds old, it concludes that a soft lockup has occurred and emits a kernel message to that effect.</P>
+<P class=docText>Second, the log frowns upon <TT>mydrv_init()+0xd</TT> (or <TT>0xf893d00)</TT><A name="disassembly of"></A>, so let's look at the disassembly of the surrounding code region:</P>
+<DIV class=docText><PRE>crash&gt; dis f893d000 5
+dis: WARNING: f893d000: no associated kernel symbol found
+0xf893d000:     mov    $0xf89f1208,%eax
+0xf893d005:     sub    $0x8,%esp
+0xf893d008:     call   0xc0342300 &lt;_spin_lock&gt;
+0xf893d00d:     movl   $0xffffffff,0xf89f1214
+0xf893d017:     movl   $0xffffffff,0xf89f1210</PRE></DIV><BR>
+<P class=docText><A name="in the"></A>The return address in the stack is <TT>0xf893d00d</TT><A name="a call"></A>, so the kernel is hanging inside the previous instruction, which is a call to <TT>spin_lock()</TT><A name="the earlier"></A>. If you co-relate this with the earlier source snippet and look at it in the eye, you can see the error sequence, <TT>spin_lock()/</TT><TT>spin_lock_init()</TT><A name="by swapping"></A>, staring sorrowfully back at you. Fix the problem by swapping the sequence.</P>
+<P class=docText><A name="to peek"></A>You may also use crash to peek at data structures of interest, but be aware that memory regions that were swapped out during the crash are not part of the dump. In the preceding example, you can examine <TT>mydrv_wq</TT> as follows:</P>
+<DIV class=docText><PRE>crash&gt; rd mydrv_wq 100
+f892c200:  00000000 00000000 00000000 00000000   ................
+...
+f892c230:  2e636373 00000068 00000000 00000011   scc.h...........</PRE></DIV><BR>
+<P class=docText><A name="commands from"></A>Gdb is integrated with crash, so you can pass commands from crash to gdb for evaluation. For example, you can use gdb's <TT>p</TT> command to print data structures.</P><A name=ch21lev2sec15></A>
+<H4 id=title-ID0EZOBO class=docSection2Title>Looking at the Sources</H4>
+<P class=docText><A name=iddle1652></A><A name=iddle1696></A><A name=iddle1708></A><A name=iddle1728></A><A name=iddle1729></A><A name=iddle2521></A><A name=iddle2648></A><A name=iddle3338></A><A name=iddle3342></A><A name=iddle3671></A><A name=iddle4091></A><A name=iddle4093></A>Architecture-dependent portions of kexec reside in <SPAN class=docEmphasis>arch/your-arch/kernel/machine_kexec.c</SPAN> and <SPAN class=docEmphasis>arch/your-arch/kernel/relocate_kernel.S.</SPAN> The generic parts live in <SPAN class=docEmphasis>kernel/kexec.c</SPAN> (and <SPAN class=docEmphasis>include/linux/kexec.h</SPAN>). Peek inside <SPAN class=docEmphasis>arch/your-arch/kernel/crash.c</SPAN> and <SPAN class=docEmphasis>arch/your-arch/kernel/crash_dump.c</SPAN> for the kdump implementation. <SPAN class=docEmphasis>Documentation/kdump/kdump.txt</SPAN> contains installation information.

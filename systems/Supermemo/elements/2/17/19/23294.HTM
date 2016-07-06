@@ -1,0 +1,46 @@
+<H3 id=title-IDAAM3TD class=docSection1Title>13.6. Miscellaneous Binary Utilities</H3>
+<P class=docText>Your toolchain contains several additional useful utilities. Learning to use these utilities is straightforward. You will find many uses for these helpful tools.</P><A name=ch13lev2sec16></A>
+<H4 id=title-IDALM3TD class=docSection2Title>13.6.1. strip</H4>
+<P class=docText>The <TT>strip</TT> utility can be used to remove symbols and debug information from a binary. This is frequently used to save space on an embedded device. In the cross-development model, it is convenient to place stripped binaries on the target system and leave the unstripped version on your development host. Using this method, symbols are available for cross-debugging on your development host while saving space on the target. <TT>strip</TT> has many options, which are described in the man page.</P><A name=ch13lev2sec17></A>
+<H4 id=title-IDA2M3TD class=docSection2Title>13.6.2. addr2line</H4>
+<P class=docText>When we highlighted <TT>mtrace</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list12">Listing 13-12</A>, you saw that the output from the <TT>mtrace</TT> analysis script contained file and line number information. The <TT>mTRace</TT> Perl script used the <TT>addr2line</TT> utility to read the debug information contained in the executable ELF file and display a line number corresponding to the address. Using the same <TT>mtrace</TT> example executable, we can find a filename and line number for a virtual address:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>addr2line -f -e mt_ex 0x80487c6</SPAN>
+     put_data
+      /home/chris/examples/mt_ex.c:64</PRE></DIV><BR>
+<P class=docText>Notice that the function <TT>put_data()</TT> is also listed together with the file and line number. This says that the address 0x80487c6 is on line 64 of the <TT>mt_ex.c</TT> file, in the <TT>put_data()</TT> function. This is even more useful in larger binaries consisting of multiple filenames, such as the Linux kernel:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ppc_82xx-addr2line -f -e vmlinux c000d95c</SPAN>
+     mpc52xx_restart
+     arch/ppc/syslib/mpc52xx_setup.c:41</PRE></DIV><BR>
+<P class=docText><A name=iddle1063></A><A name=iddle1069></A><A name=iddle1815></A><A name=iddle2455></A><A name=iddle2576></A><A name=iddle2582></A>This particular example highlights one of the points repeated throughout this chapter: This is an architecture-specific tool. You must use a tool configured and compiled to match the architecture of the target binary that you are using. As with the cross-compiler, <TT>addr2line</TT> is a cross-tool and part of the binary utilities package.</P><A name=ch13lev2sec18></A>
+<H4 id=title-IDACR3TD class=docSection2Title>13.6.3. strings</H4>
+<P class=docText>The <TT>strings</TT> utility examines ASCII string data in binary files. This is especially useful for examining memory dumps when source code or debug symbols might not be available. You might often discover that you can narrow the cause of a crash by tracing the strings back to the offending binary. Although <TT>strings</TT> does have a few command line options, it is easy to learn and use. See the man page for further details.</P><A name=ch13lev2sec19></A>
+<H4 id=title-IDATR3TD class=docSection2Title>13.6.4. ldd</H4>
+<P class=docText>Although not strictly a binary utility, the <TT>ldd</TT> script is another useful tool for the embedded developer. It is part of the C library package and exists on virtually every Linux distribution. <TT>ldd</TT> lists the shared object library dependencies for a given object file or files. We introduced <TT>ldd</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch11.html#ch11">Chapter 11</A>, "BusyBox." See <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch11lev1sec2.html#ch11list02">Listing 11-2</A> for an example usage. The <TT>ldd</TT> script is particularly useful during development of ramdisk images. One of the most common failures asked about on the various embedded Linux mailing lists is a kernel panic after mounting root:</P>
+<DIV class=docText><PRE>VFS: Mounted root (nfs filesystem).
+Freeing unused kernel memory: 96k init
+Kernel panic - not syncing: No init found.  Try passing init=option to kernel.</PRE></DIV><BR>
+<P class=docText>One of the most common causes is that the root file system image (be it ramdisk, Flash, or NFS root file system) does not have the supporting libraries for the binaries that the kernel is trying to execute. Using <TT>ldd</TT>, you can determine which libraries each of your binaries requires and make sure that you include them in your ramdisk or other root file system image. In the previous example kernel panic, <TT>init</TT> was indeed on the file system, but the Linux dynamic loader, <TT>ld.so.1</TT>, was missing. Using <TT>ldd</TT> is quite straightforward:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>xscale_be-ldd init</SPAN>
+    libc.so.6 =&gt; /opt/mvl/.../lib/libc.so.6 (0xdead1000)
+    ld-linux.so.3 =&gt; /opt/mvl/.../lib/ld-linux.so.3 (0xdead2000)</PRE></DIV><BR>
+<P class=docText><A name=iddle1064></A><A name=iddle1888></A><A name=iddle2155></A><A name=iddle2577></A>This simple example demonstrates that the init binary requires two dynamic library objects: <TT>libc</TT> and <TT>ld-linux</TT>. Both must be on your target and must be accessible to your <TT>init</TT> binarythat is, they must be readable and executable.</P><A name=ch13lev2sec20></A>
+<H4 id=title-IDAIV3TD class=docSection2Title>13.6.5. nm</H4>
+<P class=docText>The <TT>nm</TT> utility displays symbols from an object file. This can be useful for a variety of tasks. For example, when cross-compiling a large application, you encounter unresolved symbols. You can use <TT>nm</TT> to find which object module contains those symbols and then modify your build environment to include it.</P>
+<P class=docText>The <TT>nm</TT> utility provides attributes for each symbol. For example, you can discover whether this symbol is local or global, or whether it is defined or referenced only in a particular object module. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec6.html#ch13list18">Listing 13-18</A> reproduces several lines from the output of <TT>nm</TT> run on the U-Boot ELF image <TT>u-boot</TT>.</P><A name=ch13list18></A>
+<H5 id=title-IDAKW3TD class=docExampleTitle>Listing 13-18. Displaying Symbols Using nm</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ppc_85xx-nm u-boot</SPAN>
+...
+fff23140 b base_address
+fff24c98 B BootFile
+fff06d64 T BootpRequest
+fff00118 t boot_warm
+fff21010 d border
+fff23000 A __bss_start
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice the link addresses of these U-Boot symbols. They were linked for a Flash device that lives in the highest portion of the memory map on this particular board. This listing contains only a few example symbols, for discussion purposes. The middle column is the symbol type. A capitalized letter indicates a global symbol, and lower case indicates a local symbol. <TT>B</TT> indicates that the symbol is located in the <TT>.bss</TT> section. <TT>T</TT> indicates that the symbol is located in the <TT>.text</TT> section. <TT>D</TT> indicates that the symbol is located in the <TT>.data</TT> section. <TT>A</TT> indicates that this address is absolute and is not subject to modification by an additional link stage. This absolute symbol indicates the start of the <TT>.bss</TT> section and is used by the code that clears the <TT>.bss</TT> on startup, as required for a C execution environment.</P><A name=ch13lev2sec21></A>
+<H4 id=title-IDAWX3TD class=docSection2Title>13.6.6. prelink</H4>
+<P class=docText><A name=iddle1067></A><A name=iddle2239></A><A name=iddle2580></A>The <TT>prelink</TT> utility is often used in systems in which startup time is important. A dynamically linked ELF executable must be linked at runtime when the program is first loaded. This can take significant time in a large application. <TT>prelink</TT> prepares the shared libraries and the object files that depend on them to provide a-priori knowledge of the unresolved library references. In effect, this can reduce the startup time of a given application. The man page has complete details on the use of this handy utility.

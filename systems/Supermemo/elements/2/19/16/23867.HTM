@@ -1,0 +1,63 @@
+<H4 id=title-ID0EVBPM class=docSection2Title>Calibrating Delay...1197.46 BogoMIPS (lpj=2394935)</H4>
+<P class=docText><A name=iddle1318></A><A name=iddle1360></A><A name=iddle1745></A><A name=iddle2503></A><A name=iddle2542></A><A name=iddle2852></A><A name=iddle4569></A><A name="processor can"></A>During boot, the kernel calculates the number of times the processor can execute an internal delay loop in one <SPAN class=docEmphasis>jiffy</SPAN><A name="between two"></A>, which is the time interval between two consecutive ticks of the system timer. As you would expect, the calculation has to be calibrated to the processing speed of your CPU. The result of this calibration is stored in a kernel variable called <TT>loops_per_jiffy</TT>. One place where the kernel makes use of <TT>loops_per_jiffy</TT><A name="for small"></A> is when a device driver desires to delay execution for small durations in the order of microseconds.</P>
+<P class=docText><A name="peek inside"></A>To understand the delay-loop calibration code, let's take a peek inside <TT>calibrate_delay</TT><TT>()</TT>, defined in <SPAN class=docEmphasis>init/calibrate.c.</SPAN><A name="The following"></A> This function cleverly derives floating-point precision using the integer kernel. The following snippet (with some comments added) shows the initial portion of the function that carves out a coarse value for <TT>loops_per_jiffy</TT>:</P>
+<DIV class=docText><PRE>loops_per_jiffy = (1 &lt;&lt; 12); /* Initial approximation = 4096 */
+printk(KERN_DEBUG "Calibrating delay loop... ");
+while ((loops_per_jiffy &lt;&lt;= 1) != 0) {
+ticks = jiffies;  /* As you will find out in the section, "Kernel
+                     Timers," the jiffies variable contains the
+                     number of timer ticks since the kernel
+                     started, and is incremented in the timer
+                     interrupt handler */
+
+  while (ticks == jiffies); /* Wait until the start
+                               of the next jiffy */
+  ticks = jiffies;
+  /* Delay */
+  __delay(loops_per_jiffy);
+
+  /* Did the wait outlast the current jiffy? Continue if
+     it didn't */
+  ticks = jiffies - ticks;
+  if (ticks) break;
+}
+
+loops_per_jiffy &gt;&gt;= 1; /* This fixes the most significant bit and is
+                          the lower-bound of loops_per_jiffy */</PRE></DIV><BR>
+<P class=docText><A name=iddle1301></A><A name=iddle2994></A><A name=iddle2999></A><A name=iddle3041></A><A name=iddle3079></A><A name="preceding code"></A>The preceding code begins by assuming that <TT>loops_per_jiffy</TT> is greater than <TT>4096</TT>, which translates to a processor speed of roughly one <SPAN class=docEmphasis>million instructions per second</SPAN><A name="executes the"></A> (MIPS). It then waits for a fresh jiffy to start and executes the delay loop, <TT>__delay(loops_per_jiffy)</TT><A name="If the"></A>. If the delay loop outlasts the jiffy, the previous value of <TT>loops_per_jiffy</TT><A name="it by"></A> (obtained by bitwise right-shifting it by one) fixes its <SPAN class=docEmphasis><A name="significant bit"></A>most significant bit</SPAN><A name="the MSB"></A> (MSB). Otherwise, the function continues by checking whether it will obtain the MSB by bitwise left-shifting <TT>loops_per_jiffy</TT><A name="out the"></A>. When the kernel thus figures out the MSB of <TT>loops_per_jiffy</TT>, it works on the lower-order bits and fine-tunes its precision as follows:</P>
+<DIV class=docText><PRE>loopbit = loops_per_jiffy;
+
+/* Gradually work on the lower-order bits */
+while (lps_precision-- &amp;&amp; (loopbit &gt;&gt;= 1)) {
+  loops_per_jiffy |= loopbit;
+  ticks = jiffies;
+  while (ticks == jiffies); /* Wait until the start
+                               of the next jiffy */
+ticks = jiffies;
+
+  /* Delay */
+  __delay(loops_per_jiffy);
+
+  if (jiffies != ticks)        /* longer than 1 tick */
+    loops_per_jiffy &amp;= ~loopbit;
+}</PRE></DIV><BR>
+<P class=docText><A name="the lower"></A>The preceding snippet figures out the exact combination of the lower bits of <TT>loops_per_jiffy</TT><A name="jiffy boundary"></A> when the delay loop crosses a jiffy boundary. This calibrated value is used to derive an unscientific measure of the processor speed, known as <SPAN class=docEmphasis>BogoMIPS.</SPAN><A name="relative measurement"></A> You can use the BogoMIPS rating as a relative measurement of how fast a CPU can run. On a 1.6GHz Pentium M-based laptop, the delay-loop calibration yielded a value of <TT>2394935</TT> for <TT>loops_per_jiffy</TT><A name="announced by"></A> as announced by the preceding boot message. The BogoMIPS value is obtained as follows:</P>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=none frame=void>
+<COLGROUP span=2 align=left>
+<COL width=70>
+<COL width=450></COLGROUP>
+<THEAD></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top colSpan=2 align=left>BogoMIPS = <TT>loops_per_jiffy</TT><A name="the internal"></A> * Number of jiffies in 1 second * Number of instructions consumed by the internal delay loop in units of 1 million</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left><A name="HZ "></A>= (2394935 * HZ * 2) / (1 million)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left>= (2394935 * 250 * 2) / (1000000)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left><A name="the preceding"></A>= 1197.46 (as displayed in the preceding boot message)</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle1051></A><A name=iddle1061></A><A name=iddle1070></A><A name=iddle1071></A><A name=iddle1072></A><A name=iddle1125></A><A name=iddle1320></A><A name=iddle1323></A><A name=iddle1328></A><A name=iddle1448></A><A name=iddle2169></A><A name=iddle2226></A><A name=iddle2363></A><A name=iddle2544></A><A name=iddle2547></A><A name=iddle2552></A><A name=iddle2949></A><A name=iddle3241></A><A name=iddle3771></A><A name=iddle4075></A><A name=iddle4076></A><A name=iddle4393></A><A name="further discuss"></A>We further discuss <TT>jiffies</TT>, <TT>HZ</TT>, and <TT>loops_per_jiffy</TT> in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec4.html#ch02lev1sec4">Kernel Timers</A>" later in this chapter.

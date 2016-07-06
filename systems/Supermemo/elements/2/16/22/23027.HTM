@@ -1,0 +1,570 @@
+<H3 id=-100000 class=docSection1Title>Device Example: System CMOS</H3>
+<P class=docText><A name="implement a"></A>Let's implement a char driver to access the system CMOS. The BIOS on PC-compatible hardware (see <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05fig01">Figure 5.1</A><A name="CMOS to"></A>) uses the CMOS to store information such as startup options, boot order, and the system date, which you can configure via the BIOS setup menu. Our example CMOS driver lets you access the two PC CMOS banks as though they are regular files. Applications can operate on <SPAN class=docEmphasis>/dev/cmos/0</SPAN> and <SPAN class=docEmphasis>/dev/cmos/1</SPAN><A name="use I"></A>, and use I/O system calls to access data from the two banks. Because the BIOS assigns semantics to the CMOS area at bit-level granularity, the driver is capable of bit-level access. So, a <TT>read()</TT><A name="internal file"></A> obtains the specified number of bits and advances the internal file pointer by the number of bits read.</P><A name=ch05fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 5.1. CMOS on a PC-compatible system.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzFoaWc1c2M-.jpg" width=90 height=229></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1424></A><A name=iddle1429></A><A name=iddle1493></A><A name=iddle1494></A><A name=iddle1495></A><A name=iddle1496></A><A name=iddle1499></A><A name=iddle1504></A><A name=iddle2346></A><A name=iddle2355></A><A name=iddle3783></A><A name="two I"></A>The CMOS is accessed via two I/O addresses, an <SPAN class=docEmphasis>index</SPAN> register and a <SPAN class=docEmphasis>data</SPAN> register, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05tab01">Table 5.1</A><A name="in the"></A>. You have to specify the desired CMOS memory offset in the index register and exchange information via the data register.</P><A name=ch05tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 5.1. Register Layout on the CMOS</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=200>
+<COL width=350></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Register Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CMOS_BANK0_INDEX_PORT</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="in this"></A>Specify the desired CMOS bank 0 offset in this register.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CMOS_BANK0_DATA_PORT</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Read/write data from/to the address specified in <TT>CMOS_BANK0_INDEX_PORT</TT>.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CMOS_BANK1_INDEX_PORT</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Specify the desired CMOS bank 1 offset in this register.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CMOS_BANK1_DATA_PORT</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Read/write data from/to the address specified in <TT>CMOS_BANK1_INDEX_PORT</TT>.</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="counterpart that"></A>Because each driver method has a system call counterpart that applications use, we will look at the system calls and the matching driver methods in tandem.</P><A name=ch05lev2sec1></A>
+<H4 id=title-ID0EK2OM class=docSection2Title>Driver Initialization</H4>
+<P class=docText><A name=driver></A>The driver <TT>init()</TT> method is the bedrock of the registration mechanism. It's responsible for the following:</P>
+<UL>
+<LI>
+<P class=docList>Requesting allocation of device major numbers.</P>
+<LI>
+<P class=docList>Allocating memory for the per-device structure.</P>
+<LI>
+<P class=docList>Connecting the entry points (<TT>open()</TT>, <TT>read()</TT>, and so on) with the char driver's <TT>cdev</TT> abstraction.</P>
+<LI>
+<P class=docList><A name=iddle1507></A>Associating the device major number with the driver's <TT>cdev</TT>.</P>
+<LI>
+<P class=docList>Creating nodes under <SPAN class=docEmphasis>/dev</SPAN> and <SPAN class=docEmphasis>/sys.</SPAN> As discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A>, "Laying the Groundwork," <SPAN class=docEmphasis>/dev</SPAN><A name="dynamic names"></A> management has meandered from static device nodes in the 2.2 kernels, to dynamic names in 2.4, and further to a user-space policy daemon (udevd) in 2.6.</P>
+<LI>
+<P class=docList><A name="Initializing the"></A>Initializing the hardware. This is not relevant for our simple CMOS.</P></LI></UL>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex01">Listing 5.1</A><A name="CMOS driver"></A> implements the CMOS driver's <TT>init()</TT> method.</P><A name=ch05ex01></A>
+<H5 id=title-ID0E34OM class=docExampleTitle>Listing 5.1. CMOS Driver Initialization</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX fs.h="">
+
+/* Per-device (per-bank) structure */
+struct cmos_dev {
+  unsigned short current_pointer; /* Current pointer within the
+                                     bank */
+  unsigned int size;              /* Size of the bank */
+  int bank_number;                /* CMOS bank number */
+  struct cdev cdev;               /* The cdev structure */
+  char name[10];                  /* Name of I/O region */
+  /* ... */                       /* Mutexes, spinlocks, wait
+                                     queues, .. */
+} *cmos_devp;
+
+/* File operations structure. Defined in <SPAN class=docEmphasis>linux/fs.h</SPAN> */
+static struct file_operations cmos_fops = {
+  .owner    =   THIS_MODULE,      /* Owner */
+  .open     =   cmos_open,        /* Open method */
+  .release  =   cmos_release,     /* Release method */
+  .read     =   cmos_read,        /* Read method */
+  .write    =   cmos_write,       /* Write method */
+  .llseek   =   cmos_llseek,      /* Seek method */
+  .ioctl    =   cmos_ioctl,       /* Ioctl method */
+};
+
+static dev_t cmos_dev_number;   /* Allotted device number */
+struct class *cmos_class;       /* Tie with the device model */
+
+#define NUM_CMOS_BANKS          2
+#define CMOS_BANK_SIZE          (0xFF*8)
+#define DEVICE_NAME             "cmos"
+#define CMOS_BANK0_INDEX_PORT   0x70
+#define CMOS_BANK0_DATA_PORT    0x71
+#define CMOS_BANK1_INDEX_PORT   0x72
+#define CMOS_BANK1_DATA_PORT    0x73
+
+unsigned char addrports[NUM_CMOS_BANKS] = {CMOS_BANK0_INDEX_PORT,
+                                           CMOS_BANK1_INDEX_PORT,};
+
+unsigned char dataports[NUM_CMOS_BANKS] = {CMOS_BANK0_DATA_PORT,
+                                           CMOS_BANK1_DATA_PORT,};
+
+/*
+ * Driver Initialization
+ */
+int __init
+cmos_init(void)
+{
+  int i;
+
+  /* Request dynamic allocation of a device major number */
+  if (alloc_chrdev_region(&amp;cmos_dev_number, 0,
+                          NUM_CMOS_BANKS, DEVICE_NAME) &lt; 0) {
+    printk(KERN_DEBUG "Can't register device\n"); return -1;
+  }
+
+  /* Populate sysfs entries */
+  cmos_class = class_create(THIS_MODULE, DEVICE_NAME);
+
+  for (i=0; i<NUM_CMOS_BANKS; for="" the="" sprintf(cmos_devp-="" *="" region="" o="" i="" request="" }="" 1;="" return="" kmalloc\n?);="" printk(?bad="" {="" (!cmos_devp)="" if="" gfp_kernel);="" cmos_dev),="" cmos_devp="kmalloc(sizeof(struct" structure="" per-device="" memory="" allocate="" i++)="">name, "cmos%d", i);
+    if (!(request_region(addrports[i], 2, cmos_devp-&gt;name)) {
+      printk("cmos: I/O port 0x%x is not free.\n", addrports[i]);
+      return &#37413;&#25544;IO;
+    }
+    /* Fill in the bank number to correlate this device
+       with the corresponding CMOS bank */
+    cmos_devp-&gt;bank_number = i;
+
+    /* Connect the file operations with the cdev */
+    cdev_init(&amp;cmos_devp-&gt;cdev, &amp;cmos_fops);
+    cmos_devp-&gt;cdev.owner = THIS_MODULE;
+
+    /* Connect the major/minor number to the cdev */
+    if (cdev_add(&amp;cmos_devp-&gt;cdev, (dev_number + i), 1)) {
+      printk("Bad cdev\n");
+      return 1;
+    }
+
+    /* Send uevents to udev, so it'll create <SPAN class=docEmphasis>/dev</SPAN> nodes */
+    class_device_create(cmos_class, NULL, (dev_number + i),
+                        NULL, "cmos%d", i);
+  }
+
+  printk("CMOS Driver Initialized.\n");
+  return 0;
+}
+
+
+/* Driver Exit */
+void __exit
+cmos_cleanup(void)
+{
+  int i;
+
+  /* Remove the cdev */
+  cdev_del(&amp;cmos_devp-&gt;cdev);
+
+  /* Release the major number */
+  unregister_chrdev_region(MAJOR(dev_number), NUM_CMOS_BANKS);
+
+  /* Release I/O region */
+  for (i=0; i<NUM_CMOS_BANKS; *="" }="" {="" i++)="" pre="" <="" module_exit(cmos_cleanup);="" module_init(cmos_init);="" return();="" class_destroy(cmos_class);="" cmos_class="" destroy="" 2);="" release_region(addrports[i],="" i));="" mkdev(major(dev_number),="" class_device_destroy(cmos_class,=""><BR>
+
+</NUM_CMOS_BANKS;></NUM_CMOS_BANKS;></LINUX></PRE></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A name=iddle1079></A><A name=iddle1375></A><A name=iddle1497></A><A name=iddle1506></A><A name=iddle3763></A><A name="steps performed"></A>Most steps performed by <TT>cmos_init()</TT><A name="you may"></A> are generic, so if you remove references to CMOS data structures, you may use <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex01">Listing 5.1</A><A name="other char"></A> as a template to develop other char drivers, too.</P>
+<P class=docText>First, <TT>cmos_init()</TT> invokes <TT>alloc_chrdev_region()</TT> to dynamically request an unused major number. <TT>dev_number</TT><A name="The second"></A> contains the allotted major number if the call is successful. The second and third arguments to <TT>alloc_chrdev_region()</TT><A name="the number"></A> specify the start minor number and the number of supported minor devices, respectively. The last argument is the device name used to identify the CMOS in <SPAN class=docEmphasis>/proc/devices</SPAN>:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /proc/devices | grep cmos</SPAN>
+253 cmos</PRE></DIV><BR>
+<P class=docText><A name="CMOS device"></A>253 is the dynamically allocated major number for the CMOS device. During pre-2.6 days, dynamic device node allocation was not supported, so char drivers made calls to <TT>register_chrdev()</TT><A name="statically request"></A> to statically request specific major numbers.</P>
+<P class=docText><A name="the data"></A>Before proceeding further down the code path, let's take a peek at the data structures used in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex01">Listing 5.1</A>. <TT>cmos_dev</TT><A name="is the"></A> is the per-device data structure referred to earlier. <TT>cmos_fops</TT> is the <TT>file_operations</TT><A name="contains the"></A> structure that contains the address of driver entry points. <TT>cmos_fops</TT><A name="has a"></A> also has a field called <TT>owner</TT> that is set to <TT>THIS_MODULE</TT><A name="identity of"></A>, the address of the driver module in question. Knowing the identity of the structure owner enables the kernel to offload from the driver the burden of some housekeeping functions such as tracking the use-count when processes open or release the device.</P>
+<P class=docText><A name="an abstraction"></A>As you saw, the kernel uses an abstraction called <TT>cdev</TT> to internally represent char devices. Char drivers usually embed their <TT>cdev</TT> inside their per-device structure. In our example, <TT>cdev</TT> sits inside <TT>cmos_dev</TT>. <TT>cmos_init()</TT><A name="allocating memory"></A> loops over each supported minor device (CMOS bank in this case) allocating memory for the associated per-device structure and, hence, for the <TT>cdev</TT> structure living inside it. <TT>cdev_init()</TT> associates the file operations (<TT>cmos_fops</TT>) with the <TT>cdev</TT>, and <TT>cdev_add()</TT> connects the major/minor numbers allocated by <TT>alloc_chrdev_region()</TT> to the <TT>cdev</TT>.</P>
+<P class=docText><A name=iddle1426></A><A name=iddle1430></A><A name=iddle1463></A><A name=iddle1501></A><A name=iddle1505></A><A name=iddle1510></A><A name=iddle1512></A><A name=iddle3324></A><A name=iddle3329></A><A name=iddle3787></A><A name=iddle3789></A><A name=iddle3808></A><TT>class_create()</TT><A name=and></A> populates a sysfs entry for this device, and <TT>class_device_create()</TT><A name="you learned"></A> results in the generation of two uevents: cmos0 and cmos1. As you learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="listens to"></A>, udevd listens to uevents and generates device nodes after consulting its rules database. Add the following to the udev rules directory (<SPAN class=docEmphasis>/etc/udev/rules.d/</SPAN>) to produce device nodes corresponding to the two CMOS banks (<SPAN class=docEmphasis>/dev/cmos/0</SPAN> and <SPAN class=docEmphasis>/dev/cmos/1</SPAN>) on receiving the respective uevents (cmos0 and cmos1):</P>
+<DIV class=docText><PRE>KERNEL="cmos[0-1]*", NAME="cmos/%n"</PRE></DIV><BR>
+<P class=docText><A name="addresses stake"></A>Device drivers that need to operate on a range of I/O addresses stake claim to the addresses via a call to <TT>request_region()</TT><A name="This regulatory"></A>. This regulatory mechanism ensures that requests by others for the same region fail until the occupant releases it via a call to <TT>release_region()</TT>. <TT>request_region()</TT><A name="invoked by"></A> is commonly invoked by I/O bus drivers such as PCI and ISA to mark ownership of on-card memory in the processor's address space (more on this in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>, "Peripheral Component Interconnect"). <TT>cmos_init()</TT><A name="access to"></A> requests access to the I/O region of each CMOS bank by calling <TT>request_region()</TT>. The last argument to <TT>request_region()</TT> is an identifier used by <SPAN class=docEmphasis>/proc/ioports</SPAN><A name="that file"></A>, so you will see this if you peek at that file:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt;  grep cmos /proc/ioports</SPAN>
+0070-0071  :  cmos0
+0072-0073  :  cmos1</PRE></DIV><BR>
+<P class=docText>This completes the registration process, and <TT>cmos_init()</TT><A name="its happiness"></A> prints out a message signaling its happiness.</P><A name=ch05lev2sec2></A>
+<H4 id=title-ID0ENIPM class=docSection2Title>Open and Release</H4>
+<P class=docText>The kernel invokes the driver's <TT>open()</TT><A name="can trigger"></A> method when an application opens the corresponding device node. You can trigger execution of <TT>cmos_open()</TT> by doing this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /dev/cmos/0</SPAN></PRE></DIV><BR>
+<P class=docText>The kernel calls the <TT>release()</TT><A name="open device"></A> method when an application closes an open device. So when <SPAN class=docEmphasis>cat</SPAN> closes the file descriptor attached to <SPAN class=docEmphasis>/dev/cmos/0</SPAN><A name="kernel invokes"></A> after reading the contents of CMOS bank 0, the kernel invokes <TT>cmos_release()</TT>.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex02">Listing 5.2</A><A name="the implementation"></A> shows the implementation of <TT>cmos_open()</TT> and <TT>cmos_release()</TT>. Let's take a closer look at <TT>cmos_open()</TT>. There are a couple of things worthy of note <A name=iddle1594></A>here. The first is the extraction of <TT>cmos_dev</TT>. The inode passed as an argument to <TT>cmos_open()</TT> contains the address of the <TT>cdev</TT> structure allocated during initialization. As shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex01">Listing 5.1</A>, <TT>cdev</TT> is embedded inside <TT>cmos_dev</TT>. To elicit the address of the container structure <TT>cmos_dev, cmos_open()</TT> uses the kernel helper function, <TT>container_of()</TT>.</P>
+<P class=docText>The other notable operation in <TT>cmos_open()</TT> is the usage of the <TT>private_data</TT> field that is part of <TT>struct file</TT>, the second argument. You can use this field (<TT>file-&gt;private_data</TT><A name="driver methods"></A>) as a placeholder to conveniently correlate information from inside other driver methods. The CMOS driver uses this field to store the address of <TT>cmos_dev</TT><A name="Look at"></A>. Look at <TT>cmos_release()</TT><A name="of the"></A> (and the rest of the methods) to see how <TT>private_data</TT><A name="used to"></A> is used to directly obtain a handle on the <TT>cmos_dev</TT> structure belonging to the corresponding CMOS bank.</P><A name=ch05ex02></A>
+<H5 id=title-ID0ESLPM class=docExampleTitle>Listing 5.2. Open and Release</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/*
+ * Open CMOS bank
+ */
+int
+cmos_open(struct inode *inode, struct file *file)
+{
+  struct cmos_dev *cmos_devp;
+
+  /* Get the per-device structure that contains this cdev */
+  cmos_devp = container_of(inode-&gt;i_cdev, struct cmos_dev, cdev);
+
+  /* Easy access to cmos_devp from rest of the entry points */
+  file-&gt;private_data = cmos_devp;
+
+  /* Initialize some fields */
+  cmos_devp-&gt;size = CMOS_BANK_SIZE;
+  cmos_devp-&gt;current_pointer = 0;
+
+  return 0;
+}
+
+/*
+ * Release CMOS bank
+ */
+int
+cmos_release(struct inode *inode, struct file *file)
+{
+  struct cmos_dev *cmos_devp = file-&gt;private_data;
+
+  /* Reset file pointer */
+  cmos_devp-&gt;current_pointer = 0;
+
+  return 0;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch05lev2sec3></A>
+<H4 id=title-ID0EGMPM class=docSection2Title>Exchanging Data</H4>
+<P class=docText><A name=iddle1428></A><A name=iddle1503></A><A name=iddle1511></A><A name=iddle1513></A><A name=iddle3722></A><A name=iddle3736></A><A name=iddle4650></A><A name=iddle4662></A><TT>read()</TT> and <TT>write()</TT><A name="data between"></A> are the basic char driver methods responsible for exchanging data between user space and the device. The extended <TT>read()</TT>/<TT>write()</TT> family contains several other methods, too: <TT>fsync()</TT>, <TT>aio_read()</TT>, <TT>aio_write()</TT>, and <TT>mmap()</TT>.</P>
+<P class=docText><A name="a simple"></A>The CMOS driver operates on a simple memory device and does not have to work through some of the complexities faced by usual char drivers:</P>
+<UL>
+<LI>
+<P class=docList><A name="device I"></A>CMOS data access routines do not need to sleep-wait for device I/O to complete, whereas <TT>read()</TT> and <TT>write()</TT><A name="have to"></A> methods belonging to many char drivers have to support both blocking and nonblocking modes of operation. Unless a device file is opened in the nonblocking (<TT>O_NONBLOCK</TT>) mode, <TT>read()</TT> and <TT>write()</TT><A name="sleep until"></A> are allowed to put the calling process to sleep until the corresponding operation completes.</P>
+<LI>
+<P class=docList><A name="driver operations"></A>CMOS driver operations complete synchronously and do not depend on interrupts. However, data access methods belonging to many drivers depend on interrupts for data collection and have to communicate with interrupt context code via data structures such as wait queues.</P></LI></UL>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex03">Listing 5.3</A> contains the <TT>read()</TT> and <TT>write()</TT><A name="buffers from"></A> methods belonging to the CMOS driver. You cannot directly access user buffers from kernel space and vice versa, so to copy CMOS memory contents to user space, <TT>cmos_read()</TT><A name="uses the"></A> uses the services of <TT>copy_to_user()</TT>. <TT>cmos_write()</TT><A name="reverse using"></A> does the reverse using <TT>copy_from_user()</TT>. Because <TT>copy_to_user()</TT> and <TT>copy_from_user()</TT><A name="fall asleep"></A> may fall asleep on the job, you cannot hold spinlocks while calling them.</P>
+<P class=docText><A name="operating on"></A>As you saw earlier, accessing CMOS memory is accomplished by operating on a pair of I/O addresses. To read different sizes of data from an I/O address, the kernel provides a family of architecture-independent functions: <TT>in[b|w|l|sb|sl]()</TT>. Similarly, a cluster of routines, <TT>out[b|w|l|sb|sl]()</TT>, are available for writing to I/O regions. <TT>port_data_in()</TT> and <TT>port_data_out()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex03">Listing 5.3</A> use <TT>inb()</TT> and <TT>oub()</TT> for data transfer.</P><A name=ch05ex03></A>
+<H5 id=title-ID0EWRPM class=docExampleTitle>Listing 5.3. Read and Write</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/*
+ * Read from a CMOS Bank at bit-level granularity
+ */
+ssize_t
+cmos_read(struct file *file, char *buf,
+          size_t count, loff_t *ppos)
+{
+  struct cmos_dev *cmos_devp = file-&gt;private_data;
+  char data[CMOS_BANK_SIZE];
+  unsigned char mask;
+  int xferred = 0, i = 0, l, zero_out;
+  int start_byte = cmos_devp-&gt;current_pointer/8;
+  int start_bit  = cmos_devp-&gt;current_pointer%8;
+
+  if (cmos_devp-&gt;current_pointer &gt;= cmos_devp-&gt;size) {
+    return 0; /*EOF*/
+  }
+
+  /* Adjust count if it edges past the end of the CMOS bank */
+  if (cmos_devp-&gt;current_pointer + count &gt; cmos_devp-&gt;size) {
+    count = cmos_devp-&gt;size - cmos_devp-&gt;current_pointer;
+  }
+
+  /* Get the specified number of bits from the CMOS */
+  while (xferred &lt; count) {
+    data[i] = port_data_in(start_byte, cmos_devp-&gt;bank_number)
+              &gt;&gt; start_bit;
+    xferred += (8 - start_bit);
+    if ((start_bit) &amp;&amp; (count + start_bit &gt; 8)) {
+      data[i] |= (port_data_in (start_byte + 1,
+                  cmos_devp-&gt;bank_number) &lt;&lt; (8 - start_bit));
+      xferred += start_bit;
+    }
+    start_byte++;
+    i++;
+  }
+  if (xferred &gt; count) {
+    /* Zero out (xferred-count) bits from the MSB
+       of the last data byte */
+    zero_out = xferred - count;
+    mask = 1 &lt;&lt; (8 - zero_out);
+    for (l=0; l &lt; zero_out; l++) {
+      data[i-1] &amp;= ~mask; mask &lt;&lt;= 1;
+    }
+    xferred = count;
+  }
+
+  if (!xferred) return -EIO;
+
+  /* Copy the read bits to the user buffer */
+  if (copy_to_user(buf, (void *)data, ((xferred/8)+1)) != 0) {
+    return -EIO;
+  }
+
+  /* Increment the file pointer by the number of xferred bits */
+  cmos_devp-&gt;current_pointer += xferred;
+  return xferred; /* Number of bits read */
+}
+
+
+/*
+ * Write to a CMOS bank at bit-level granularity. 'count' holds the
+ * number of bits to be written.
+ */
+ssize_t
+cmos_write(struct file *file, const char *buf,
+           size_t count, loff_t *ppos)
+{
+  struct cmos_dev *cmos_devp = file-&gt;private_data;
+  int xferred = 0, i = 0, l, end_l, start_l;
+  char *kbuf, tmp_kbuf;
+  unsigned char tmp_data = 0, mask;
+  int start_byte = cmos_devp-&gt;current_pointer/8;
+  int start_bit  = cmos_devp-&gt;current_pointer%8;
+
+  if (cmos_devp-&gt;current_pointer &gt;= cmos_devp-&gt;size) {
+    return 0; /* EOF */
+  }
+  /* Adjust count if it edges past the end of the CMOS bank */
+  if (cmos_devp-&gt;current_pointer + count &gt; cmos_devp-&gt;size) {
+    count = cmos_devp-&gt;size - cmos_devp-&gt;current_pointer;
+  }
+
+  kbuf = kmalloc((count/8)+1,GFP_KERNEL);
+  if (kbuf==NULL)
+    return -ENOMEM;
+
+  /* Get the bits from the user buffer */
+  if (copy_from_user(kbuf,buf,(count/8)+1)) {
+    kfree(kbuf);
+    return -EFAULT;
+  }
+
+  /* Write the specified number of bits to the CMOS bank */
+  while (xferred &lt; count) {
+    tmp_data = port_data_in(start_byte, cmos_devp-&gt;bank_number);
+    mask = 1 &lt;&lt; start_bit;
+    end_l = 8;
+    if ((count-xferred) &lt; (8 - start_bit)) {
+      end_l = (count - xferred) + start_bit;
+    }
+
+    for (l = start_bit; l &lt; end_l; l++) {
+      tmp_data &amp;= ~mask; mask &lt;&lt;= 1;
+    }
+    tmp_kbuf = kbuf[i];
+    mask = 1 &lt;&lt; end_l;
+    for (l = end_l; l &lt; 8; l++) {
+      tmp_kbuf &amp;= ~mask;
+      mask &lt;&lt;= 1;
+    }
+
+    port_data_out(start_byte,
+                  tmp_data |(tmp_kbuf &lt;&lt; start_bit),
+                  cmos_devp-&gt;bank_number);
+    xferred += (end_l - start_bit);
+
+    if ((xferred &lt; count) &amp;&amp; (start_bit) &amp;&amp;
+        (count + start_bit &gt; 8)) {
+      tmp_data = port_data_in(start_byte+1,
+                              cmos_devp-&gt;bank_number);
+      start_l = ((start_bit + count) % 8);
+      mask = 1 &lt;&lt; start_l;
+      for (l=0; l &lt; start_l; l++) {
+        mask &gt;&gt;= 1;
+        tmp_data &amp;= ~mask;
+      }
+      port_data_out((start_byte+1),
+                    tmp_data |(kbuf[i] &gt;&gt; (8 - start_bit)),
+                    cmos_devp-&gt;bank_number);
+      xferred += start_l;
+    }
+
+    start_byte++;
+    i++;
+  }
+
+  if (!xferred) return -EIO;
+
+  /* Push the offset pointer forward */
+  cmos_devp-&gt;current_pointer += xferred;
+  return xferred; /* Return the number of written bits */
+}
+
+
+/*
+ * Read data from specified CMOS bank
+ */
+unsigned char
+port_data_in(unsigned char offset, int bank)
+{
+  unsigned char data;
+
+  if (unlikely(bank &gt;= NUM_CMOS_BANKS)) {
+    printk("Unknown CMOS Bank\n");
+    return 0;
+  } else {
+    outb(offset, addrports[bank]); /* Read a byte */
+    data = inb(dataports[bank]);
+  }
+  return data;
+
+
+}
+/*
+ * Write data to specified CMOS bank
+ */
+void
+port_data_out(unsigned char offset, unsigned char data,
+                int bank)
+{
+  if (unlikely(bank &gt;= NUM_CMOS_BANKS)) {
+    printk("Unknown CMOS Bank\n");
+    return;
+  } else {
+    outb(offset, addrports[bank]); /* Output a byte */
+    outb(data, dataports[bank]);
+  }
+  return;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A name=iddle1076></A><A name=iddle1138></A><A name=iddle2114></A><A name=iddle2771></A><A name=iddle3746></A><A name=iddle4661></A>If a char driver's <TT>write()</TT><A name="the driver"></A> method returns successfully, it implies that the driver has assumed responsibility for the data passed down to it by the application. However it does not guarantee that the data has been successfully written to the device. If an application needs this assurance, it can invoke the <TT>fsync()</TT> system call. The corresponding <TT>fsync()</TT><A name="driver buffers"></A> driver method ensures that application data is flushed from driver buffers and written to the device. The CMOS driver does not need an <TT>fsync()</TT> method because, in this case, driver-writes are synonymous with device-writes.</P>
+<P class=docText><A name="sitting on"></A>If a user application has data sitting on multiple buffers that it needs to send to a device, it can request multiple driver writes, but that is inefficient for the following reasons:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="context switches"></A>The overhead of multiple system calls and related context switches.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="driver is"></A>The driver is the one who knows the device intimately, so it can probably do a more clever job of efficiently gathering data from different buffers and dispatching it to the device.</P></DIV></LI></OL></DIV>
+<P class=docText>Because of this, vectored versions of <TT>read()</TT> and <TT>write()</TT><A name="driver infrastructure"></A> are supported on Linux and other UNIX flavors. The Linux char driver infrastructure used to offer two dedicated methods to perform vector operations: <TT>readv()</TT><A name=and></A> and <TT>writev()</TT><A name="the "></A>. Starting with the 2.6.19 kernel release, these two methods have been folded into the generic <SPAN class=docEmphasis>Linux <A name=iddle1077></A><A name=iddle1078></A><A name=iddle2464></A><A name=iddle2742></A><A name=iddle3015></A><A name=iddle3607></A><A name=iddle3608></A><A name=iddle4142></A><A name=iddle4143></A><A name=iddle4394></A>Asynchronous I/O</SPAN><A name="AIO is"></A> (AIO) layer, however. Linux AIO is a broad topic and is outside the scope of this discussion, so we just concentrate on the synchronous vector capabilities offered by AIO.</P>
+<P class=docText>The prototypes of the vector driver methods are as follows:</P>
+<DIV class=docText><PRE>ssize_t aio_read(struct kiocb *iocb, const struct iovec *vector,
+                 unsigned long count, loff_t offset);
+ssize_t aio_write(struct kiocb *iocb, const struct iovec *vector,
+                  unsigned long count, loff_t offset);</PRE></DIV><BR>
+<P class=docText>The first argument to <TT>aio_read()/aio_write()</TT><A name="array of"></A> describes the AIO operation, and the second argument is an array of <TT>iovecs</TT><A name="data structure"></A>. The latter is the principal data structure used by the vector functions and contains the addresses and lengths of buffers that hold the data. In fact, this mechanism is the user space equivalent of scatter-gather DMA discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>. Look at <SPAN class=docEmphasis>include/linux/uio.h</SPAN> for the definition of <TT>iovecs</TT> and at <SPAN class=docEmphasis>drivers/net/tun.c</SPAN><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05fn01">[1]</A></SUP> for an example implementation of vectored char driver methods.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn01>[1]</A></SUP> Discussed in the sidebar "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec8.html#ch15sb03">TUN/TAP Driver</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15">Chapter 15</A>, "Network Interface Cards."</P></BLOCKQUOTE>
+<P class=docText>Another data access method is <TT>mmap()</TT><A name="call the"></A>, which associates device memory with user virtual memory. Applications may call the corresponding system call, also called <TT>mmap()</TT><A name="memory region"></A>, and directly operate on the returned memory region to access device-resident memory. Not many drivers implement <TT>mmap()</TT><A name=at></A>, so we won't delve into that here. Instead, have a look at <SPAN class=docEmphasis>drivers/char/mem.c</SPAN><A name="an example"></A> for an example <TT>mmap()</TT> implementation. The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec3.html#ch19lev1sec3">Accessing Memory Regions</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A>, "Drivers in User Space," illustrates how applications use <TT>mmap()</TT>. Our example CMOS driver does not implement <TT>mmap()</TT>.</P>
+<P class=docText>You might have noticed that <TT>port_data_in()</TT> and <TT>port_data_out()</TT> envelop the bank number sanity check within a macro called <TT>unlikely()</TT>. Two macros, <TT>likely()</TT> and <TT>unlikely()</TT><A name="conditional evaluation"></A>, inform GCC about the probability of success of the associated conditional evaluation. This information is used by GCC while predicting branches. Because we mark it unlikely that the bank sanity check will fail, GCC generates intelligent code that gels the <TT>else{}</TT><A name="clause sequentially"></A> clause sequentially with the code flow. Branching is done for the <TT>if{}</TT><A name="happens if"></A> clause. The reverse happens if you use <TT>likely()</TT><A name=than></A> rather than <TT>unlikely()</TT>.</P><A name=ch05lev2sec4></A>
+<H4 id=title-ID0EA2PM class=docSection2Title>Seek</H4>
+<P class=docText><A name=iddle1425></A><A name=iddle1500></A><A name=iddle1509></A><A name=iddle2417></A><A name=iddle2831></A><A name=iddle2862></A><A name=iddle3597></A><A name=iddle3913></A><A name=iddle3914></A><A name=iddle3915></A><A name=iddle3916></A><A name="of the"></A>The kernel uses an internal pointer to keep track of the current file access position. Applications use the <TT>lseek()</TT><A name="of this"></A> system call to request repositioning of this internal file pointer. Using the services of <TT>lseek()</TT><A name="within the"></A>, you can reset the file pointer to any offset within the file. The char driver counterpart of <TT>lseek()</TT> is the <TT>llseek()</TT> method. <TT>cmos_llseek()</TT> implements this method in the CMOS driver.</P>
+<P class=docText><A name="pointer for"></A>As we saw previously, the internal file pointer for the CMOS moves bit-wise rather than byte-wise. If a byte of data is read from the CMOS driver, the file pointer has to be moved by 8, so applications have to seek accordingly. <TT>cmos_llseek()</TT><A name="the CMOS"></A> also implements end-of-file semantics depending on the size of the CMOS bank.</P>
+<P class=docText><A name="understand the"></A>To understand the semantics of <TT>llseek()</TT>, let's start by looking at the commands supported by the <TT>lseek()</TT> system call:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>SEEK_SET</TT>, which sets the file pointer to a supplied fixed offset.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>SEEK_CUR</TT>, which calculates the offset relative to the current location.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>SEEK_END</TT><A name="maneuver the"></A>, which calculates the offset relative to the end-of-file. This command can maneuver the file pointer beyond the end of the file, but does not change the file size. Reads beyond the end-of-file marker return naught if no data is explicitly written. This technique is often used to create big files. The CMOS driver does not support <TT>SEEK_END</TT>.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="Look at"></A>Look at <TT>cmos_llseek()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex04">Listing 5.4</A><A name="the preceding"></A> and co-relate with the preceding definitions.</P><A name=ch05ex04></A>
+<H5 id=title-ID0EKAAO class=docExampleTitle>Listing 5.4. Seek</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/*
+ * Seek to a bit offset within a CMOS bank
+ */
+static loff_t
+cmos_llseek(struct file *file, loff_t offset,
+            int orig)
+{
+  struct cmos_dev *cmos_devp = file-&gt;private_data;
+
+  switch (orig) {
+    case 0: /* SEEK_SET */
+      if (offset &gt;= cmos_devp-&gt;size) {
+        return -EINVAL;
+      }
+      cmos_devp-&gt;current_pointer = offset; /* Bit Offset */
+      break;
+
+    case 1: /* SEEK_CURR */
+      if ((cmos_devp-&gt;current_pointer + offset) &gt;=
+           cmos_devp-&gt;size) {
+        return -EINVAL;
+      }
+      cmos_devp-&gt;current_pointer = offset; /* Bit Offset */
+      break;
+
+    case 2: /* SEEK_END - Not supported */
+      return -EINVAL;
+
+    default:
+      return -EINVAL;
+  }
+
+  return(cmos_devp-&gt;current_pointer);
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch05lev2sec5></A>
+<H4 id=title-ID0E5AAO class=docSection2Title>Control</H4>
+<P class=docText><A name=iddle1062></A><A name=iddle1063></A><A name=iddle1423></A><A name=iddle1498></A><A name=iddle1508></A><A name=iddle2242></A><A name=iddle2451></A><A name=iddle4574></A><A name="common char"></A>Another common char driver method is called I/O Control (or <SPAN class=docEmphasis>ioctl</SPAN><A name="commands that"></A>). This routine is used to receive and implement application commands that request device-specific actions. Because CMOS memory is used by the BIOS to store crucial information such as the boot device order, it's usually protected via <SPAN class=docEmphasis>cyclic redundancy check</SPAN><A name="driver supports"></A> (CRC) algorithms. To detect data corruption, the CMOS driver supports two ioctl commands:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis>Adjust checksum</SPAN><A name="CMOS contents"></A>, which is used to recalculate the CRC after the CMOS contents have been modified. The calculated checksum is stored at a predetermined offset in CMOS bank 1.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis>Verify checksum</SPAN><A name="the CMOS"></A>, which is used to check whether the CMOS contents are healthy. This is done by comparing the CRC of the current contents with the value previously stored.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="via the"></A>Applications send these commands down to the driver via the <TT>ioctl()</TT><A name="call when"></A> system call when they want to request it to perform checksum operations. Look at <TT>cmos_ioctl()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex05">Listing 5.5</A> for the implementation of the CMOS driver's <TT>ioctl</TT> method. <TT>adjust_cmos_crc(int bank, unsigned short seed)</TT><A name="the listing"></A> implements the standard CRC algorithm and is not shown in the listing.</P>
+<P class=docText></P><A name=ch05ex05></A>
+<H5 id=title-ID0E6EAO class=docExampleTitle>Listing 5.5. I/O Control</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><A name="Code View"></A>Code View:</DIV><PRE>#define CMOS_ADJUST_CHECKSUM 1
+#define CMOS_VERIFY_CHECKSUM 2
+
+#define CMOS_BANK1_CRC_OFFSET 0x1E
+
+/*
+ * Ioctls to adjust and verify CRC16s.
+ */
+static int
+cmos_ioctl(struct inode *inode, struct file *file,
+           unsigned int cmd, unsigned long arg)
+{
+  unsigned short crc = 0;
+  unsigned char buf;
+
+  switch (cmd) {
+    case CMOS_ADJUST_CHECKSUM:
+      /* Calculate the CRC of bank0 using a seed of 0 */
+      crc = adjust_cmos_crc(0, 0);
+
+      /* Seed bank1 with CRC of bank0 */
+      crc = adjust_cmos_crc(1, crc);
+
+      /* Store calculated CRC */
+      port_data_out(CMOS_BANK1_CRC_OFFSET,
+                    (unsigned char)(crc &amp; 0xFF), 1);
+      port_data_out((CMOS_BANK1_CRC_OFFSET + 1),
+                    (unsigned char) (crc &gt;&gt; 8), 1);
+      break;
+
+    case CMOS_VERIFY_CHECKSUM:
+     /* Calculate the CRC of bank0 using a seed of 0 */
+      crc = adjust_cmos_crc(0, 0);
+
+     /* Seed bank1 with CRC of bank0 */
+     crc = adjust_cmos_crc(1, crc);
+
+     /* Compare the calculated CRC with the stored CRC */
+     buf = port_data_in(CMOS_BANK1_CRC_OFFSET, 1);
+     if (buf != (unsigned char) (crc &amp; 0xFF)) return -EINVAL;
+
+     buf = port_data_in((CMOS_BANK1_CRC_OFFSET+1), 1);
+     if (buf != (unsigned char)(crc &gt;&gt; 8)) return -EINVAL;
+     break;
+     default:
+       return -EIO;
+  }
+
+  return 0;
+}
+
+					  </PRE></TD></TR></TBODY></TABLE>

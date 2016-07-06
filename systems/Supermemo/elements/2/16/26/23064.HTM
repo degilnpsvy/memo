@@ -1,0 +1,273 @@
+<H3 id=-100000 class=docSection1Title>Client Drivers</H3>
+<P class=docText><A name="The client"></A>The client device driver (XX_cs in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec2.html#ch09fig03">Figure 9.3</A><A name="the card"></A>) looks at the card's CIS space and configures the card depending on the information it gathers.</P><A name=ch09lev2sec1></A>
+<H4 id=title-ID0EPHPM class=docSection2Title>Data Structures</H4>
+<P class=docText><A name="proceeding to"></A>Before proceeding to develop an example PCMCIA client driver, let's meet some related data structures:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>A PCMCIA device is identified by the <TT>pcmcia_device_id</TT> structure defined in <SPAN class=docEmphasis>include/linux/mod_devicetable.h</SPAN>:</P>
+<DIV class=docText><PRE>struct pcmcia_device_id {
+  /* ... */
+  __u16       manf_id;       /* Manufacturer ID */
+  __u16       card_id;       /* Card ID */
+  __u8        func_id;       /* Function ID */
+  /* ... */
+};</PRE></DIV>
+<P class=docList><TT>manf_id</TT>, <TT>card_id</TT>, and <TT>func_id</TT><A name="offers a"></A> hold the card's manufacturer ID, card ID, and function ID, respectively. The PCMCIA core offers a macro called <TT>PCMCIA_DEVICE_MANF_CARD()</TT> that creates a <TT>pcmcia_device_id</TT><A name="card IDs"></A> structure from the manufacturer and card IDs supplied to it. Another kernel macro called <TT>MODULE_DEVICE_TABLE()</TT> marks the supported <TT>pcmcia_device_id</TT><A name="can be"></A>s in the module image so that the module can be loaded on demand when the card is inserted and the PCMCIA subsystem gleans matching manufacturer/card/function IDs from the card's CIS space. We explored this mechanism in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04lev2sec9">Module Autoload</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="used by"></A>, "Laying the Groundwork." This procedure is analogous to that used by device drivers for two other popular I/O buses that support hotplugging: PCI and USB. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec6.html#ch09tab01">Table 9.1</A><A name="bus technologies"></A> gives a heads-up on the similarities between drivers for these three bus technologies. Don't worry if that is hard to digest; we will have a detailed discussion on PCI and USB in the following chapters.</P>
+<P class=docList></P><A name=ch09tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><A name="and Hotplug"></A>Table 9.1. Device IDs and Hotplug Methods for PCMCIA, PCI, and USB</H5></CAPTION>
+<COLGROUP span=4 align=left>
+<COL width=100>
+<COL width=150>
+<COL width=125>
+<COL width=125></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>&nbsp;</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><A name=iddle3512></A><A name=iddle3514></A><A name=iddle3519></A><A name=iddle3538></A><A name=iddle3540></A>PCMCIA</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>PCI</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>USB</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><A name="table structure"></A>Device ID table structure</TD>
+<TD class=docTableCell vAlign=top align=left><TT>pcmcia_device_id</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>pci_device_id</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_device_id</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><A name="Macro to"></A>Macro to create a device ID</TD>
+<TD class=docTableCell vAlign=top align=left><TT>PCMCIA_DEVICE_MANF_CARD()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>PCI_DEVICE()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>USB_DEVICE()</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Device representation</TD>
+<TD class=docTableCell vAlign=top align=left><TT>struct pcmcia_device</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>struct pci_dev</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>struct usb_device</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Driver representation</TD>
+<TD class=docTableCell vAlign=top align=left><TT>struct pcmcia_driver</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>struct pci_driver</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>struct usb_driver</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Hotplug methods</TD>
+<TD class=docTableCell vAlign=top align=left><TT>probe()</TT> and <TT>remove()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>probe()</TT> and <TT>remove()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>probe()</TT> and <TT>disconnect()</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Hotplug event detection</TD>
+<TD class=docTableCell vAlign=top align=left>pccardd kthread</TD>
+<TD class=docTableCell vAlign=top align=left>PCI-family-dependent</TD>
+<TD class=docTableCell vAlign=top align=left>khubd kthread</TD></TR></TBODY></TABLE></P><BR></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="drivers need"></A>PCMCIA client drivers need to associate their <TT>pcmcia_device_id</TT><A name="with their"></A> table with their <TT>probe()</TT> and <TT>remove()</TT> methods. This tie up is achieved by the <TT>pcmcia_driver</TT> structure:</P>
+<DIV class=docText><PRE>struct pcmcia_driver {
+  int  (*probe)(struct pcmcia_device *dev);  /* Probe
+                                                method */
+  void (*remove)(struct pcmcia_device *dev); /* Remove
+                                                method */
+  /* ... */
+  struct pcmcia_device_id *id_table;         /* Device ID
+                                                table */
+  /* ... */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct pcmcia_device</TT><A name="follows in"></A> internally represents a PCMCIA device and is defined as follows in <SPAN class=docEmphasis>drivers/pcmcia/ds.h</SPAN>:</P>
+<DIV class=docText><PRE>struct pcmcia_device {
+  /* ... */
+  io_req_t io;          /* I/O attributes*/
+  irq_req_t irq;        /* IRQ settings */
+  config_req_t conf;    /* Configuration */
+  /* ... */
+  struct device dev;    /* Connection to device model */
+  /* ... */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle1457></A><A name=iddle1459></A><A name=iddle1460></A><A name=iddle2327></A><A name=iddle3510></A><A name=iddle3511></A><A name=iddle3516></A><A name=iddle4341></A>CIS manipulation routines use a <TT>tuple_t</TT> structure defined in <SPAN class=docEmphasis>include/pcmcia/cistpl.h</SPAN><A name=A></A> to hold a CIS information unit. A <TT>CISTPL_LONGLINK_MFC</TT><A name="the full"></A> tuple type, for example, contains information related to a multifunction card. For the full list of tuples and their descriptions, look at <SPAN class=docEmphasis>include/pcmcia/cistpl.h</SPAN> and <A class=docLink href="http://pcmcia-cs.sourceforge.net/ftp/doc/PCMCIA-PROG.html" target=_blank>http://pcmcia-cs.sourceforge.net/ftp/doc/PCMCIA-PROG.html</A>.</P>
+<DIV class=docText><PRE>typedef struct tuple_t {
+  /* ... */
+  cisdata_t TupleCode;     /* See
+                              <SPAN class=docEmphasis>include/pcmcia/cistpl.h</SPAN> */
+  /* ... */
+  cisdata_t DesiredTuple;  /* Identity of the desired
+                              tuple */
+  /* ... */
+  cisdata_t *TupleData;    /* Buffer space */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="each configuration"></A>The CIS contains configuration table entries for each configuration that the card supports. <TT>cistpl_cftable_entry_t</TT>, defined in <SPAN class=docEmphasis>include/pcmcia/cistpl.h</SPAN>, holds such an entry:</P>
+<DIV class=docText><PRE>typedef struct cistpl_cftable_entry_t {
+  /* ... */
+  cistpl_power_t vcc, vpp1, vpp2;   /* Voltage level */
+  cistpl_io_t io;                   /* I/O attributes */
+  cistpl_irq_t irq;                 /* IRQ settings */
+  cistpl_mem_t mem;                 /* Memory window */
+  /* ... */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>cisparse_t</TT>, also defined in <SPAN class=docEmphasis>include/pcmcia/cistpl.h</SPAN>, holds a tuple parsed by the PCMCIA core:</P>
+<DIV class=docText><PRE>typedef union cisparse_t {
+  /* ... */
+  cistpl_manfid_t manfid;                 /* Manf ID */
+  /* ... */
+  cistpl_cftable_entry_t cftable_entry;   /* Configuration
+                                             table entry */
+  /* ... */
+} cisparse_t;</PRE></DIV></DIV></LI></OL></DIV><A name=ch09lev2sec2></A>
+<H4 id=title-ID0E1WPM class=docSection2Title>Device Example: PCMCIA Card</H4>
+<P class=docText><A name=iddle1486></A><A name=iddle3507></A><A name=iddle3641></A><A name=iddle3777></A><A name=iddle3793></A><A name="make it"></A>Let's develop a skeletal client device driver (because too many details will make it a loaded discussion) to learn the workings of the PCMCIA subsystem. The implementation is general, so you may use it as a template irrespective of whether your card implements networking, storage, or some other technology. Only the XX_cs driver is implemented; the generic XX driver is assumed to be available off the shelf.</P>
+<P class=docText><A name="PCMCIA drivers"></A>As alluded to earlier, PCMCIA drivers contain <TT>probe()</TT> and <TT>remove()</TT><A name="support hotplugging"></A> methods to support hotplugging. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec6.html#ch09ex01">Listing 9.1</A><A name="registers the"></A> registers the driver's <TT>probe()</TT> method, <TT>remove()</TT> method, and <TT>pcmcia_device_id</TT><A name="the PCMCIA"></A> table with the PCMCIA core. <TT>XX_probe()</TT><A name="invoked when"></A> gets invoked when the associated PCMCIA card is inserted, and <TT>XX_remove()</TT> is called when the card is ejected.</P><A name=ch09ex01></A>
+<H5 id=title-ID0EOZPM class=docExampleTitle>Listing 9.1. Registering a Client Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <PCMCIA ds.h=""> /* Definition of struct pcmcia_device */
+
+static struct pcmcia_driver XX_cs_driver = {
+  .owner       = THIS_MODULE,
+  .drv         = {
+  .name = "XX_cs",             /* Name */
+  },
+  .probe       = XX_probe,     /* Probe */
+  .remove      = XX_remove,    /* Release */
+  .id_table    = XX_ids,       /* ID table */
+  .suspend     = XX_suspend,   /* Power management */
+  .resume      = XX_resume,    /* Power management */
+};
+
+#define XX_MANFUFACTURER_ID  0xABCD  /* Device's manf_id */
+#define XX_CARD_ID           0xCDEF  /* Device's card_id */
+
+/* Identity of supported cards */
+static struct pcmcia_device_id XX_ids[] = {
+  PCMCIA_DEVICE_MANF_CARD(XX_MANFUFACTURER_ID, XX_CARD_ID),
+  PCMCIA_DEVICE_NULL,
+};
+
+MODULE_DEVICE_TABLE(pcmcia, XX_ids); /* For module autoload */
+
+/* Initialization */
+static int __init
+init_XX_cs(void)
+{
+  return pcmcia_register_driver(&amp;XX_cs_driver);
+}
+
+/* Probe Method */
+static int
+XX_probe(struct pcmcia_device *link)
+{
+  /* Populate the pcmcia_device structure allotted for this card by
+     the core. First fill in general information */
+  /* ... */
+
+  /* Fill in attributes related to I/O windows and
+     interrupt levels */
+  XX_config(link); /* See Listing 9.2 */
+}
+
+					  </PCMCIA></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle3642></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec6.html#ch09ex02">Listing 9.2</A><A name="with resource"></A> shows the routine that configures the generic device driver (XX) with resource information such as I/O and memory window base addresses. After this step, data flow to and from the PCMCIA card passes through XX and is transparent to the rest of the layers. Any interrupts generated by the PCMCIA card, such as those related to data reception or transmit completion for network cards, are handled by the interrupt handler that is part of XX. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec6.html#ch09ex02">Listing 9.2</A> is loosely based on <SPAN class=docEmphasis>drivers/net/wireless/airo_cs.c</SPAN><A name="Cisco Aironet"></A>, the client driver for the Cisco Aironet 4500 and 4800 series of PCMCIA WiFi cards. The listing uses the services of the PCMCIA core to do the following:</P><A name=ch09pro01></A>
+<UL class=doclist start="">
+<LI>Obtain a suitable configuration table entry tuple from the card's CIS<BR><BR></LI>
+<LI>Parse the tuple<BR><BR></LI>
+<LI>Glean card configuration information such as I/O base addresses and power settings from the parsed tuple<BR><BR></LI>
+<LI>Request allocation of an interrupt line<BR><BR></LI></UL>
+<P class=docText>It then configures the chipset-specific driver (XX) with the information previously obtained.</P>
+<P class=docText></P><A name=ch09ex02></A>
+<H5 id=title-ID0EW2PM class=docExampleTitle>Listing 9.2. Configuring the Generic Device Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <PCMCIA cistpl.h="">
+#include <PCMCIA ds.h="">
+#include <PCMCIA cs.h="">
+#include <PCMCIA cisreg.h="">
+
+/* This makes the XX device available to the system. XX_config()
+   is based on airo_config(), defined in
+   <SPAN class=docEmphasis>drivers/net/wireless/airo_cs.c</SPAN> */
+static int
+XX_config(struct pcmcia_device *link)
+{
+  tuple_t tuple;
+  cisparse_t parse;
+  u_char buf[64];
+
+  /* Populate a tuple_t structure with the identity of the desired
+     tuple. In this case, we're looking for a configuration table
+     entry */
+  tuple.DesiredTuple = CISTPL_CFTABLE_ENTRY;
+  tuple.Attributes   = 0;
+  tuple.TupleData    = buf;
+  tuple.TupleDataMax = sizeof(buf);
+
+  /* Walk the CIS for a matching tuple and glean card configuration
+     information such as I/O window base addresses */
+
+  /* Get first tuple */
+  CS_CHECK(GetFirstTuple, pcmcia_get_first_tuple(link, &amp;tuple));
+  while (1){
+    cistpl_cftable_entry_t dflt = {0};
+    cistpl_cftable_entry_t *cfg = &amp;(parse.cftable_entry);
+
+    /* Read a configuration tuple from the card's CIS space */
+    if (pcmcia_get_tuple_data(link, &amp;tuple) != 0 ||
+        pcmcia_parse_tuple(link, &amp;tuple, &amp;parse) != 0) {
+      goto next_entry;
+    }
+
+    /* We have a matching tuple! */
+    /* Configure power settings in the pcmcia_device based on
+       what was found in the parsed tuple entry */
+    if (cfg-&gt;vpp1.present &amp; (1&lt;<CISTPL_POWER_VNOM)) link-="">conf.Vpp = cfg-&gt;vpp1.param[CISTPL_POWER_VNOM]/10000;
+
+    /* ... */
+
+    /* Configure I/O window settings in the pcmcia_device based on
+       what was found in the parsed tuple entry */
+    if ((cfg-&gt;io.nwin &gt; 0) || (dflt.io.nwin &gt; 0)) {
+      cistpl_io_t *io = (cfg-&gt;io.nwin) ? &amp;cfg-&gt;io : &amp;dflt.io;
+      /* ... */
+      if (!(io-&gt;flags &amp; CISTPL_IO_8BIT)) {
+        link-&gt;io.Attributes1 = IO_DATA_PATH_WIDTH_16;
+      }
+      link-&gt;io.BasePort1 = io-&gt;win[0].base;
+      /* ... */
+    }
+
+    /* ... */
+    break;
+  next_entry:
+    CS_CHECK(GetNextTuple, pcmcia_get_next_tuple(link, &amp;tuple);
+  }
+
+  /* Allocate IRQ */
+  if (link-&gt;conf.Attributes &amp; CONF_ENABLE_IRQ) {
+    CS_CHECK(RequestIRQ, pcmcia_request_irq(link, &amp;link-&gt;irq));
+  }
+  /* ... */
+
+  /* Invoke init_XX_card(), which is part of the generic
+     XX driver (so, not shown in this listing), and pass
+     the I/O base and IRQ information obtained above */
+  init_XX_card(link-&gt;irq.AssignedIRQ, link-&gt;io.BasePort1,
+               1, &amp;handle_to_dev(link));
+
+  /* The chip-specific (form factor independent) driver is ready
+     to take responsibility of this card from now on! */
+}
+
+					  </CISTPL_POWER_VNOM))></PCMCIA></PCMCIA></PCMCIA></PCMCIA></PRE></TD></TR></TBODY></TABLE>

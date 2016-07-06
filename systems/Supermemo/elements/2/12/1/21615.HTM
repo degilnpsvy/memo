@@ -1,0 +1,205 @@
+<H1><A name=ZEROS></A>Chapter 31. Of Zeros and Nulls</H1>
+<TABLE class=EPIGRAPH border=0 cellSpacing=0 cellPadding=0 width="100%">
+<TBODY>
+<TR>
+<TD width="45%">&nbsp;</TD>
+<TD vAlign=top width="45%" align=left><I>
+<P><I>Faultily faultless, icily regular, splendidly null</I></P>
+<P><I>Dead perfection; no more.</I></P>
+<P><I>--Alfred Lord Tennyson</I></P></I></TD></TR></TBODY></TABLE>
+<P><A name=ZEROSREF></A></P>
+<P></P>
+<DIV class=VARIABLELIST>
+<P><B><A name=ZERONULL1></A><TT class=FILENAME>/dev/zero</TT> ... <TT class=FILENAME>/dev/null</TT></B></P>
+<DL>
+<DT><A name=DEVNULLREF></A>Uses of <TT class=FILENAME>/dev/null</TT> 
+<DD>
+<P>Think of <TT class=FILENAME>/dev/null</TT> as a <I class=FIRSTTERM>black hole</I>. It is essentially the equivalent of a write-only file. Everything written to it disappears. Attempts to read or output from it result in nothing. All the same, <TT class=FILENAME>/dev/null</TT> can be quite useful from both the command-line and in scripts.</P>
+<P>Suppressing <TT class=FILENAME>stdout</TT>. 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>cat $filename &gt;/dev/null
+# Contents of the file will not list to stdout.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Suppressing <TT class=FILENAME>stderr</TT> (from <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX57">Example 16-3</A>). 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>rm $badname 2&gt;/dev/null
+#           So error messages [stderr] deep-sixed.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Suppressing output from <EM>both</EM> <TT class=FILENAME>stdout</TT> and <TT class=FILENAME>stderr</TT>. 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>cat $filename 2&gt;/dev/null &gt;/dev/null
+# If "$filename" does not exist, there will be no error message output.
+# If "$filename" does exist, the contents of the file will not list to stdout.
+# Therefore, no output at all will result from the above line of code.
+#
+#  This can be useful in situations where the return code from a command
+#+ needs to be tested, but no output is desired.
+#
+# cat $filename &amp;&gt;/dev/null
+#     also works, as Baris Cicek points out.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Deleting contents of a file, but preserving the file itself, with all attendant permissions (from <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX1">Example 2-1</A> and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX2">Example 2-3</A>): 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>cat /dev/null &gt; /var/log/messages
+#  : &gt; /var/log/messages   has same effect, but does not spawn a new process.
+
+cat /dev/null &gt; /var/log/wtmp</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Automatically emptying the contents of a logfile (especially good for dealing with those nasty <SPAN class=QUOTE>"cookies"</SPAN> sent by commercial Web sites):</P>
+<DIV class=EXAMPLE><A name=COOKIES></A>
+<P><B>Example 31-1. Hiding the cookie jar</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># Obsolete Netscape browser.
+# Same principle applies to newer browsers.
+
+if [ -f ~/.netscape/cookies ]  # Remove, if exists.
+then
+  rm -f ~/.netscape/cookies
+fi
+
+ln -s /dev/null ~/.netscape/cookies
+# All cookies now get sent to a black hole, rather than saved to disk.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<DT><A name=ZEROSREF1></A>Uses of <TT class=FILENAME>/dev/zero</TT> 
+<DD>
+<P>Like <TT class=FILENAME>/dev/null</TT>, <TT class=FILENAME>/dev/zero</TT> is a pseudo-device file, but it actually produces a stream of nulls (<EM>binary</EM> zeros, not the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ASCIIDEF">ASCII</A> kind). Output written to <TT class=FILENAME>/dev/zero</TT> disappears, and it is fairly difficult to actually read the nulls emitted there, though it can be done with <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ODREF">od</A> or a hex editor. <A name=SWAPFILEREF></A>The chief use of <TT class=FILENAME>/dev/zero</TT> is creating an initialized dummy file of predetermined length intended as a temporary swap file.</P>
+<DIV class=EXAMPLE><A name=EX73></A>
+<P><B>Example 31-2. Setting up a swapfile using <TT class=FILENAME>/dev/zero</TT></B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# Creating a swap file.
+
+#  A swap file provides a temporary storage cache
+#+ which helps speed up certain filesystem operations.
+
+ROOT_UID=0         # Root has $UID 0.
+E_WRONG_USER=85    # Not root?
+
+FILE=/swap
+BLOCKSIZE=1024
+MINBLOCKS=40
+SUCCESS=0
+
+
+# This script must be run as root.
+if [ "$UID" -ne "$ROOT_UID" ]
+then
+  echo; echo "You must be root to run this script."; echo
+  exit $E_WRONG_USER
+fi  
+  
+
+blocks=${1:-$MINBLOCKS}          #  Set to default of 40 blocks,
+                                 #+ if nothing specified on command-line.
+# This is the equivalent of the command block below.
+# --------------------------------------------------
+# if [ -n "$1" ]
+# then
+#   blocks=$1
+# else
+#   blocks=$MINBLOCKS
+# fi
+# --------------------------------------------------
+
+
+if [ "$blocks" -lt $MINBLOCKS ]
+then
+  blocks=$MINBLOCKS              # Must be at least 40 blocks long.
+fi  
+
+
+######################################################################
+echo "Creating swap file of size $blocks blocks (KB)."
+dd if=/dev/zero of=$FILE bs=$BLOCKSIZE count=$blocks  # Zero out file.
+mkswap $FILE $blocks             # Designate it a swap file.
+swapon $FILE                     # Activate swap file.
+retcode=$?                       # Everything worked?
+#  Note that if one or more of these commands fails,
+#+ then it could cause nasty problems.
+######################################################################
+
+#  Exercise:
+#  Rewrite the above block of code so that if it does not execute
+#+ successfully, then:
+#    1) an error message is echoed to stderr,
+#    2) all temporary files are cleaned up, and
+#    3) the script exits in an orderly fashion with an
+#+      appropriate error code.
+
+echo "Swap file created and activated."
+
+exit $retcode</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Another application of <TT class=FILENAME>/dev/zero</TT> is to <SPAN class=QUOTE>"zero out"</SPAN> a file of a designated size for a special purpose, such as mounting a filesystem on a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#LOOPBACKREF">loopback device</A> (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CREATEFS">Example 17-8</A>) or <SPAN class=QUOTE>"securely"</SPAN> deleting a file (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BLOTOUT">Example 16-61</A>).</P>
+<DIV class=EXAMPLE><A name=RAMDISK></A>
+<P><B>Example 31-3. Creating a ramdisk</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# ramdisk.sh
+
+#  A "ramdisk" is a segment of system RAM memory
+#+ which acts as if it were a filesystem.
+#  Its advantage is very fast access (read/write time).
+#  Disadvantages: volatility, loss of data on reboot or powerdown,
+#+                less RAM available to system.
+#
+#  Of what use is a ramdisk?
+#  Keeping a large dataset, such as a table or dictionary on ramdisk,
+#+ speeds up data lookup, since memory access is much faster than disk access.
+
+
+E_NON_ROOT_USER=70             # Must run as root.
+ROOTUSER_NAME=root
+
+MOUNTPT=/mnt/ramdisk           # Create with mkdir /mnt/ramdisk.
+SIZE=2000                      # 2K blocks (change as appropriate)
+BLOCKSIZE=1024                 # 1K (1024 byte) block size
+DEVICE=/dev/ram0               # First ram device
+
+username=`id -nu`
+if [ "$username" != "$ROOTUSER_NAME" ]
+then
+  echo "Must be root to run \"`basename $0`\"."
+  exit $E_NON_ROOT_USER
+fi
+
+if [ ! -d "$MOUNTPT" ]         #  Test whether mount point already there,
+then                           #+ so no error if this script is run
+  mkdir $MOUNTPT               #+ multiple times.
+fi
+
+##############################################################################
+dd if=/dev/zero of=$DEVICE count=$SIZE bs=$BLOCKSIZE  # Zero out RAM device.
+                                                      # Why is this necessary?
+mke2fs $DEVICE                 # Create an ext2 filesystem on it.
+mount $DEVICE $MOUNTPT         # Mount it.
+chmod 777 $MOUNTPT             # Enables ordinary user to access ramdisk.
+                               # However, must be root to unmount it.
+##############################################################################
+# Need to test whether above commands succeed. Could cause problems otherwise.
+# Exercise: modify this script to make it safer.
+
+echo "\"$MOUNTPT\" now available for use."
+# The ramdisk is now accessible for storing files, even by an ordinary user.
+
+#  Caution, the ramdisk is volatile, and its contents will disappear
+#+ on reboot or power loss.
+#  Copy anything you want saved to a regular directory.
+
+# After reboot, run this script to again set up ramdisk.
+# Remounting /mnt/ramdisk without the other steps will not work.
+
+#  Suitably modified, this script can by invoked in /etc/rc.d/rc.local,
+#+ to set up ramdisk automatically at bootup.
+#  That may be appropriate on, for example, a database server.
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>In addition to all the above, <TT class=FILENAME>/dev/zero</TT> is needed by ELF (<I class=FIRSTTERM>Executable and Linking Format</I>) UNIX/Linux binaries.</P></DD></DL></DIV>

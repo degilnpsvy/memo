@@ -1,0 +1,73 @@
+<H4 id=title-ID0ECMPM class=docSection2Title>Work Queues</H4>
+<P class=docText><A name="the kernel"></A>Work queues are a way to defer work inside the kernel.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03fn02">[2]</A></SUP><A name="innumerable situations"></A> Deferring work is useful in innumerable situations. Examples include the following:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch03fn02>[2]</A></SUP><A name="deferring work"></A> Softirqs and tasklets are two other mechanisms available for deferring work inside the kernel. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04tab01">Table 4.1</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A> compares softirqs, tasklets, and work queues.</P></BLOCKQUOTE>
+<UL>
+<LI>
+<P class=docList><A name="in response"></A>Triggering restart of a network adapter in response to an error interrupt</P>
+<LI>
+<P class=docList>Filesystem tasks such as syncing disk buffers</P>
+<LI>
+<P class=docList><A name="through with"></A>Sending a command to a disk and following through with the storage protocol state machine</P></LI></UL>
+<P class=docText><A name=iddle1631></A><A name=iddle1632></A><A name=iddle4643></A><A name=iddle4646></A><A name="functionality of"></A>The functionality of work queues is similar to the example described in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02">Listings 3.2</A> to <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04">3.4</A><A name="a simpler"></A>. However, work queues can help you accomplish the same task in a simpler manner.</P>
+<P class=docText><A name="The work"></A><FONT class=extract>The work queue helper library exposes two interface structures to users: a <TT>workqueue_struct</TT> and a <TT>work_struct</TT></FONT><A name="steps to"></A><FONT class=extract>. Follow these steps to use work queues:</FONT></P><A name=ch03pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B><FONT class=extract>1. </FONT></B></DIV></TD>
+<TD>
+<DIV class=docText><FONT class=extract>Create a work queue (or a <TT>workqueue_struct</TT>) with one or more associated kernel threads. To create a kernel thread to service a <TT>workqueue_struct</TT>, use <TT>create_singlethread_workqueue()</TT>. To create one worker thread per CPU in the system, use the <TT>create_workqueue()</TT> variant. The kernel also has default per-CPU worker threads (<SPAN class=docEmphasis>events/n</SPAN>, where <SPAN class=docEmphasis>n</SPAN> is the CPU number) that you can timeshare instead of requesting a separate worker thread. Depending on your application, you might incur a performance hit if you don't have a dedicated worker thread.<BR><BR></FONT></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B><FONT class=extract>2. </FONT></B></DIV></TD>
+<TD>
+<DIV class=docText><FONT class=extract>Create a work element (or a <TT>work_struct</TT>). A <TT>work_struct</TT> is initialized using <TT>INIT_WORK()</TT>, which populates it with the address and argument of your work function.<BR><BR></FONT></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B><FONT class=extract>3. </FONT></B></DIV></TD>
+<TD>
+<DIV class=docText><FONT class=extract>Submit the work element to the work queue. A <TT>work_struct</TT> can be submitted to a dedicated queue using <TT>queue_work()</TT>, or to the default kernel worker thread using <TT>schedule_work()</TT>.<BR></FONT><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><FONT class=extract>Let's rewrite </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02"><FONT class=extract>Listings 3.2</FONT></A><FONT class=extract> to </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>3.4</FONT></A><A name="take advantage"></A><FONT class=extract> to take advantage of the work queue interface. This is done in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex05"><FONT class=extract>Listing 3.5</FONT></A><A name="the wait"></A><FONT class=extract>. The entire kernel thread, as well as the spinlock and the wait queue, vanish inside the work queue interface. Even the call to <TT>create_singlethread_workqueue()</TT></FONT><A name="using the"></A><FONT class=extract> goes away if you are using the default kernel worker thread.</FONT></P><A name=ch03ex05></A>
+<H5 id=title-ID0EMRPM class=docExampleTitle><FONT class=extract>Listing 3.5. Using Work Queues to Defer Work</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>#include <LINUX workqueue.h="">
+
+struct workqueue_struct *wq;
+
+/* Driver Initialization */
+static int __init
+mydrv_init(void)
+{
+  /* ... */
+  wq = create_singlethread_workqueue("mydrv");
+  return 0;
+}
+  /* Work Submission. The first argument is the work function, and
+     the second argument is the argument to the work function */
+  int
+  submit_work(void (*func)(void *data), void *data)
+  {
+    struct work_struct *hardwork;
+
+    hardwork = kmalloc(sizeof(struct work_struct), GFP_KERNEL);
+
+    /* Init the work structure */
+    INIT_WORK(hardwork, func, data);
+
+    /* Enqueue Work */
+    queue_work(wq, hardwork);
+    return 0;
+}
+
+					  </LINUX></FONT></PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch03note02></A>
+<DIV class=docNote>
+<P><FONT class=extract></FONT>
+<P class=docText><A name=iddle1794></A><A name=iddle2202></A><A name=iddle2573></A><A name=iddle3301></A><A name=iddle3304></A><A name=iddle3306></A><A name="errors unless"></A><FONT class=extract>If you are using work queues, you will get linker errors unless you declare your module as licensed under GPL. This is because the kernel exports these functions only to GPLed code. If you look at the kernel work queue implementation, you will see this restriction expressed in statements such as this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>EXPORT_SYMBOL_GPL(queue_work);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>To announce that your module is <SPAN class=docEmphasis>copyleft</SPAN>-ed under GPL, declare the following:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>MODULE_LICENSE("GPL");</FONT></PRE></DIV></DIV>

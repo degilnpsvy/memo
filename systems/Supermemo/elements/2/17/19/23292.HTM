@@ -1,0 +1,432 @@
+<H3 id=title-IDAT0ELH class=docSection1Title>13.4. Tracing and Profiling Tools</H3>
+<P class=docText><A name=iddle2021></A><A name=iddle2453></A><A name=iddle2542></A>Many useful tools can provide you with various views of the system. Some tools offer a high-level perspective, such as what processes are running on your system and which processes are consuming the most CPU bandwidth. Other tools can provide detailed analysis, such as where memory is being allocated or, even more useful, where it is being leaked. The next few sections introduce the most important tools and utilities in this category. We have space for only a cursory introduction to these tools; references are provided where appropriate if you want more details.</P><A name=ch13lev2sec4></A>
+<H4 id=title-IDA11ELH class=docSection2Title>13.4.1. strace</H4>
+<P class=docText>This useful system trace utility is found in virtually all Linux distributions. <TT>strace</TT> captures and displays useful information for every kernel system call executed by a Linux application program. <TT>strace</TT> is especially handy because it can be run on programs for which no source code is available. It is not necessary to compile the program with debug symbols as it is with GDB. Furthermore, <TT>strace</TT> can be a very insightful educational tool. As the man page states, "Students, hackers and the overly-curious will find that a great deal can be learned about a system and its system calls by tracing even ordinary programs."</P>
+<P class=docText>While preparing the example software for the GDB section earlier in this chapter, I decided to use a software project unfamiliar to me, an early version of the GoAhead web server. The first attempt at compiling and linking the project led to an interesting example for <TT>strace</TT>. Starting the application from the command line silently returned control back to the console. No error messages were produced, and a look into the system logs also produced no clues! It simply would not run.</P>
+<P class=docText><TT>strace</TT> quickly identified the problem. The output from invoking <TT>strace</TT> on this software package is produced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list05">Listing 13-5</A>. Many lines from this output have been deleted due to space considerations. The unedited output is over one hundred lines long.</P><A name=ch13list05></A>
+<H5 id=title-IDAE3ELH class=docExampleTitle>Listing 13-5. <SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13fn4">[4]</A></SUP><TT>strace</TT> Output: GoAhead Web Demo</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><A name=PLID0></A>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#PLID0">[View full width]</A></DIV><PRE>01 root@coyote:/home/websdemo$ <SPAN class=docEmphStrong>strace ./websdemo</SPAN>
+02 execve("./websdemo", ["./websdemo"], [/* 14 vars */]) = 0
+03 uname({sys="Linux", node="coyote", ...}) = 0
+04 brk(0)                                   = 0x10031050
+05 open("/etc/ld.so.preload", O_RDONLY)     = -1 ENOENT (No such file or directory)
+06 open("/etc/ld.so.cache", O_RDONLY)       = -1 ENOENT (No such file or directory)
+07 open("/lib/libc.so.6", O_RDONLY)         = 3
+08 read(3, "\177ELF\1\2\1\0\0\0\0\0\0\0\0\0\0\3\0\24\0\0\0\1\0\1\322"..., 1024) = 1024
+09 fstat64(0x3, 0x7fffefc8)                 = 0
+10 mmap(0xfe9f000, 1379388, PROT_READ|PROT_EXEC, MAP_PRIVATE, 3, 0) = 0xfe9f000
+11 mprotect(0xffd8000, 97340, PROT_NONE)    = 0
+12 mmap(0xffdf000, 61440, PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_FIXED, 3,
+<IMG  src="" border=0 alt="" width=14 align=left height=9> 0x130000) = 0xffdf000
+13 mmap(0xffee000, 7228, PROT_READ|PROT_WRITE|PROT_EXEC,
+<IMG  src="" border=0 alt="" width=14 align=left height=9> MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0xffee000
+14 close(3)                                 = 0
+15 brk(0)                                   = 0x10031050
+16 brk(0x10032050)                          = 0x10032050
+17 brk(0x10033000)                          = 0x10033000
+18 brk(0x10041000)                          = 0x10041000
+19 rt_sigaction(SIGPIPE, {SIG_IGN}, {SIG_DFL}, 8) = 0
+20 stat("./umconfig.txt", 0x7ffff9b8)       = -1 ENOENT (No such file or directory)
+21 uname({sys="Linux", node="coyote", ...}) = 0
+22 gettimeofday({3301, 178955}, NULL)       = 0
+23 getpid()                                 = 156
+24 open("/etc/resolv.conf", O_RDONLY)       = 3
+25 fstat64(0x3, 0x7fffd7f8)                 = 0
+26 mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x30017000
+27 read(3, "#\n# resolv.conf  This file is th"..., 4096) = 83
+28 read(3, "", 4096)                        = 0
+29 close(3)                                 = 0
+... <SPAN class=docEmphasis>&lt;&lt;&lt; Lines 30-81 removed for brevity</SPAN>
+82 socket(PF_INET, SOCK_DGRAM, IPPROTO_IP)  = 3
+83 connect(3, {sa_family=AF_INET, sin_port=htons(53), sin_addr=inet_addr("0.0.0.0")}, 28) = 0
+84 send(3, "\267s\1\0\0\1\0\0\0\0\0\0\6coyotea\0\0\1\0\1", 24, 0) = 24
+85 gettimeofday({3301, 549664}, NULL)       = 0
+86 poll([{fd=3, events=POLLIN, revents=POLLERR}], 1, 5000) = 1
+87 ioctl(3, 0x4004667f, 0x7fffe6a8)         = 0
+88 recvfrom(3, 0x7ffff1f0, 1024, 0, 0x7fffe668, 0x7fffe6ac) = -1 ECONNREFUSED (Connection
+<IMG  src="" border=0 alt="" width=14 align=left height=9> refused)
+89 close(3)                                 = 0
+90 socket(PF_INET, SOCK_DGRAM, IPPROTO_IP)  = 3
+91 connect(3, {sa_family=AF_INET, sin_port=htons(53), sin_addr=inet_addr("0.0.0.0")}, 28) = 0
+92 send(3, "\267s\1\0\0\1\0\0\0\0\0\0\6coyote\0\0\1\0\1", 24, 0) = 24
+93 gettimeofday({3301, 552839}, NULL)       = 0
+94 poll([{fd=3, events=POLLIN, revents=POLLERR}], 1, 5000) = 1
+95 ioctl(3, 0x4004667f, 0x7fffe6a8)         = 0
+96 recvfrom(3, 0x7ffff1f0, 1024, 0, 0x7fffe668, 0x7fffe6ac) = -1 ECONNREFUSED (Connection
+<IMG  src="" border=0 alt="" width=14 align=left height=9> refused)
+97 close(3)                                 = 0
+98 exit(-1)                                 = ?
+99 root@coyote:/home/websdemo#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch13fn4>[4]</A></SUP> See man <TT>ldconfig</TT> for details on creating a linker cache for your target system.</P></BLOCKQUOTE>
+<P class=docText>Line numbers have been added to the output produced by <TT>strace</TT> to make this listing more readable. Invocation of the command is found on line number 01. In its simplest form, simply add the <TT>strace</TT> command directly in front of the program you want to examine. This is how the output in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list05">Listing 13-5</A> was produced.</P>
+<P class=docText>Each line of this trace represents the <TT>websdemo</TT> process making a system call into the kernel. We don't need to analyze and understand each line of the trace, although it is quite instructive to do so. We are looking for any anomalies that might help pinpoint why the program won't run. In the first several lines, Linux is setting up the environment in which the program will execute. We see several <TT>open()</TT> system calls to <TT>/etc/ld.so.*</TT>, which are the Linux dynamic linker-loader (<TT>ld.so</TT>) doing its job. In fact, line 06 was my clue that this example embedded board had not been properly configured. There should be a linker cache produced by running <TT>ldconfig</TT>. (The linker cache substantially speeds up searching for shared library references.) This was subsequently resolved by running <TT>ldconfig</TT> on the target.</P>
+<P class=docText>Down through line 19 is more basic housekeeping, mostly by the loader and <TT>libc</TT> initializing. Notice in line 20 that the program is looking for a configuration file but did not find one. That could be an important issue when we get the software running. Starting with line 24, the program begins to set up and configure the appropriate networking resources that it needs. Lines 24 through 29 open and read a Linux system file containing instructions for the DNS service to resolve hostnames. Local network configuration activity continues through line 81. Most of this activity consists of network setup and configuration necessary to build the networking infrastructure for the program itself. This portion of the listing has been removed for brevity and clarity.</P>
+<P class=docText>Notice especially the network activity starting with line 82. Here we have the program trying to establish a TCP/IP connection to an IP address of all zeros. Line 82 is reproduced here for convenience:</P>
+<DIV class=docText><PRE>socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3</PRE></DIV><BR>
+<P class=docText>A couple points about <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list05">Listing 13-5</A> are worth noting. We might not know all the details of every system call, but we can get a general idea of what is happening. The <TT>socket()</TT> system call is similar to a file system <TT>open()</TT> call. The return value, indicated by the <TT>=</TT> sign, in this case, represents a Linux file descriptor. Knowing this, we can associate the activity from line 82 through the <TT>close()</TT> system call in line 89 with file descriptor 3.</P>
+<P class=docText>We are interested in this group of related system calls because we see an error message in line 88: "Connection refused." At this point, we still don't know why the program won't run, but this appears abnormal. Let's investigate. Line 82, the system call to <TT>socket()</TT>, establishes an endpoint for IP communication. Line 83 is quite curious because it tries to establish a connection to a remote endpoint (socket) containing an IP address of all zeros. We don't have to be network experts to suspect that this might be causing trouble.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13fn5">[5]</A></SUP> Line 83 provides another important clue: The <TT>port</TT> parameter is set to 53. A quick Google search for TCP/IP port numbers reveals that port 53 is the Domain Name Service, or DNS.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch13fn5>[5]</A></SUP> Sometimes an all-zeros address is appropriate in this context. However, we are investigating why the program bailed abnormally, so we should consider this suspect.</P></BLOCKQUOTE>
+<P class=docText>Line 84 provides yet another clue. Our board has a hostname of <TT>coyote</TT>. This can be seen as part of the command prompt in line 01 of Listing 13-5. It appears that this activity is a DNS lookup for our board's hostname, which is failing. As an experiment, we add an entry in our target system's <TT>/etc/hosts</TT><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13fn6">[6]</A></SUP> file to associate our locally defined hostname with the board's IP locally assigned IP address, as follows:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch13fn6>[6]</A></SUP> See <TT>man hosts</TT> for details of this system administration file.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>Coyote   192.168.1.21          #The IP address we assigned</PRE></DIV><BR>
+<P class=docText>Voil&#224;: Our program begins to function normally. Although we might not know exactly why this would lead to a program failure (TCP/IP networking experts might), our <TT>strace</TT> output led us to the fact that a DNS lookup for our board name was failing. When we corrected that, the program started up happily and began serving web pages. To recap, this was a program for which we had no source code to reference, and it had no symbols compiled into its binary image. Using strace, we were able to determine the cause of the program failure, and implement a solution.</P><A name=ch13lev2sec5></A>
+<H4 id=title-IDAUKFLH class=docSection2Title>13.4.2. strace Variations</H4>
+<P class=docText>The <TT>strace</TT> utility has many command line options. One of the more useful includes the capability to select a subset of system calls for tracing. For example, if you want to see only the network-related activity of a given process, issue the command as follows:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>strace -e trace=network process_name</SPAN></PRE></DIV><BR>
+<P class=docText>This produces a trace of all the network-related system calls, such as <TT>socket()</TT>, <TT>connect()</TT>, <TT>recvfrom()</TT>, and <TT>send()</TT>. This is a powerful way to view the network activity of a given program. Several other subsets are available. For example, you can view only the file-related activities of a program, with <TT>open()</TT>, <TT>close()</TT>, <TT>read()</TT>, <TT>write()</TT>, and so on. Additional subsets include process-related system calls, signal-related system calls, and IPC-related system calls.</P>
+<P class=docText>It is worth noting that <TT>strace</TT> is capable of dealing with tracing programs that spawn additional processes. Invoking <TT>strace</TT> with the <TT>-f</TT> option instructs <TT>strace</TT> to follow child processes that are created using the <TT>fork()</TT> system call. Numerous possibilities exist with the <TT>strace</TT> command. The best way to become proficient with this powerful utility is to use it. Make it a point with this and all the tools we present to seek out and read the latest open-source documentation. In this case, <TT>man strace</TT> on most Linux hosts will produce enough material to keep you experimenting for an afternoon!</P>
+<P class=docText>One very useful way to employ <TT>strace</TT> is using the <TT>-c</TT> option. This option produces a high-level profiling of your application. Using the <TT>-c</TT> option, <TT>strace</TT> accumulates statistics on each system call, how many times it was encountered, how many times errors were returned, and the time spent in each system call. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list06">Listing 13-6</A> is an example of running <TT>strace -c</TT> on the webs demo from the previous example.</P>
+<P class=docText></P><A name=ch13list06></A>
+<H5 id=title-IDAJNFLH class=docExampleTitle>Listing 13-6. Profiling Using <TT>strace</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote$ <SPAN class=docEmphStrong>strace -c ./webs</SPAN>
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- --------
+ 29.80    0.034262         189       181           send
+ 18.46    0.021226        1011        21        10 open
+ 14.11    0.016221         130       125           read
+ 11.87    0.013651         506        27         8 stat64
+  5.88    0.006762         193        35           select
+  5.28    0.006072          76        80           fcntl64
+  3.47    0.003994          65        61           time
+  2.79    0.003205        3205         1           execve
+  1.71    0.001970          90        22         3 recv
+  1.62    0.001868          85        22           close
+  1.61    0.001856         169        11           shutdown
+  1.38    0.001586         144        11           accept
+  0.41    0.000470          94         5           mmap2
+  0.26    0.000301         100         3           mprotect
+  0.24    0.000281          94         3           brk
+  0.17    0.000194         194         1         1 access
+  0.13    0.000150         150         1           lseek
+  0.12    0.000141          47         3           uname
+  0.11    0.000132         132         1           listen
+  0.11    0.000128         128         1           socket
+  0.09    0.000105          53         2           fstat64
+  0.08    0.000097          97         1           munmap
+  0.06    0.000064          64         1           getcwd
+  0.05    0.000063          63         1           bind
+  0.05    0.000054          54         1           setsockopt
+  0.04    0.000048          48         1           rt_sigaction
+  0.04    0.000046          46         1           gettimeofday
+  0.03    0.000038          38         1           getpid
+------ ----------- ----------- --------- --------- -----------
+100.00    0.114985                   624        22 total</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2000></A><A name=iddle2285></A><A name=iddle2470></A>This is a very useful way to get a high-level view of where your application is consuming time and where errors are occurring. Some errors might be a normal part of your application's operation, but others might be consuming time that you hadn't intended. From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list06">Listing 13-6</A>, we can see that the syscall with the longest duration was the <TT>execve()</TT>, which is the call that the shell used to spawn the application. As you can see, it was called only once. Another interesting observation is that the <TT>send()</TT> system call was the most frequently used syscall. This makes sensethe application is a small web server.</P>
+<P class=docText>Bear in mind that, like the other tools we have been discussing here, <TT>strace</TT> must be compiled for your target architecture. <TT>strace</TT> is executed on your target <A name=iddle1899></A><A name=iddle2055></A><A name=iddle2539></A>board, not your development host. You must use a version that is compatible with your architecture. If you purchase a commercial embedded Linux distribution, you should make sure that this utility is included for your chosen architecture.</P><A name=ch13lev2sec6></A>
+<H4 id=title-IDAPQFLH class=docSection2Title>13.4.3. ltrace</H4>
+<P class=docText>The <TT>ltrace</TT> and <TT>strace</TT> utilities are closely related. The <TT>ltrace</TT> utility does for library calls what <TT>strace</TT> does for system calls. It is invoked in a similar fashion: Precede the program to be traced by the tracer utility, as follows:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ltrace ./example</SPAN></PRE></DIV><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list07">Listing 13-7</A> reproduces the output of <TT>ltrace</TT> on a small example program that executes a handful of standard C library calls.</P><A name=ch13list07></A>
+<H5 id=title-IDA1RFLH class=docExampleTitle>Listing 13-7. Example <TT>ltrace</TT> Output</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ltrace ./example</SPAN>
+__libc_start_main(0x8048594, 1, 0xbffff944, 0x80486b4, 0x80486fc &lt;unfinished ...&gt;
+malloc(256)                                        = 0x804a008
+getenv("HOME")                                     = "/home/chris"
+strncpy(0x804a008, "/home", 5)                      = 0x804a008
+fopen("foo.txt", "w")                               = 0x804a110
+printf("$HOME = %s\n", "/home/chris"$HOME =  /home/chris
+)             = 20
+fprintf(0x804a110, "$HOME = %s\n", "/home/chris")   = 20
+fclose(0x804a110)                                  = 0
+remove("foo.txt")                                  = 0
+free(0x804a008)                                    = &lt;void&gt;
++++ exited (status 0) +++
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>For each library call, the name of the call is displayed, along with varying portions of the parameters to the call. Similar to <TT>strace</TT>, the return value of the library call is then displayed. As with <TT>strace</TT>, this tool can be used on programs for which source code is not available.</P>
+<P class=docText>As with <TT>strace</TT>, a variety of switches affect the behavior of <TT>ltrace</TT>. You can display the value of the program counter at each library call, which can be helpful in understanding your application's program flow. As with <TT>strace</TT>, you can use <TT>-c</TT> to accumulate and report count, error, and time statistics, making a useful simple profiling tool. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list08">Listing 13-8</A> displays the results of our simple example program using the <TT>-c</TT> option.</P>
+<P class=docText></P><A name=ch13list08></A>
+<H5 id=title-IDAPTFLH class=docExampleTitle>Listing 13-8. Profiling Using <TT>ltrace</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ltrace -c ./example</SPAN>
+$HOME = /home/chris
+% time     seconds  usecs/call     calls      function
+------ -----------  ----------- --------- ----------------
+ 24.16    0.000231         231         1 printf
+ 16.53    0.000158         158         1 fclose
+ 16.00    0.000153         153         1 fopen
+ 13.70    0.000131         131         1 malloc
+ 10.67    0.000102         102         1 remove
+  9.31    0.000089          89         1 fprintf
+  3.35    0.000032          32         1 getenv
+  3.14    0.000030          30         1 free
+  3.14    0.000030          30         1 strncpy
+------ ----------- ----------- --------- ----------------
+100.00    0.000956                     9 total</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1999></A><A name=iddle2283></A><A name=iddle2284></A><A name=iddle2287></A><A name=iddle2541></A>The <TT>ltrace</TT> tool is available only for programs that have been compiled to use dynamically linked shared library objects. This is the usual default, so unless you explicitly specify <TT>-static</TT> when compiling, you can use <TT>ltrace</TT> on the resulting binary. Again similar to <TT>strace</TT>, you must use an <TT>ltrace</TT> binary that has been compiled for your target architecture. These utilities are run on the target, not the host development system.</P><A name=ch13lev2sec7></A>
+<H4 id=title-IDA5VFLH class=docSection2Title>13.4.4. ps</H4>
+<P class=docText>With the possible exception of <TT>strace</TT> and <TT>ltrace</TT>, no tools are more often neglected by the embedded systems developer than <TT>top</TT> and <TT>ps</TT>. Given the myriad options available for each utility, we could easily devote an entire chapter to these useful system-profiling tools. They are almost universally available in embedded Linux distributions.</P>
+<P class=docText>Both of these utilities make use of the <TT>/proc</TT> file system, as described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, "File Systems." Much of the information they convey can be learned from the <TT>/proc</TT> file system if you know what to look for and how to parse the resulting information. These tools present that information in a convenient human-readable form.</P>
+<P class=docText>The <TT>ps</TT> utility lists all the running processes on a machine. However, it is very flexible and can be tailored to provide much useful data on the state of a running machine and the processes running on it. For example, <TT>ps</TT> can display the scheduling policy of each process. This is particularly useful for systems that employ real-time processes.</P>
+<P class=docText><A name=iddle1998></A>Without any options, <TT>ps</TT> displays all processes with the same user ID as the user who invoked the command, and only those processes associated with the terminal on which the command was issued. This is useful when many jobs have been spawned by that user and terminal.</P>
+<P class=docText>Passing options to <TT>ps</TT> can be confusing because <TT>ps</TT> supports a wide variety of standards (as in POSIX versus UNIX) and three distinct options styles: BSD, UNIX, and GNU. In general, BSD options are single or multiple letters, with no dash. UNIX options are the familiar dash-letter combinations, and GNU uses long argument formats preceded by double dashes. Refer to the man page for details of your <TT>ps</TT> implementation.</P>
+<P class=docText>Everyone who uses <TT>ps</TT> likely has a favorite invocation. One particularly useful general-purpose invocation is <TT>ps aux</TT>. This displays every process on the system. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list09">Listing 13-9</A> is an example from a running embedded target board.</P><A name=ch13list09></A>
+<H5 id=title-IDAUYFLH class=docExampleTitle>Listing 13-9. Process Listing</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ps aux</SPAN>
+USER      PID %CPU %MEM    VSZ   RSS TTY   STAT START   TIME COMMAND
+root        1  0.0  0.8   1416   508 ?     S    00:00   0:00 init [3]
+root        2  0.0  0.0      0     0 ?     S&lt;   00:00   0:00 [ksoftirqd/0]
+root        3  0.0  0.0      0     0 ?     S&lt;   00:00   0:00 [desched/0]
+root        4  0.0  0.0      0     0 ?     S&lt;   00:00   0:00 [events/0]
+root        5  0.0  0.0      0     0 ?     S&lt;   00:00   0:00 [khelper]
+root       10  0.0  0.0      0     0 ?     S&lt;   00:00   0:00 [kthread]
+root       21  0.0  0.0      0     0 ?     S&lt;   00:00   0:00 [kblockd/0]
+root       62  0.0  0.0      0     0 ?     S    00:00   0:00 [pdflush]
+root       63  0.0  0.0      0     0 ?     S    00:00   0:00 [pdflush]
+root       65  0.0  0.0      0     0 ?     S&lt;   00:00   0:00 [aio/0]
+root       36  0.0  0.0      0     0 ?     S    00:00   0:00 [kapmd]
+root       64  0.0  0.0      0     0 ?     S    00:00   0:00 [kswapd0]
+root      617  0.0  0.0      0     0 ?     S    00:00   0:00 [mtdblockd]
+root      638  0.0  0.0      0     0 ?     S    00:00   0:00 [rpciod]
+bin       834  0.0  0.7   1568   444 ?     Ss   00:00   0:00 /sbin/portmap
+root      861  0.0  0.0      0     0 ?     S    00:00   0:00 [lockd]
+root      868  0.0  0.9   1488   596 ?     Ss   00:00   0:00 /sbin/syslogd -r
+root      876  0.0  0.7   1416   456 ?     Ss   00:00   0:00 /sbin/klogd -x
+root      884  0.0  1.1   1660   700 ?     Ss   00:00   0:00 /usr/sbin/rpc.statd
+root      896  0.0  0.9   1668   584 ?     Ss   00:00   0:00 /usr/sbin/inetd
+root      909  0.0  2.2   2412  1372 ?     Ss+  00:00   0:00 -bash
+telnetd   953  0.3  1.1   1736   732 ?     S    05:58   0:00 in.telnetd
+root      954  0.2  2.1   2384  1348 pts/0 Ss   05:58   0:00 -bash
+root      960  0.0  1.2   2312   772 pts/0 R+   05:59   0:00 ps aux</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2531></A><A name=iddle2543></A>This is but one of the many ways to view output data using <TT>ps</TT>. The columns are explained in the following text.</P>
+<UL>
+<LI>
+<P class=docList>The <TT>USER</TT> and process ID (<TT>PID</TT>) fields should be self-explanatory.</P></LI>
+<LI>
+<P class=docList>The <TT>%CPU</TT> field expresses the percent of CPU utilization since the beginning of the process's lifetime; thus, CPU usage will virtually never add up to 100 percent.</P></LI>
+<LI>
+<P class=docList>The <TT>%MEM</TT> field indicates the ratio of the process's resident memory footprint to the total available physical memory.</P></LI>
+<LI>
+<P class=docList>The <TT>VSZ</TT> field is the virtual memory size of the process in kilobytes.</P></LI>
+<LI>
+<P class=docList><TT>RSS</TT> is resident set size and indicates the nonswapped physical memory that a process has used, also in kilobytes.</P></LI>
+<LI>
+<P class=docList><TT>TTY</TT> is the controlling terminal of the process.</P></LI></UL>
+<P class=docText>Most of the processes in this example are not associated with a controlling terminal. The <TT>ps</TT> command that generated <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list09">Listing 13-9</A> was issued from a Telnet session, which is indicated by the <TT>pts/0</TT> terminal device.</P>
+<P class=docText>The <TT>STAT</TT> field describes the state of the process at the time this snapshot was produced. Here, <TT>S</TT> means that the process is sleeping, waiting on an event of some type, often I/O. <TT>R</TT> means that the process is in a runnable state (that is, the scheduler is free to give it control of the CPU if nothing of a higher priority is waiting). The left bracket next to the state letter is an indication that this process has a higher priority.</P>
+<P class=docText>The final column is the command name. Those listed in brackets are kernel threads. Many more symbols and options are available; refer to the man page for <TT>ps</TT> for complete details.</P><A name=ch13lev2sec8></A>
+<H4 id=title-IDAE2FLH class=docSection2Title>13.4.5. top</H4>
+<P class=docText>Whereas <TT>ps</TT> is a one-time snapshot of the current system, <TT>top</TT> takes periodic snapshots of the state of the system and its processes. Similar to <TT>ps</TT>, <TT>top</TT> has numerous command line and configuration options. It is interactive and can be reconfigured while operating to customize the display to your particular needs.</P>
+<P class=docText><A name=iddle2028></A>Entered without options, <TT>top</TT> displays all running processes in a fashion very similar to the <TT>ps aux</TT> command presented in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list09">Listing 13-9</A>, updated every 3 seconds. Of course, this and many other aspects of <TT>top</TT> are user configurable. The first few lines of the <TT>top</TT> screen display system information, also updated every 3 seconds. This includes the system uptime, the number of users, information on the number of processes and their state, and much more.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list10">Listing 13-10</A> shows <TT>top</TT> in its default configuration, resulting from executing <TT>top</TT> from the command line without parameters.</P><A name=ch13list10></A>
+<H5 id=title-IDAD4FLH class=docExampleTitle>Listing 13-10. top</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>top - 06:23:14 up  6:23,  2 users,  load average: 0.00, 0.00, 0.00
+Tasks: 24 total,   1 running,  23 sleeping,   0 stopped,   0 zombie
+Cpu(s): 0.0% us,  0.3% sy,  0.0% ni, 99.7% id,  0.0% wa,  0.0% hi,  0.0% si
+Mem:     62060k total,    17292k used,    44768k free,        0k buffers
+Swap:       0k total,        0k used,        0k free,    11840k cached
+
+   PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
+   978 root      16   0  1924  952  780 R  0.3  1.5   0:01.22 top
+     1 root      16   0  1416  508  452 S  0.0  0.8   0:00.47 init
+     2 root       5 -10     0    0    0 S  0.0  0.0   0:00.00 ksoftirqd/0
+     3 root       5 -10     0    0    0 S  0.0  0.0   0:00.00 desched/0
+     4 root      -2  -5     0    0    0 S  0.0  0.0   0:00.00 events/0
+     5 root      10  -5     0    0    0 S  0.0  0.0   0:00.09 khelper
+    10 root      18  -5     0    0    0 S  0.0  0.0   0:00.00 kthread
+    21 root      20  -5     0    0    0 S  0.0  0.0   0:00.00 kblockd/0
+    62 root      20   0     0    0    0 S  0.0  0.0   0:00.00 pdflush
+    63 root      15   0     0    0    0 S  0.0  0.0   0:00.00 pdflush
+    65 root      19  -5     0    0    0 S  0.0  0.0   0:00.00 aio/0
+    36 root      25   0     0    0    0 S  0.0  0.0   0:00.00 kapmd
+    64 root      25   0     0    0    0 S  0.0  0.0   0:00.00 kswapd0
+   617 root      25   0     0    0    0 S  0.0  0.0   0:00.00 mtdblockd
+   638 root      15   0     0    0    0 S  0.0  0.0   0:00.34 rpciod
+   834 bin       15   0  1568  444  364 S  0.0  0.7   0:00.00 portmap
+   861 root      20   0     0    0    0 S  0.0  0.0   0:00.00 lockd
+   868 root      16   0  1488  596  504 S  0.0  1.0   0:00.11 syslogd
+   876 root      19   0  1416  456  396 S  0.0  0.7   0:00.00 klogd
+   884 root      18   0  1660  700  612 S  0.0  1.1   0:00.02 rpc.statd
+   896 root      16   0  1668  584  504 S  0.0  0.9   0:00.00 inetd
+   909 root      15   0  2412 1372 1092 S  0.0  2.2   0:00.34 bash
+   953 telnetd   16   0  1736  736  616 S  0.0  1.2   0:00.27 in.telnetd
+   954 root      15   0  2384 1348 1096 S  0.0  2.2   0:00.16 bash</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2013></A><A name=iddle2139></A><A name=iddle2540></A>The default columns from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list10">Listing 13-10</A> are the PID, the user, the process priority, the process <SPAN class=docEmphasis>nice</SPAN> value, the virtual memory used by the process, the resident memory footprint, the amount of shared memory used by the task, and other fields that are identical to those described in the previous <TT>ps</TT> example.</P>
+<P class=docText>Space permits only a cursory introduction to these useful utilities. You are encouraged to spend an afternoon with the man pages for <TT>top</TT> and <TT>ps</TT> to explore the richness of their capabilities.</P><A name=ch13lev2sec9></A>
+<H4 id=title-IDAHIWKH class=docSection2Title>13.4.6. mtrace</H4>
+<P class=docText>The <TT>mtrace</TT> package is a simple utility that analyzes and reports on calls to <TT>malloc()</TT>, <TT>realloc()</TT>, and <TT>free()</TT> in your application. It is easy to use and can potentially help spot trouble in your application. As with other userland tools we have been describing in this chapter, you must have the <TT>mtrace</TT> package configured and compiled for your architecture. <TT>mtrace</TT> is a <TT>malloc</TT> replacement library that is installed on your target. Your application enables it with a special function call. Your embedded Linux distribution should contain the <TT>mtrace</TT> package.</P>
+<P class=docText>To demonstrate this utility, we created a simple program that creates dynamic data on a simple linked list. Each list item was dynamically generated, as was each data item we placed on the list. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list11">Listing 13-11</A> reproduces the simple list structure.</P><A name=ch13list11></A>
+<H5 id=title-IDAPJWKH class=docExampleTitle>Listing 13-11. Simple Linear Linked List</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>struct blist_s {
+  struct blist_s *next;
+  char *data_item;
+  int item_size;
+  int index;
+};</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Each list item was dynamically created using <TT>malloc()</TT> as follows and subsequently placed at the end of the linked list:</P>
+<DIV class=docText><PRE>struct blist_s *p = malloc( sizeof(struct blist_s) );</PRE></DIV><BR>
+<P class=docText>Each variable-sized data item in the list was also dynamically generated and added to the list item before being placed at the end of the list. This way, every list <A name=iddle1002></A><A name=iddle1006></A><A name=iddle1054></A><A name=iddle2205></A>item was created using two calls to <TT>malloc()</TT>, one for the list item itself, represented by <TT>struct blist_s</TT> just shown, and one for the variable data item. We then generated 10,000 records on the list containing variable string data, resulting in 20,000 calls to <TT>malloc()</TT>.</P>
+<P class=docText>To use <TT>mtrace</TT>, tHRee conditions must be satisfied:</P>
+<UL>
+<LI>
+<P class=docList>A header file, <TT>mcheck.h</TT>, must be included in the source file.</P></LI>
+<LI>
+<P class=docList>The application must call <TT>mTRace()</TT> to install the handlers.</P></LI>
+<LI>
+<P class=docList>The environment variable <TT>MALLOC_TRACE</TT> must specify the name of a writeable file to which the trace data is written.</P></LI></UL>
+<P class=docText>When these conditions are satisfied, each call to one of the traced functions generates a line in the raw trace file defined by <TT>MALLOC_TRACE</TT>. The trace data looks like this:</P>
+<DIV class=docText><PRE>@ ./mt_ex:[0x80486ec] + 0x804a5f8 0x10</PRE></DIV><BR>
+<P class=docText>The <TT>@</TT> sign signals that the trace line contains an address or function name. In the previous example, the program was executing at the address in square brackets, <TT>0x80486ec</TT>. Using binary utilities or a debugger, we could easily associate this address with a function. The plus sign (<TT>+</TT>) indicates that this is a call to allocate memory. A call to <TT>free()</TT> would be indicated by a minus sign. The next field indicates the virtual address of the memory location being allocated or freed. The last field is the size, which is included in every call to allocate memory.</P>
+<P class=docText>This data format is not very user friendly. For this reason, the <TT>mtrace</TT> package includes a utility<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13fn07">[7]</A></SUP> that analyzes the raw trace data and reports on any inconsistencies. In the simplest case, the Perl script simply prints a single line with the message "No memory leaks". <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list12">Listing 13-12</A> contains the output when memory leaks are detected.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch13fn07>[7]</A></SUP> The analysis utility is a Perl script supplied with the <TT>mTRace</TT> package.</P></BLOCKQUOTE>
+<P class=docText></P><A name=ch13list12></A>
+<H5 id=title-IDADOWKH class=docExampleTitle>Listing 13-12. <TT>mtrace</TT> Error Report</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>mtrace ./mt_ex mtrace.log</SPAN>
+
+
+Memory not freed:
+-----------------
+   Address     Size     Caller
+0x0804aa70     0x0a  at /home/chris/temp/mt_ex.c:64
+0x0804abc0     0x10  at /home/chris/temp/mt_ex.c:26
+0x0804ac60     0x10  at /home/chris/temp/mt_ex.c:26
+0x0804acc8     0x0a  at /home/chris/temp/mt_ex.c:64</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1356></A><A name=iddle1987></A><A name=iddle2536></A><A name=iddle2537></A>As you can see, this simple tool can help you spot trouble before it happens, as well as find it when it does. Notice that the Perl script has displayed the filename and line number of each call to <TT>malloc()</TT> that does not have a corresponding call to <TT>free()</TT> for the given memory location . This requires debugging information in the executable file generated by passing the <TT>-g</TT> flag to the compiler. If no debugging information is found, the script simply reports the address of the function calling <TT>malloc()</TT>.</P><A name=ch13lev2sec10></A>
+<H4 id=title-IDAKQWKH class=docSection2Title>13.4.7. dmalloc</H4>
+<P class=docText><TT>dmalloc</TT> picks up where <TT>mTRace</TT> leaves off. The <TT>mtrace</TT> package is a simple, relatively nonintrusive package most useful for simple detection of <TT>malloc</TT>/free unbalance conditions. The <TT>dmalloc</TT> package enables the detection of a much wider range of dynamic memory-management errors. Compared to <TT>mTRace</TT>, <TT>dmalloc</TT> is highly intrusive. Depending on the configuration, <TT>dmalloc</TT> can slow your application to a crawl. It is definitely not the right tool if you suspect memory errors due to race conditions or other timing issues. <TT>dmalloc</TT> (and <TT>mtrace</TT>, to a lesser extent) will definitely change the timing of your application.</P>
+<P class=docText><TT>dmalloc</TT> is a very powerful dynamic memory-analysis tool. It is highly configurable and, therefore, somewhat complex. It takes some time to learn and master this tool. However, from QA testing to bug squashing, it could become one of your favorite development tools.</P>
+<P class=docText><TT>dmalloc</TT> is a debug <TT>malloc</TT> library replacement. These conditions must be satisfied to use <TT>dmalloc</TT>:</P>
+<UL>
+<LI>
+<P class=docList>Application code must include the <TT>dmalloc.h</TT> header file.</P></LI>
+<LI>
+<P class=docList>The application must be linked against the <TT>dmalloc</TT> library.</P></LI>
+<LI>
+<P class=docList>The <TT>dmalloc</TT> library and utility must be installed on your embedded target.</P></LI>
+<LI>
+<P class=docList>Certain environment variables that the <TT>dmalloc</TT> library references must be defined before running your application on the target.</P></LI></UL>
+<P class=docText>Although it is not strictly necessary, you should include <TT>dmalloc.h</TT> in your application program. This allows <TT>dmalloc</TT> to include file and line number information in the output.</P>
+<P class=docText>Link your application against the <TT>dmalloc</TT> library of your choice. The <TT>dmalloc</TT> package can be configured to generate several different libraries, depending on your selections during package configuration. In the examples to follow, we have chosen to use the <TT>libdmalloc.so</TT> shared library object. Place the library (or a symlink to it) in a path where your compiler can find it. The command to compile your application might look something like this:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ppc_82xx-gcc -g -Wall -o mtest_ex -L../dmalloc-5.4.2/ \
+   -ldmalloc mtest_ex.c</SPAN></PRE></DIV><BR>
+<P class=docText>This command line assumes that you've placed the <TT>dmalloc</TT> library (<TT>libdmalloc.so</TT>) in a location searched by the <TT>-L</TT> switch on the command linenamely, the <TT>../dmalloc-5.4.2</TT> directly just above the current directory.</P>
+<P class=docText>To install the <TT>dmalloc</TT> library on your target, place it in your favorite location (perhaps <TT>/usr/local/lib</TT>). You might need to configure your system to find this library. On our example PowerPC system, we added the path <TT>/usr/local/lib</TT> to the <TT>/etc/ld.so.conf</TT> file and invoked the ldconfig utility to update the library search cache.</P>
+<P class=docText>The last step in preparation is to set an environment variable that the <TT>dmalloc</TT> library uses to determine the level of debugging that will be enabled. The environment variable contains a debug bit mask that concatenates a number of features into a single convenient variable. Yours might look something like this:</P>
+<DIV class=docText><PRE>DMALLOC_OPTIONS=debug=0x4f4ed03,inter=100,log=dmalloc.log</PRE></DIV><BR>
+<P class=docText>Here, <TT>debug</TT> is the debug-level bit mask, and <TT>inter</TT> sets an interval count at which the <TT>dmalloc</TT> library performs extensive checks on itself and the heap. The <TT>dmalloc</TT> library writes its log output to the file indicated by the <TT>log</TT> variable.</P>
+<P class=docText>The <TT>dmalloc</TT> package comes with a utility to generate the <TT>DMALLOC_OPTIONS</TT> environment variable based on flags passed to it. The previous example was <A name=iddle1889></A>generated with the following <TT>dmalloc</TT> invocation. The documentation in the <TT>dmalloc</TT> package details this quite thoroughly, so we shall not reproduce that here.</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>dmalloc -p check-fence -l dmalloc.log -i 100 high</SPAN></PRE></DIV><BR>
+<P class=docText>When these steps are complete, you should be able to run your application against the <TT>dmalloc</TT> debug library.</P>
+<P class=docText><TT>dmalloc</TT> produces a quite detailed output log. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list13">Listing 13-13</A> reproduces a sample <TT>dmalloc</TT> log output for an example program that intentionally generates some memory leaks.</P><A name=ch13list13></A>
+<H5 id=title-IDAXWWKH class=docExampleTitle>Listing 13-13. <TT>dmalloc</TT> Log Output</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>2592: 4002: Dmalloc version '5.4.2' from 'http://dmalloc.com/'
+2592: 4002: flags = 0x4f4e503, logfile 'dmalloc.log'
+2592: 4002: interval = 100, addr = 0, seen # = 0, limit = 0
+2592: 4002: starting time = 2592
+2592: 4002: process pid = 442
+2592: 4002: Dumping Chunk Statistics:
+2592: 4002: basic-block 4096 bytes, alignment 8 bytes
+2592: 4002: heap address range: 0x30015000 to 0x3004f000, 237568 bytes
+2592: 4002:     user blocks: 18 blocks, 73652  bytes (38%)
+2592: 4002:    admin blocks: 29 blocks, 118784 bytes (61%)
+2592: 4002:    total blocks: 47 blocks, 192512 bytes
+2592: 4002: heap checked 41
+2592: 4002: alloc calls: malloc 2003, calloc 0, realloc 0, free 1999
+2592: 4002: alloc calls: recalloc 0, memalign 0, valloc 0
+2592: 4002: alloc calls: new 0, delete 0
+2592: 4002:   current memory in use: 52 bytes (4 pnts)
+2592: 4002:  total memory allocated: 27546 bytes (2003 pnts)
+2592: 4002:  max in use at one time: 27546 bytes (2003 pnts)
+2592: 4002: max alloced with 1 call: 376 bytes
+2592: 4002: max unused memory space: 37542 bytes (57%)
+2592: 4002: top 10 allocations:
+2592: 4002:  total-size  count in-use-size  count  source
+2592: 4002:       16000   1000          32      2  mtest_ex.c:36
+2592: 4002:       10890   1000          20      2  mtest_ex.c:74
+2592: 4002:         256      1           0      0  mtest_ex.c:154
+2592: 4002:       27146   2001          52      4  Total of 3
+2592: 4002: Dumping Not-Freed Pointers Changed Since Start:
+2592: 4002:  not freed: '0x300204e8|s1' (10 bytes) from 'mtest_ex.c:74'
+2592: 4002:  not freed: '0x30020588|s1' (16 bytes) from 'mtest_ex.c:36'
+2592: 4002:  not freed: '0x30020688|s1' (16 bytes) from 'mtest_ex.c:36'
+2592: 4002:  not freed: '0x300208a8|s1' (10 bytes) from 'mtest_ex.c:74'
+2592: 4002:  total-size  count  source
+2592: 4002:          32      2  mtest_ex.c:36
+2592: 4002:          20      2  mtest_ex.c:74
+2592: 4002:          52      4  Total of 2
+2592: 4002: ending time = 2592, elapsed since start = 0:00:00</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1791></A><A name=iddle2538></A>It is important to note that this log is generated upon program exit. (<TT>dmalloc</TT> has many options and modes of operation; it is possible to configure <TT>dmalloc</TT> to print output lines when errors are detected.)</P>
+<P class=docText>The first half of the output log reports high-level statistics about the heap and the overall memory usage of the application. Totals are produced for each of the <TT>malloc</TT> library calls, such as <TT>malloc()</TT>, <TT>free()</TT>, and <TT>realloc()</TT>. Interestingly, this default log reports on the top 10 allocations and the source location where they occurred. This can be very useful for overall system-level profiling.</P>
+<P class=docText>Toward the end of the log, we see evidence of memory leaks in our application. You can see that the <TT>dmalloc</TT> library detected four instances of memory that was allocated that was apparently never freed. Because we included <TT>dmalloc.h</TT> and compiled with debug symbols, the source location where the memory was allocated is indicated in the log.</P>
+<P class=docText>As with the other tools we've covered in this chapter, space permits only a brief introduction of this very powerful debug tool. <TT>dmalloc</TT> can detect many other conditions and limits. For example, <TT>dmalloc</TT> can detect when a freed pointer has been written. It can tell whether a pointer was used to access data outside its bounds but within the application's permissible address range. In fact, <TT>dmalloc</TT> can be configured to log almost any memory transaction through the <TT>malloc</TT> family of calls. <TT>dmalloc</TT> is a tool that is sure to pay back many times the effort taken to become proficient with it.</P><A name=ch13lev2sec11></A>
+<H4 id=title-IDAFBXKH class=docSection2Title>13.4.8. Kernel Oops</H4>
+<P class=docText>Although not strictly a tool, a <SPAN class=docEmphasis>kernel oops</SPAN> contains much useful information to help you troubleshoot the cause. A kernel oops results from a variety of kernel errors from simple memory errors produced by a process (fully recoverable, in most cases) to a hard kernel panic. Recent Linux kernels support display of symbolic information in addition to the raw hexadecimal address values. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list14">Listing 13-14</A> reproduces a kernel oops from a PowerPC target.</P>
+<P class=docText></P><A name=ch13list14></A>
+<H5 id=title-IDA4BXKH class=docExampleTitle>Listing 13-14. Kernel Oops</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>modprobe loop</SPAN>
+Oops: kernel access of bad area, sig: 11 [#1]
+NIP: C000D058 LR: C0085650 SP: C7787E80 REGS: c7787dd0 TRAP: 0300  Not tainted
+MSR: 00009032 EE: 1 PR: 0 FP: 0 ME: 1 IR/DR: 11
+DAR: 00000000, DSISR: 22000000
+TASK = c7d187b0[323] 'modprobe' THREAD: c7786000
+Last syscall: 128
+GPR00: 0000006C C7787E80 C7D187B0 00000000 C7CD25CC FFFFFFFF 00000000 80808081
+GPR08: 00000001 C034AD80 C036D41C C034AD80 C0335AB0 1001E3C0 00000000 00000000
+GPR16: 00000000 00000000 00000000 100170D8 100013E0 C9040000 C903DFD8 C9040000
+GPR24: 00000000 C9040000 C9040000 00000940 C778A000 C7CD25C0 C7CD25C0 C7CD25CC
+NIP [c000d058] strcpy+0x10/0x1c
+LR [c0085650] register_disk+0xec/0xf0
+Call trace:
+ [c00e170c] add_disk+0x58/0x74
+ [c90061e0] loop_init+0x1e0/0x430 [loop]
+ [c002fc90] sys_init_module+0x1f4/0x2e0
+ [c00040a0] ret_from_syscall+0x0/0x44
+Segmentation fault</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1950></A>Notice that the register dump includes symbolic information, where appropriate. Your kernel must have <TT>KALLSYSMS</TT> enabled for this symbolic information to be available. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13fig04">Figure 13-4</A> shows the configuration options under the General Setup main menu.</P><A name=ch13fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 13-4. Symbol support for oops</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/13elp04_alt.jpg" target=_self>[View full size image]</A></DIV><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/13elp04.jpg" width=500 height=251>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText>Much of the information in a kernel oops message is directly related to the processor. Having some knowledge of the underlying architecture is necessary to fully understand the oops message.</P>
+<P class=docText>Analyzing the oops in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list14">Listing 13-14</A>, we see right away that the oops was generated due to a "kernel access of bad area, sig: 11". We already know from previous examples in this chapter that signal 11 is a segmentation fault.</P>
+<P class=docText>The first section is a summary showing the reason for the oops, a few important pointers, and the offending task. In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13lev1sec4.html#ch13list14">Listing 13-14</A>, NIP is the next instruction pointer, which is decoded later in the oops message. This points to the offending code that led to the oops. <TT>LR</TT> is a PowerPC register and usually indicates the return address for the currently executing subroutine. <TT>SP</TT> is the stack pointer. <TT>REGS</TT> indicates the kernel address for the data structure containing the register dump data, and <TT>TRAP</TT> indicates the type of exception that this oops message relates to. Referring to the PowerPC architecture reference manual referenced at the end of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>, "Bootloaders," we see that a TRAP 0300 is the PowerPC Data Storage Interrupt, which is triggered by a data memory access error.</P>
+<P class=docText>On the third line of the oops message, we see additional PowerPC machine registers, such as MSR (machine state register) and a decode of some of its bits. On the next line, we see the DAR (data access register), which often contains the offending memory address. The DSISR register contents can be used in conjunction with the PowerPC architecture reference to discover much detail about the specific reason for the exception.</P>
+<P class=docText>An oops message also contains the task pointer and the decoded task name to quickly determine what task or thread was running at the time of the oops. We also see a detailed processor register dump, which can be used for additional clues. Again, we need knowledge of the architecture and compiler register usage to make sense of the clues from the register values. For example, the PowerPC architecture uses the r3 register for return values from C functions.</P>
+<P class=docText>The last part of the oops message provides a stack backtrace with symbol decode if symbols are enabled in the kernel. Using this information, we can construct a sequence of events that led to the offending condition.</P>
+<P class=docText>In this simple example, we have learned a great deal of information from this oops message. We know that it was a PowerPC Data Storage Exception, caused by an error in a data memory access (as opposed to an instruction fetch memory <A name=iddle1061></A><A name=iddle1068></A><A name=iddle1071></A><A name=iddle2307></A><A name=iddle2573></A><A name=iddle2574></A><A name=iddle2581></A>access). The DAR register tells us that the data address that generated this exception was 0x0000_0000. We know that the <TT>modprobe</TT> process produced the error. From the backtrace and NIP (next instruction pointer), we know that it was in a call to <TT>strcpy()</TT> that can be traced directly back to the <TT>loop_init()</TT> function in the <TT>loop.ko</TT> module, which <TT>modprobe</TT> was trying to insert at the time of the exception. Given this information, tracking down the source of this errant null pointer dereference should be quite trivial.

@@ -1,0 +1,423 @@
+<TABLE width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top>
+<H2><SPAN class=refentrytitle><A name=glib-Memory-Slices.top_of_page></A>Memory Slices</SPAN></H2>
+<P>Memory Slices &#8212; efficient way to allocate groups of equal-sized chunks of memory</P></TD>
+<TD class=gallery_image vAlign=top align=right></TD></TR></TBODY></TABLE>
+<DIV class=refsect1><A name=glib-Memory-Slices.functions></A>
+<H2>Functions</H2>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=functions_return width=150></COL>
+<COL class=functions_name></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=function_type><A class=link title=gpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gpointer"><SPAN class=returnvalue>gpointer</SPAN></A> </TD>
+<TD class=function_name><A class=link title=g_slice_alloc&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc">g_slice_alloc</A>&nbsp;<SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=function_type><A class=link title=gpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gpointer"><SPAN class=returnvalue>gpointer</SPAN></A> </TD>
+<TD class=function_name><A class=link title=g_slice_alloc0&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc0">g_slice_alloc0</A>&nbsp;<SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=function_type><A class=link title=gpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gpointer"><SPAN class=returnvalue>gpointer</SPAN></A> </TD>
+<TD class=function_name><A class=link title=g_slice_copy&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-copy">g_slice_copy</A>&nbsp;<SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=function_type><SPAN class=returnvalue>void</SPAN> </TD>
+<TD class=function_name><A class=link title=g_slice_free1&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free1">g_slice_free1</A>&nbsp;<SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=function_type><SPAN class=returnvalue>void</SPAN> </TD>
+<TD class=function_name><A class=link title=g_slice_free_chain_with_offset&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free-chain-with-offset">g_slice_free_chain_with_offset</A>&nbsp;<SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=define_keyword>#define</TD>
+<TD class=function_name><A class=link title=g_slice_new() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-new">g_slice_new</A><SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=define_keyword>#define</TD>
+<TD class=function_name><A class=link title=g_slice_new0() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-new0">g_slice_new0</A><SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=define_keyword>#define</TD>
+<TD class=function_name><A class=link title=g_slice_dup() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-dup">g_slice_dup</A><SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=define_keyword>#define</TD>
+<TD class=function_name><A class=link title=g_slice_free() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free">g_slice_free</A><SPAN class=c_punctuation>()</SPAN> </TD></TR>
+<TR>
+<TD class=define_keyword>#define</TD>
+<TD class=function_name><A class=link title=g_slice_free_chain() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free-chain">g_slice_free_chain</A><SPAN class=c_punctuation>()</SPAN> </TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV class=refsect1><A name=glib-Memory-Slices.includes></A>
+<H2>Includes</H2><PRE class=synopsis>#include &lt;glib.h&gt;
+</PRE></DIV>
+<DIV class=refsect1><A name=glib-Memory-Slices.description></A>
+<H2>Description</H2>
+<P>Memory slices provide a space-efficient and multi-processing scalable way to allocate equal-sized pieces of memory, just like the original <SPAN class=type>GMemChunks</SPAN> (from GLib 2.8), while avoiding their excessive memory-waste, scalability and performance problems.</P>
+<P>To achieve these goals, the slice allocator uses a sophisticated, layered design that has been inspired by Bonwick's slab allocator (<A class=ulink href="http://citeseer.ist.psu.edu/bonwick94slab.html" target=_top>Bonwick94</A> Jeff Bonwick, The slab allocator: An object-caching kernel memory allocator. USENIX 1994, and <A class=ulink href="http://citeseer.ist.psu.edu/bonwick01magazines.html" target=_top>Bonwick01</A> Bonwick and Jonathan Adams, Magazines and vmem: Extending the slab allocator to many cpu's and arbitrary resources. USENIX 2001)</P>
+<P>It uses <CODE class=function>posix_memalign()</CODE> to optimize allocations of many equally-sized chunks, and has per-thread free lists (the so-called magazine layer) to quickly satisfy allocation requests of already known structure sizes. This is accompanied by extra caching logic to keep freed memory around for some time before returning it to the system. Memory that is unused due to alignment constraints is used for cache colorization (random distribution of chunk addresses) to improve CPU cache utilization. The caching layer of the slice allocator adapts itself to high lock contention to improve scalability.</P>
+<P>The slice allocator can allocate blocks as small as two pointers, and unlike <CODE class=function>malloc()</CODE>, it does not reserve extra space per block. For large block sizes, <A class=link title=g_slice_new() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-new"><CODE class=function>g_slice_new()</CODE></A> and <A class=link title=g_slice_alloc&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc"><CODE class=function>g_slice_alloc()</CODE></A> will automatically delegate to the system <CODE class=function>malloc()</CODE> implementation. For newly written code it is recommended to use the new <CODE class=literal>g_slice</CODE> API instead of <A class=link title=g_malloc&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-malloc"><CODE class=function>g_malloc()</CODE></A> and friends, as long as objects are not resized during their lifetime and the object size used at allocation time is still available when freeing.</P>
+<P>Here is an example for using the slice allocator:</P>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>gchar <SPAN class="gtkdoc opt">*</SPAN>mem<SPAN class="gtkdoc opt">[</SPAN><SPAN class=number>10000</SPAN><SPAN class="gtkdoc opt">];</SPAN>
+gint i<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class="gtkdoc slc">// Allocate 10000 blocks.</SPAN>
+<SPAN class=keyword>for</SPAN> <SPAN class="gtkdoc opt">(</SPAN>i <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN> i <SPAN class="gtkdoc opt">&lt;</SPAN> <SPAN class=number>10000</SPAN><SPAN class="gtkdoc opt">;</SPAN> i<SPAN class="gtkdoc opt">++)</SPAN>
+  <SPAN class="gtkdoc opt">{</SPAN>
+    mem<SPAN class="gtkdoc opt">[</SPAN>i<SPAN class="gtkdoc opt">] =</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc">g_slice_alloc</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=number>50</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+    <SPAN class="gtkdoc slc">// Fill in the memory with some junk.</SPAN>
+    <SPAN class=keyword>for</SPAN> <SPAN class="gtkdoc opt">(</SPAN>j <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN> j <SPAN class="gtkdoc opt">&lt;</SPAN> <SPAN class=number>50</SPAN><SPAN class="gtkdoc opt">;</SPAN> j<SPAN class="gtkdoc opt">++)</SPAN>
+      mem<SPAN class="gtkdoc opt">[</SPAN>i<SPAN class="gtkdoc opt">][</SPAN>j<SPAN class="gtkdoc opt">] =</SPAN> i <SPAN class="gtkdoc opt">*</SPAN> j<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc slc">// Now free all of the blocks.</SPAN>
+<SPAN class=keyword>for</SPAN> <SPAN class="gtkdoc opt">(</SPAN>i <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN> i <SPAN class="gtkdoc opt">&lt;</SPAN> <SPAN class=number>10000</SPAN><SPAN class="gtkdoc opt">;</SPAN> i<SPAN class="gtkdoc opt">++)</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free1">g_slice_free1</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=number>50</SPAN><SPAN class="gtkdoc opt">,</SPAN> mem<SPAN class="gtkdoc opt">[</SPAN>i<SPAN class="gtkdoc opt">]);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>And here is an example for using the using the slice allocator with data structures:</P>
+<DIV class=informalexample>
+<TABLE class=listing_frame border=0 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GRealArray <SPAN class="gtkdoc opt">*</SPAN>array<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class="gtkdoc slc">// Allocate one block, using the g_slice_new() macro.</SPAN>
+array <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-new">g_slice_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>GRealArray<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class="gtkdoc slc">// We can now use array just like a normal pointer to a structure.</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>data            <SPAN class="gtkdoc opt">=</SPAN> NULL<SPAN class="gtkdoc opt">;</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>len             <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>alloc           <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>zero_terminated <SPAN class="gtkdoc opt">= (</SPAN>zero_terminated ? <SPAN class=number>1</SPAN> <SPAN class="gtkdoc opt">:</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>clear           <SPAN class="gtkdoc opt">= (</SPAN>clear ? <SPAN class=number>1</SPAN> <SPAN class="gtkdoc opt">:</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>elt_size        <SPAN class="gtkdoc opt">=</SPAN> elt_size<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class="gtkdoc slc">// We can free the block, so it can be reused.</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free">g_slice_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>GRealArray<SPAN class="gtkdoc opt">,</SPAN> array<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P></DIV>
+<DIV class=refsect1><A name=glib-Memory-Slices.functions_details></A>
+<H2>Functions</H2>
+<DIV class=refsect2><A name=g-slice-alloc></A>
+<H3>g_slice_alloc&nbsp;()</H3><PRE class=programlisting><A class=link title=gpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gpointer"><SPAN class=returnvalue>gpointer</SPAN></A>
+g_slice_alloc (<EM class=parameter><CODE><A class=link title=gsize href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gsize"><SPAN class=type>gsize</SPAN></A> block_size</CODE></EM>);</PRE>
+<P>Allocates a block of memory from the slice allocator. The block adress handed out can be expected to be aligned to at least 1 * sizeof (void*), though in general slices are 2 * sizeof (void*) bytes aligned, if a <CODE class=function>malloc()</CODE> fallback implementation is used instead, the alignment may be reduced in a libc dependent fashion. Note that the underlying slice allocation mechanism can be changed with the <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE=always-malloc</CODE></A> environment variable.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.2.5></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>block_size</P></TD>
+<TD class=parameter_description>
+<P>the number of bytes to allocate</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV class=refsect3><A name=id-1.4.8.6.2.6></A>
+<H4>Returns</H4>
+<P>a pointer to the allocated memory block</P>
+<P></P></DIV>
+<P class=since>Since 2.10</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-alloc0></A>
+<H3>g_slice_alloc0&nbsp;()</H3><PRE class=programlisting><A class=link title=gpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gpointer"><SPAN class=returnvalue>gpointer</SPAN></A>
+g_slice_alloc0 (<EM class=parameter><CODE><A class=link title=gsize href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gsize"><SPAN class=type>gsize</SPAN></A> block_size</CODE></EM>);</PRE>
+<P>Allocates a block of memory via <A class=link title=g_slice_alloc&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc"><CODE class=function>g_slice_alloc()</CODE></A> and initializes the returned memory to 0. Note that the underlying slice allocation mechanism can be changed with the <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE=always-malloc</CODE></A> environment variable.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.3.5></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>block_size</P></TD>
+<TD class=parameter_description>
+<P>the number of bytes to allocate</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV class=refsect3><A name=id-1.4.8.6.3.6></A>
+<H4>Returns</H4>
+<P>a pointer to the allocated block</P>
+<P></P></DIV>
+<P class=since>Since 2.10</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-copy></A>
+<H3>g_slice_copy&nbsp;()</H3><PRE class=programlisting><A class=link title=gpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gpointer"><SPAN class=returnvalue>gpointer</SPAN></A>
+g_slice_copy (<EM class=parameter><CODE><A class=link title=gsize href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gsize"><SPAN class=type>gsize</SPAN></A> block_size</CODE></EM>,
+              <EM class=parameter><CODE><A class=link title=gconstpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gconstpointer"><SPAN class=type>gconstpointer</SPAN></A> mem_block</CODE></EM>);</PRE>
+<P>Allocates a block of memory from the slice allocator and copies <EM class=parameter><CODE>block_size</CODE></EM> bytes into it from <EM class=parameter><CODE>mem_block</CODE></EM> .</P>
+<DIV class=refsect3><A name=id-1.4.8.6.4.5></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>block_size</P></TD>
+<TD class=parameter_description>
+<P>the number of bytes to allocate</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR>
+<TR>
+<TD class=parameter_name>
+<P>mem_block</P></TD>
+<TD class=parameter_description>
+<P>the memory to copy</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV class=refsect3><A name=id-1.4.8.6.4.6></A>
+<H4>Returns</H4>
+<P>a pointer to the allocated memory block</P>
+<P></P></DIV>
+<P class=since>Since 2.14</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-free1></A>
+<H3>g_slice_free1&nbsp;()</H3><PRE class=programlisting><SPAN class=returnvalue>void</SPAN>
+g_slice_free1 (<EM class=parameter><CODE><A class=link title=gsize href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gsize"><SPAN class=type>gsize</SPAN></A> block_size</CODE></EM>,
+               <EM class=parameter><CODE><A class=link title=gpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gpointer"><SPAN class=type>gpointer</SPAN></A> mem_block</CODE></EM>);</PRE>
+<P>Frees a block of memory.</P>
+<P>The memory must have been allocated via <A class=link title=g_slice_alloc&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc"><CODE class=function>g_slice_alloc()</CODE></A> or <A class=link title=g_slice_alloc0&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc0"><CODE class=function>g_slice_alloc0()</CODE></A> and the <EM class=parameter><CODE>block_size</CODE></EM> has to match the size specified upon allocation. Note that the exact release behaviour can be changed with the <CODE class=literal>G_DEBUG=gc-friendly</CODE> environment variable, also see <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE</CODE></A> for related debugging options.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.5.6></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>block_size</P></TD>
+<TD class=parameter_description>
+<P>the size of the block</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR>
+<TR>
+<TD class=parameter_name>
+<P>mem_block</P></TD>
+<TD class=parameter_description>
+<P>a pointer to the block to free</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<P class=since>Since 2.10</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-free-chain-with-offset></A>
+<H3>g_slice_free_chain_with_offset&nbsp;()</H3><PRE class=programlisting><SPAN class=returnvalue>void</SPAN>
+g_slice_free_chain_with_offset (<EM class=parameter><CODE><A class=link title=gsize href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gsize"><SPAN class=type>gsize</SPAN></A> block_size</CODE></EM>,
+                                <EM class=parameter><CODE><A class=link title=gpointer href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gpointer"><SPAN class=type>gpointer</SPAN></A> mem_chain</CODE></EM>,
+                                <EM class=parameter><CODE><A class=link title=gsize href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#gsize"><SPAN class=type>gsize</SPAN></A> next_offset</CODE></EM>);</PRE>
+<P>Frees a linked list of memory blocks of structure type <EM class=parameter><CODE>type</CODE></EM> .</P>
+<P>The memory blocks must be equal-sized, allocated via <A class=link title=g_slice_alloc&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc"><CODE class=function>g_slice_alloc()</CODE></A> or <A class=link title=g_slice_alloc0&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc0"><CODE class=function>g_slice_alloc0()</CODE></A> and linked together by a <EM class=parameter><CODE>next</CODE></EM> pointer (similar to <A class=link title="struct GSList" href="https://developer.gnome.org/glib/stable/glib-Singly-Linked-Lists.html#GSList"><SPAN class=type>GSList</SPAN></A>). The offset of the <EM class=parameter><CODE>next</CODE></EM> field in each block is passed as third argument. Note that the exact release behaviour can be changed with the <CODE class=literal>G_DEBUG=gc-friendly</CODE> environment variable, also see <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE</CODE></A> for related debugging options.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.6.6></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>block_size</P></TD>
+<TD class=parameter_description>
+<P>the size of the blocks</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR>
+<TR>
+<TD class=parameter_name>
+<P>mem_chain</P></TD>
+<TD class=parameter_description>
+<P>a pointer to the first block of the chain</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR>
+<TR>
+<TD class=parameter_name>
+<P>next_offset</P></TD>
+<TD class=parameter_description>
+<P>the offset of the <EM class=parameter><CODE>next</CODE></EM> field in the blocks</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<P class=since>Since 2.10</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-new></A>
+<H3>g_slice_new()</H3><PRE class=programlisting>#define             g_slice_new(type)</PRE>
+<P>A convenience macro to allocate a block of memory from the slice allocator.</P>
+<P>It calls <A class=link title=g_slice_alloc&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc"><CODE class=function>g_slice_alloc()</CODE></A> with <CODE class=literal>sizeof (@type)</CODE> and casts the returned pointer to a pointer of the given type, avoiding a type cast in the source code. Note that the underlying slice allocation mechanism can be changed with the <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE=always-malloc</CODE></A> environment variable.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.7.6></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>type</P></TD>
+<TD class=parameter_description>
+<P>the type to allocate, typically a structure name</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV class=refsect3><A name=id-1.4.8.6.7.7></A>
+<H4>Returns</H4>
+<P>a pointer to the allocated block, cast to a pointer to <EM class=parameter><CODE>type</CODE></EM> </P>
+<P></P></DIV>
+<P class=since>Since 2.10</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-new0></A>
+<H3>g_slice_new0()</H3><PRE class=programlisting>#define             g_slice_new0(type)</PRE>
+<P>A convenience macro to allocate a block of memory from the slice allocator and set the memory to 0.</P>
+<P>It calls <A class=link title=g_slice_alloc0&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc0"><CODE class=function>g_slice_alloc0()</CODE></A> with <CODE class=literal>sizeof (@type)</CODE> and casts the returned pointer to a pointer of the given type, avoiding a type cast in the source code. Note that the underlying slice allocation mechanism can be changed with the <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE=always-malloc</CODE></A> environment variable.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.8.6></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>type</P></TD>
+<TD class=parameter_description>
+<P>the type to allocate, typically a structure name</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<P class=since>Since 2.10</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-dup></A>
+<H3>g_slice_dup()</H3><PRE class=programlisting>#define             g_slice_dup(type, mem)</PRE>
+<P>A convenience macro to duplicate a block of memory using the slice allocator.</P>
+<P>It calls <A class=link title=g_slice_copy&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-copy"><CODE class=function>g_slice_copy()</CODE></A> with <CODE class=literal>sizeof (@type)</CODE> and casts the returned pointer to a pointer of the given type, avoiding a type cast in the source code. Note that the underlying slice allocation mechanism can be changed with the <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE=always-malloc</CODE></A> environment variable.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.9.6></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>type</P></TD>
+<TD class=parameter_description>
+<P>the type to duplicate, typically a structure name</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR>
+<TR>
+<TD class=parameter_name>
+<P>mem</P></TD>
+<TD class=parameter_description>
+<P>the memory to copy into the allocated block</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV class=refsect3><A name=id-1.4.8.6.9.7></A>
+<H4>Returns</H4>
+<P>a pointer to the allocated block, cast to a pointer to <EM class=parameter><CODE>type</CODE></EM> </P>
+<P></P></DIV>
+<P class=since>Since 2.14</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-free></A>
+<H3>g_slice_free()</H3><PRE class=programlisting>#define             g_slice_free(type, mem)</PRE>
+<P>A convenience macro to free a block of memory that has been allocated from the slice allocator.</P>
+<P>It calls <A class=link title=g_slice_free1&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free1"><CODE class=function>g_slice_free1()</CODE></A> using <CODE class=literal>sizeof (type)</CODE> as the block size. Note that the exact release behaviour can be changed with the <CODE class=literal>G_DEBUG=gc-friendly</CODE> environment variable, also see <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE</CODE></A> for related debugging options.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.10.6></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>type</P></TD>
+<TD class=parameter_description>
+<P>the type of the block to free, typically a structure name</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR>
+<TR>
+<TD class=parameter_name>
+<P>mem</P></TD>
+<TD class=parameter_description>
+<P>a pointer to the block to free</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<P class=since>Since 2.10</P></DIV>
+<HR>
+</HR>
+<DIV class=refsect2><A name=g-slice-free-chain></A>
+<H3>g_slice_free_chain()</H3><PRE class=programlisting>#define             g_slice_free_chain(type, mem_chain, next)</PRE>
+<P>Frees a linked list of memory blocks of structure type <EM class=parameter><CODE>type</CODE></EM> . The memory blocks must be equal-sized, allocated via <A class=link title=g_slice_alloc&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc"><CODE class=function>g_slice_alloc()</CODE></A> or <A class=link title=g_slice_alloc0&nbsp;() href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc0"><CODE class=function>g_slice_alloc0()</CODE></A> and linked together by a <EM class=parameter><CODE>next</CODE></EM> pointer (similar to <A class=link title="struct GSList" href="https://developer.gnome.org/glib/stable/glib-Singly-Linked-Lists.html#GSList"><SPAN class=type>GSList</SPAN></A>). The name of the <EM class=parameter><CODE>next</CODE></EM> field in <EM class=parameter><CODE>type</CODE></EM> is passed as third argument. Note that the exact release behaviour can be changed with the <CODE class=literal>G_DEBUG=gc-friendly</CODE> environment variable, also see <A class=link title=G_SLICE href="https://developer.gnome.org/glib/stable/glib-running.html#G_SLICE"><CODE class=literal>G_SLICE</CODE></A> for related debugging options.</P>
+<DIV class=refsect3><A name=id-1.4.8.6.11.5></A>
+<H4>Parameters</H4>
+<DIV class=informaltable>
+<TABLE border=0 width="100%">
+<COLGROUP>
+<COL class=parameters_name width=150></COL>
+<COL class=parameters_description></COL>
+<COL class=parameters_annotations width=200></COL></COLGROUP>
+<TBODY>
+<TR>
+<TD class=parameter_name>
+<P>type</P></TD>
+<TD class=parameter_description>
+<P>the type of the <EM class=parameter><CODE>mem_chain</CODE></EM> blocks</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR>
+<TR>
+<TD class=parameter_name>
+<P>mem_chain</P></TD>
+<TD class=parameter_description>
+<P>a pointer to the first block of the chain</P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR>
+<TR>
+<TD class=parameter_name>
+<P>next</P></TD>
+<TD class=parameter_description>
+<P>the field name of the next pointer in <EM class=parameter><CODE>type</CODE></EM> </P></TD>
+<TD class=parameter_annotations>&nbsp;</TD></TR></TBODY></TABLE></DIV></DIV>
+<P class=since>Since 2.10</P></DIV></DIV>
+<DIV class=refsect1><A name=glib-Memory-Slices.other_details></A>
+<H2>Types and Values</H2></DIV>

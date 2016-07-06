@@ -1,0 +1,292 @@
+<H3 id=-100000 class=docSection1Title>Device Example: Simple Storage Controller</H3>
+<P class=docText><A name="Consider the"></A>Consider the embedded device shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec5.html#ch14fig03">Figure 14.3</A><A name="contains a"></A>. The SoC contains a built-in storage controller that communicates with a block device. The architecture is similar to SD/MMC media, but our sample storage controller is described by the elementary register set listed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec5.html#ch14tab03">Table 14.3</A>. The <TT>SECTOR_NUMBER_REGISTER</TT><A name="the sector"></A> specifies the sector from which data access is requested.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec5.html#ch14fn04">[4]</A></SUP> The <TT>SECTOR_COUNT_REGISTER</TT><A name="moved via"></A> contains the number of sectors to be transferred. Data is moved via the <TT>DATA_REGISTER</TT>. The <TT>COMMAND_REGISTER</TT><A name="storage controller"></A> programs the action that the storage controller has to take (for example, whether to read from the media or write to it). The <TT>STATUS_REGISTER</TT><A name="performing an"></A> contains bits that signal whether the controller is busy performing an operation.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn04>[4]</A></SUP><A name="has a"></A> The storage media in our sample device has a flat sector-space geometry. IDE controllers, on the other hand, support a <SPAN class=docEmphasis>cylinder head sector</SPAN><A name="a high"></A> (CHS) geometry specified by a device head register, a low cylinder register, and a high cylinder register, in addition to the sector number register.</P></BLOCKQUOTE><A name=ch14fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="an embedded"></A>Figure 14.3. Storage on an embedded device.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzNmNGhpZ2Y-.jpg" width=500 height=182></P></CENTER>
+<P></P><BR>
+<P class=docText></P><A name=ch14tab03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><A name="Layout of"></A>Table 14.3. Register Layout of the Storage Controller</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=200>
+<COL width=350></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><A name=iddle1227></A><A name=iddle1233></A><A name=iddle1252></A><A name=iddle1254></A><A name=iddle1271></A><A name=iddle1526></A><A name=iddle1655></A><A name=iddle2357></A><A name=iddle3142></A><A name=iddle3148></A><A name=iddle3150></A><A name=iddle3761></A><A name=iddle3784></A><A name=iddle3907></A><A name=iddle3908></A><A name=iddle3909></A><A name=iddle4150></A><A name="Register Name"></A>Register Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description of Contents</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>SECTOR_NUMBER_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="on which"></A>The sector on which the next disk operation is to be performed.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>SECTOR_COUNT_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="of sectors"></A>Number of sectors to be read or written.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>COMMAND_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left>The action to be taken (for example, read or write).</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>STATUS_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Results of operations, interrupt status, and error flags.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>DATA_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="the disk"></A>In the read path, the storage controller fetches data from the disk to internal buffers. The driver accesses the internal buffer via this register. In the write path, data written by the driver to this register is transferred to the internal buffer, from where the controller copies it to disk.</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>Let's call the storage controller <SPAN class=docEmphasis>myblkdev</SPAN><A name="interrupt driven"></A>. This simple device is neither interrupt driven nor supports DMA. We'll also assume that the media is not removable. Our task is to write a block driver for myblkdev. Our driver is minimal, albeit complete. It does not handle power management and is not particularly performance-sensitive.</P><A name=ch14lev2sec1></A>
+<H4 id=title-ID0EVMAO class=docSection2Title>Initialization</H4>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec5.html#ch14ex01">Listing 14.1</A> contains the driver initialization method, <TT>myblkdev_init ()</TT>, which performs the following steps:</P><A name=ch14pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Registers the block device using <TT>register_blkdev()</TT>. This block library routine assigns an unused major number to myblkdev and adds an entry for the device in <SPAN class=docEmphasis>/proc/devices</SPAN>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Associates a request method with the block device. It does this by supplying the address of <TT>myblkdev_request()</TT> to <TT>blk_init_queue()</TT>. The call to <TT>blk_init_queue()</TT> returns the <TT>request_queue</TT> for myblkdev. Refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec2.html#ch14fig02">Figure 14.2</A> to see how the <TT>request_queue</TT> sits relative to the driver. The second argument to <TT>blk_init_queue()</TT>, <TT>myblkdev_lock</TT>, is a spinlock to protect the <TT>request_queue</TT> from concurrent access.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Hardware performs disk transactions in units of <SPAN class=docEmphasis>sectors</SPAN>, whereas software subsystems, such as filesystems, deal with data in terms of <SPAN class=docEmphasis>blocks</SPAN>. The common sector size is 512 bytes; the usual block size is 4096 bytes. You need to inform the block layer about the sector size supported by your storage hardware and the maximum number of sectors that your driver can receive per request. <TT>myblkdev_init()</TT> accomplishes these by invoking <TT>blk_queue_hardsect_size()</TT> and <TT>blk_queue_max_sectors()</TT>, respectively.<BR><BR></DIV></TD></TR>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>4. </B></DIV></TD>
+<TD>
+<DIV class=docText><A name=iddle1042></A><A name=iddle1082></A><A name=iddle3983></A>Allocates a <TT>gendisk</TT> corresponding to myblkdev using <TT>alloc_disk()</TT> and populates it. One important <TT>gendisk</TT> field that <TT>myblkdev_init()</TT> supplies is the address of the driver's <TT>block_device_operations</TT>. Another parameter that <TT>myblkdev_init()</TT> fills in is the storage capacity of myblkdev in units of sectors. This is accomplished by calling <TT>set_capacity()</TT>. Each <TT>gendisk</TT> also contains a flag that signals the properties of the underlying storage hardware. If the drive is removable, for example, the <TT>gendisk</TT>'s <TT>flag</TT> field should be marked <TT>GENHD_FL_REMOVABLE</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>5. </B></DIV></TD>
+<TD>
+<DIV class=docText>Associates the <TT>gendisk</TT> prepared in Step 4 with the <TT>request_queue</TT> obtained in Step 2. Also, connects the <TT>gendisk</TT> with the device's major/minor numbers and a name.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>6. </B></DIV></TD>
+<TD>
+<DIV class=docText>Adds the disk to the block I/O layer by invoking <TT>add_disk()</TT>. When this is done, the driver has to be ready to receive requests. So, this is usually the last step of the initialization sequence.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name=as></A>The block device is now available to the system as <SPAN class=docEmphasis>/dev/myblkdev</SPAN><A name="appear as"></A>. If the device supports multiple disk partitions, they appear as <SPAN class=docEmphasis>/dev/myblkdevX</SPAN>, where <SPAN class=docEmphasis>X</SPAN> is the partition number.</P><A name=ch14ex01></A>
+<H5 id=title-ID0E4RAO class=docExampleTitle>Listing 14.1. Initializing the Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX blkdev.h="">
+#include <LINUX genhd.h="">
+
+static struct gendisk *myblkdisk;     /* Representation of a disk */
+static struct request_queue *myblkdev_queue;
+                                      /* Associated request queue */
+int myblkdev_major = 0;               /* Ask the block subsystem
+                                         to choose a major number */
+static DEFINE_SPINLOCK(myblkdev_lock);/* Spinlock that protects
+                                         myblkdev_queue from
+                                         concurrent access */
+
+int myblkdisk_size     = 256*1024;    /* Disk size in kilobytes. For
+                                         a PC hard disk, one way to
+                                         glean this is via the BIOS */
+int myblkdev_sect_size = 512;         /* Hardware sector size */
+/* Initialization */
+static int __init
+myblkdev_init(void)
+{
+  /* Register this block driver with the kernel */
+  if ((myblkdev_major = register_blkdev(myblkdev_major,
+                                        "myblkdev")) &lt;= 0) {
+    return -EIO;
+  }
+
+  /* Allocate a request_queue associated with this device */
+  myblkdev_queue = blk_init_queue(myblkdev_request, &amp;myblkdev_lock);
+  if (!myblkdev_queue) return -EIO;
+
+  /* Set the hardware sector size and the max number of sectors */
+  blk_queue_hardsect_size(myblkdev_queue, myblkdev_sect_size);
+  blk_queue_max_sectors(myblkdev_queue, 512);
+
+  /* Allocate an associated gendisk */
+  myblkdisk = alloc_disk(1);
+  if (!myblkdisk) return -EIO;
+
+  /* Fill in parameters associated with the gendisk */
+  myblkdisk-&gt;fops   = &amp;myblkdev_fops;
+
+  /* Set the capacity of the storage media in terms of number of
+     sectors */
+  set_capacity(myblkdisk, myblkdisk_size*2);
+
+  myblkdisk-&gt;queue  = myblkdev_queue;
+  myblkdisk-&gt;major = myblkdev_major;
+  myblkdisk-&gt;first_minor = 0;
+  sprintf(myblkdisk-&gt;disk_name, "myblkdev");
+
+  /* Add the gendisk to the block I/O subsystem */
+  add_disk(myblkdisk);
+
+  return 0;
+}
+
+/* Exit */
+static void __exit
+myblkdev_exit(void)
+{
+  /* Invalidate partitioning information and perform cleanup */
+  del_gendisk(myblkdisk);
+
+  /* Drop references to the gendisk so that it can be freed */
+  put_disk(myblkdisk);
+
+  /* Dissociate the driver from the request_queue. Internally calls
+     elevator_exit() */
+  blk_cleanup_queue(myblkdev_queue);
+
+  /* Unregister the block device */
+  unregister_blkdev(myblkdev_major, "myblkdev");
+}
+
+module_init(myblkdev_init);
+module_exit(myblkdev_exit);
+MODULE_LICENSE("GPL");
+
+					  </LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P><A name=ch14lev2sec2></A>
+<H4 id=title-ID0EXSAO class=docSection2Title>Block Device Operations</H4>
+<P class=docText><A name=iddle1250></A><A name=iddle2454></A><A name=iddle2920></A><A name=iddle3145></A><A name=iddle3146></A><A name=iddle3323></A><A name=iddle4155></A><A name="a block"></A>Let's next take a look at the main methods contained in a block driver's <TT>block_device_operations</TT>.</P>
+<P class=docText>A block driver's <TT>open()</TT><A name="during operations"></A> method is called during operations such as mounting a filesystem residing on the media or performing a filesystem check (fsck). Many of the tasks accomplished during <TT>open()</TT><A name="for example"></A> are hardware-dependent. The CD-ROM driver, for example, locks the drive door. The SCSI driver checks whether the device has set a write-protect tab, and, if so, fails if a write-enabled open is requested. If the device is removable, <TT>open()</TT><A name="invokes the"></A> invokes the service routine <TT>check_disk_change()</TT><A name="whether the"></A> to check whether the media has changed.</P>
+<P class=docText><A name="your driver"></A>If your driver needs to support specific commands, implement support for it using the <TT>ioctl()</TT> method. A floppy driver, for example, supports a command to eject the media.</P>
+<P class=docText>The <TT>media_changed()</TT><A name="is not"></A> method checks whether the storage media has changed, so this is not relevant for fixed devices such as myblkdev. The SCSI disk driver's <TT>media_changed()</TT><A name="USB pen"></A> method, for example, detects whether an inserted USB pen drive has changed.</P>
+<P class=docText><A name=iddle2138></A><A name=iddle3143></A><A name=the></A>The sole block device operation supported by myblkdev is the <TT>ioctl()</TT> method, <TT>myblkdev_ioctl()</TT><A name="and invokes"></A>. The block layer itself handles generic ioctls and invokes the driver's <TT>ioctl()</TT> method only to handle device-specific commands. In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec5.html#ch14ex02">Listing 14.2</A>, <TT>myblkdev_ioctl()</TT> implements the <TT>GET_DEVICE_ID</TT><A name="is issued"></A> command that elicits a device ID from the controller. The command is issued via the <TT>COMMAND_REGISTER</TT><A name="data is"></A>, and the ID data is obtained from the <TT>DATA_REGISTER</TT>.</P><A name=ch14ex02></A>
+<H5 id=title-ID0ERXAO class=docExampleTitle>Listing 14.2. Block Device Operations</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#define GET_DEVICE_ID 0xAA00   /* Ioctl command definition */
+
+/* The ioctl operation */
+static int
+myblkdev_ioctl (struct inode *inode, struct file *file,
+                unsigned int cmd, unsigned long arg)
+{
+  unsigned char status;
+
+  switch (cmd) {
+  case GET_DEVICE_ID:
+    outb(GET_IDENTITY_CMD, COMMAND_REGISTER);
+    /* Wait as long as the controller is busy */
+    while ((status = inb(STATUS_REGISTER)) &amp; BUSY_STATUS);
+
+    /* Obtain ID and return it to user space */
+    return put_user(inb(DATA_REGISTER), (long __user *)arg);
+  default:
+    return -EINVAL;
+  }
+}
+
+/* Block device operations */
+static struct block_device_operations myblkdev_fops = {
+  .owner = THIS_MODULE,        /* Owner of this structure */
+  .ioctl = myblkdev_ioctl,
+  /* The following operations are not implemented for our example
+     storage controller: open(), release(), unlocked_ioctl(),
+     compat_ioctl(), direct_access(), getgeo(), revalidate_disk(), and
+     media_changed() */
+};
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch14lev2sec3></A>
+<H4 id=title-ID0ECYAO class=docSection2Title>Disk Access</H4>
+<P class=docText><A name=iddle1251></A><A name=iddle1911></A><A name=iddle3144></A><A name=iddle3147></A><A name=iddle3797></A><A name="block drivers"></A>As mentioned previously, block drivers perform disk access operations using a <TT>request()</TT><A name="The block"></A> method. The block I/O subsystem invokes a driver's <TT>request()</TT><A name="it desires"></A> method whenever it desires to process requests waiting in the driver's <TT>request_queue</TT>. The <TT>request()</TT><A name="does not"></A>method does not run in the context of the user process requesting the data transfer, however. The address of the associated <TT>request_queue</TT> is passed as an argument to the <TT>request()</TT> method.</P>
+<P class=docText><A name="before calling"></A>As you saw earlier, the kernel holds a request lock before calling the <TT>request()</TT><A name="associated request"></A> method. This is to protect the associated request queue from concurrent access. Because of this, if your <TT>request()</TT><A name="to sleep"></A> method has to call any functions that may go to sleep, it has to drop the lock before doing so and reacquire it before returning.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec5.html#ch14ex03">Listing 14.3</A> contains our driver's request method, <TT>myblkdev_request</TT><TT>()</TT>. This function uses the services of <TT>elv_next_request()</TT> to obtain the next request from the <TT>request_queue</TT>. If the queue contains no more pending requests, <TT>elv_next_request()</TT> returns <TT>NULL</TT>. <TT>elv_next_request()</TT><A name="algorithms are"></A> is named so because, as you learned previously, I/O scheduling algorithms are variations of the basic modus operandi adopted by elevators to service requests. After handling a request, the driver asks the block layer to end I/O on that request by calling <TT>end_request()</TT><A name="second argument"></A>. You can specify success or an error code using the second argument to <TT>end_request()</TT>.</P>
+<P class=docText><A name=the></A>Requests collected from the <TT>request_queue</TT><A name="starting sector"></A> contain the starting sector from which data access is requested (<TT>req-&gt;sector</TT><A name=in></A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec5.html#ch14ex03">Listing 14.3</A><A name="of sectors"></A>, the number of sectors on which I/O needs to be performed (<TT>req-&gt;nr_sectors</TT><A name="buffer that"></A>), the buffer that contains the data to be transferred (<TT>req-&gt;buffer</TT>), and the direction of data movement (<TT>rq_data_dir(req)</TT>). As shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec5.html#ch14ex03">Listing 14.3</A>, <TT>myblkdev_request()</TT><A name="these parameters"></A> performs the required register programming with the help of these parameters.</P><A name=ch14ex03></A>
+<H5 id=title-ID0EG3AO class=docExampleTitle>Listing 14.3. The Request Function</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#define READ_SECTOR_CMD           1
+#define WRITE_SECTOR_CMD          2
+#define GET_IDENTITY_CMD          3
+
+#define BUSY_STATUS               0x10
+
+#define SECTOR_NUMBER_REGISTER    0x20000000
+#define SECTOR_COUNT_REGISTER     0x20000001
+#define COMMAND_REGISTER          0x20000002
+#define STATUS_REGISTER           0x20000003
+#define DATA_REGISTER             0x20000004
+
+/* Request method */
+static void
+myblkdev_request(struct request_queue *rq)
+{
+  struct request *req;
+  unsigned char status;
+  int i, good = 0;
+
+  /* Loop through the requests waiting in line */
+  while ((req = elv_next_request(rq)) != NULL) {
+    /* Program the start sector and the number of sectors */
+    outb(req-&gt;sector, SECTOR_NUMBER_REGISTER);
+    outb(req-&gt;nr_sectors, SECTOR_COUNT_REGISTER);
+
+    /* We are interested only in filesystem requests. A SCSI command
+       is another possible type of request. For the full list, look
+       at the enumeration of rq_cmd_type_bits in
+       <SPAN class=docEmphasis>include/linux/blkdev.h</SPAN> */
+     if (blk_fs_request(req)) {
+       switch(rq_data_dir(req)) {
+       case READ:
+           /* Issue Read Sector Command */
+              outb(READ_SECTOR_CMD, COMMAND_REGISTER);
+           /* Traverse all requested sectors, byte by byte */
+              for (i = 0; i &lt; 512*req-&gt;nr_sectors; i++) {
+           /* Wait until the disk is ready. Busy duration should be
+              in the order of microseconds. Sitting in a tight loop
+              for simplicity; more intelligence required in the real
+              world */
+             while ((status = inb(STATUS_REGISTER)) &amp; BUSY_STATUS);
+
+             /* Read data from disk to the buffer associated with the
+                request */
+             req-&gt;buffer[i] = inb(DATA_REGISTER);
+           }
+         good = 1;
+         break;
+       case WRITE:
+        /* Issue Write Sector Command */
+        outb(WRITE_SECTOR_CMD, COMMAND_REGISTER);
+
+        /* Traverse all requested sectors, byte by byte */
+        for (i = 0; i &lt; 512*req-&gt;nr_sectors; i++) {
+          /* Wait until the disk is ready. Busy duration should be
+             in the order of microseconds. Sitting in a tight loop
+             for simplicity; more intelligence required in the real
+             world */
+           while ((status = inb(STATUS_REGISTER)) &amp; BUSY_STATUS);
+
+          /* Write data to disk from the buffer associated with the
+             request */
+          outb(req-&gt;buffer[i], DATA_REGISTER);
+        }
+        good = 1;
+        break;
+      }
+    }
+    end_request(req, good);
+  }
+}
+
+					  </PRE></TD></TR></TBODY></TABLE>

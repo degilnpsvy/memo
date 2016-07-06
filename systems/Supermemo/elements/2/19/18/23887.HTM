@@ -1,0 +1,110 @@
+<P class=docText>To illustrate the use of concurrency protection, let's start with a critical section that is present only in process context and gradually introduce complexities in the following order:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="Uniprocessor "></A>Critical section present only in process context on a Uniprocessor (UP) box running a nonpreemptible kernel.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle3920></A><A name="and interrupt"></A>Critical section present in process and interrupt contexts on a UP machine running a nonpreemptible kernel.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="a UP"></A>Critical section present in process and interrupt contexts on a UP machine running a preemptible kernel.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="interrupt contexts"></A>Critical section present in process and interrupt contexts on an SMP machine running a preemptible kernel.</P></DIV></LI></OL></DIV><A name=ch02sb03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>The Old Semaphore Interface</H2>
+<P class=docText><A name="in the"></A>The mutex interface, which replaces the older semaphore interface, originated in the -<TT>rt</TT><A name="and was"></A> tree and was merged into the mainline with the 2.6.16 kernel release. The semaphore interface is still around, however. Basic usage of the semaphore interface is as follows:</P>
+<DIV class=docText><PRE>#include <ASM semaphore.h="">  /* Architecture dependent
+                               header */
+
+/* Statically declare a semaphore. To dynamically
+   create a semaphore, use init_MUTEX() */
+static DECLARE_MUTEX(mysem);
+
+down(&amp;mysem);    /* Acquire the semaphore */
+
+/* ... Critical Section code ... */
+
+up(&amp;mysem);      /* Release the semaphore */</ASM></PRE></DIV><BR>
+<P class=docText><A name="threads into"></A>Semaphores can be configured to allow a predetermined number of threads into the critical section simultaneously. However, semaphores that permit more than a single holder at a time are rarely used.</P></TD></TR></TBODY></TABLE></P><BR><A name=ch02lev3sec1></A>
+<H5 id=title-ID0EPMOM class=docSection3Title><FONT class=extract>Case 1: Process Context, UP Machine, No Preemption</FONT></H5>
+<P class=docText><A name="This is"></A><FONT class=extract>This is the simplest case and needs no locking, so we won't discuss this further.</FONT></P><A name=ch02lev3sec2></A>
+<H5 id=title-ID0E1MOM class=docSection3Title><FONT class=extract>Case 2: Process and Interrupt Contexts, UP Machine, No Preemption</FONT></H5>
+<P class=docText><A name="you need"></A><FONT class=extract>In this case, you need to disable only interrupts to protect the critical region. To see why, assume that A and B are process context threads, and C is an interrupt context thread, all vying to enter the same critical section, as shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=extract>Figure 2.4</FONT></A><FONT class=extract>.</FONT></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch02fig02></A>
+<P><FONT class=extract></FONT>
+<CENTER>
+<H5 class=docFigureTitle><A name="Process and"></A><FONT class=extract>Figure 2.4. Process and interrupt context threads inside a critical section.</FONT></H5>
+<P class=docText><FONT class=extract><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzRoaWcyc2M-.jpg" width=500 height=288></FONT></P></CENTER>
+<P><FONT class=extract></FONT></P><BR>
+<P class=docText><A name=iddle2837></A><A name="always runs"></A><FONT class=extract>Because Thread C is executing in interrupt context and always runs to completion before yielding to Thread A or Thread B, it need not worry about protection. Thread A, for its part, need not be concerned about Thread B (and vice versa) because the kernel is not preemptible. Thus, Thread A and Thread B need to guard against only the possibility of Thread C stomping through the critical section while they are inside the same section. They achieve this by disabling interrupts prior to entering the critical section:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>Point A:
+  local_irq_disable();  /* Disable Interrupts in local CPU */
+  /* ... Critical Section ...  */
+  local_irq_enable();   /* Enable Interrupts in local CPU */</FONT></PRE></DIV><BR>
+<P class=docText><A name="when execution"></A><FONT class=extract>However, if interrupts were already disabled when execution reached Point A, <TT>local_irq_enable()</TT></FONT><A name="restoring interrupt"></A><FONT class=extract> creates the unpleasant side effect of reenabling interrupts, rather than restoring interrupt state. This can be fixed as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long flags;
+
+Point A:
+  local_irq_save(flags);     /* Disable Interrupts */
+  /* ... Critical Section ... */
+  local_irq_restore(flags);  /* Restore state to what
+                                it was at Point A */</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle1620></A><A name=iddle3632></A><A name=iddle3633></A><A name=iddle3634></A><A name="interrupt state"></A><FONT class=extract>This works correctly irrespective of the interrupt state at Point A.</FONT></P><A name=ch02lev3sec3></A>
+<H5 id=title-ID0EIQOM class=docSection3Title><FONT class=extract>Case 3: Process and Interrupt Contexts, UP Machine, Preemption</FONT></H5>
+<P class=docText><A name="your critical"></A><FONT class=extract>If preemption is enabled, mere disabling of interrupts won't protect your critical region from being trampled over. There is the possibility of multiple threads simultaneously entering the critical section in process context. Referring back to </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=extract>Figure 2.4</FONT></A><A name="this scenario"></A><FONT class=extract> in this scenario, Thread A and Thread B now need to protect themselves against each other in addition to guarding against Thread C. The solution apparently, is to disable kernel preemption before the start of the critical section and reenable it at the end, in addition to disabling/reenabling interrupts. For this, Thread A and Thread B use the <SPAN class=docEmphasis>irq</SPAN> variant of spinlocks:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long flags;
+
+Point A:
+  /* Save interrupt state.
+   * Disable interrupts - this implicitly disables preemption */
+  spin_lock_irqsave(&amp;mylock, flags);
+
+  /* ... Critical Section ... */
+
+  /* Restore interrupt state to what it was at Point A */
+  spin_unlock_irqrestore(&amp;mylock, flags);</FONT></PRE></DIV><BR>
+<P class=docText><A name="was at"></A><FONT class=extract>Preemption state need not be explicitly restored to what it was at Point A because the kernel internally does that for you via a variable called the <SPAN class=docEmphasis><A name="preemption counter"></A>preemption counter.</SPAN></FONT><A name="gets incremented"></A><FONT class=extract> The counter gets incremented whenever preemption is disabled (using <TT>preempt_disable()</TT></FONT><A name="gets decremented"></A><FONT class=extract>) and gets decremented whenever preemption is enabled (using <TT>preempt_enable()</TT>). Preemption kicks in only if the counter value is zero.</FONT></P><A name=ch02lev3sec4></A>
+<H5 id=title-ID0ELROM class=docSection3Title><FONT class=extract>Case 4: Process and Interrupt Contexts, SMP Machine, Preemption</FONT></H5>
+<P class=docText><A name="SMP machine"></A><FONT class=extract>Let's now assume that the critical section executes on an SMP machine. Your kernel has been configured with <TT>CONFIG_SMP</TT> and <TT>CONFIG_PREEMPT</TT> turned on.</FONT></P>
+<P class=docText><A name="spinlock primitives"></A><FONT class=extract>In the scenarios discussed this far, spinlock primitives have done little more than enable/disable preemption and interrupts. The actual locking functionality has been compiled away. In the presence of SMP, the locking logic gets compiled in, </FONT><A name=iddle1210></A><A name=iddle1331></A><A name=iddle1572></A><A name=iddle3393></A><A name=iddle4129></A><A name=iddle4132></A><A name=iddle4135></A><A name=iddle4137></A><A name="as follows"></A><FONT class=extract>and the spinlock primitives are rendered SMP-safe. The SMP-enabled semantics is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long flags;
+
+Point A:
+  /*
+    - Save interrupt state on the local CPU
+    - Disable interrupts on the local CPU. This implicitly disables
+      preemption.
+    - Lock the section to regulate access by other CPUs
+   */
+  spin_lock_irqsave(&amp;mylock, flags);
+
+  /* ... Critical Section ... */
+
+  /*
+    - Restore interrupt state and preemption to what it
+      was at Point A for the local CPU
+    - Release the lock
+   */
+  spin_unlock_irqrestore(&amp;mylock, flags);</FONT></PRE></DIV><BR>
+<P class=docText><A name="local CPU"></A><FONT class=extract>On SMP systems, only interrupts on the local CPU are disabled when a spinlock is acquired. So, a process context thread (say Thread A in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=extract>Figure 2.4</FONT></A><A name="handler "></A><FONT class=extract>) might be running on one CPU, while an interrupt handler (say Thread C in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=extract>Figure 2.4</FONT></A><A name="executing on"></A><FONT class=extract>) is executing on another CPU. An interrupt handler on a nonlocal processor thus needs to spin-wait until the process context code on the local processor exits the critical section. The interrupt context code calls <TT>spin_lock()</TT>/<TT>spin_unlock()</TT> to do this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>spin_lock(&amp;mylock);
+
+/* ... Critical Section ... */
+
+spin_unlock(&amp;mylock);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Similar to the irq variants, spinlocks also have <SPAN class=docEmphasis>bottom half</SPAN> (BH) flavors. <TT>spin_lock_bh()</TT> disables bottom halves when the lock is acquired, whereas <TT>spin_unlock_bh()</TT></FONT><A name="halves in"></A><FONT class=extract> reenables bottom halves when the lock is released. We discuss bottom halves in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><FONT class=extract>.</FONT></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch02sb04></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle><A name=The></A><FONT class=extract>The <TT>-rt</TT> tree</FONT></H2>
+<P class=docText><A name=iddle1154></A><A name=iddle1547></A><A name=iddle2555></A><A name=iddle3335></A><A name=iddle3750></A><A name=iddle3850></A><A name=iddle4017></A><A name=iddle4020></A><A name=time></A><FONT class=extract>The real time <TT>(-rt</TT></FONT><A name="called the"></A><FONT class=extract>) tree, also called the <TT>CONFIG_PREEMPT_RT</TT> patch-set, implements low-latency modifications to the kernel. The patch-set, downloadable from </FONT><A class=docLink href="http://www.kernel.org/pub/linux/kernel/projects/rt" target=_blank><FONT class=extract>www.kernel.org/pub/linux/kernel/projects/rt</FONT></A><A name="replacing many"></A><FONT class=extract>, allows most of the kernel to be preempted, partly by replacing many spinlocks with mutexes. It also incorporates high-resolution timers. Several <TT>-rt</TT></FONT><A name="the mainline"></A><FONT class=extract> features have been integrated into the mainline kernel. You will find detailed documentation at the project's wiki hosted at </FONT><A class=docLink href="http://rt.wiki.kernel.org/" target=_blank><FONT class=extract>http://rt.wiki.kernel.org/</FONT></A><FONT class=extract>.</FONT></P></TD></TR></TBODY></TABLE>

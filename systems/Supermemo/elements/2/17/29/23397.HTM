@@ -1,0 +1,45 @@
+# Documentation/local_ops.txt 
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Semantics and Behavior of Local Atomic Operations</P>
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Mathieu Desnoyers</P>
+<P><BR>&nbsp;This document explains the purpose of the local atomic operations, how<BR>to implement them for any given architecture and shows how they can be used<BR>properly. It also stresses on the precautions that must be taken when reading<BR>those local variables across CPUs when the order of memory writes matters.</P>
+<P>&nbsp;</P>
+<P>* Purpose of local atomic operations</P>
+<P>Local atomic operations are meant to provide fast and highly reentrant per CPU<BR>counters. They minimize the performance cost of standard atomic operations by<BR>removing the LOCK prefix and memory barriers normally required to synchronize<BR>across CPUs.</P>
+<P>Having fast per CPU atomic counters is interesting in many cases : it does not<BR>require disabling interrupts to protect from interrupt handlers and it permits<BR>coherent counters in NMI handlers. It is especially useful for tracing purposes<BR>and for various performance monitoring counters.</P>
+<P>Local atomic operations only guarantee variable modification atomicity wrt the<BR>CPU which owns the data. Therefore, care must taken to make sure that only one<BR>CPU writes to the local_t data. This is done by using per cpu data and making<BR>sure that we modify it from within a preemption safe context. It is however<BR>permitted to read local_t data from any CPU : it will then appear to be written<BR>out of order wrt other memory writes by the owner CPU.</P>
+<P><BR>* Implementation for a given architecture</P>
+<P>It can be done by slightly modifying the standard atomic operations : only<BR>their UP variant must be kept. It typically means removing LOCK prefix (on<BR>i386 and x86_64) and any SMP synchronization barrier. If the architecture does<BR>not have a different behavior between SMP and UP, including asm-generic/local.h<BR>in your architecture's local.h is sufficient.</P>
+<P>The local_t type is defined as an opaque signed long by embedding an<BR>atomic_long_t inside a structure. This is made so a cast from this type to a<BR>long fails. The definition looks like :</P>
+<P>typedef struct { atomic_long_t a; } local_t;</P>
+<P><BR>* Rules to follow when using local atomic operations</P>
+<P>- Variables touched by local ops must be per cpu variables.<BR>- _Only_ the CPU owner of these variables must write to them.<BR>- This CPU can use local ops from any context (process, irq, softirq, nmi, ...)<BR>&nbsp; to update its local_t variables.<BR>- Preemption (or interrupts) must be disabled when using local ops in<BR>&nbsp; process context to&nbsp;&nbsp; make sure the process won't be migrated to a<BR>&nbsp; different CPU between getting the per-cpu variable and doing the<BR>&nbsp; actual local op.<BR>- When using local ops in interrupt context, no special care must be<BR>&nbsp; taken on a mainline kernel, since they will run on the local CPU with<BR>&nbsp; preemption already disabled. I suggest, however, to explicitly<BR>&nbsp; disable preemption anyway to make sure it will still work correctly on<BR>&nbsp; -rt kernels.<BR>- Reading the local cpu variable will provide the current copy of the<BR>&nbsp; variable.<BR>- Reads of these variables can be done from any CPU, because updates to<BR>&nbsp; "long", aligned, variables are always atomic. Since no memory<BR>&nbsp; synchronization is done by the writer CPU, an outdated copy of the<BR>&nbsp; variable can be read when reading some _other_ cpu's variables.</P>
+<P><BR>* How to use local atomic operations</P>
+<P>#include &lt;linux/percpu.h&gt;<BR>#include &lt;asm/local.h&gt;</P>
+<P>static DEFINE_PER_CPU(local_t, counters) = LOCAL_INIT(0);</P>
+<P><BR>* Counting</P>
+<P>Counting is done on all the bits of a signed long.</P>
+<P>In preemptible context, use get_cpu_var() and put_cpu_var() around local atomic<BR>operations : it makes sure that preemption is disabled around write access to<BR>the per cpu variable. For instance :</P>
+<P>&nbsp;local_inc(&amp;get_cpu_var(counters));<BR>&nbsp;put_cpu_var(counters);</P>
+<P>If you are already in a preemption-safe context, you can directly use<BR>__get_cpu_var() instead.</P>
+<P>&nbsp;local_inc(&amp;__get_cpu_var(counters));</P>
+<P>&nbsp;</P>
+<P>* Reading the counters</P>
+<P>Those local counters can be read from foreign CPUs to sum the count. Note that<BR>the data seen by local_read across CPUs must be considered to be out of order<BR>relatively to other memory writes happening on the CPU that owns the data.</P>
+<P>&nbsp;long sum = 0;<BR>&nbsp;for_each_online_cpu(cpu)<BR>&nbsp;&nbsp;sum += local_read(&amp;per_cpu(counters, cpu));</P>
+<P>If you want to use a remote local_read to synchronize access to a resource<BR>between CPUs, explicit smp_wmb() and smp_rmb() memory barriers must be used<BR>respectively on the writer and the reader CPUs. It would be the case if you use<BR>the local_t variable as a counter of bytes written in a buffer : there should<BR>be a smp_wmb() between the buffer write and the counter increment and also a<BR>smp_rmb() between the counter read and the buffer read.</P>
+<P><BR>Here is a sample module which implements a basic per cpu counter using local.h.</P>
+<P>--- BEGIN ---<BR>/* test-local.c<BR>&nbsp;*<BR>&nbsp;* Sample module for local.h usage.<BR>&nbsp;*/</P>
+<P><BR>#include &lt;asm/local.h&gt;<BR>#include &lt;linux/module.h&gt;<BR>#include &lt;linux/timer.h&gt;</P>
+<P>static DEFINE_PER_CPU(local_t, counters) = LOCAL_INIT(0);</P>
+<P>static struct timer_list test_timer;</P>
+<P>/* IPI called on each CPU. */<BR>static void test_each(void *info)<BR>{<BR>&nbsp;/* Increment the counter from a non preemptible context */<BR>&nbsp;printk("Increment on cpu %d\n", smp_processor_id());<BR>&nbsp;local_inc(&amp;__get_cpu_var(counters));</P>
+<P>&nbsp;/* This is what incrementing the variable would look like within a<BR>&nbsp; * preemptible context (it disables preemption) :<BR>&nbsp; *<BR>&nbsp; * local_inc(&amp;get_cpu_var(counters));<BR>&nbsp; * put_cpu_var(counters);<BR>&nbsp; */<BR>}</P>
+<P>static void do_test_timer(unsigned long data)<BR>{<BR>&nbsp;int cpu;</P>
+<P>&nbsp;/* Increment the counters */<BR>&nbsp;on_each_cpu(test_each, NULL, 1);<BR>&nbsp;/* Read all the counters */<BR>&nbsp;printk("Counters read from CPU %d\n", smp_processor_id());<BR>&nbsp;for_each_online_cpu(cpu) {<BR>&nbsp;&nbsp;printk("Read : CPU %d, count %ld\n", cpu,<BR>&nbsp;&nbsp;&nbsp;local_read(&amp;per_cpu(counters, cpu)));<BR>&nbsp;}<BR>&nbsp;del_timer(&amp;test_timer);<BR>&nbsp;test_timer.expires = jiffies + 1000;<BR>&nbsp;add_timer(&amp;test_timer);<BR>}</P>
+<P>static int __init test_init(void)<BR>{<BR>&nbsp;/* initialize the timer that will increment the counter */<BR>&nbsp;init_timer(&amp;test_timer);<BR>&nbsp;test_timer.function = do_test_timer;<BR>&nbsp;test_timer.expires = jiffies + 1;<BR>&nbsp;add_timer(&amp;test_timer);</P>
+<P>&nbsp;return 0;<BR>}</P>
+<P>static void __exit test_exit(void)<BR>{<BR>&nbsp;del_timer_sync(&amp;test_timer);<BR>}</P>
+<P>module_init(test_init);<BR>module_exit(test_exit);</P>
+<P>MODULE_LICENSE("GPL");<BR>MODULE_AUTHOR("Mathieu Desnoyers");<BR>MODULE_DESCRIPTION("Local Atomic Ops");<BR>--- END ---

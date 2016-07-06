@@ -1,0 +1,135 @@
+<H4 id=title-ID0EUUPM class=docSection2Title>Notifier Chains</H4>
+<P class=docText><SPAN class=docEmphasis><FONT class=extract>Notifier chains</FONT></SPAN><A name="messages to"></A><FONT class=extract> are used to send status change messages to code regions that request them. Unlike hard-coded mechanisms, notifiers offer a versatile technique for getting alerted when events of interest are generated. Notifiers were originally added for passing network events to concerned sections of the kernel but are now used for many other purposes. The kernel implements predefined notifiers for significant events. Examples of such notifications include the following:</FONT></P>
+<UL>
+<LI>
+<P class=docList><SPAN class=docEmphStrong><FONT class=extract>Die notification</FONT></SPAN><A name="a trap"></A><FONT class=extract>, which is sent when a kernel function triggers a trap or a fault, caused by an "oops," page fault, or a breakpoint hit. If you are, for example, </FONT><A name=iddle1627></A><A name=iddle1793></A><A name=iddle2187></A><A name=iddle2212></A><A name=iddle2418></A><A name=iddle3139></A><A name=iddle3212></A><A name=iddle3300></A><A name=iddle3302></A><A name=iddle3303></A><A name="a device"></A><FONT class=extract>writing a device driver for a medical grade card, you might want to register yourself with the die notifier so that you can attempt to turn off the medical electronics if a kernel panic occurs.</FONT></P>
+<LI>
+<P class=docList><FONT class=extract><SPAN class=docEmphStrong>Net device notification</SPAN>, which is generated when a network interface goes up or down.</FONT></P>
+<LI>
+<P class=docList><SPAN class=docEmphStrong><FONT class=extract>CPU frequency notification</FONT></SPAN><A name="processor frequency"></A><FONT class=extract>, which is dispatched when there is a transition in the processor frequency.</FONT></P>
+<LI>
+<P class=docList><SPAN class=docEmphStrong><A name="Internet address"></A><FONT class=extract>Internet address notification</FONT></SPAN><A name="sent when"></A><FONT class=extract>, which is sent when a change is detected in the IP address of a network interface.</FONT></P></LI></UL>
+<P class=docText><A name="example user"></A>An example user of notifiers is the <SPAN class=docEmphasis>High-level Data Link Control</SPAN> (HDLC) protocol driver <SPAN class=docEmphasis>drivers/net/wan/hdlc.c</SPAN><A name="to sense"></A>, which registers itself with the net device notifier chain to sense carrier changes.</P>
+<P class=docText><A name="a notifier"></A><FONT class=extract>To attach your code to a notifier chain, you have to register an event handler with the associated chain. An event identifier and a notifier-specific argument are passed as arguments to the handler routine when the concerned event is generated. To define a custom notifier chain, you have to additionally implement the infrastructure to ignite the chain when the event is detected.</FONT></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06">Listing 3.6</A> contains examples of using predefined and user-defined notifiers. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03tab02">Table 3.2</A><A name=by></A> contains a brief description of the notifier chains used by <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06">Listing 3.6</A><A name="at the"></A> and the events they propagate, so look at the listing and the table in tandem.</P><A name=ch03tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><FONT class=extract>Table 3.2. Notifier Chains and the Events They Propagate</FONT></H5></CAPTION>
+<COLGROUP span=2 align=left><FONT class=extract>
+<COL width=250>
+<COL width=300></FONT></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Notifier Chain</FONT></TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Description</FONT></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><SPAN class=docEmphStrong>Die Notifier Chain</SPAN> <TT>(die_chain)</TT></FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><TT>my_die_event_handler()</TT> attaches to the die notifier chain, <TT>die_chain</TT>, using <TT>register_die_notifier()</TT>. To trigger invocation of <TT>my_die_event_handler()</TT></FONT><A name="as the"></A><FONT class=extract>, introduce an invalid dereference somewhere in your code, such as the following: </FONT>
+<DIV class=docText><PRE><FONT class=extract>int *q = 0;
+*q = 1;</FONT></PRE></DIV><BR>
+<P class=docText><A name="this code"></A><FONT class=extract>When this code snippet is executed, <TT>my_die_event_handler()</TT> gets called, and you will see a message like this: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_die_event_handler: OOPs! at EIP=f00350e7</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><FONT class=extract>The die event notifier passes the <TT>die_args</TT></FONT><A name="to the"></A><FONT class=extract> structure to the registered event handler. This argument contains a pointer to the <TT>regs</TT></FONT><A name="which carries"></A><FONT class=extract> structure, which carries a snapshot of processor register contents when the fault occurred. <TT>my_die_event_handler()</TT></FONT><A name="contents of"></A><FONT class=extract> prints the contents of the instruction pointer register.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><A name="Notifier Chain"></A><FONT class=extract>Netdevice Notifier Chain</FONT></SPAN><FONT class=extract>(<TT>netdev_chain</TT>)</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><TT>my_dev_event_handler()</TT> attaches to the net device notifier chain, <TT>netdev_chain</TT>, using <TT>register_netdevice_notifier()</TT></FONT><A name="of a"></A><FONT class=extract>. You can generate this event by changing the state of a network interface such as Ethernet (<TT>ethX</TT>) or loopback (<TT>lo</TT>): </FONT>
+<DIV class=docText><PRE><SPAN class=docEmphStrong><FONT class=extract>bash&gt; ifconfig eth0 up</FONT></SPAN></PRE></DIV><BR>
+<P class=docText><A name=of></A><FONT class=extract>This results in the execution of <TT>my_dev_event_handler()</TT>. The handler is passed a pointer to <TT>struct net_device</TT> as argument, which contains the name of the network interface. <TT>my_dev_event_handler()</TT> uses this information to produce the following message: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_dev_event_handler: Val=1, Interface=eth0</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><FONT class=extract><TT>Val=1</TT> corresponds to the <TT>NETDEV_UP</TT> event as defined in <SPAN class=docEmphasis>include/linux/notifier.h</SPAN>.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>User-Defined Notifier Chain</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06"><FONT class=extract>Listing 3.6</FONT></A><FONT class=extract> also implements a user-defined notifier chain, <TT>my_noti_chain</TT></FONT><A name="whenever a"></A><FONT class=extract>. Assume that you want an event to be generated whenever a user reads from a particular file in the process filesystem. Add the following in the associated procfs <TT>read</TT> routine: </FONT>
+<DIV class=docText><PRE><FONT class=extract>blocking_notifier_call_chain(&amp;my_noti_chain, 100, NULL);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>This results in the invocation of <TT>my_event_handler()</TT> whenever you read from the corresponding <SPAN class=docEmphasis>/proc</SPAN> file and results in the following message: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_event_handler: Val=100</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><TT><FONT class=extract>Val</FONT></TT><A name="which is"></A><FONT class=extract> contains the identity of the generated event, which is <TT>100</TT> for this example. The function argument is left unused.</FONT></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle1266></A><A name=iddle2027></A><A name=iddle3137></A><A name=iddle3140></A><A name=iddle3222></A><A name=iddle4399></A><A name="chains when"></A>You have to unregister event handlers from notifier chains when your module is released from the kernel. For example, if you <SPAN class=docEmphasis>up</SPAN> or <SPAN class=docEmphasis>down</SPAN><A name="network interface"></A> a network interface after unloading the code in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06">Listing 3.6</A>, you will be rankled by an "oops," unless you perform an <TT>unregister_netdevice_notifier(&amp;my_dev_notifier)</TT> from the module's <TT>release()</TT><A name="the handler"></A> method. This is because the notifier chain continues to think that the handler code is valid, even though it has been pulled out of the kernel.</P><A name=ch03ex06></A>
+<H5 id=title-ID0ENCAO class=docExampleTitle>Listing 3.6. Notifier Event Handlers</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><A name="Code View"></A>Code View:</DIV><PRE>#include <LINUX notifier.h="">
+#include <ASM kdebug.h="">
+#include <LINUX netdevice.h="">
+#include <LINUX inetdevice.h="">
+
+/* Die Notifier Definition */
+static struct notifier_block my_die_notifier = {
+  .notifier_call = my_die_event_handler,
+};
+/* Die notification event handler */
+int
+my_die_event_handler(struct notifier_block *self,
+                          unsigned long val, void *data)
+{
+  struct die_args *args = (struct die_args *)data;
+
+  if (val == 1) { /* '1' corresponds to an "oops" */
+    printk("my_die_event: OOPs! at EIP=%lx\n", args-&gt;regs-&gt;eip);
+  } /* else ignore */
+  return 0;
+}
+
+
+/* Net Device notifier definition */
+static struct notifier_block my_dev_notifier = {
+  .notifier_call = my_dev_event_handler,
+};
+
+
+/* Net Device notification event handler */
+int my_dev_event_handler(struct notifier_block *self,
+                              unsigned long val, void *data)
+{
+  printk("my_dev_event: Val=%ld, Interface=%s\n", val,
+           ((struct net_device *) data)-&gt;name);
+  return 0;
+}
+
+
+<FONT class=extract>/* User-defined notifier chain implementation */
+static BLOCKING_NOTIFIER_HEAD(my_noti_chain);
+</FONT>
+static struct notifier_block my_notifier = {
+  .notifier_call = my_event_handler,
+};
+
+/* User-defined notification event handler */
+int my_event_handler(struct notifier_block *self,
+                          unsigned long val, void *data)
+{
+  printk("my_event: Val=%ld\n", val);
+  return 0;
+}
+/* Driver Initialization */
+static int __init
+my_init(void)
+{
+  /* ... */
+
+  /* Register Die Notifier */
+  register_die_notifier(&amp;my_die_notifier);
+
+  /* Register Net Device Notifier */
+  register_netdevice_notifier(&amp;my_dev_notifier);
+
+  /* Register a user-defined Notifier */
+  blocking_notifier_chain_register(&amp;my_noti_chain, &amp;my_notifier);
+
+  /* ... */
+}
+
+					  </LINUX></LINUX></ASM></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1150></A><A name=iddle1152></A><A name=iddle1269></A><A name=iddle1543></A><A name=iddle2193></A><A name=iddle2568></A><FONT class=extract><TT>my_noti_chain</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06"><FONT class=extract>Listing 3.6</FONT></A><A name="as a"></A><FONT class=extract> is declared as a blocking notifier using <TT>BLOCKING_NOTIFIER_HEAD()</TT></FONT><A name="is registered"></A><FONT class=extract> and is registered via <TT>blocking_notifier_chain_register()</TT></FONT><A name="from process"></A><FONT class=extract>. This means that the notifier handler is always invoked from process context. So, the handler function, <TT>my_event_handler()</TT></FONT><A name="If your"></A><FONT class=extract>, is allowed to go to sleep. If your notifier handler can be called from interrupt context, declare the notifier chain using <TT>ATOMIC_NOTIFIER_HEAD()</TT>, and register it via <TT>atomic_notifier_chain_register()</TT>.</FONT></P><A name=ch03sb03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>The Old Notifier Interface</H2>
+<P class=docText><A name="notifier registration"></A>Kernel releases earlier than 2.6.17 supported only a general-purpose notifier chain. The notifier registration function <TT>notifier_chain_register()</TT><A name="the routine"></A> was internally protected using a spinlock, but the routine that walked the notifier chain dispatching events to notifier handlers (<TT>notifier_call_chain()</TT><A name="the possibility"></A>) was lockless. The lack of locking was because of the possibility that the handler functions may go to sleep, unregister themselves while running, or get called from interrupt context. The lockless implementation introduced race conditions, however. The new notifier API is built over the original interface and is intended to overcome its limitations.</P></TD></TR></TBODY></TABLE>

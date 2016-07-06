@@ -1,0 +1,9 @@
+5) Recommended coding rules for best performance 
+<P></P>
+<P>- Use globals to represent the parts of the QEMU CPU state which are often modified, e.g. the integer registers and the condition codes. TCG will be able to use host registers to store them. </P>
+<P>- Avoid globals stored in fixed registers. They must be used only to store the pointer to the CPU state and possibly to store a pointer to a register window. </P>
+<P>- Use temporaries. Use local temporaries only when really needed, e.g. when you need to use a value after a jump. Local temporaries introduce a performance hit in the current TCG implementation: their content is saved to memory at end of each basic block. </P>
+<P>- Free temporaries and local temporaries when they are no longer used (tcg_temp_free). Since tcg_const_x() also creates a temporary, you should free it after it is used. Freeing temporaries does not yield a better generated code, but it reduces the memory usage of TCG and the speed of the translation. </P>
+<P>- Don't hesitate to use helpers for complicated or seldom used guest instructions. There is little performance advantage in using TCG to implement guest instructions taking more than about twenty TCG instructions. Note that this rule of thumb is more applicable to helpers doing complex logic or arithmetic, where the C compiler has scope to do a good job of optimisation; it is less relevant where the instruction is mostly doing loads and stores, and in those cases inline TCG may still be faster for longer sequences. </P>
+<P>- The hard limit on the number of TCG instructions you can generate per guest instruction is set by MAX_OP_PER_INSTR in exec-all.h -- you cannot exceed this without risking a buffer overrun. </P>
+<P>- Use the 'discard' instruction if you know that TCG won't be able to prove that a given global is "dead" at a given program point. The x86 guest uses it to improve the condition codes optimisation.

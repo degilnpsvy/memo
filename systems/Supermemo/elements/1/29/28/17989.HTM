@@ -1,0 +1,63 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>16.4.13 Boilerplate Code</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">As mentioned earlier (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Extension-Mechanism-Outline">Extension Mechanism Outline</A>), the function definitions as presented are really macros. To use these macros, your extension must provide a small amount of boilerplate code (variables and functions) towards the top of your source file, using pre-defined names as described below. The boilerplate needed is also provided in comments in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>gawkapi.h</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>header file:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/* Boiler plate code: */
+int plugin_is_GPL_compatible;
+
+static gawk_api_t *const api;
+static awk_ext_id_t ext_id;
+static const char *ext_version = NULL; /* or &#8230; = "some string" */
+
+static awk_ext_func_t func_table[] = {
+    { "name", do_name, 1 },
+    /* &#8230; */
+};
+
+/* EITHER: */
+
+static awk_bool_t (*init_func)(void) = NULL;
+
+/* OR: */
+
+static awk_bool_t
+init_my_module(void)
+{
+    &#8230;
+}
+
+static awk_bool_t (*init_func)(void) = init_my_module;
+
+dl_load_func(func_table, some_name, "name_space_in_quotes")
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">These variables and functions are as follows:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>int plugin_is_GPL_compatible;</CODE></DT>
+<DD>
+<P>This asserts that the extension is compatible with the GNU GPL (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Copying">Copying</A>). If your extension does not have this,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>will not load it (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Plugin-License">Plugin License</A>).</P></DD>
+<DT><CODE>static gawk_api_t *const api;</CODE></DT>
+<DD>
+<P>This global<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>static</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>variable should be set to point to the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk_api_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>pointer that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>passes to your<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dl_load()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function. This variable is used by all of the macros.</P></DD>
+<DT><CODE>static awk_ext_id_t ext_id;</CODE></DT>
+<DD>
+<P>This global static variable should be set to the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_ext_id_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>value that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>passes to your<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dl_load()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function. This variable is used by all of the macros.</P></DD>
+<DT><CODE>static const char *ext_version = NULL; /* or &#8230; = "some string" */</CODE></DT>
+<DD>
+<P>This global<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>static</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>variable should be set either to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>NULL</CODE>, or to point to a string giving the name and version of your extension.</P></DD>
+<DT><CODE>static awk_ext_func_t func_table[] = { &#8230; };</CODE></DT>
+<DD>
+<P>This is an array of one or more<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_ext_func_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>structures as described earlier (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Extension-Functions">Extension Functions</A>). It can then be looped over for multiple calls to<CODE>add_ext_func()</CODE>.</P></DD>
+<DT><CODE>static awk_bool_t (*init_func)(void) = NULL;</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>OR</SPAN></CODE></DT>
+<DT><CODE>static awk_bool_t init_my_module(void) { &#8230; }</CODE></DT>
+<DT><CODE>static awk_bool_t (*init_func)(void) = init_my_module;</CODE></DT>
+<DD>
+<P>If you need to do some initialization work, you should define a function that does it (creates variables, opens files, etc.) and then define the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>init_func</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>pointer to point to your function. The function should return<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_false</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>upon failure, or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_true</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>if everything goes well.</P>
+<P>If you don&#8217;t need to do any initialization, define the pointer and initialize it to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>NULL</CODE>.</P></DD>
+<DT><CODE>dl_load_func(func_table, some_name, "name_space_in_quotes")</CODE></DT>
+<DD>
+<P>This macro expands to a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dl_load()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function that performs all the necessary initializations.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The point of the all the variables and arrays is to let the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dl_load()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function (from the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dl_load_func()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro) do all the standard work. It does the following:</P>
+<OL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<LI>Check the API versions. If the extension major version does not match<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>&#8217;s, or if the extension minor version is greater than<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>&#8217;s, it prints a fatal error message and exits.</LI>
+<LI>Load the functions defined in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>func_table</CODE>. If any of them fails to load, it prints a warning message but continues on.</LI>
+<LI>If the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>init_func</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>pointer is not<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>NULL</CODE>, call the function it points to. If it returns<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_false</CODE>, print a warning message.</LI>
+<LI>If<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ext_version</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is not<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>NULL</CODE>, register the version string with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>.</LI></OL>

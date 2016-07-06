@@ -1,0 +1,45 @@
+<H4 class=subsection style="FONT-SIZE: medium; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">3.5.3 mmo section mapping</H4>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">The implementation in BFD uses special data type 80 (decimal) to encapsulate and describe named sections, containing e.g. debug information. If needed, any datum in the encapsulation will be quoted using lop_quote. First comes a 32-bit word holding the number of 32-bit words containing the zero-terminated zero-padded segment name. After the name there's a 32-bit word holding flags describing the section type. Then comes a 64-bit big-endian word with the section length (in bytes), then another with the section start address. Depending on the type of section, the contents might follow, zero-padded to 32-bit boundary. For a loadable section (such as data or code), the contents might follow at some later point, not necessarily immediately, as a lop_loc with the same start address as in the section description, followed by the contents. This in effect forms a descriptor that must be emitted before the actual contents. Sections described this way must not overlap.</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">For areas that don't have such descriptors, synthetic sections are formed by BFD. Consecutive contents in the two memory areas `<SAMP><SPAN class=samp>0x0000...00</SPAN></SAMP>' to `<SAMP><SPAN class=samp>0x01ff...ff</SPAN></SAMP>' and `<SAMP><SPAN class=samp>0x2000...00</SPAN></SAMP>' to `<SAMP><SPAN class=samp>0x20ff...ff</SPAN></SAMP>' are entered in sections named<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.text</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.data</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>respectively. If an area is not otherwise described, but would together with a neighboring lower area be less than `<SAMP><SPAN class=samp>0x40000000</SPAN></SAMP>' bytes long, it is joined with the lower area and the gap is zero-filled. For other cases, a new section is formed, named<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.MMIX.sec.</CODE><VAR>n</VAR>. Here,<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>n</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a number, a running count through the mmo file, starting at 0.</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">A loadable section specified as:</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">      .section secname,"ax"
+      TETRA 1,2,3,4,-1,-2009
+      BYTE 80
+</PRE>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">and linked to address `<SAMP><SPAN class=samp>0x4</SPAN></SAMP>', is represented by the sequence:</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">      0x98080050 - lop_spec 80
+      0x00000002 - two 32-bit words for the section name
+      0x7365636e - "secn"
+      0x616d6500 - "ame\0"
+      0x00000033 - flags CODE, READONLY, LOAD, ALLOC
+      0x00000000 - high 32 bits of section length
+      0x0000001c - section length is 28 bytes; 6 * 4 + 1 + alignment to 32 bits
+      0x00000000 - high 32 bits of section address
+      0x00000004 - section address is 4
+      0x98010002 - 64 bits with address of following data
+      0x00000000 - high 32 bits of address
+      0x00000004 - low 32 bits: data starts at address 4
+      0x00000001 - 1
+      0x00000002 - 2
+      0x00000003 - 3
+      0x00000004 - 4
+      0xffffffff - -1
+      0xfffff827 - -2009
+      0x50000000 - 80 as a byte, padded with zeros.
+</PRE>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">Note that the lop_spec wrapping does not include the section contents. Compare this to a non-loaded section specified as:</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">      .section thirdsec
+      TETRA 200001,100002
+      BYTE 38,40
+</PRE>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">This, when linked to address `<SAMP><SPAN class=samp>0x200000000000001c</SPAN></SAMP>', is represented by:</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">      0x98080050 - lop_spec 80
+      0x00000002 - two 32-bit words for the section name
+      0x7365636e - "thir"
+      0x616d6500 - "dsec"
+      0x00000010 - flag READONLY
+      0x00000000 - high 32 bits of section length
+      0x0000000c - section length is 12 bytes; 2 * 4 + 2 + alignment to 32 bits
+      0x20000000 - high 32 bits of address
+      0x0000001c - low 32 bits of address 0x200000000000001c
+      0x00030d41 - 200001
+      0x000186a2 - 100002
+      0x26280000 - 38, 40 as bytes, padded with zeros
+</PRE>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">For the latter example, the section contents must not be loaded in memory, and is therefore specified as part of the special data. The address is usually unimportant but might provide information for e.g. the DWARF 2 debugging format.

@@ -1,0 +1,22 @@
+# Documentation/leds/ledtrig-oneshot.txt
+<P></P>
+<P>One-shot LED Trigger<BR>====================</P>
+<P></P>
+<P>This is a LED trigger useful for signaling the user of an event where there are<BR>no clear trap points to put standard led-on and led-off settings.&nbsp; Using this<BR>trigger, the application needs only to signal the trigger when an event has<BR>happened, than the trigger turns the LED on and than keeps it off for a<BR>specified amount of time.</P>
+<P>This trigger is meant to be usable both for sporadic and dense events.&nbsp; In the<BR>first case, the trigger produces a clear single controlled blink for each<BR>event, while in the latter it keeps blinking at constant rate, as to signal<BR>that the events are arriving continuously.</P>
+<P>A one-shot LED only stays in a constant state when there are no events.&nbsp; An<BR>additional "invert" property specifies if the LED has to stay off (normal) or<BR>on (inverted) when not rearmed.</P>
+<P>The trigger can be activated from user space on led class devices as shown<BR>below:</P>
+<P>&nbsp; echo oneshot &gt; trigger</P>
+<P>This adds the following sysfs attributes to the LED:</P>
+<P>&nbsp; delay_on - specifies for how many milliseconds the LED has to stay at<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; LED_FULL brightness after it has been armed.<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Default to 100 ms.</P>
+<P>&nbsp; delay_off - specifies for how many milliseconds the LED has to stay at<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; LED_OFF brightness after it has been armed.<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Default to 100 ms.</P>
+<P>&nbsp; invert - reverse the blink logic.&nbsp; If set to 0 (default) blink on for delay_on<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ms, then blink off for delay_off ms, leaving the LED normally off.&nbsp; If<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; set to 1, blink off for delay_off ms, then blink on for delay_on ms,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; leaving the LED normally on.<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Setting this value also immediately change the LED state.</P>
+<P>&nbsp; shot - write any non-empty string to signal an events, this starts a blink<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; sequence if not already running.</P>
+<P>Example use-case: network devices, initialization:</P>
+<P>&nbsp; echo oneshot &gt; trigger # set trigger for this led<BR>&nbsp; echo 33 &gt; delay_on&nbsp;&nbsp;&nbsp;&nbsp; # blink at 1 / (33 + 33) Hz on continuous traffic<BR>&nbsp; echo 33 &gt; delay_off</P>
+<P>interface goes up:</P>
+<P>&nbsp; echo 1 &gt; invert # set led as normally-on, turn the led on</P>
+<P>packet received/transmitted:</P>
+<P>&nbsp; echo 1 &gt; shot # led starts blinking, ignored if already blinking</P>
+<P>interface goes down</P>
+<P>&nbsp; echo 0 &gt; invert # set led as normally-off, turn the led off

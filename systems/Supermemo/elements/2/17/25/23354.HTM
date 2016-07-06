@@ -1,0 +1,88 @@
+# Documentation/kernel-doc-nano-HOWTO.txt
+<P></P>
+<P>kernel-doc nano-HOWTO<BR>=====================</P>
+<P></P>
+<P>How to format kernel-doc comments<BR>---------------------------------</P>
+<P>In order to provide embedded, 'C' friendly, easy to maintain,<BR>but consistent and extractable documentation of the functions and<BR>data structures in the Linux kernel, the Linux kernel has adopted<BR>a consistent style for documenting functions and their parameters,<BR>and structures and their members.</P>
+<P>The format for this documentation is called the kernel-doc format.<BR>It is documented in this Documentation/kernel-doc-nano-HOWTO.txt file.</P>
+<P>This style embeds the documentation within the source files, using<BR>a few simple conventions.&nbsp; The scripts/kernel-doc perl script, some<BR>SGML templates in Documentation/DocBook, and other tools understand<BR>these conventions, and are used to extract this embedded documentation<BR>into various documents.</P>
+<P>In order to provide good documentation of kernel functions and data<BR>structures, please use the following conventions to format your<BR>kernel-doc comments in Linux kernel source.</P>
+<P>We definitely need kernel-doc formatted documentation for functions<BR>that are exported to loadable modules using EXPORT_SYMBOL.</P>
+<P>We also look to provide kernel-doc formatted documentation for<BR>functions externally visible to other kernel files (not marked<BR>"static").</P>
+<P>We also recommend providing kernel-doc formatted documentation<BR>for private (file "static") routines, for consistency of kernel<BR>source code layout.&nbsp; But this is lower priority and at the<BR>discretion of the MAINTAINER of that kernel source file.</P>
+<P>Data structures visible in kernel include files should also be<BR>documented using kernel-doc formatted comments.</P>
+<P>The opening comment mark "/**" is reserved for kernel-doc comments.<BR>Only comments so marked will be considered by the kernel-doc scripts,<BR>and any comment so marked must be in kernel-doc format.&nbsp; Do not use<BR>"/**" to be begin a comment block unless the comment block contains<BR>kernel-doc formatted comments.&nbsp; The closing comment marker for<BR>kernel-doc comments can be either "*/" or "**/", but "*/" is<BR>preferred in the Linux kernel tree.</P>
+<P>Kernel-doc comments should be placed just before the function<BR>or data structure being described.</P>
+<P>Example kernel-doc function comment:</P>
+<P>/**<BR>&nbsp;* foobar() - short function description of foobar<BR>&nbsp;* @arg1:&nbsp;Describe the first argument to foobar.<BR>&nbsp;* @arg2:&nbsp;Describe the second argument to foobar.<BR>&nbsp;*&nbsp;&nbsp;One can provide multiple line descriptions<BR>&nbsp;*&nbsp;&nbsp;for arguments.<BR>&nbsp;*<BR>&nbsp;* A longer description, with more discussion of the function foobar()<BR>&nbsp;* that might be useful to those using or modifying it.&nbsp; Begins with<BR>&nbsp;* empty comment line, and may include additional embedded empty<BR>&nbsp;* comment lines.<BR>&nbsp;*<BR>&nbsp;* The longer description can have multiple paragraphs.<BR>&nbsp;*<BR>&nbsp;* Return: Describe the return value of foobar.<BR>&nbsp;*/</P>
+<P>The short description following the subject can span multiple lines<BR>and ends with an @argument description, an empty line or the end of<BR>the comment block.</P>
+<P>The @argument descriptions must begin on the very next line following<BR>this opening short function description line, with no intervening<BR>empty comment lines.</P>
+<P>If a function parameter is "..." (varargs), it should be listed in<BR>kernel-doc notation as:<BR>&nbsp;* @...: description</P>
+<P>The return value, if any, should be described in a dedicated section<BR>named "Return".</P>
+<P>Example kernel-doc data structure comment.</P>
+<P>/**<BR>&nbsp;* struct blah - the basic blah structure<BR>&nbsp;* @mem1:&nbsp;describe the first member of struct blah<BR>&nbsp;* @mem2:&nbsp;describe the second member of struct blah,<BR>&nbsp;*&nbsp;&nbsp;perhaps with more lines and words.<BR>&nbsp;*<BR>&nbsp;* Longer description of this structure.<BR>&nbsp;*/</P>
+<P>The kernel-doc function comments describe each parameter to the<BR>function, in order, with the @name lines.</P>
+<P>The kernel-doc data structure comments describe each structure member<BR>in the data structure, with the @name lines.</P>
+<P>The longer description formatting is "reflowed", losing your line<BR>breaks.&nbsp; So presenting carefully formatted lists within these<BR>descriptions won't work so well; derived documentation will lose<BR>the formatting.</P>
+<P>See the section below "How to add extractable documentation to your<BR>source files" for more details and notes on how to format kernel-doc<BR>comments.</P>
+<P>Components of the kernel-doc system<BR>-----------------------------------</P>
+<P>Many places in the source tree have extractable documentation in the<BR>form of block comments above functions.&nbsp; The components of this system<BR>are:</P>
+<P>- scripts/kernel-doc</P>
+<P>&nbsp; This is a perl script that hunts for the block comments and can mark<BR>&nbsp; them up directly into DocBook, man, text, and HTML. (No, not<BR>&nbsp; texinfo.)</P>
+<P>- Documentation/DocBook/*.tmpl</P>
+<P>&nbsp; These are SGML template files, which are normal SGML files with<BR>&nbsp; special place-holders for where the extracted documentation should<BR>&nbsp; go.</P>
+<P>- scripts/basic/docproc.c</P>
+<P>&nbsp; This is a program for converting SGML template files into SGML<BR>&nbsp; files. When a file is referenced it is searched for symbols<BR>&nbsp; exported (EXPORT_SYMBOL), to be able to distinguish between internal<BR>&nbsp; and external functions.<BR>&nbsp; It invokes kernel-doc, giving it the list of functions that<BR>&nbsp; are to be documented.<BR>&nbsp; Additionally it is used to scan the SGML template files to locate<BR>&nbsp; all the files referenced herein. This is used to generate dependency<BR>&nbsp; information as used by make.</P>
+<P>- Makefile</P>
+<P>&nbsp; The targets 'sgmldocs', 'psdocs', 'pdfdocs', and 'htmldocs' are used<BR>&nbsp; to build DocBook files, PostScript files, PDF files, and html files<BR>&nbsp; in Documentation/DocBook.</P>
+<P>- Documentation/DocBook/Makefile</P>
+<P>&nbsp; This is where C files are associated with SGML templates.</P>
+<P><BR>How to extract the documentation<BR>--------------------------------</P>
+<P>If you just want to read the ready-made books on the various<BR>subsystems (see Documentation/DocBook/*.tmpl), just type 'make<BR>psdocs', or 'make pdfdocs', or 'make htmldocs', depending on your<BR>preference.&nbsp; If you would rather read a different format, you can type<BR>'make sgmldocs' and then use DocBook tools to convert<BR>Documentation/DocBook/*.sgml to a format of your choice (for example,<BR>'db2html ...' if 'make htmldocs' was not defined).</P>
+<P>If you want to see man pages instead, you can do this:</P>
+<P>$ cd linux<BR>$ scripts/kernel-doc -man $(find -name '*.c') | split-man.pl /tmp/man<BR>$ scripts/kernel-doc -man $(find -name '*.h') | split-man.pl /tmp/man</P>
+<P>Here is split-man.pl:</P>
+<P>--&gt;<BR>#!/usr/bin/perl</P>
+<P>if ($#ARGV &lt; 0) {<BR>&nbsp;&nbsp; die "where do I put the results?\n";<BR>}</P>
+<P>mkdir $ARGV[0],0777;<BR>$state = 0;<BR>while (&lt;STDIN&gt;) {<BR>&nbsp;&nbsp;&nbsp; if (/^\.TH \"[^\"]*\" 9 \"([^\"]*)\"/) {<BR>&nbsp;if ($state == 1) { close OUT }<BR>&nbsp;$state = 1;<BR>&nbsp;$fn = "$ARGV[0]/$1.9";<BR>&nbsp;print STDERR "Creating $fn\n";<BR>&nbsp;open OUT, "&gt;$fn" or die "can't open $fn: $!\n";<BR>&nbsp;print OUT $_;<BR>&nbsp;&nbsp;&nbsp; } elsif ($state != 0) {<BR>&nbsp;print OUT $_;<BR>&nbsp;&nbsp;&nbsp; }<BR>}</P>
+<P>close OUT;<BR>&lt;--</P>
+<P>If you just want to view the documentation for one function in one<BR>file, you can do this:</P>
+<P>$ scripts/kernel-doc -man -function fn file | nroff -man | less</P>
+<P>or this:</P>
+<P>$ scripts/kernel-doc -text -function fn file</P>
+<P><BR>How to add extractable documentation to your source files<BR>---------------------------------------------------------</P>
+<P>The format of the block comment is like this:</P>
+<P>/**<BR>&nbsp;* function_name(:)? (- short description)?<BR>(* @parameterx(space)*: (description of parameter x)?)*<BR>(* a blank line)?<BR>&nbsp;* (Description:)? (Description of function)?<BR>&nbsp;* (section header: (section description)? )*<BR>(*)?*/</P>
+<P>All "description" text can span multiple lines, although the<BR>function_name &amp; its short description are traditionally on a single line.<BR>Description text may also contain blank lines (i.e., lines that contain<BR>only a "*").</P>
+<P>"section header:" names must be unique per function (or struct,<BR>union, typedef, enum).</P>
+<P>Use the section header "Return" for sections describing the return value<BR>of a function.</P>
+<P>Avoid putting a spurious blank line after the function name, or else the<BR>description will be repeated!</P>
+<P>All descriptive text is further processed, scanning for the following special<BR>patterns, which are highlighted appropriately.</P>
+<P>'funcname()' - function<BR>'$ENVVAR' - environment variable<BR>'&amp;struct_name' - name of a structure (up to two words including 'struct')<BR><A href="mailto:'@parameter'">'@parameter'</A> - name of a parameter<BR>'%CONST' - name of a constant.</P>
+<P>NOTE 1:&nbsp; The multi-line descriptive text you provide does *not* recognize<BR>line breaks, so if you try to format some text nicely, as in:</P>
+<P>&nbsp; Return:<BR>&nbsp;&nbsp;&nbsp; 0 - cool<BR>&nbsp;&nbsp;&nbsp; 1 - invalid arg<BR>&nbsp;&nbsp;&nbsp; 2 - out of memory</P>
+<P>this will all run together and produce:</P>
+<P>&nbsp; Return: 0 - cool 1 - invalid arg 2 - out of memory</P>
+<P>NOTE 2:&nbsp; If the descriptive text you provide has lines that begin with<BR>some phrase followed by a colon, each of those phrases will be taken as<BR>a new section heading, which means you should similarly try to avoid text<BR>like:</P>
+<P>&nbsp; Return:<BR>&nbsp;&nbsp;&nbsp; 0: cool<BR>&nbsp;&nbsp;&nbsp; 1: invalid arg<BR>&nbsp;&nbsp;&nbsp; 2: out of memory</P>
+<P>every line of which would start a new section.&nbsp; Again, probably not<BR>what you were after.</P>
+<P>Take a look around the source tree for examples.</P>
+<P><BR>kernel-doc for structs, unions, enums, and typedefs<BR>---------------------------------------------------</P>
+<P>Beside functions you can also write documentation for structs, unions,<BR>enums and typedefs. Instead of the function name you must write the name<BR>of the declaration;&nbsp; the struct/union/enum/typedef must always precede<BR>the name. Nesting of declarations is not supported.<BR>Use the argument mechanism to document members or constants.</P>
+<P>Inside a struct description, you can use the "private:" and "public:"<BR>comment tags.&nbsp; Structure fields that are inside a "private:" area<BR>are not listed in the generated output documentation.&nbsp; The "private:"<BR>and "public:" tags must begin immediately following a "/*" comment<BR>marker.&nbsp; They may optionally include comments between the ":" and the<BR>ending "*/" marker.</P>
+<P>Example:</P>
+<P>/**<BR>&nbsp;* struct my_struct - short description<BR>&nbsp;* @a: first member<BR>&nbsp;* @b: second member<BR>&nbsp;*<BR>&nbsp;* Longer description<BR>&nbsp;*/<BR>struct my_struct {<BR>&nbsp;&nbsp;&nbsp; int a;<BR>&nbsp;&nbsp;&nbsp; int b;<BR>/* private: internal use only */<BR>&nbsp;&nbsp;&nbsp; int c;<BR>};</P>
+<P><BR>Including documentation blocks in source files<BR>----------------------------------------------</P>
+<P>To facilitate having source code and comments close together, you can<BR>include kernel-doc documentation blocks that are free-form comments<BR>instead of being kernel-doc for functions, structures, unions,<BR>enums, or typedefs.&nbsp; This could be used for something like a<BR>theory of operation for a driver or library code, for example.</P>
+<P>This is done by using a DOC: section keyword with a section title.&nbsp; E.g.:</P>
+<P>/**<BR>&nbsp;* DOC: Theory of Operation<BR>&nbsp;*<BR>&nbsp;* The whizbang foobar is a dilly of a gizmo.&nbsp; It can do whatever you<BR>&nbsp;* want it to do, at any time.&nbsp; It reads your mind.&nbsp; Here's how it works.<BR>&nbsp;*<BR>&nbsp;* foo bar splat<BR>&nbsp;*<BR>&nbsp;* The only drawback to this gizmo is that is can sometimes damage<BR>&nbsp;* hardware, software, or its subject(s).<BR>&nbsp;*/</P>
+<P>DOC: sections are used in SGML templates files as indicated below.</P>
+<P><BR>How to make new SGML template files<BR>-----------------------------------</P>
+<P>SGML template files (*.tmpl) are like normal SGML files, except that<BR>they can contain escape sequences where extracted documentation should<BR>be inserted.</P>
+<P>!E&lt;filename&gt; is replaced by the documentation, in &lt;filename&gt;, for<BR>functions that are exported using EXPORT_SYMBOL: the function list is<BR>collected from files listed in Documentation/DocBook/Makefile.</P>
+<P>!I&lt;filename&gt; is replaced by the documentation for functions that are<BR>_not_ exported using EXPORT_SYMBOL.</P>
+<P>!D&lt;filename&gt; is used to name additional files to search for functions<BR>exported using EXPORT_SYMBOL.</P>
+<P>!F&lt;filename&gt; &lt;function [functions...]&gt; is replaced by the<BR>documentation, in &lt;filename&gt;, for the functions listed.</P>
+<P>!P&lt;filename&gt; &lt;section title&gt; is replaced by the contents of the DOC:<BR>section titled &lt;section title&gt; from &lt;filename&gt;.<BR>Spaces are allowed in &lt;section title&gt;; do not quote the &lt;section title&gt;.</P>
+<P>!C&lt;filename&gt; is replaced by nothing, but makes the tools check that<BR>all DOC: sections and documented functions, symbols, etc. are used.<BR>This makes sense to use when you use !F/!P only and want to verify<BR>that all documentation is included.</P>
+<P>Tim.<BR>*/ &lt;<A href="mailto:twaugh@redhat.com">twaugh@redhat.com</A>&gt;

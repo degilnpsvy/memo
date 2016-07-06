@@ -1,0 +1,20 @@
+<H4 class=subsection>7.4.10 The <CODE>exit</CODE> Statement</H4><A name=index-exit-statement></A>
+<P>The <CODE>exit</CODE> statement causes <CODE>awk</CODE> to immediately stop executing the current rule and to stop processing input; any remaining input is ignored. The <CODE>exit</CODE> statement is written as follows: </P>
+<DIV class=example><PRE class=example>exit <SPAN class=roman><FONT face=Batang>[</FONT></SPAN><VAR>return code</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>
+</PRE></DIV><A name=index-BEGIN-pattern_002c-exit-statement-and></A><A name=index-END-pattern_002c-exit-statement-and></A>
+<P>When an <CODE>exit</CODE> statement is executed from a <CODE>BEGIN</CODE> rule, the program stops processing everything immediately. No input records are read. However, if an <CODE>END</CODE> rule is present, as part of executing the <CODE>exit</CODE> statement, the <CODE>END</CODE> rule is executed (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#BEGIN_002fEND">BEGIN/END</A>). If <CODE>exit</CODE> is used in the body of an <CODE>END</CODE> rule, it causes the program to stop immediately. </P>
+<P>An <CODE>exit</CODE> statement that is not part of a <CODE>BEGIN</CODE> or <CODE>END</CODE> rule stops the execution of any further automatic rules for the current record, skips reading any remaining input records, and executes the <CODE>END</CODE> rule if there is one. Any <CODE>ENDFILE</CODE> rules are also skipped; they are not executed. </P>
+<P>In such a case, if you don&#8217;t want the <CODE>END</CODE> rule to do its job, set a variable to nonzero before the <CODE>exit</CODE> statement and check that variable in the <CODE>END</CODE> rule. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Assert-Function">Assert Function</A>, for an example that does this. </P><A name=index-dark-corner_002c-exit-statement></A>
+<P>If an argument is supplied to <CODE>exit</CODE>, its value is used as the exit status code for the <CODE>awk</CODE> process. If no argument is supplied, <CODE>exit</CODE> causes <CODE>awk</CODE> to return a &#8220;success&#8221; status. In the case where an argument is supplied to a first <CODE>exit</CODE> statement, and then <CODE>exit</CODE> is called a second time from an <CODE>END</CODE> rule with no argument, <CODE>awk</CODE> uses the previously supplied exit value. (d.c.) See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Exit-Status">Exit Status</A>, for more information. </P><A name=index-programming-conventions_002c-exit-statement></A>
+<P>For example, suppose an error condition occurs that is difficult or impossible to handle. Conventionally, programs report this by exiting with a nonzero status. An <CODE>awk</CODE> program can do this using an <CODE>exit</CODE> statement with a nonzero argument, as shown in the following example: </P>
+<DIV class=example><PRE class=example>BEGIN {
+       if (("date" | getline date_now) &lt;= 0) {
+         print "Can't get system date" &gt; "/dev/stderr"
+         exit 1
+       }
+       print "current date is", date_now
+       close("date")
+}
+</PRE></DIV>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> For full portability, exit values should be between zero and 126, inclusive. Negative values, and values of 127 or greater, may not produce consistent results across different operating systems. </P></BLOCKQUOTE>

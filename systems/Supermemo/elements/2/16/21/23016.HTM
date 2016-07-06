@@ -1,0 +1,665 @@
+<H3 id=-100000 class=docSection1Title>Helper Interfaces</H3>
+<P class=docText><A name=iddle2197></A><A name=iddle2203></A><A name=iddle2572></A><A name=iddle2574></A><A name=iddle2756></A><A name=iddle2819></A><A name=iddle2824></A><A name="Several useful"></A>Several useful helper interfaces exist in the kernel to make life easier for device driver developers. One example is the implementation of the doubly linked list library. Many drivers need to maintain and manipulate linked lists of data structures. The kernel's <SPAN class=docEmphasis>list</SPAN><A name="eliminate the"></A> interface routines eliminate the need for chasing list pointers and debugging messy problems related to list maintenance. Let's learn to use helper interfaces such as lists, hlists, work queues, completion functions, notifier blocks, and kthreads.</P>
+<P class=docText><A name="are equivalent"></A>There are equivalent ways to do what the helper facilities offer. You can, for example, implement your own list manipulation routines instead of using the list library, or use kernel threads to defer work instead of submitting it to work queues. Using standard kernel helper interfaces, however, simplifies your code, weeds out redundancies from the kernel, increases code readability, and helps long-term maintenance.</P><A name=ch03note01></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="that do"></A>Because the kernel is vast, you can always find parts that do not yet take advantage of these helper mechanisms, so updating those code regions might be a good way to start contributing to kernel development.</P>
+<P></P></DIV><BR><A name=ch03lev2sec4></A>
+<H4 id=title-ID0EDOOM class=docSection2Title><FONT class=extract>Linked Lists</FONT></H4>
+<P class=docText><A name="of data"></A><FONT class=extract>To weave doubly linked lists of data structures, use the functions provided in <SPAN class=docEmphasis>include/linux/list.h.</SPAN> Essentially, you embed a <TT>struct list_head</TT> inside your data structure:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <LINUX list.h="">
+
+struct list_head {
+  struct list_head *next, *prev;
+};
+
+struct mydatastructure {
+  struct list_head mylist; /* Embed */
+  /* ... */                /* Actual Fields */
+};</LINUX></FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract><TT>mylist</TT> is the link that chains different instances of <TT>mydatastructure</TT>. If you have multiple <TT>list_head</TT>s embedded inside <TT>mydatastructure</TT>, each of them constitutes </FONT><A name=iddle2199></A><A name=iddle2351></A><A name=iddle2758></A><A name=iddle2808></A><A name=iddle2809></A><A name=iddle2810></A><A name=iddle2812></A><A name=iddle2813></A><A name=iddle2815></A><A name=iddle2817></A><A name=iddle2821></A><A name=iddle2822></A><A name=iddle2826></A><A name=iddle3166></A><FONT class=extract>a link that renders <TT>mydatastructure</TT></FONT><A name="list library"></A><FONT class=extract> a member of a new list. You can use the list library to add or delete membership from individual lists.</FONT></P>
+<P class=docText><A name="land before"></A><FONT class=extract>To get the lay of the land before the detail, let's summarize the linked list programming interface offered by the list library. This is done in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03tab01"><FONT class=extract>Table 3.1</FONT></A><FONT class=extract>.</FONT></P><A name=ch03tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><FONT class=extract>Table 3.1. Linked List Manipulation Functions</FONT></H5></CAPTION>
+<COLGROUP span=2 align=left><FONT class=extract>
+<COL width=250>
+<COL width=300></FONT></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Function</FONT></TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Purpose</FONT></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>INIT_LIST_HEAD()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Initializes the list head</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_add()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Adds an element after the list head</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_add_tail()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Adds an element to the tail of the list</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_del()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Deletes an element from the list</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_replace()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Replaces an element in the list with another</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_entry()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Loops through all nodes in the list</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<DIV class=docText><PRE><FONT class=extract>list_for_each_entry()/
+list_for_each_entry_safe()</FONT></PRE></DIV><BR></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Simpler list iteration interfaces</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_empty()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Checks whether there are any elements in the list</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT><FONT class=extract>list_splice()</FONT></TT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract>Joins one list with another</FONT></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="serves as"></A><FONT class=extract>To illustrate list usage, let's implement an example. The example also serves as a foundation to understand the concept of work queues, which is discussed in the next section. Assume that your kernel driver needs to perform a heavy-duty task from an entry point. An example is a task that forces the calling thread to sleep-wait. Naturally, your driver doesn't like to block until the task finishes, because that slows down the responsiveness of applications relying on it. So, whenever the driver needs to perform this expensive work, it defers execution by adding the corresponding routine to a linked list of work functions. The actual work is performed by a kernel thread, which traverses the list and executes the work functions in the background. The driver submits work functions to the tail of the list, while the kernel thread ploughs its way from the head of the list, thus ensuring that work queued first gets done first. Of course, the rest of the driver needs to be designed to suit this scheme of deferred execution. Before understanding this example, however, be aware that we will use the work queue interface in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex05"><FONT class=extract>Listing 3.5</FONT></A><A name="implement the"></A><FONT class=extract> to implement the same task in a simpler manner.</FONT></P>
+<P class=docText><FONT class=extract>Let's first introduce the key driver data structures used by our example:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>static struct _mydrv_wq {
+  struct list_head mydrv_worklist; /* Work List */
+  spinlock_t lock;                 /* Protect the list */
+  wait_queue_head_t todo;          /* Synchronize submitter
+                                      and worker */
+} mydrv_wq;
+
+
+struct _mydrv_work {
+  struct list_head mydrv_workitem; /* The work chain */
+  void (*worker_func)(void *);     /* Work to perform */
+  void *worker_data;               /* Argument to worker_func */
+  /* ... */                        /* Other fields */
+} mydrv_work;</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle2198></A><A name=iddle2757></A><A name=iddle2825></A><A name=iddle3163></A><TT><FONT class=extract>mydrv_wq</FONT></TT><A name="to the"></A><FONT class=extract> is global to all work submissions. Its members include a pointer to the head of the work list, and a wait queue to communicate between driver functions that submit work and the kernel thread that performs the work. The list helper functions do not protect accesses to list members, so you need to use concurrency mechanisms to serialize simultaneous pointer references. This is done using a spinlock that is also a part of <TT>mydrv_wq</TT></FONT><A name="The driver"></A><FONT class=extract>. The driver initialization routine <TT>mydrv_init()</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02"><FONT class=extract>Listing 3.2</FONT></A><A name="the list"></A><FONT class=extract> initializes the spinlock, the list head, and the wait queue, and kick starts the worker thread.</FONT></P><A name=ch03ex02></A>
+<H5 id=title-ID0E21OM class=docExampleTitle><FONT class=extract>Listing 3.2. Initialize Data Structures</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE><FONT class=extract>static int __init
+mydrv_init(void)
+{
+  /* Initialize the lock to protect against
+     concurrent list access */
+  spin_lock_init(&amp;mydrv_wq.lock);
+
+  /* Initialize the wait queue for communication
+     between the submitter and the worker */
+  init_waitqueue_head(&amp;mydrv_wq.todo);
+
+  /* Initialize the list head */
+  INIT_LIST_HEAD(&amp;mydrv_wq.mydrv_worklist);
+
+  /* Start the worker thread. See Listing 3.4 */
+  kernel_thread(mydrv_worker, NULL,
+                  CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD);
+  return 0;
+}</FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2200></A><A name=iddle2760></A><A name=iddle2828></A><A name=iddle4170></A><A name=iddle4171></A><A name=iddle4173></A><A name=iddle4642></A><A name="examining the"></A><FONT class=extract>Before examining the worker thread that executes submitted work, let's look at work submission itself. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex03"><FONT class=extract>Listing 3.3</FONT></A><A name="can use"></A><FONT class=extract> implements a function that other parts of the kernel can use to submit work. It uses <TT>list_add_tail()</TT></FONT><A name="to the"></A><FONT class=extract> to add a work function to the tail of the list. Look at </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03fig01"><FONT class=extract>Figure 3.1</FONT></A><FONT class=extract> to see the physical structure of the work list.</FONT></P><A name=ch03fig01></A>
+<P><FONT class=extract></FONT>
+<CENTER>
+<H5 class=docFigureTitle><FONT class=extract>Figure 3.1. Linked list of work functions.</FONT></H5>
+<P class=docText><FONT class=extract></FONT>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC8xaGlnM2NzZ2ku.jpg" target=_blank><FONT class=extract>[View full size image]</FONT></A></DIV><FONT class=extract><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzFoaWczc2M-.jpg" width=500 height=258> </FONT>
+<P></P></CENTER>
+<P><FONT class=extract></FONT></P><BR><A name=ch03ex03></A>
+<H5 id=title-ID0EA6OM class=docExampleTitle><FONT class=extract>Listing 3.3. Submitting Work to Be Executed Later</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE><FONT class=extract>int
+submit_work(void (*func)(void *data), void *data)
+{
+  struct _mydrv_work *mydrv_work;
+
+  /* Allocate the work structure */
+  mydrv_work = kmalloc(sizeof(struct _mydrv_work), GFP_ATOMIC);
+  if (!mydrv_work) return -1;
+
+  /* Populate the work structure */
+  mydrv_work-&gt;worker_func = func; /* Work function */
+  mydrv_work-&gt;worker_data = data; /* Argument to pass */
+  spin_lock(&amp;mydrv_wq.lock);      /* Protect the list */
+
+  /* Add your work to the tail of the list */
+  list_add_tail(&amp;mydrv_work-&gt;mydrv_workitem,
+                  &amp;mydrv_wq.mydrv_worklist);
+
+  /* Wake up the worker thread */
+  wake_up(&amp;mydrv_wq.todo);
+
+  spin_unlock(&amp;mydrv_wq.lock);
+  return 0;
+}</FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2201></A><A name=iddle2759></A><A name=iddle2811></A><A name=iddle2814></A><A name=iddle2827></A><A name=iddle3165></A><A name=iddle4645></A><FONT class=extract>To submit a work function <TT>void job(void *)</TT> from a driver entry point, do this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>submit_work(job, NULL);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>After submitting the work function, </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex03"><FONT class=extract>Listing 3.3</FONT></A><A name="worker thread"></A><FONT class=extract> wakes up the worker thread. The general structure of the worker thread shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><A name="discussed in"></A><FONT class=extract> is similar to standard kernel threads discussed in the previous section. The thread uses <TT>list_entry()</TT></FONT><A name="the list"></A><FONT class=extract> to work its way through all nodes in the list. <TT>list_entry()</TT></FONT><A name="the container"></A><FONT class=extract> returns the container data structure inside which the list node is embedded. Take a closer look at the relevant line in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><FONT class=extract>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>mydrv_work = list_entry(mydrv_wq.mydrv_worklist.next,
+                        struct _mydrv_work, mydrv_workitem);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract><TT>mydrv_workitem</TT> is embedded inside <TT>mydrv_work</TT>, so <TT>list_entry()</TT> returns a pointer to the corresponding <TT>mydrv_work</TT> structure. The parameters passed to <TT>list_entry()</TT></FONT><A name="the container"></A><FONT class=extract> are the address of the embedded list node, the type of the container structure, and the field name of the embedded list node.</FONT></P>
+<P class=docText><A name="After executing"></A><FONT class=extract>After executing a submitted work function, the worker thread removes the corresponding node from the list using <TT>list_del()</TT>. Note that <TT>mydrv_wq.lock</TT></FONT><A name="and reacquired"></A><FONT class=extract> is released and reacquired in the time window when the submitted work function is executed. This is because work functions can go to sleep resulting in potential deadlocks if newly scheduled code tries to acquire the same spinlock.</FONT></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch03ex04></A>
+<H5 id=title-ID0EXDPM class=docExampleTitle><FONT class=extract>Listing 3.4. The Worker Thread</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>static int
+mydrv_worker(void *unused)
+{
+
+  DECLARE_WAITQUEUE(wait, current);
+  void (*worker_func)(void *);
+  void *worker_data;
+  struct _mydrv_work *mydrv_work;
+
+  set_current_state(TASK_INTERRUPTIBLE);
+
+  /* Spin until asked to die */
+  while (!asked_to_die()) {
+    add_wait_queue(&amp;mydrv_wq.todo, &amp;wait);
+
+    if (list_empty(&amp;mydrv_wq.mydrv_worklist)) {
+      schedule();
+      /* Woken up by the submitter */
+    } else {
+      set_current_state(TASK_RUNNING);
+    }
+    remove_wait_queue(&amp;mydrv_wq.todo, &amp;wait);
+
+    /* Protect concurrent access to the list */
+    spin_lock(&amp;mydrv_wq.lock);
+
+    /* Traverse the list and plough through the work functions
+       present in each node */
+    while (!list_empty(&amp;mydrv_wq.mydrv_worklist)) {
+
+      /* Get the first entry in the list */
+      mydrv_work = list_entry(mydrv_wq.mydrv_worklist.next,
+                              struct _mydrv_work, mydrv_workitem);
+      worker_func = mydrv_work-&gt;worker_func;
+      worker_data = mydrv_work-&gt;worker_data;
+
+      /* This node has been processed. Throw it
+         out of the list */
+      list_del(mydrv_wq.mydrv_worklist.next);
+      kfree(mydrv_work);   /* Free the node */
+
+      /* Execute the work function in this node */
+      spin_unlock(&amp;mydrv_wq.lock);  /* Release lock */
+      worker_func(worker_data);
+      spin_lock(&amp;mydrv_wq.lock);    /* Re-acquire lock */
+    }
+    spin_unlock(&amp;mydrv_wq.lock);
+    set_current_state(TASK_INTERRUPTIBLE);
+  }
+
+  set_current_state(TASK_RUNNING);
+  return 0;
+}
+
+					  </FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle3164></A><A name=iddle1126></A><A name=iddle2816></A><A name=iddle2818></A><A name="the example"></A><FONT class=extract>For simplicity, the example code does not perform error handling. For example, if the call to <TT>kernel_thread()</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02"><FONT class=extract>Listing 3.2</FONT></A><A name="work structure"></A><FONT class=extract> fails, you need to free memory allocated for the corresponding work structure. Also, <TT>asked_to_die()</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><A name="out of"></A><FONT class=extract> is left unwritten. It essentially breaks out of the loop if it either detects a delivered signal or receives a communication from the <TT>release()</TT></FONT><A name="unloaded from"></A><FONT class=extract> entry point that the module is about to be unloaded from the kernel.</FONT></P>
+<P class=docText><A name="at another"></A><FONT class=extract>Before ending this section, let's take a look at another useful list library routine, <TT>list_for_each_entry()</TT></FONT><A name="because you"></A><FONT class=extract>. With this macro, iteration becomes simpler and more readable because you don't have to use <TT>list_entry()</TT></FONT><A name="the loop"></A><FONT class=extract> inside the loop. Use the <TT>list_for_each_entry_safe()</TT></FONT><A name="can replace"></A><FONT class=extract> variant if you will delete list elements inside the loop. You can replace the following snippet in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><FONT class=extract>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>while (!list_empty(&amp;mydrv_wq.mydrv_worklist)) {
+  mydrv_work = list_entry(mydrv_wq.mydrv_worklist.next,
+                          struct _mydrv_work, mydrv_workitem);
+  /* ... */
+}</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>with:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>struct _mydrv_work *temp;
+list_for_each_entry_safe(mydrv_work, temp,
+                         &amp;mydrv_wq.mydrv_worklist,
+                         mydrv_workitem) {
+  /* ... */
+}</FONT></PRE></DIV><BR>
+<P class=docText><A name="You can"></A><FONT class=extract>You can't use <TT>list_for_each_entry()</TT></FONT><A name="case because"></A><FONT class=extract> in this case because you are removing the entry pointed to by <TT>mydrv_work</TT></FONT><A name="the loop"></A><FONT class=extract> inside the loop in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>Listing 3.4</FONT></A><FONT class=extract>. <TT>list_for_each_entry_safe()</TT></FONT><A name="the second"></A><FONT class=extract> solves this problem using the temporary variable passed as the second argument (<TT>temp</TT></FONT><A name="the next"></A><FONT class=extract>) to save the address of the next entry in the list.</FONT></P><A name=ch03lev2sec5></A>
+<H4 id=title-ID0ENHPM class=docSection2Title><FONT class=extract>Hash Lists</FONT></H4>
+<P class=docText><A name=iddle2181></A><A name=iddle2195></A><A name=iddle2204></A><A name=iddle2222></A><A name=iddle2224></A><A name=iddle2225></A><A name=iddle2570></A><A name=iddle2575></A><A name=iddle2823></A><A name=iddle3702></A><A name=iddle4648></A><A name="optimal for"></A><FONT class=extract>The doubly linked list implementation discussed previously is not optimal for cases where you want to implement linked data structures such as hash tables. This is because hash tables need only a list head containing a single pointer. To reduce memory overhead for such applications, the kernel provides hash lists (or <SPAN class=docEmphasis>hlists</SPAN></FONT><A name="the same"></A><FONT class=extract>), a variation of lists. Unlike lists, which use the same structure for the list head and list nodes, hlists have separate definitions:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>struct hlist_head {
+  struct hlist_node *first;
+};
+
+struct hlist_node {
+  struct hlist_node *next, **pprev;
+};</FONT></PRE></DIV><BR>
+<P class=docText><A name="nodes maintain"></A><FONT class=extract>To suit the scheme of a single-pointer hlist head, the nodes maintain the address of the pointer to the previous node, rather than the pointer itself.</FONT></P>
+<P class=docText><A name="tables are"></A><FONT class=extract>Hash tables are implemented using an array of <TT>hlist_head</TT>s. Each <TT>hlist_head</TT> sources a doubly linked list of <TT>hlist_node</TT></FONT><A name=the></A><FONT class=extract>s. A hash function is used to locate the index (or bucket) in the <TT>hlist_head</TT></FONT><A name="When that"></A><FONT class=extract> array. When that is done, you may use hlist helper routines (also defined in <SPAN class=docEmphasis>include/linux/list.h</SPAN></FONT><A name="on the"></A><FONT class=extract>) to operate on the list of <TT>hlist_nodes</TT></FONT><A name="to the"></A><FONT class=extract> linked to the chosen bucket. Look at the implementation of the directory cache (dcache) in <SPAN class=docEmphasis>fs/dcache.c</SPAN> for an example.</FONT></P><A name=ch03lev2sec6></A>
+<H4 id=title-ID0ECMPM class=docSection2Title><FONT class=extract>Work Queues</FONT></H4>
+<P class=docText><A name="the kernel"></A><FONT class=extract>Work queues are a way to defer work inside the kernel.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03fn02">[2]</A></SUP></FONT><A name="innumerable situations"></A><FONT class=extract> Deferring work is useful in innumerable situations. Examples include the following:</FONT></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch03fn02><FONT class=extract>[2]</FONT></A></SUP><A name="deferring work"></A><FONT class=extract> Softirqs and tasklets are two other mechanisms available for deferring work inside the kernel. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04tab01"><FONT class=extract>Table 4.1</FONT></A><FONT class=extract> of </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><FONT class=extract> compares softirqs, tasklets, and work queues.</FONT></P></BLOCKQUOTE>
+<UL>
+<LI>
+<P class=docList><A name="in response"></A><FONT class=extract>Triggering restart of a network adapter in response to an error interrupt</FONT></P>
+<LI>
+<P class=docList><FONT class=extract>Filesystem tasks such as syncing disk buffers</FONT></P>
+<LI>
+<P class=docList><A name="through with"></A><FONT class=extract>Sending a command to a disk and following through with the storage protocol state machine</FONT></P></LI></UL>
+<P class=docText><A name=iddle1631></A><A name=iddle1632></A><A name=iddle4643></A><A name=iddle4646></A><A name="functionality of"></A><FONT class=extract>The functionality of work queues is similar to the example described in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02"><FONT class=extract>Listings 3.2</FONT></A><FONT class=extract> to </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>3.4</FONT></A><A name="a simpler"></A><FONT class=extract>. However, work queues can help you accomplish the same task in a simpler manner.</FONT></P>
+<P class=docText><A name="The work"></A><FONT class=extract>The work queue helper library exposes two interface structures to users: a <TT>workqueue_struct</TT> and a <TT>work_struct</TT></FONT><A name="steps to"></A><FONT class=extract>. Follow these steps to use work queues:</FONT></P><A name=ch03pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B><FONT class=extract>1. </FONT></B></DIV></TD>
+<TD>
+<DIV class=docText><FONT class=extract>Create a work queue (or a <TT>workqueue_struct</TT>) with one or more associated kernel threads. To create a kernel thread to service a <TT>workqueue_struct</TT>, use <TT>create_singlethread_workqueue()</TT>. To create one worker thread per CPU in the system, use the <TT>create_workqueue()</TT> variant. The kernel also has default per-CPU worker threads (<SPAN class=docEmphasis>events/n</SPAN>, where <SPAN class=docEmphasis>n</SPAN> is the CPU number) that you can timeshare instead of requesting a separate worker thread. Depending on your application, you might incur a performance hit if you don't have a dedicated worker thread.<BR><BR></FONT></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B><FONT class=extract>2. </FONT></B></DIV></TD>
+<TD>
+<DIV class=docText><FONT class=extract>Create a work element (or a <TT>work_struct</TT>). A <TT>work_struct</TT> is initialized using <TT>INIT_WORK()</TT>, which populates it with the address and argument of your work function.<BR><BR></FONT></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B><FONT class=extract>3. </FONT></B></DIV></TD>
+<TD>
+<DIV class=docText><FONT class=extract>Submit the work element to the work queue. A <TT>work_struct</TT> can be submitted to a dedicated queue using <TT>queue_work()</TT>, or to the default kernel worker thread using <TT>schedule_work()</TT>.<BR><BR></FONT></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><FONT class=extract>Let's rewrite </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex02"><FONT class=extract>Listings 3.2</FONT></A><FONT class=extract> to </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex04"><FONT class=extract>3.4</FONT></A><A name="take advantage"></A><FONT class=extract> to take advantage of the work queue interface. This is done in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex05"><FONT class=extract>Listing 3.5</FONT></A><A name="the wait"></A><FONT class=extract>. The entire kernel thread, as well as the spinlock and the wait queue, vanish inside the work queue interface. Even the call to <TT>create_singlethread_workqueue()</TT></FONT><A name="using the"></A><FONT class=extract> goes away if you are using the default kernel worker thread.</FONT></P><A name=ch03ex05></A>
+<H5 id=title-ID0EMRPM class=docExampleTitle><FONT class=extract>Listing 3.5. Using Work Queues to Defer Work</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>#include <LINUX workqueue.h="">
+
+struct workqueue_struct *wq;
+
+/* Driver Initialization */
+static int __init
+mydrv_init(void)
+{
+  /* ... */
+  wq = create_singlethread_workqueue("mydrv");
+  return 0;
+}
+  /* Work Submission. The first argument is the work function, and
+     the second argument is the argument to the work function */
+  int
+  submit_work(void (*func)(void *data), void *data)
+  {
+    struct work_struct *hardwork;
+
+    hardwork = kmalloc(sizeof(struct work_struct), GFP_KERNEL);
+
+    /* Init the work structure */
+    INIT_WORK(hardwork, func, data);
+
+    /* Enqueue Work */
+    queue_work(wq, hardwork);
+    return 0;
+}
+
+					  </LINUX></FONT></PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch03note02></A>
+<DIV class=docNote>
+<P><FONT class=extract></FONT>
+<P class=docText><A name=iddle1794></A><A name=iddle2202></A><A name=iddle2573></A><A name=iddle3301></A><A name=iddle3304></A><A name=iddle3306></A><A name="errors unless"></A><FONT class=extract>If you are using work queues, you will get linker errors unless you declare your module as licensed under GPL. This is because the kernel exports these functions only to GPLed code. If you look at the kernel work queue implementation, you will see this restriction expressed in statements such as this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>EXPORT_SYMBOL_GPL(queue_work);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>To announce that your module is <SPAN class=docEmphasis>copyleft</SPAN>-ed under GPL, declare the following:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>MODULE_LICENSE("GPL");</FONT></PRE></DIV><BR>
+<P></P></DIV><BR><A name=ch03lev2sec7></A>
+<H4 id=title-ID0EUUPM class=docSection2Title><FONT class=extract>Notifier Chains</FONT></H4>
+<P class=docText><SPAN class=docEmphasis><FONT class=extract>Notifier chains</FONT></SPAN><A name="messages to"></A><FONT class=extract> are used to send status change messages to code regions that request them. Unlike hard-coded mechanisms, notifiers offer a versatile technique for getting alerted when events of interest are generated. Notifiers were originally added for passing network events to concerned sections of the kernel but are now used for many other purposes. The kernel implements predefined notifiers for significant events. Examples of such notifications include the following:</FONT></P>
+<UL>
+<LI>
+<P class=docList><SPAN class=docEmphStrong><FONT class=extract>Die notification</FONT></SPAN><A name="a trap"></A><FONT class=extract>, which is sent when a kernel function triggers a trap or a fault, caused by an "oops," page fault, or a breakpoint hit. If you are, for example, </FONT><A name=iddle1627></A><A name=iddle1793></A><A name=iddle2187></A><A name=iddle2212></A><A name=iddle2418></A><A name=iddle3139></A><A name=iddle3212></A><A name=iddle3300></A><A name=iddle3302></A><A name=iddle3303></A><A name="a device"></A><FONT class=extract>writing a device driver for a medical grade card, you might want to register yourself with the die notifier so that you can attempt to turn off the medical electronics if a kernel panic occurs.</FONT></P>
+<LI>
+<P class=docList><FONT class=extract><SPAN class=docEmphStrong>Net device notification</SPAN>, which is generated when a network interface goes up or down.</FONT></P>
+<LI>
+<P class=docList><SPAN class=docEmphStrong><FONT class=extract>CPU frequency notification</FONT></SPAN><A name="processor frequency"></A><FONT class=extract>, which is dispatched when there is a transition in the processor frequency.</FONT></P>
+<LI>
+<P class=docList><SPAN class=docEmphStrong><A name="Internet address"></A><FONT class=extract>Internet address notification</FONT></SPAN><A name="sent when"></A><FONT class=extract>, which is sent when a change is detected in the IP address of a network interface.</FONT></P></LI></UL>
+<P class=docText><A name="example user"></A><FONT class=extract>An example user of notifiers is the <SPAN class=docEmphasis>High-level Data Link Control</SPAN> (HDLC) protocol driver <SPAN class=docEmphasis>drivers/net/wan/hdlc.c</SPAN></FONT><A name="to sense"></A><FONT class=extract>, which registers itself with the net device notifier chain to sense carrier changes.</FONT></P>
+<P class=docText><A name="a notifier"></A><FONT class=extract>To attach your code to a notifier chain, you have to register an event handler with the associated chain. An event identifier and a notifier-specific argument are passed as arguments to the handler routine when the concerned event is generated. To define a custom notifier chain, you have to additionally implement the infrastructure to ignite the chain when the event is detected.</FONT></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06"><FONT class=extract>Listing 3.6</FONT></A><FONT class=extract> contains examples of using predefined and user-defined notifiers. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03tab02"><FONT class=extract>Table 3.2</FONT></A><A name=by></A><FONT class=extract> contains a brief description of the notifier chains used by </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06"><FONT class=extract>Listing 3.6</FONT></A><A name="at the"></A><FONT class=extract> and the events they propagate, so look at the listing and the table in tandem.</FONT></P><A name=ch03tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle><FONT class=extract>Table 3.2. Notifier Chains and the Events They Propagate</FONT></H5></CAPTION>
+<COLGROUP span=2 align=left><FONT class=extract>
+<COL width=250>
+<COL width=300></FONT></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Notifier Chain</FONT></TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left><FONT class=extract>Description</FONT></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><SPAN class=docEmphStrong>Die Notifier Chain</SPAN> <TT>(die_chain)</TT></FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><TT>my_die_event_handler()</TT> attaches to the die notifier chain, <TT>die_chain</TT>, using <TT>register_die_notifier()</TT>. To trigger invocation of <TT>my_die_event_handler()</TT></FONT><A name="as the"></A><FONT class=extract>, introduce an invalid dereference somewhere in your code, such as the following: </FONT>
+<DIV class=docText><PRE><FONT class=extract>int *q = 0;
+*q = 1;</FONT></PRE></DIV><BR>
+<P class=docText><A name="this code"></A><FONT class=extract>When this code snippet is executed, <TT>my_die_event_handler()</TT> gets called, and you will see a message like this: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_die_event_handler: OOPs! at EIP=f00350e7</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><FONT class=extract>The die event notifier passes the <TT>die_args</TT></FONT><A name="to the"></A><FONT class=extract> structure to the registered event handler. This argument contains a pointer to the <TT>regs</TT></FONT><A name="which carries"></A><FONT class=extract> structure, which carries a snapshot of processor register contents when the fault occurred. <TT>my_die_event_handler()</TT></FONT><A name="contents of"></A><FONT class=extract> prints the contents of the instruction pointer register.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><A name="Notifier Chain"></A><FONT class=extract>Netdevice Notifier Chain</FONT></SPAN><FONT class=extract>(<TT>netdev_chain</TT>)</FONT></TD>
+<TD class=docTableCell vAlign=top align=left><FONT class=extract><TT>my_dev_event_handler()</TT> attaches to the net device notifier chain, <TT>netdev_chain</TT>, using <TT>register_netdevice_notifier()</TT></FONT><A name="of a"></A><FONT class=extract>. You can generate this event by changing the state of a network interface such as Ethernet (<TT>ethX</TT>) or loopback (<TT>lo</TT>): </FONT>
+<DIV class=docText><PRE><SPAN class=docEmphStrong><FONT class=extract>bash&gt; ifconfig eth0 up</FONT></SPAN></PRE></DIV><BR>
+<P class=docText><A name=of></A><FONT class=extract>This results in the execution of <TT>my_dev_event_handler()</TT>. The handler is passed a pointer to <TT>struct net_device</TT> as argument, which contains the name of the network interface. <TT>my_dev_event_handler()</TT> uses this information to produce the following message: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_dev_event_handler: Val=1, Interface=eth0</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><FONT class=extract><TT>Val=1</TT> corresponds to the <TT>NETDEV_UP</TT> event as defined in <SPAN class=docEmphasis>include/linux/notifier.h</SPAN>.</FONT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><FONT class=extract>User-Defined Notifier Chain</FONT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06"><FONT class=extract>Listing 3.6</FONT></A><FONT class=extract> also implements a user-defined notifier chain, <TT>my_noti_chain</TT></FONT><A name="whenever a"></A><FONT class=extract>. Assume that you want an event to be generated whenever a user reads from a particular file in the process filesystem. Add the following in the associated procfs <TT>read</TT> routine: </FONT>
+<DIV class=docText><PRE><FONT class=extract>blocking_notifier_call_chain(&amp;my_noti_chain, 100, NULL);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>This results in the invocation of <TT>my_event_handler()</TT> whenever you read from the corresponding <SPAN class=docEmphasis>/proc</SPAN> file and results in the following message: </FONT>
+<DIV class=docText><PRE><FONT class=extract>my_event_handler: Val=100</FONT></PRE></DIV><BR>
+<P><FONT class=extract></FONT></P><TT><FONT class=extract>Val</FONT></TT><A name="which is"></A><FONT class=extract> contains the identity of the generated event, which is <TT>100</TT> for this example. The function argument is left unused.</FONT></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle1266></A><A name=iddle2027></A><A name=iddle3137></A><A name=iddle3140></A><A name=iddle3222></A><A name=iddle4399></A><A name="chains when"></A><FONT class=extract>You have to unregister event handlers from notifier chains when your module is released from the kernel. For example, if you <SPAN class=docEmphasis>up</SPAN> or <SPAN class=docEmphasis>down</SPAN></FONT><A name="network interface"></A><FONT class=extract> a network interface after unloading the code in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06"><FONT class=extract>Listing 3.6</FONT></A><FONT class=extract>, you will be rankled by an "oops," unless you perform an <TT>unregister_netdevice_notifier(&amp;my_dev_notifier)</TT> from the module's <TT>release()</TT></FONT><A name="the handler"></A><FONT class=extract> method. This is because the notifier chain continues to think that the handler code is valid, even though it has been pulled out of the kernel.</FONT></P><A name=ch03ex06></A>
+<H5 id=title-ID0ENCAO class=docExampleTitle><FONT class=extract>Listing 3.6. Notifier Event Handlers</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><A name="Code View"></A><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>#include <LINUX notifier.h="">
+#include <ASM kdebug.h="">
+#include <LINUX netdevice.h="">
+#include <LINUX inetdevice.h="">
+
+/* Die Notifier Definition */
+static struct notifier_block my_die_notifier = {
+  .notifier_call = my_die_event_handler,
+};
+/* Die notification event handler */
+int
+my_die_event_handler(struct notifier_block *self,
+                          unsigned long val, void *data)
+{
+  struct die_args *args = (struct die_args *)data;
+
+  if (val == 1) { /* '1' corresponds to an "oops" */
+    printk("my_die_event: OOPs! at EIP=%lx\n", args-&gt;regs-&gt;eip);
+  } /* else ignore */
+  return 0;
+}
+
+
+/* Net Device notifier definition */
+static struct notifier_block my_dev_notifier = {
+  .notifier_call = my_dev_event_handler,
+};
+
+
+/* Net Device notification event handler */
+int my_dev_event_handler(struct notifier_block *self,
+                              unsigned long val, void *data)
+{
+  printk("my_dev_event: Val=%ld, Interface=%s\n", val,
+           ((struct net_device *) data)-&gt;name);
+  return 0;
+}
+
+
+/* User-defined notifier chain implementation */
+static BLOCKING_NOTIFIER_HEAD(my_noti_chain);
+
+static struct notifier_block my_notifier = {
+  .notifier_call = my_event_handler,
+};
+
+/* User-defined notification event handler */
+int my_event_handler(struct notifier_block *self,
+                          unsigned long val, void *data)
+{
+  printk("my_event: Val=%ld\n", val);
+  return 0;
+}
+/* Driver Initialization */
+static int __init
+my_init(void)
+{
+  /* ... */
+
+  /* Register Die Notifier */
+  register_die_notifier(&amp;my_die_notifier);
+
+  /* Register Net Device Notifier */
+  register_netdevice_notifier(&amp;my_dev_notifier);
+
+  /* Register a user-defined Notifier */
+  blocking_notifier_chain_register(&amp;my_noti_chain, &amp;my_notifier);
+
+  /* ... */
+}
+
+					  </LINUX></LINUX></ASM></LINUX></FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1150></A><A name=iddle1152></A><A name=iddle1269></A><A name=iddle1543></A><A name=iddle2193></A><A name=iddle2568></A><FONT class=extract><TT>my_noti_chain</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex06"><FONT class=extract>Listing 3.6</FONT></A><A name="as a"></A><FONT class=extract> is declared as a blocking notifier using <TT>BLOCKING_NOTIFIER_HEAD()</TT></FONT><A name="is registered"></A><FONT class=extract> and is registered via <TT>blocking_notifier_chain_register()</TT></FONT><A name="from process"></A><FONT class=extract>. This means that the notifier handler is always invoked from process context. So, the handler function, <TT>my_event_handler()</TT></FONT><A name="If your"></A><FONT class=extract>, is allowed to go to sleep. If your notifier handler can be called from interrupt context, declare the notifier chain using <TT>ATOMIC_NOTIFIER_HEAD()</TT>, and register it via <TT>atomic_notifier_chain_register()</TT>.</FONT></P><A name=ch03sb03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle><FONT class=extract>The Old Notifier Interface</FONT></H2>
+<P class=docText><A name="notifier registration"></A><FONT class=extract>Kernel releases earlier than 2.6.17 supported only a general-purpose notifier chain. The notifier registration function <TT>notifier_chain_register()</TT></FONT><A name="the routine"></A><FONT class=extract> was internally protected using a spinlock, but the routine that walked the notifier chain dispatching events to notifier handlers (<TT>notifier_call_chain()</TT></FONT><A name="the possibility"></A><FONT class=extract>) was lockless. The lack of locking was because of the possibility that the handler functions may go to sleep, unregister themselves while running, or get called from interrupt context. The lockless implementation introduced race conditions, however. The new notifier API is built over the original interface and is intended to overcome its limitations.</FONT></P></TD></TR></TBODY></TABLE></P><BR><A name=ch03lev2sec8></A>
+<H4 id=title-ID0E4FAO class=docSection2Title><FONT class=extract>Completion Interface</FONT></H4>
+<P class=docText><A name="parts of"></A><FONT class=extract>Many parts of the kernel initiate certain activities as separate execution threads and then wait for them to complete. The <SPAN class=docEmphasis>completion</SPAN></FONT><A name="code patterns"></A><FONT class=extract> interface is an efficient and easy way to implement such code patterns.</FONT></P>
+<P class=docText><A name=iddle1040></A><A name=iddle1107></A><A name=iddle3786></A><A name=iddle4187></A><A name="Some example"></A><FONT class=extract>Some example usage scenarios include the following:</FONT></P>
+<UL>
+<LI>
+<P class=docList><A name="module is"></A><FONT class=extract>Your driver module is assisted by a kernel thread. If you rmmod the module, the <TT>release()</TT></FONT><A name="is invoked"></A><FONT class=extract> method is invoked before removing the module code from kernel space. The release routine asks the thread to kill itself and blocks until the thread completes its exit. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex07"><FONT class=extract>Listing 3.7</FONT></A><FONT class=extract> implements this case.</FONT></P>
+<LI>
+<P class=docList><A name="driver "></A><FONT class=extract>You are writing a portion of a block device driver (discussed in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14.html#ch14"><FONT class=extract>Chapter 14</FONT></A><A name="to a"></A><FONT class=extract>, "Block Drivers") that queues a read request to a device. This triggers a state machine change implemented as a separate thread or work queue. The driver wants to wait until the operation completes before proceeding with another activity. Look at <SPAN class=docEmphasis>drivers/block/floppy.c</SPAN> for an example.</FONT></P>
+<LI>
+<P class=docList><FONT class=extract>An application requests an <SPAN class=docEmphasis>Analog-to-Digital Converter</SPAN></FONT><A name="request waits"></A><FONT class=extract> (ADC) driver for a data sample. The driver initiates a conversion request waits, until an interrupt signals completion of conversion, and returns the data.</FONT></P></LI></UL><A name=ch03ex07></A>
+<H5 id=title-ID0EXIAO class=docExampleTitle><FONT class=extract>Listing 3.7. Synchronizing Using Completion Functions</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>static DECLARE_COMPLETION(my_thread_exit);      /* Completion */
+static DECLARE_WAIT_QUEUE_HEAD(my_thread_wait); /* Wait Queue */
+int pink_slip = 0;                              /* Exit Flag */
+
+/* Helper thread */
+static int
+my_thread(void *unused)
+{
+  DECLARE_WAITQUEUE(wait, current);
+
+  daemonize("my_thread");
+  add_wait_queue(&amp;my_thread_wait, &amp;wait);
+
+  while (1) {
+    /* Relinquish processor until event occurs */
+    set_current_state(TASK_INTERRUPTIBLE);
+    schedule();
+    /* Control gets here when the thread is woken
+       up from the my_thread_wait wait queue */
+
+    /* Quit if let go */
+    if (pink_slip) {
+      break;
+    }
+    /* Do the real work */
+    /* ... */
+
+  }
+
+  /* Bail out of the wait queue */
+  __set_current_state(TASK_RUNNING);
+  remove_wait_queue(&amp;my_thread_wait, &amp;wait);
+
+  /* Atomically signal completion and exit */
+  complete_and_exit(&amp;my_thread_exit, 0);
+}
+
+/* Module Initialization */
+static int __init
+my_init(void)
+{
+  /* ... */
+
+  /* Kick start the thread */
+  kernel_thread(my_thread, NULL,
+                CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD);
+
+  /* ... */
+}
+
+/* Module Release */
+static void __exit
+my_release(void)
+{
+  /* ... */
+  pink_slip = 1;                        /* my_thread must go */
+  wake_up(&amp;my_thread_wait);             /* Activate my_thread */
+  wait_for_completion(&amp;my_thread_exit); /* Wait until my_thread
+                                           quits */
+  /* ... */
+}
+
+					  </FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1535></A><A name=iddle1537></A><A name=iddle2348></A><A name=iddle4618></A><A name="statically using"></A><FONT class=extract>A completion object can be declared statically using <TT>DECLARE_COMPLETION()</TT> or created dynamically with <TT>init_completion()</TT></FONT><A name=of></A><FONT class=extract>. A thread can signal completion with the help of <TT>complete()</TT> or <TT>complete_all()</TT></FONT><A name="caller can"></A><FONT class=extract>. A caller can wait for completion via <TT>wait_for_completion()</TT>.</FONT></P>
+<P class=docText><A name=iddle1538></A><A name=iddle2196></A><A name=iddle2571></A><A name=iddle2601></A><A name=iddle2629></A><A name=iddle2700></A><A name=iddle2703></A><A name=iddle2707></A><A name=iddle3141></A><A name=iddle4188></A><FONT class=extract>In </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex07"><FONT class=extract>Listing 3.7</FONT></A><FONT class=extract>, <TT>my_release()</TT> raises an exit request flag by setting <TT>pink_slip</TT> before waking up <TT>my_thread()</TT>. It then calls <TT>wait_for_completion()</TT> to wait until <TT>my_thread()</TT> completes its exit. <TT>my_thread()</TT>, on its part, wakes up to find <TT>pink_slip</TT> set, and does the following:</FONT></P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><FONT class=extract>Signals completion to <TT>my_release()</TT></FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><FONT class=extract>Kills itself</FONT></P></DIV></LI></OL></DIV>
+<P class=docText><FONT class=extract><TT>my_thread()</TT> accomplishes these two steps atomically using <TT>complete_and_exit()</TT>. Using <TT>complete_and_exit()</TT></FONT><A name="opens if"></A><FONT class=extract> shuts the window between module exit and thread exit that opens if you separately invoke <TT>complete()</TT></FONT><A name=and></A><FONT class=extract> and <TT>exit()</TT>.</FONT></P>
+<P class=docText><A name="use the"></A><FONT class=extract>We will use the completion API when we develop an example telemetry driver in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11"><FONT class=extract>Chapter 11</FONT></A><FONT class=extract>.</FONT></P><A name=ch03lev2sec9></A>
+<H4 id=title-ID0ETPAO class=docSection2Title><FONT class=extract>Kthread Helpers</FONT></H4>
+<P class=docText><SPAN class=docEmphasis><FONT class=extract>Kthread helpers</FONT></SPAN><A name="a coating"></A><FONT class=extract> add a coating over the raw thread creation routines and simplify the task of thread management.</FONT></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex08"><FONT class=extract>Listing 3.8</FONT></A><FONT class=extract> rewrites </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex07"><FONT class=extract>Listing 3.7</FONT></A><FONT class=extract> using the kthread helper interface. <TT>my_init()</TT> now uses <TT>kthread_create()</TT> rather than <TT>kernel_thread()</TT>. You can pass the thread's name to <TT>kthread_create()</TT> rather than explicitly call <TT>daemonize()</TT> within the thread.</FONT></P>
+<P class=docText><A name="exit synchronization"></A><FONT class=extract>The kthread interface provides you free access to a built-in exit synchronization mechanism implemented using the completion interface. So, as <TT>my_release()</TT> does in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex08"><FONT class=extract>Listing 3.8</FONT></A><FONT class=extract>, you may directly call <TT>kthread_stop()</TT> instead of laboriously setting <TT>pink_slip</TT>, waking up <TT>my_thread()</TT></FONT><A name="complete using"></A><FONT class=extract>, and waiting for it to complete using <TT>wait_for_completion()</TT>. Similarly, <TT>my_thread()</TT> can make a neat call to <TT>kthread_should_stop()</TT> to check whether it ought to call it a day.</FONT></P><A name=ch03ex08></A>
+<H5 id=title-ID0EQRAO class=docExampleTitle><FONT class=extract>Listing 3.8. Synchronizing Using Kthread Helpers</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>/* '<SPAN class=docEmphStrong>+</SPAN>' and '-' show the differences from Listing 3.7 */
+
+#include <LINUX kthread.h="">
+
+/* Assistant Thread */
+static int
+my_thread(void *unused)
+{
+   DECLARE_WAITQUEUE(wait, current);
+-   daemonize("my_thread");
+
+-   while (1) {
+<SPAN class=docEmphStrong>+   /* Continue work if no other thread has</SPAN>
+<SPAN class=docEmphStrong>+    * invoked kthread_stop() */</SPAN>
+<SPAN class=docEmphStrong>+   while (!kthread_should_stop()) {</SPAN>
+      /* ... */
+-     /* Quit if let go */
+-     if (pink_slip) {
+-       break;
+-     }
+      /* ... */
+    }
+    __set_current_state(TASK_RUNNING);
+    remove_wait_queue(&amp;my_thread_wait, &amp;wait);
+
+-   complete_and_exit(&amp;my_thread_exit, 0);
+<SPAN class=docEmphStrong>+   return 0;</SPAN>
+ }
+
+<SPAN class=docEmphStrong>+   struct task_struct *my_task;</SPAN>
+
+ /* Module Initialization */
+ static int __init
+ my_init(void)
+ {
+    /* ... */
+-   kernel_thread(my_thread, NULL,
+-                 CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
+                  SIGCHLD);
+<SPAN class=docEmphStrong>+   my_task = kthread_create(my_thread, NULL, "%s", "my_thread");</SPAN>
+<SPAN class=docEmphStrong>+   if (my_task) wake_up_process(my_task);</SPAN>
+
+    /* ... */
+ }
+
+ /* Module Release */
+ static void __exit
+ my_release(void)
+ {
+    /* ... */
+-   pink_slip = 1;
+-   wake_up(&amp;my_thread_wait);
+-   wait_for_completion(&amp;my_thread_exit);
+<SPAN class=docEmphStrong>+   kthread_stop(my_task);</SPAN>
+
+    /* ... */
+ }
+
+					  </LINUX></FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1886></A><A name=iddle2194></A><A name=iddle2569></A><A name=iddle2702></A><FONT class=extract>Instead of creating the thread using <TT>kthread_create()</TT> and activating it via <TT>wake_up_process()</TT> as done in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex08"><FONT class=extract>Listing 3.8</FONT></A><FONT class=extract>, you may use the following single call:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>kthread_run(my_thread, NULL, "%s", "my_thread");</FONT></PRE></DIV><BR><A name=ch03lev2sec10></A>
+<H4 id=title-ID0E4UAO class=docSection2Title><FONT class=extract>Error-Handling Aids</FONT></H4>
+<P class=docText><A name="for failure"></A><FONT class=extract>Several kernel functions return pointer values. Whereas callers usually check for failure by comparing the return value with <TT>NULL</TT></FONT><A name="decipher the"></A><FONT class=extract>, they typically need more information to decipher the exact nature of the error that has occurred. Because kernel addresses have redundant bits, they can be overloaded to encode error semantics. This is done with the help of a set of helper routines. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex09"><FONT class=extract>Listing 3.9</FONT></A><FONT class=extract> implements a simple usage example.</FONT></P><A name=ch03ex09></A>
+<H5 id=title-ID0EUVAO class=docExampleTitle><FONT class=extract>Listing 3.9. Using Error-Handling Aids</FONT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>#include <LINUX err.h="">
+
+char *
+collect_data(char *userbuffer)
+{
+
+  char *buffer;
+
+  /* ... */
+  buffer = kmalloc(100, GFP_KERNEL);
+  if (!buffer) { /* Out of memory */
+    return ERR_PTR(-ENOMEM);
+  }
+
+  /* ... */
+  if (copy_from_user(buffer, userbuffer, 100)) {
+    return ERR_PTR(-EFAULT);
+  }
+  /* ... */
+
+  return(buffer);
+}
+
+
+int
+my_function(char *userbuffer)
+{
+  char *buf;
+
+  /* ... */
+  buf = collect_data(userbuffer);
+  if (IS_ERR(buf)) {
+    printk("Error returned is %d!\n", PTR_ERR(buf));
+  }
+  /* ... */
+
+}
+
+					  </LINUX></FONT></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1520></A><A name=iddle2490></A><A name=iddle2667></A><A name=iddle3682></A><FONT class=extract>If <TT>kmalloc()</TT> fails inside <TT>collect_data()</TT> in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex09"><FONT class=extract>Listing 3.9</FONT></A><FONT class=extract>, you will get the following message:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>Error returned is -12!</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>However, if <TT>collect_data()</TT></FONT><A name="data buffer"></A><FONT class=extract> is successful, it returns a valid pointer to a data buffer. As another example, let's add error handling using <TT>IS_ERR()</TT> and <TT>PTR_ERR()</TT></FONT><A name="the thread"></A><FONT class=extract> to the thread creation code in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex08"><FONT class=extract>Listing 3.8</FONT></A><FONT class=extract>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>   my_task = kthread_create(my_thread, NULL, "%s", "mydrv");
+
+<SPAN class=docEmphStrong>+  if (!IS_ERR(my_task)) {</SPAN>
+<SPAN class=docEmphStrong>+    /* Success */</SPAN>
+     wake_up_process(my_task);
+<SPAN class=docEmphStrong>+  } else {</SPAN>
+<SPAN class=docEmphStrong>+    /* Failure */</SPAN>
+<SPAN class=docEmphStrong>+    printk("Error value returned=%d\n", PTR_ERR(my_task));</SPAN>
+<SPAN class=docEmphStrong>+  }</SPAN></FONT></PRE></DIV>

@@ -1,0 +1,113 @@
+<H3 id=title-IDAAWPJ class=docSection1Title>5.3. Kernel Command Line Processing</H3>
+<P class=docText>Following the architecture setup, <TT>main.c</TT> performs generic early kernel initialization and then displays the kernel command line. Line 10 of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A> is reproduced here for convenience.</P>
+<DIV class=docText><PRE>Kernel command line: console=ttyS0,115200 ip=bootp root=/dev/nfs</PRE></DIV><BR>
+<P class=docText>In this simple example, the kernel being booted is instructed to open a console device on serial port device <TT>ttyS0</TT> (usually the first serial port) at a baud rate of 115Kbps. It is being instructed to obtain its initial IP address information from a BOOTP server and to mount a root file system via the NFS protocol. (We cover BOOTP later in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12.html#ch12">Chapter 12</A>, "Embedded Development Environment," and NFS in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapters 9</A>, "File Systems," and <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12.html#ch12">12</A>. For now, we limit the discussion to the kernel command line mechanism.)</P>
+<P class=docText>Linux is typically launched by a bootloader (or bootstrap loader) with a series of parameters that have come to be called the <SPAN class=docEmphasis>kernel command line</SPAN>. Although we don't actually invoke the kernel using a command prompt from a shell, many bootloaders can pass parameters to the kernel in a fashion that resembles this well-known model. On some platforms whose bootloaders are not Linux aware, the kernel command line can be defined at compile time and becomes hard coded as part of the kernel binary image. On other platforms (such as a desktop PC running Red Hat Linux), the command line can be modified by the user without having to recompile the kernel. The bootstrap loader (Grub or Lilo in the desktop PC case) builds the kernel command line from a configuration file and passes it to the kernel during the boot process. These command line parameters are a boot mechanism to set initial configuration necessary for proper boot on a given machine.</P>
+<P class=docText>Numerous command line parameters are defined throughout the kernel. The <TT>.../Documentation</TT> subdirectory in the kernel source contains a file called <TT>kernel-parameters.txt</TT> containing a list of kernel command line parameters in dictionary order. Remember the previous warning about kernel documentation: The kernel changes far faster than the documentation. Use this file as a guide, but not a definitive reference. More than 400 distinct kernel command line parameters are documented in this file, and it cannot be considered a comprehensive list. For that, you must refer directly to the source code.</P>
+<P class=docText>The basic syntax for kernel command line parameters is fairly simple and mostly evident from the example in line 10 of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A>. Kernel command line parameters can be either a single text word, a key=value pair, or a key= value1, value2, &#8230;. key and multivalue format. It is up to the consumer of this information to process the data as delivered. The command line is available globally and is processed by many modules as needed. As noted earlier, <TT>setup_arch()</TT> in <TT>main.c</TT> is called with the kernel command line as its only argument. This is to pass architecture-specific parameters and configuration directives to the relevant portions of architecture- and machine-specific code.</P>
+<P class=docText>Device driver writers and kernel developers can add additional kernel command-line parameters for their own specific needs. Let's take a look at the mechanism. <A name=iddle2413></A>Unfortunately, some complications are involved in using and processing kernel command line parameters. The first of these is that the original mechanism is being deprecated in favor of a much more robust implementation. The second complication is that we need to comprehend the complexities of a <SPAN class=docEmphasis>linker script file</SPAN> to fully understand the mechanism.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05fn07">[7]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn07>[7]</A></SUP> It's not necessarily all that complex, but most of us never need to understand a linker script file. The embedded engineer does. It is well documented in the GNU LD manual referenced at the end of this chapter.</P></BLOCKQUOTE><A name=ch05lev2sec8></A>
+<H4 id=title-IDAKZPJ class=docSection2Title>5.3.1. The __setup Macro</H4>
+<P class=docText>As an example of the use of kernel command line parameters, consider the specification of the console device. We want this device to be initialized early in the boot cycle so that we have a destination for console messages during boot. This initialization takes place in a kernel object called <TT>printk.o</TT>. The C source file for this module is found in <TT>.../kernel/printk.c</TT>. The console initialization routine is called <TT>console_setup()</TT> and takes the kernel command line parameter string as its only argument.</P>
+<P class=docText>The challenge is to communicate the console parameters specified on the kernel command line to the setup and device driver routines that require this data in a modular and general fashion. Further complicating the issue is that typically the command line parameters are required early, before (or in time for) those modules that need them. The startup code in <TT>main.c</TT>, where the main processing of the kernel command line takes place, cannot possibly know the destination functions for each of hundreds of kernel command line parameters without being hopelessly polluted with knowledge from every consumer of these parameters. What is needed is a flexible and generic way to pass these kernel command line parameters to their consumers.</P>
+<P class=docText>In Linux 2.4 and earlier kernels, developers used a simple macro to generate a not-so-simple sequence of code. Although it is being deprecated, the <TT>__setup</TT> macro is still in widespread use throughout the kernel. We next use the kernel command line from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A> to demonstrate how the <TT>__setup</TT> macro works.</P>
+<P class=docText>From the previous kernel command line (line 10 of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A>), this is the first complete command line parameter passed to the kernel:</P>
+<DIV class=docText><PRE> console=ttyS0,115200</PRE></DIV><BR>
+<P class=docText>For the purposes of this example, the actual meaning of the parameters is irrelevant. Our goal here is to illustrate the mechanism, so don't be concerned if you don't understand the argument or its values.</P>
+<P class=docText><A name=iddle1867></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05list04">Listing 5-4</A> is a snippet of code from <TT>.../kernel/printk.c</TT>. The body of the function has been stripped because it is not relevant to the discussion. The most relevant part of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05list04">Listing 5-4</A> is the last line, the invocation of the <TT>__setup</TT> macro. This macro expects two arguments; in this case, it is passed a string literal and a function pointer. It is no coincidence that the string literal passed to the <TT>__setup</TT> macro is the same as the first eight characters of the kernel command line related to the console: <TT>console=</TT>.</P><A name=ch05list04></A>
+<H5 id=title-IDAH2PJ class=docExampleTitle>Listing 5-4. Console Setup Code Snippet</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>/*
+ *   Setup a list of consoles. Called from init/main.c
+ */
+static int __init console_setup(char *str)
+{
+    char name[sizeof(console_cmdline[0].name)];
+    char*s,  *options;
+    int idx;
+
+    /*
+     * Decode str into name, index, options.
+     */
+
+
+    return 1;
+}
+
+__setup("console=", console_setup);</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>You can think of this macro as a registration function for the kernel command-line <TT>console</TT> parameter. In effect, it says: When the <TT>console=</TT> string is encountered on the kernel command line, invoke the function represented by the second <TT>__setup</TT> macro argumentin this case, the <TT>console_setup()</TT> function. But how is this information communicated to the early setup code, outside this module, which has no knowledge of the console functions? The mechanism is both clever and somewhat complicated, and relies on lists built by the linker.</P>
+<P class=docText>The details are hidden in a set of macros designed to conceal the syntactical tedium of adding <SPAN class=docEmphasis>section attributes</SPAN> (and other attributes) to a portion of object code. The objective is to build a static list of string literals associated with function pointers. This list is emitted by the compiler in a separately named ELF section in the final <TT>vmlinux</TT> ELF image. It is important to understand this technique; it is used in several places within the kernel for special-purpose processing.</P>
+<P class=docText><A name=iddle1904></A>Let's now examine how this is done for the <TT>__setup</TT> macro case. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05list05">Listing 5-5</A> is a portion of code from the header file <TT>.../include/linux/init.h</TT> defining the <TT>__setup</TT> family of macros.</P><A name=ch05list05></A>
+<H5 id=title-IDAF4PJ class=docExampleTitle>Listing 5-5. Family of <TT>__setup</TT> Macro Definitions from <TT>init.h</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE> ...
+#define __setup_param(str, unique_id, fn, early) \
+       static char __setup_str_##unique_id[] __initdata = str; \
+       static struct obs_kernel_param __setup_##unique_id      \
+              __attribute_used__                               \
+              __attribute__((__section__(".init.setup")))      \
+              __attribute__((aligned((sizeof(long)))))         \
+              = { __setup_str_##unique_id, fn, early }
+
+#define __setup_null_param(str, unique_id)                     \
+        __setup_param(str, unique_id, NULL, 0)
+
+#define __setup(str, fn\
+        __setup_param(str, fn, fn, 0)
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05list05">Listing 5-5</A> is the author's definition of syntactical tedium! Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05list04">Listing 5-4</A> that our invocation of the original <TT>__setup</TT> macro looked like this:</P>
+<DIV class=docText><PRE>  __setup("console=", console_setup);</PRE></DIV><BR>
+<P class=docText>With some slight simplification, here is what the compiler's preprocessor produces after macro expansion:</P>
+<DIV class=docText><PRE>  static char __setup_str_console_setup[] __initdata = "console=";
+  static struct obs_kernel_param __setup_console_setup  \
+  __attribute__((__section__(".init.setup")))=
+     {__setup_str_console_setup, console_setup, 0};</PRE></DIV><BR>
+<P class=docText>To make this more readable, we have split the second and third lines, as indicated by the UNIX line-continuation character \.</P>
+<P class=docText>We have intentionally left out two compiler attributes whose description does not add any insight to this discussion. Briefly, the <TT>__attribute_used__</TT> (itself a macro hiding further syntactical tedium) tells the compiler to emit the function or variable, even if the optimizer determines that it is unused.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05fn08">[8]</A></SUP> The <TT>__attribute__ (aligned)</TT> tells the compiler to align the structures on a specific boundary, in this case <TT>sizeof(long)</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn08>[8]</A></SUP> Normally, the compiler will complain if a variable is defined static and never referenced in the compilation unit. Because these variables are not explicitly referenced, the warning would be emitted without this directive.</P></BLOCKQUOTE>
+<P class=docText><A name=iddle1945></A>What we have left after simplification is the heart of the mechanism. First, the compiler generates an array of characters called <TT>__setup_str_console_ setup[]</TT> initialized to contain the string <TT>console=</TT>. Next, the compiler generates a structure that contains three members: a pointer to the kernel command line string (the array just declared), the pointer to the setup function itself, and a simple flag. The key to the magic here is the section attribute attached to the structure. This attribute instructs the compiler to emit this structure into a special <SPAN class=docEmphasis>section</SPAN> within the ELF object module, called <TT>.init.setup</TT>. During the link stage, all the structures defined using the <TT>__setup</TT> macro are collected and placed into this <TT>.init</TT>.setup section, in effect creating an array of these structures. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05list06">Listing 5-6</A>, a snippet from <TT>.../init/main.c</TT>, shows how this data is accessed and used.</P><A name=ch05list06></A>
+<H5 id=title-IDARBQJ class=docExampleTitle>Listing 5-6. Kernel Command Line Processing</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>1 extern struct obs_kernel_param __setup_start[], __setup_end[];
+2
+3 static int __init obsolete_checksetup(char *line)
+4 {
+5         struct obs_kernel_param *p;
+6
+7         p = __setup_start;
+8         do {
+9                 int n = strlen(p-&gt;str);
+10                 if (!strncmp(line, p-&gt;str, n)) {
+11                         if (p-&gt;early) {
+12                                     /* Already done in parse_early_param? (Needs
+13                                      * exact match on param part) */
+14                                    if (line[n] == '\0' || line[n] == '=')
+15                                              return 1;
+16                 } else if (!p-&gt;setup_func) {
+17                    printk(KERN_WARNING "Parameter %s is obsolete,"
+18                            " ignored\n", p-&gt;str);
+19                        return 1;
+20                } else if (p-&gt;setup_func(line + n))
+21                                return 1;
+22                }
+23                p++;
+24        } while (p &lt; __setup_end);
+25        return 0;
+26 }</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1608></A>Examination of this code should be fairly straightforward, with a couple of explanations. The function is called with a single command line argument, parsed elsewhere within <TT>main.c</TT>. In the example we've been discussing, <TT>line</TT> would point to the string <TT>console=ttyS0</TT>,<TT>115200</TT>, which is one component from the kernel command line. The two external structure pointers <TT>__setup_start</TT> and <TT>__setup_end</TT> are defined in a linker script file, not in a C source or header file. These labels mark the start and end of the array of <TT>obs_kernel_param</TT> structures that were placed in the <TT>.init.setup</TT> section of the object file.</P>
+<P class=docText>The code in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05list06">Listing 5-6</A> scans all these structures via the pointer <TT>p</TT> to find a match for this particular kernel command line parameter. In this case, the code is searching for the string <TT>console=</TT> and finds a match. From the relevant structure, the function pointer element returns a pointer to the <TT>console_setup()</TT> function, which is called with the balance of the parameter (the string <TT>ttyS0</TT>,<TT>115200</TT>) as its only argument. This process is repeated for every element in the kernel command line until the kernel command line has been completely exhausted.</P>
+<P class=docText>The technique just described, collecting objects into lists in uniquely named ELF sections, is used in many places in the kernel. Another example of this technique is the use of the <TT>__init</TT> family of macros to place one-time initialization routines into a common section in the object file. Its cousin <TT>__initdata</TT>, used to mark one-time-use data items, is used by the <TT>__setup</TT> macro. Functions and data marked as initialization using these macros are collected into a specially named ELF section. Later, after these one-time initialization functions and data objects have been used, the kernel frees the memory occupied by these items. You might have seen the familiar kernel message near the final part of the boot process saying, "Freeing init memory: 296K." Your mileage may vary, but a third of a megabyte is well worth the effort of using the <TT>__init</TT> family of macros. This is exactly the purpose of the <TT>__initdata</TT> macro in the earlier declaration of <TT>__setup_str_console_setup[]</TT>.</P>
+<P class=docText>You might have been wondering about the use of symbol names preceded with <TT>obsolete_</TT>. This is because the kernel developers are replacing the kernel command line processing mechanism with a more generic mechanism for registering both boot time and loadable module parameters. At the present time, hundreds of parameters are declared with the <TT>__setup</TT> macro. However, new development is expected to use the family of functions defined by the kernel header file <TT>.../include/linux/moduleparam.h</TT>, most notably, the family of <A name=iddle1632></A><A name=iddle1784></A><A name=iddle1931></A><A name=iddle2462></A><TT>module_param*</TT> macros. These are explained in more detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08.html#ch08">Chapter 8</A>, "Device Driver Basics," when we introduce device drivers.</P>
+<P class=docText>The new mechanism maintains backward compatibility by including an unknown function pointer argument in the parsing routine. Thus, parameters that are unknown to the <TT>module_param*</TT> infrastructure are considered unknown, and the processing falls back to the old mechanism under control of the developer. This is easily understood by examining the well-written code in <TT>.../kernel/params.c</TT> and the <TT>parse_args()</TT> calls in <TT>.../init/main.c</TT>.</P>
+<P class=docText>The last point worth mentioning is the purpose of the flag member of the <TT>obs_kernel_param</TT> structure created by the <TT>__setup</TT> macro. Examination of the code in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec3.html#ch05list06">Listing 5-6</A> should make it clear. The flag in the structure, called <TT>early</TT>, is used to indicate whether this particular command line parameter was already consumed earlier in the boot process. Some command line parameters are intended for consumption very early in the boot process, and this flag provides a mechanism for an early parsing algorithm. You will find a function in <TT>main.c</TT> called <TT>do_early_param()</TT> that traverses the linker-generated array of <TT>__setup-</TT> generated structures and processes each one marked for early consumption. This gives the developer some control over when in the boot process this processing is done.

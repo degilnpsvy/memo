@@ -1,0 +1,23 @@
+=== 4. Include Files 
+<P></P>
+<P><FONT class=extract>Within the kernel, header files are kept in standard locations<BR>according to the following rule:</FONT></P>
+<P><FONT class=extract>&nbsp;* If the header file only describes the internal interface of a<BR>&nbsp;&nbsp; module, then the file is placed in the same directory as the<BR>&nbsp;&nbsp; source files.<BR>&nbsp;* If the header file describes an interface used by other parts<BR>&nbsp;&nbsp; of the kernel that are located in different directories, then<BR>&nbsp;&nbsp; the file is placed in include/linux/.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; NOTE: There are two notable exceptions to this rule: larger<BR>&nbsp;&nbsp; subsystems have their own directory under include/, such as<BR>&nbsp;&nbsp; include/scsi; and architecture specific headers are located<BR>&nbsp;&nbsp; under arch/$(ARCH)/include/.</FONT></P>
+<P><FONT class=extract>--- 4.1 Kernel Includes</FONT></P>
+<P><FONT class=extract>&nbsp;To include a header file located under include/linux/, simply<BR>&nbsp;use:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;#include &lt;linux/module.h&gt;</FONT></P>
+<P><FONT class=extract>&nbsp;kbuild will add options to "gcc" so the relevant directories<BR>&nbsp;are searched.</FONT></P>
+<P><FONT class=extract>--- 4.2 Single Subdirectory</FONT></P>
+<P><FONT class=extract>&nbsp;External modules tend to place header files in a separate<BR>&nbsp;include/ directory where their source is located, although this<BR>&nbsp;is not the usual kernel style. To inform kbuild of the<BR>&nbsp;directory, use either ccflags-y or CFLAGS_&lt;filename&gt;.o.</FONT></P>
+<P><FONT class=extract>&nbsp;Using the example from section 3, if we moved 8123_if.h to a<BR>&nbsp;subdirectory named include, the resulting kbuild file would<BR>&nbsp;look like:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;--&gt; filename: Kbuild<BR>&nbsp;&nbsp;obj-m := 8123.o</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;ccflags-y := -Iinclude<BR>&nbsp;&nbsp;8123-y := 8123_if.o 8123_pci.o 8123_bin.o</FONT></P>
+<P><FONT class=extract>&nbsp;Note that in the assignment there is no space between -I and<BR>&nbsp;the path. This is a limitation of kbuild: there must be no<BR>&nbsp;space present.</FONT></P>
+<P><FONT class=extract>--- 4.3 Several Subdirectories</FONT></P>
+<P><FONT class=extract>&nbsp;kbuild can handle files that are spread over several directories.<BR>&nbsp;Consider the following example:</FONT></P>
+<P><FONT class=extract>&nbsp;.<BR>&nbsp;|__ src<BR>&nbsp;|&nbsp;&nbsp; |__ complex_main.c<BR>&nbsp;|&nbsp;&nbsp; |__ hal<BR>&nbsp;|&nbsp;|__ hardwareif.c<BR>&nbsp;|&nbsp;|__ include<BR>&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; |__ hardwareif.h<BR>&nbsp;|__ include<BR>&nbsp;&nbsp;&nbsp;&nbsp; |__ complex.h</FONT></P>
+<P><FONT class=extract>&nbsp;To build the module complex.ko, we then need the following<BR>&nbsp;kbuild file:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;--&gt; filename: Kbuild<BR>&nbsp;&nbsp;obj-m := complex.o<BR>&nbsp;&nbsp;complex-y := src/complex_main.o<BR>&nbsp;&nbsp;complex-y += src/hal/hardwareif.o</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;ccflags-y := -I$(src)/include<BR>&nbsp;&nbsp;ccflags-y += -I$(src)/src/hal/include</FONT></P>
+<P><FONT class=extract>&nbsp;As you can see, kbuild knows how to handle object files located<BR>&nbsp;in other directories. The trick is to specify the directory<BR>&nbsp;relative to the kbuild file's location. That being said, this<BR>&nbsp;is NOT recommended practice.</FONT></P>
+<P><FONT class=extract>&nbsp;For the header files, kbuild must be explicitly told where to<BR>&nbsp;look. When kbuild executes, the current directory is always the<BR>&nbsp;root of the kernel tree (the argument to "-C") and therefore an<BR>&nbsp;absolute path is needed. $(src) provides the absolute path by<BR>&nbsp;pointing to the directory where the currently executing kbuild<BR>&nbsp;file is located.</FONT>

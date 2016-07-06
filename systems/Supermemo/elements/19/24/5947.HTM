@@ -1,0 +1,59 @@
+<H2 class=chapter style="WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">10 Reentrancy</H2>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><A name=index-reentrancy-449></A>Reentrancy is a characteristic of library functions which allows multiple processes to use the same address space with assurance that the values stored in those spaces will remain constant between calls. The Red Hat newlib implementation of the library functions ensures that whenever possible, these library functions are reentrant. However, there are some functions that can not be trivially made reentrant. Hooks have been provided to allow you to use these functions in a fully reentrant fashion.</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><A name=index-g_t_005freent-450></A><A name=index-reent_002eh-451></A><A name=index-reentrancy-structure-452></A>These hooks use the structure<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_reent</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>defined in<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=file>reent.h</SPAN></SAMP>. A variable defined as &#8216;<SAMP><SPAN class=samp>struct _reent</SPAN></SAMP>&#8217; is called a<SPAN class=Apple-converted-space>&nbsp;</SPAN><DFN>reentrancy structure</DFN>. All functions which must manipulate global information are available in two versions. The first version has the usual name, and uses a single global instance of the reentrancy structure. The second has a different name, normally formed by prepending &#8216;<SAMP><SPAN class=samp>_</SPAN></SAMP>&#8217; and appending &#8216;<SAMP><SPAN class=samp>_r</SPAN></SAMP>&#8217;, and takes a pointer to the particular reentrancy structure to use.</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">For example, the function<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fopen</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>takes two arguments,<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>file</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>mode</VAR>, and uses the global reentrancy structure. The function<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_fopen_r</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>takes the arguments,<VAR>struct_reent</VAR>, which is a pointer to an instance of the reentrancy structure,<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>file</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>mode</VAR>.</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">There are two versions of &#8216;<SAMP><SPAN class=samp>struct _reent</SPAN></SAMP>&#8217;, a normal one and one for small memory systems, controlled by the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_REENT_SMALL</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>definition from the (automatically included)<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=file>&lt;sys/config.h&gt;</SPAN></SAMP>.</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><A name=index-global-reentrancy-structure-453></A><A name=index-g_t_005fimpure_005fptr-454></A>Each function which uses the global reentrancy structure uses the global variable<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_impure_ptr</CODE>, which points to a reentrancy structure.</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">This means that you have two ways to achieve reentrancy. Both require that each thread of execution control initialize a unique global variable of type &#8216;<SAMP><SPAN class=samp>struct _reent</SPAN></SAMP>&#8217;:</P>
+<OL style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px" type=1>
+<LI><A name=index-extra-argument_002c-reentrant-fns-455></A>Use the reentrant versions of the library functions, after initializing a global reentrancy structure for each process. Use the pointer to this structure as the extra argument for all library functions.</LI>
+<LI>Ensure that each thread of execution control has a pointer to its own unique reentrancy structure in the global variable<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_impure_ptr</CODE>, and call the standard library subroutines.</LI></OL>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><A name=index-list-of-reentrant-functions-456></A><A name=index-reentrant-function-list-457></A>The following functions are provided in both reentrant and non-reentrant versions.</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><BR><EM>Equivalent for errno variable:</EM><BR>
+     _errno_r
+     
+<BR><EM>Locale functions:</EM><BR>
+     _localeconv_r  _setlocale_r
+     
+<BR><EM>Equivalents for stdio variables:</EM><BR>
+     _stdin_r        _stdout_r       _stderr_r
+     
+     
+<BR><EM>Stdio functions:</EM><BR>
+     _fdopen_r       _perror_r       _tempnam_r
+     _fopen_r        _putchar_r      _tmpnam_r
+     _getchar_r      _puts_r         _tmpfile_r
+     _gets_r         _remove_r       _vfprintf_r
+     _iprintf_r      _rename_r       _vsnprintf_r
+     _mkstemp_r      _snprintf_r     _vsprintf_r
+     _mktemp_t       _sprintf_r
+     
+<BR><EM>Signal functions:</EM><BR>
+     _init_signal_r  _signal_r
+     _kill_r         __sigtramp_r
+     _raise_r
+     
+<BR><EM>Stdlib functions:</EM><BR>
+     _calloc_r       _mblen_r        _setenv_r
+     _dtoa_r         _mbstowcs_r     _srand_r
+     _free_r         _mbtowc_r       _strtod_r
+     _getenv_r       _memalign_r     _strtol_r
+     _mallinfo_r     _mstats_r       _strtoul_r
+     _malloc_r       _putenv_r       _system_r
+     _malloc_r       _rand_r         _wcstombs_r
+     _malloc_stats_r _realloc_r      _wctomb_r
+     
+<BR><EM>String functions:</EM><BR>
+     _strdup_r       _strtok_r
+     
+<BR><EM>System functions:</EM><BR>
+     _close_r        _link_r         _unlink_r
+     _execve_r       _lseek_r        _wait_r
+     _fcntl_r        _open_r         _write_r
+     _fork_r         _read_r
+     _fstat_r        _sbrk_r
+     _gettimeofday_r _stat_r
+     _getpid_r       _times_r
+     
+     
+<BR><EM>Time function:</EM><BR>
+     _asctime_r</PRE>

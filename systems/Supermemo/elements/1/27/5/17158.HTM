@@ -1,0 +1,11 @@
+Output discovery and initialization example</P>
+<P>void intel_crt_init(struct drm_device *dev)<BR>{<BR>&nbsp;struct drm_connector *connector;<BR>&nbsp;struct intel_output *intel_output;</P>
+<P>&nbsp;intel_output = kzalloc(sizeof(struct intel_output), GFP_KERNEL);<BR>&nbsp;if (!intel_output)<BR>&nbsp;&nbsp;return;</P>
+<P>&nbsp;connector = &amp;intel_output-&gt;base;<BR>&nbsp;drm_connector_init(dev, &amp;intel_output-&gt;base,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &amp;intel_crt_connector_funcs, DRM_MODE_CONNECTOR_VGA);</P>
+<P>&nbsp;drm_encoder_init(dev, &amp;intel_output-&gt;enc, &amp;intel_crt_enc_funcs,<BR>&nbsp;&nbsp;&nbsp; DRM_MODE_ENCODER_DAC);</P>
+<P>&nbsp;drm_mode_connector_attach_encoder(&amp;intel_output-&gt;base,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &amp;intel_output-&gt;enc);</P>
+<P>&nbsp;/* Set up the DDC bus. */<BR>&nbsp;intel_output-&gt;ddc_bus = intel_i2c_create(dev, GPIOA, "CRTDDC_A");<BR>&nbsp;if (!intel_output-&gt;ddc_bus) {<BR>&nbsp;&nbsp;dev_printk(KERN_ERR, &amp;dev-&gt;pdev-&gt;dev, "DDC bus registration "<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "failed.\n");<BR>&nbsp;&nbsp;return;<BR>&nbsp;}</P>
+<P>&nbsp;intel_output-&gt;type = INTEL_OUTPUT_ANALOG;<BR>&nbsp;connector-&gt;interlace_allowed = 0;<BR>&nbsp;connector-&gt;doublescan_allowed = 0;</P>
+<P>&nbsp;drm_encoder_helper_add(&amp;intel_output-&gt;enc, &amp;intel_crt_helper_funcs);<BR>&nbsp;drm_connector_helper_add(connector, &amp;intel_crt_connector_helper_funcs);</P>
+<P>&nbsp;drm_connector_register(connector);<BR>}</P>
+<P>In the example above (taken from the i915 driver), a CRTC, connector and encoder combination is created. A device-specific i2c bus is also created for fetching EDID data and performing monitor detection. Once the process is complete, the new connector is registered with sysfs to make its properties available to applications.

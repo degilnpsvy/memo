@@ -1,0 +1,35 @@
+#/Documentation/serial-console.txt 
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Linux Serial Console</P>
+<P></P>
+<P>To use a serial port as console you need to compile the support into your<BR>kernel - by default it is not compiled in. For PC style serial ports<BR>it's the config option next to "Standard/generic (dumb) serial support".<BR>You must compile serial support into the kernel and not as a module.</P>
+<P><FONT class=extract>It is possible to specify multiple devices for console output. You can<BR>define a new kernel command line option to select which device(s) to<BR>use for console output.</FONT></P>
+<P><FONT class=extract>The format of this option is:</FONT></P>
+<P><FONT class=extract>&nbsp;console=device,options</FONT></P>
+<P><FONT class=extract>&nbsp;device:&nbsp;&nbsp;tty0 for the foreground virtual console<BR>&nbsp;&nbsp;&nbsp;ttyX for any other virtual console<BR>&nbsp;&nbsp;&nbsp;ttySx for a serial port<BR>&nbsp;&nbsp;&nbsp;lp0 for the first parallel port<BR>&nbsp;&nbsp;&nbsp;ttyUSB0 for the first USB serial device</FONT></P>
+<P><FONT class=extract>&nbsp;options:&nbsp;depend on the driver. For the serial port this<BR>&nbsp;&nbsp;&nbsp;defines the baudrate/parity/bits/flow control of<BR>&nbsp;&nbsp;&nbsp;the port, in the format BBBBPNF, where BBBB is the<BR>&nbsp;&nbsp;&nbsp;speed, P is parity (n/o/e), N is number of bits,<BR>&nbsp;&nbsp;&nbsp;and F is flow control ('r' for RTS). Default is<BR>&nbsp;&nbsp;&nbsp;9600n8. The maximum baudrate is 115200.</FONT></P>
+<P><FONT class=extract>You can specify multiple console= options on the kernel command line.<BR>Output will appear on all of them. The last device will be used when<BR>you open /dev/console. So, for example:</FONT></P>
+<P><FONT class=extract>&nbsp;console=ttyS1,9600 console=tty0</FONT></P>
+<P><FONT class=extract>defines that opening /dev/console will get you the current foreground<BR>virtual console, and kernel messages will appear on both the VGA<BR>console and the 2nd serial port (ttyS1 or COM2) at 9600 baud.</FONT></P>
+<P><FONT class=extract>Note that you can only define one console per device type (serial, video).</FONT></P>
+<P><FONT class=extract>If no console device is specified, the first device found capable of<BR>acting as a system console will be used. At this time, the system<BR>first looks for a VGA card and then for a serial port. So if you don't<BR>have a VGA card in your system the first serial port will automatically<BR>become the console.</FONT></P>
+<P><FONT class=extract>You will need to create a new device to use /dev/console. The official<BR>/dev/console is now character device 5,1.</FONT></P>
+<P><FONT class=extract>(You can also use a network device as a console.&nbsp; See<BR>Documentation/networking/netconsole.txt for information on that.)</FONT></P>
+<P><FONT class=extract>Here's an example that will use /dev/ttyS1 (COM2) as the console.<BR>Replace the sample values as needed.</FONT></P>
+<P><FONT class=extract>1. Create /dev/console (real console) and /dev/tty0 (master virtual<BR>&nbsp;&nbsp; console):</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; cd /dev<BR>&nbsp;&nbsp; rm -f console tty0<BR>&nbsp;&nbsp; mknod -m 622 console c 5 1<BR>&nbsp;&nbsp; mknod -m 622 tty0 c 4 0</FONT></P>
+<P><FONT class=extract>2. LILO can also take input from a serial device. This is a very<BR>&nbsp;&nbsp; useful option. To tell LILO to use the serial port:<BR>&nbsp;&nbsp; In lilo.conf (global section): </FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; serial&nbsp; = 1,9600n8 (ttyS1, 9600 bd, no parity, 8 bits)</FONT></P>
+<P><FONT class=extract>3. Adjust to kernel flags for the new kernel,<BR>&nbsp;&nbsp; again in lilo.conf (kernel section)</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; append = "console=ttyS1,9600" </FONT></P>
+<P><FONT class=extract>4. Make sure a getty runs on the serial port so that you can login to<BR>&nbsp;&nbsp; it once the system is done booting. This is done by adding a line<BR>&nbsp;&nbsp; like this to /etc/inittab (exact syntax depends on your getty):</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; S1:23:respawn:/sbin/getty -L ttyS1 9600 vt100</FONT></P>
+<P><FONT class=extract>5. Init and /etc/ioctl.save</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; Sysvinit remembers its stty settings in a file in /etc, called<BR>&nbsp;&nbsp; `/etc/ioctl.save'. REMOVE THIS FILE before using the serial<BR>&nbsp;&nbsp; console for the first time, because otherwise init will probably<BR>&nbsp;&nbsp; set the baudrate to 38400 (baudrate of the virtual console).</FONT></P>
+<P><FONT class=extract>6. /dev/console and X<BR>&nbsp;&nbsp; Programs that want to do something with the virtual console usually<BR>&nbsp;&nbsp; open /dev/console. If you have created the new /dev/console device,<BR>&nbsp;&nbsp; and your console is NOT the virtual console some programs will fail.<BR>&nbsp;&nbsp; Those are programs that want to access the VT interface, and use<BR>&nbsp;&nbsp; /dev/console instead of /dev/tty0. Some of those programs are:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; Xfree86, svgalib, gpm, SVGATextMode</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; It should be fixed in modern versions of these programs though.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp; Note that if you boot without a console= option (or with<BR>&nbsp;&nbsp; console=/dev/tty0), /dev/console is the same as /dev/tty0. In that<BR>&nbsp;&nbsp; case everything will still work.</FONT></P>
+<P>7. Thanks</P>
+<P>&nbsp;&nbsp; Thanks to Geert Uytterhoeven &lt;<A href="mailto:geert@linux-m68k.org">geert@linux-m68k.org</A>&gt;<BR>&nbsp;&nbsp; for porting the patches from 2.1.4x to 2.1.6x for taking care of<BR>&nbsp;&nbsp; the integration of these patches into m68k, ppc and alpha.</P>
+<P>Miquel van Smoorenburg &lt;<A href="mailto:miquels@cistron.nl">miquels@cistron.nl</A>&gt;, 11-Jun-2000

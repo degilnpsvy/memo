@@ -1,0 +1,86 @@
+<DIV class=sect2 title="Mode Setting Infrastructure">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=idp11474992></A><A name=idp11476480></A><A name=idp11477984></A><A name=idp11479456></A>DPIO</H3></DIV></DIV></DIV></DIV>
+<DIV class=sect2 title=DPIO>
+<P></P>
+<P>VLV and CHV have slightly peculiar display PHYs for driving DP/HDMI ports. DPIO is the name given to such a display PHY. These PHYs don't follow the standard programming model using direct MMIO registers, and instead their registers must be accessed trough IOSF sideband. VLV has one such PHY for driving ports B and C, and CHV adds another PHY for driving port D. Each PHY responds to specific IOSF-SB port.</P>
+<P>Each display PHY is made up of one or two channels. Each channel houses a common lane part which contains the PLL and other common logic. CH0 common lane also contains the IOSF-SB logic for the Common Register Interface (CRI) ie. the DPIO registers. CRI clock must be running when any DPIO registers are accessed.</P>
+<P>In addition to having their own registers, the PHYs are also controlled through some dedicated signals from the display controller. These include PLL reference clock enable, PLL enable, and CRI clock selection, for example.</P>
+<P>Eeach channel also has two splines (also called data lanes), and each spline is made up of one Physical Access Coding Sub-Layer (PCS) block and two TX lanes. So each channel has two PCS blocks and four TX lanes. The TX lanes are used as DP lanes or TMDS data/clock pairs depending on the output type.</P>
+<P>Additionally the PHY also contains an AUX lane with AUX blocks for each channel. This is used for DP AUX communication, but this fact isn't really relevant for the driver since AUX is controlled from the display controller side. No DPIO registers need to be accessed during AUX communication,</P>
+<P>Generally the common lane corresponds to the pipe and the spline (PCS/TX) correponds to the port.</P>
+<P>For dual channel PHY (VLV/CHV):</P>
+<P>pipe A == CMN/PLL/REF CH0</P>
+<P>pipe B == CMN/PLL/REF CH1</P>
+<P>port B == PCS/TX CH0</P>
+<P>port C == PCS/TX CH1</P>
+<P>This is especially important when we cross the streams ie. drive port B with pipe B, or port C with pipe A.</P>
+<P>For single channel PHY (CHV):</P>
+<P>pipe C == CMN/PLL/REF CH0</P>
+<P>port D == PCS/TX CH0</P>
+<P>Note: digital port B is DDI0, digital port C is DDI1, digital port D is DDI2</P>
+<DIV class=table><A name=dpiox2></A>
+<P class=title><B>Table&nbsp;4.1.&nbsp;Dual channel PHY (VLV/CHV)</B></P>
+<DIV class=table-contents>
+<TABLE border=1 summary="Dual channel PHY (VLV/CHV)">
+<COLGROUP>
+<COL>
+<COL>
+<COL>
+<COL>
+<COL>
+<COL>
+<COL>
+<COL></COLGROUP>
+<THEAD>
+<TR>
+<TH colSpan=4>CH0</TH>
+<TH colSpan=4>CH1</TH></TR></THEAD>
+<TBODY vAlign=top align=middle>
+<TR>
+<TD vAlign=top colSpan=4 align=middle>CMN/PLL/REF</TD>
+<TD vAlign=top colSpan=4 align=middle>CMN/PLL/REF</TD></TR>
+<TR>
+<TD vAlign=top colSpan=2 align=middle>PCS01</TD>
+<TD vAlign=top colSpan=2 align=middle>PCS23</TD>
+<TD vAlign=top colSpan=2 align=middle>PCS01</TD>
+<TD vAlign=top colSpan=2 align=middle>PCS23</TD></TR>
+<TR>
+<TD vAlign=top align=middle>TX0</TD>
+<TD vAlign=top align=middle>TX1</TD>
+<TD vAlign=top align=middle>TX2</TD>
+<TD vAlign=top align=middle>TX3</TD>
+<TD vAlign=top align=middle>TX0</TD>
+<TD vAlign=top align=middle>TX1</TD>
+<TD vAlign=top align=middle>TX2</TD>
+<TD vAlign=top align=middle>TX3</TD></TR>
+<TR>
+<TD vAlign=top colSpan=4 align=middle>DDI0</TD>
+<TD vAlign=top colSpan=4 align=middle>DDI1</TD></TR></TBODY></TABLE></DIV></DIV><BR class=table-break>
+<DIV class=table><A name=dpiox1></A>
+<P class=title><B>Table&nbsp;4.2.&nbsp;Single channel PHY (CHV)</B></P>
+<DIV class=table-contents>
+<TABLE border=1 summary="Single channel PHY (CHV)">
+<COLGROUP>
+<COL>
+<COL>
+<COL>
+<COL></COLGROUP>
+<THEAD>
+<TR>
+<TH colSpan=4>CH0</TH></TR></THEAD>
+<TBODY vAlign=top align=middle>
+<TR>
+<TD vAlign=top colSpan=4 align=middle>CMN/PLL/REF</TD></TR>
+<TR>
+<TD vAlign=top colSpan=2 align=middle>PCS01</TD>
+<TD vAlign=top colSpan=2 align=middle>PCS23</TD></TR>
+<TR>
+<TD vAlign=top align=middle>TX0</TD>
+<TD vAlign=top align=middle>TX1</TD>
+<TD vAlign=top align=middle>TX2</TD>
+<TD vAlign=top align=middle>TX3</TD></TR>
+<TR>
+<TD vAlign=top colSpan=4 align=middle>DDI2</TD></TR></TBODY></TABLE></DIV></DIV><BR class=table-break></DIV>

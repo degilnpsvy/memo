@@ -1,0 +1,80 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>12.10.&nbsp;Locality of Reference</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s09.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;12.&nbsp;Memory and Arrays</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s11.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="12.10.&nbsp;Locality of Reference" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=locality></A>12.10.&nbsp;Locality of Reference</H2></DIV></DIV></DIV>
+<P>In order to maximize the cache hit ratio, programs should be written so that they are likely to access a small group of memory addresses repeatedly before moving on to new addresses. This increases the likelihood that the data will still be in the cache when it is read again. These memory addresses need not be close to each other, since the cache can contain a completely random collection of memory addresses at any given moment.</P>
+<P>For example, suppose a program has two arrays that need to undergo the same sequence of 10 processing steps. We could perform step 1 on both arrays, then step 2 on both arrays, and so on. Alternatively, we could perform all the steps on one array, and then all the steps on the other array. Which is likely to result in a higher cache hit ratio? What factors does it depend on?</P>
+<P>In order to maximize the virtual memory hit ratio, programs should be written so that they are likely to access<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>pages</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>that are in physical memory. One easy way to ensure this is by accessing memory addresses consecutively rather than randomly. The following demonstrates how this can be done using two versions of a program on a system with a page size of 4 kilobytes.</P><PRE class=programlisting>    double  matrix[1024][1024];
+    
+    10000   matrix[0][0]    page 0
+    10008   matrix[0][1]
+    ...
+    14096   matrix[0][512]  page 1
+    ...
+    18184   matrix[0][1024]
+    18192   matrix[1][0]    page 2
+    18008   matrix[1][1]
+    ...
+
+    // Row-major access.
+    // Consecutive memory references are usually in the same page
+    // Max 2 page faults per row
+    for (r=0; r &lt; 1024; ++r)
+	for (c=0; c &lt; 1024; ++c)
+	    list[r][c] = 0;
+    </PRE>
+<P>In the above program, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>memory reference string</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>is 10000, 10008, 10016, 10024, ...</P><PRE class=programlisting>    // Col-major access
+    // Consecutive memory accesses are always in different pages
+    // Max 1024 page faults per row (1 for every mem ref)
+    for (c=0; c &lt; 1024; ++c)
+	for (r=0; r &lt; 1024; ++r)
+	    list[r][c] = 0;
+    </PRE>
+<P>In the second version of the program, the memory reference string is 10000, 18192, 26384, 34576...</P>
+<P>The following code was run on an AMD64 with 1G RAM. The code uses an array of 800 megabytes, which is slightly larger than available RAM. Hence, this program will cause a small amount of paging to occur.</P><PRE class=programlisting>    #define MAX_ROWS    10000
+    #define MAX_COLS    10000
+    
+    int     main(int argc,char *argv[])
+    
+    {
+	// 800 megabyte matrix
+	static double  matrix[MAX_ROWS][MAX_COLS];
+	size_t  r, c;
+	
+	for (r=0; r &lt; MAX_ROWS; ++r)
+	    for (c=0; c &lt; MAX_COLS; ++c)
+		matrix[r][c] = (double)c;
+	    
+    Time: 2.1 seconds
+
+    for (c=0; c &lt; MAX_COLS; ++c)
+	for (r=0; r &lt; MAX_ROWS; ++r)
+	    matrix[r][c] = (double)c;
+
+    Time: 14 seconds
+    </PRE></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s09.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch12s11.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">12.9.&nbsp;Cache&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;12.11.&nbsp;Homework</TD></TR></TBODY></TABLE></DIV>

@@ -1,0 +1,8 @@
+/*<BR>&nbsp;* kobject_cleanup - free kobject resources.<BR>&nbsp;* @kobj: object to cleanup<BR>&nbsp;*/<BR>static void kobject_cleanup(struct kobject *kobj)<BR>{<BR>&nbsp;struct kobj_type *t = get_ktype(kobj);<BR>&nbsp;const char *name = kobj-&gt;name; 
+<P></P>
+<P>&nbsp;pr_debug("kobject: '%s' (%p): %s, parent %p\n",<BR>&nbsp;&nbsp; kobject_name(kobj), kobj, __func__, kobj-&gt;parent);</P>
+<P>&nbsp;if (t &amp;&amp; !t-&gt;release)<BR>&nbsp;&nbsp;pr_debug("kobject: '%s' (%p): does not have a release() "<BR>&nbsp;&nbsp;&nbsp; "function, it is broken and must be fixed.\n",<BR>&nbsp;&nbsp;&nbsp; kobject_name(kobj), kobj);</P>
+<P>&nbsp;/* send "remove" if the caller did not do it but sent "add" */<BR>&nbsp;if (kobj-&gt;state_add_uevent_sent &amp;&amp; !kobj-&gt;state_remove_uevent_sent) {<BR>&nbsp;&nbsp;pr_debug("kobject: '%s' (%p): auto cleanup 'remove' event\n",<BR>&nbsp;&nbsp;&nbsp; kobject_name(kobj), kobj);<BR>&nbsp;&nbsp;kobject_uevent(kobj, KOBJ_REMOVE);<BR>&nbsp;}</P>
+<P>&nbsp;/* remove from sysfs if the caller did not do it */<BR>&nbsp;if (kobj-&gt;state_in_sysfs) {<BR>&nbsp;&nbsp;pr_debug("kobject: '%s' (%p): auto cleanup kobject_del\n",<BR>&nbsp;&nbsp;&nbsp; kobject_name(kobj), kobj);<BR>&nbsp;&nbsp;kobject_del(kobj);<BR>&nbsp;}</P>
+<P>&nbsp;if (t &amp;&amp; t-&gt;release) {<BR>&nbsp;&nbsp;pr_debug("kobject: '%s' (%p): calling ktype release\n",<BR>&nbsp;&nbsp;&nbsp; kobject_name(kobj), kobj);<BR>&nbsp;&nbsp;t-&gt;release(kobj);<BR>&nbsp;}</P>
+<P>&nbsp;/* free name if we allocated it */<BR>&nbsp;if (name) {<BR>&nbsp;&nbsp;pr_debug("kobject: '%s': free name\n", name);<BR>&nbsp;&nbsp;kfree(name);<BR>&nbsp;}<BR>}

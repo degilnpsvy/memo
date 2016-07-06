@@ -1,0 +1,100 @@
+# Documentation/filesystem/sysfs.txt 
+<P></P>
+<P>sysfs - _The_ filesystem for exporting kernel objects. </P>
+<P></P>
+<P>Patrick Mochel&nbsp;&lt;<A href="mailto:mochel@osdl.org">mochel@osdl.org</A>&gt;<BR>Mike Murphy &lt;<A href="mailto:mamurph@cs.clemson.edu">mamurph@cs.clemson.edu</A>&gt;</P>
+<P>Revised:&nbsp;&nbsp;&nbsp; 16 August 2011<BR>Original:&nbsp;&nbsp; 10 January 2003</P>
+<P><BR>What it is:<BR>~~~~~~~~~~~</P>
+<P>sysfs is a ram-based filesystem initially based on ramfs. It provides<BR>a means to export kernel data structures, their attributes, and the <BR>linkages between them to userspace. </P>
+<P>sysfs is tied inherently to the kobject infrastructure. Please read<BR>Documentation/kobject.txt for more information concerning the kobject<BR>interface. </P>
+<P><BR><FONT class=extract>Using sysfs<BR>~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>sysfs is always compiled in if CONFIG_SYSFS is defined. You can access<BR>it by doing:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp; mount -t sysfs sysfs /sys</SPAN></FONT><!--EndHighlight--> </P>
+<P><BR><FONT class=extract>Directory Creation<BR>~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>For every kobject that is registered with the system, a directory is<BR>created for it in sysfs. That directory is created as a subdirectory<BR>of the kobject's parent, expressing internal object hierarchies to<BR>userspace. Top-level directories in sysfs represent the common<BR>ancestors of object hierarchies; i.e. the subsystems the objects<BR>belong to. </FONT></P>
+<P><FONT class=extract>Sysfs internally stores a pointer to the kobject that implements a<BR>directory in the sysfs_dirent object associated with the directory. In<BR>the past this kobject pointer has been used by sysfs to do reference<BR>counting directly on the kobject whenever the file is opened or closed.<BR>With the current sysfs implementation the kobject reference count is<BR>only modified directly by the function sysfs_schedule_callback().</FONT></P>
+<P><BR><FONT class=extract>Attributes<BR>~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>Attributes can be exported for kobjects in the form of regular files in<BR>the filesystem. Sysfs forwards file I/O operations to methods defined<BR>for the attributes, providing a means to read and write kernel<BR>attributes.</FONT></P>
+<P><FONT class=extract>Attributes should be ASCII text files, preferably with only one value<BR>per file. It is noted that it may not be efficient to contain only one<BR>value per file, so it is socially acceptable to express an array of<BR>values of the same type. </FONT></P>
+<P><FONT class=extract>Mixing types, expressing multiple lines of data, and doing fancy<BR>formatting of data is heavily frowned upon. Doing these things may get<BR>you publicly humiliated and your code rewritten without notice. </FONT></P>
+<P><BR><FONT class=extract>An attribute definition is simply:</FONT></P>
+<P><FONT class=extract>struct attribute {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; char&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; * name;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct module&nbsp;&nbsp;*owner;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; umode_t&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; mode;<BR>};</FONT></P>
+<P><BR><FONT class=extract>int sysfs_create_file(struct kobject * kobj, const struct attribute * attr);<BR>void sysfs_remove_file(struct kobject * kobj, const struct attribute * attr);</FONT></P>
+<P><BR><FONT class=extract>A bare attribute contains no means to read or write the value of the<BR>attribute. Subsystems are encouraged to define their own attribute<BR>structure and wrapper functions for adding and removing attributes for<BR>a specific object type. </FONT></P>
+<P><FONT class=extract>For example, the driver model defines struct device_attribute like:</FONT></P>
+<P><FONT class=extract>struct device_attribute {<BR>&nbsp;struct attribute&nbsp;attr;<BR>&nbsp;ssize_t (*show)(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;char *buf);<BR>&nbsp;ssize_t (*store)(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp; const char *buf, size_t count);<BR>};</FONT></P>
+<P><FONT class=extract>int device_create_file(struct device *, const struct device_attribute *);<BR>void device_remove_file(struct device *, const struct device_attribute *);</FONT></P>
+<P><FONT class=extract>It also defines this helper for defining device attributes: </FONT></P>
+<P><FONT class=extract>#define DEVICE_ATTR(_name, _mode, _show, _store) \<BR>struct device_attribute dev_attr_##_name = __ATTR(_name, _mode, _show, _store)</FONT></P>
+<P><FONT class=extract>For example, declaring</FONT></P>
+<P><FONT class=extract>static DEVICE_ATTR(foo, S_IWUSR | S_IRUGO, show_foo, store_foo);</FONT></P>
+<P><FONT class=extract>is equivalent to doing:</FONT></P>
+<P><FONT class=extract>static struct device_attribute dev_attr_foo = {<BR>&nbsp;.attr = {<BR>&nbsp;&nbsp;.name = "foo",<BR>&nbsp;&nbsp;.mode = S_IWUSR | S_IRUGO,<BR>&nbsp;},<BR>&nbsp;.show = show_foo,<BR>&nbsp;.store = store_foo,<BR>};</FONT></P>
+<P><BR><FONT class=extract>Subsystem-Specific Callbacks<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>When a subsystem defines a new attribute type, it must implement a<BR>set of sysfs operations for forwarding read and write calls to the<BR>show and store methods of the attribute owners. </FONT></P>
+<P><FONT class=extract>struct sysfs_ops {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*show)(struct kobject *, struct attribute *, char *);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*store)(struct kobject *, struct attribute *, const char *, size_t);<BR>};</FONT></P>
+<P><FONT class=extract>[ Subsystems should have already defined a struct kobj_type as a<BR>descriptor for this type, which is where the sysfs_ops pointer is<BR>stored. See the kobject documentation for more information. ]</FONT></P>
+<P><FONT class=extract>When a file is read or written, sysfs calls the appropriate method<BR>for the type. The method then translates the generic struct kobject<BR>and struct attribute pointers to the appropriate pointer types, and<BR>calls the associated methods. </FONT></P>
+<P><BR><FONT class=extract>To illustrate:</FONT></P>
+<P><FONT class=extract>#define to_dev(obj) container_of(obj, struct device, kobj)<BR>#define to_dev_attr(_attr) container_of(_attr, struct device_attribute, attr)</FONT></P>
+<P><FONT class=extract>static ssize_t dev_attr_show(struct kobject *kobj, struct attribute *attr,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; char *buf)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct device_attribute *dev_attr = to_dev_attr(attr);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct device *dev = to_dev(kobj);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t ret = -EIO;</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (dev_attr-&gt;show)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ret = dev_attr-&gt;show(dev, dev_attr, buf);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (ret &gt;= (ssize_t)PAGE_SIZE) {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; print_symbol("dev_attr_show: %s returned bad count\n",<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (unsigned long)dev_attr-&gt;show);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return ret;<BR>}</FONT></P>
+<P>&nbsp;</P>
+<P><FONT class=extract>Reading/Writing Attribute Data<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>To read or write attributes, show() or store() methods must be<BR>specified when declaring the attribute. The method types should be as<BR>simple as those defined for device attributes:</FONT></P>
+<P><FONT class=extract>ssize_t (*show)(struct device *dev, struct device_attribute *attr, char *buf);<BR>ssize_t (*store)(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; const char *buf, size_t count);</FONT></P>
+<P><FONT class=extract>IOW, they should take only an object, an attribute, and a buffer as parameters.</FONT></P>
+<P><BR><FONT class=extract>sysfs allocates a buffer of size (PAGE_SIZE) and passes it to the<BR>method. Sysfs will call the method exactly once for each read or<BR>write. This forces the following behavior on the method<BR>implementations: </FONT></P>
+<P><FONT class=extract>- On read(2), the show() method should fill the entire buffer. <BR>&nbsp; Recall that an attribute should only be exporting one value, or an<BR>&nbsp; array of similar values, so this shouldn't be that expensive. </FONT></P>
+<P><FONT class=extract>&nbsp; This allows userspace to do partial reads and forward seeks<BR>&nbsp; arbitrarily over the entire file at will. If userspace seeks back to<BR>&nbsp; zero or does a pread(2) with an offset of '0' the show() method will<BR>&nbsp; be called again, rearmed, to fill the buffer.</FONT></P>
+<P><FONT class=extract>- On write(2), sysfs expects the entire buffer to be passed during the<BR>&nbsp; first write. Sysfs then passes the entire buffer to the store()<BR>&nbsp; method. <BR>&nbsp; <BR>&nbsp; When writing sysfs files, userspace processes should first read the<BR>&nbsp; entire file, modify the values it wishes to change, then write the<BR>&nbsp; entire buffer back. </FONT></P>
+<P><FONT class=extract>&nbsp; Attribute method implementations should operate on an identical<BR>&nbsp; buffer when reading and writing values. </FONT></P>
+<P><FONT class=extract>Other notes:</FONT></P>
+<P><FONT class=extract>- Writing causes the show() method to be rearmed regardless of current<BR>&nbsp; file position.</FONT></P>
+<P><FONT class=extract>- The buffer will always be PAGE_SIZE bytes in length. On i386, this<BR>&nbsp; is 4096. </FONT></P>
+<P><FONT class=extract>- show() methods should return the number of bytes printed into the<BR>&nbsp; buffer. This is the return value of scnprintf().</FONT></P>
+<P><FONT class=extract>- show() should always use scnprintf().</FONT></P>
+<P><FONT class=extract>- store() should return the number of bytes used from the buffer. If the<BR>&nbsp; entire buffer has been used, just return the count argument.</FONT></P>
+<P><FONT class=extract>- show() or store() can always return errors. If a bad value comes<BR>&nbsp; through, be sure to return an error.</FONT></P>
+<P><FONT class=extract>- The object passed to the methods will be pinned in memory via sysfs<BR>&nbsp; referencing counting its embedded object. However, the physical <BR>&nbsp; entity (e.g. device) the object represents may not be present. Be <BR>&nbsp; sure to have a way to check this, if necessary. </FONT></P>
+<P><BR><FONT class=extract>A very simple (and naive) implementation of a device attribute is:</FONT></P>
+<P><FONT class=extract>static ssize_t show_name(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; char *buf)<BR>{<BR>&nbsp;return scnprintf(buf, PAGE_SIZE, "%s\n", dev-&gt;name);<BR>}</FONT></P>
+<P><FONT class=extract>static ssize_t store_name(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; const char *buf, size_t count)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; snprintf(dev-&gt;name, sizeof(dev-&gt;name), "%.*s",<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (int)min(count, sizeof(dev-&gt;name) - 1), buf);<BR>&nbsp;return count;<BR>}</FONT></P>
+<P><FONT class=extract>static DEVICE_ATTR(name, S_IRUGO, show_name, store_name);</FONT></P>
+<P><BR><FONT class=extract>(Note that the real implementation doesn't allow userspace to set the <BR>name for a device.)</FONT></P>
+<P><BR><FONT class=extract>Top Level Directory Layout<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>The sysfs directory arrangement exposes the relationship of kernel<BR>data structures. </FONT></P>
+<P><FONT class=extract>The top level sysfs directory looks like:</FONT></P>
+<P><FONT class=extract>block/<BR>bus/<BR>class/<BR>dev/<BR>devices/<BR>firmware/<BR>net/<BR>fs/</FONT></P>
+<P><FONT class=extract>devices/ contains a filesystem representation of the device tree. It maps<BR>directly to the internal kernel device tree, which is a hierarchy of<BR>struct device. </FONT></P>
+<P><FONT class=extract>bus/ contains flat directory layout of the various bus types in the<BR>kernel. Each bus's directory contains two subdirectories:</FONT></P>
+<P><FONT class=extract>&nbsp;devices/<BR>&nbsp;drivers/</FONT></P>
+<P><FONT class=extract>devices/ contains symlinks for each device discovered in the system<BR>that point to the device's directory under root/.</FONT></P>
+<P><FONT class=extract>drivers/ contains a directory for each device driver that is loaded<BR>for devices on that particular bus (this assumes that drivers do not<BR>span multiple bus types).</FONT></P>
+<P><FONT class=extract>fs/ contains a directory for some filesystems.&nbsp; Currently each<BR>filesystem wanting to export attributes must create its own hierarchy<BR>below fs/ (see ./fuse.txt for an example).</FONT></P>
+<P><FONT class=extract>dev/ contains two directories char/ and block/. Inside these two<BR>directories there are symlinks named &lt;major&gt;:&lt;minor&gt;.&nbsp; These symlinks<BR>point to the sysfs directory for the given device.&nbsp; /sys/dev provides a<BR>quick way to lookup the sysfs interface for a device from the result of<BR>a stat(2) operation.</FONT></P>
+<P><FONT class=extract>More information can driver-model specific features can be found in<BR>Documentation/driver-model/. </FONT></P>
+<P><BR><FONT class=extract>TODO: Finish this section.</FONT></P>
+<P><BR><FONT class=extract>Current Interfaces<BR>~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>The following interface layers currently exist in sysfs:</FONT></P>
+<P><BR><FONT class=extract>- devices (include/linux/device.h)<BR>----------------------------------<BR>Structure:</FONT></P>
+<P><FONT class=extract>struct device_attribute {<BR>&nbsp;struct attribute&nbsp;attr;<BR>&nbsp;ssize_t (*show)(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;char *buf);<BR>&nbsp;ssize_t (*store)(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp; const char *buf, size_t count);<BR>};</FONT></P>
+<P><FONT class=extract>Declaring:</FONT></P>
+<P><FONT class=extract>DEVICE_ATTR(_name, _mode, _show, _store);</FONT></P>
+<P><FONT class=extract>Creation/Removal:</FONT></P>
+<P><FONT class=extract>int device_create_file(struct device *dev, const struct device_attribute * attr);<BR>void device_remove_file(struct device *dev, const struct device_attribute * attr);</FONT></P>
+<P><BR><FONT class=extract>- bus drivers (include/linux/device.h)<BR>--------------------------------------<BR>Structure:</FONT></P>
+<P><FONT class=extract>struct bus_attribute {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct attribute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; attr;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*show)(struct bus_type *, char * buf);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*store)(struct bus_type *, const char * buf, size_t count);<BR>};</FONT></P>
+<P><FONT class=extract>Declaring:</FONT></P>
+<P><FONT class=extract>BUS_ATTR(_name, _mode, _show, _store)</FONT></P>
+<P><FONT class=extract>Creation/Removal:</FONT></P>
+<P><FONT class=extract>int bus_create_file(struct bus_type *, struct bus_attribute *);<BR>void bus_remove_file(struct bus_type *, struct bus_attribute *);</FONT></P>
+<P><BR><FONT class=extract>- device drivers (include/linux/device.h)<BR>-----------------------------------------</FONT></P>
+<P><FONT class=extract>Structure:</FONT></P>
+<P><FONT class=extract>struct driver_attribute {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct attribute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; attr;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*show)(struct device_driver *, char * buf);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ssize_t (*store)(struct device_driver *, const char * buf,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; size_t count);<BR>};</FONT></P>
+<P><FONT class=extract>Declaring:</FONT></P>
+<P><FONT class=extract>DRIVER_ATTR(_name, _mode, _show, _store)</FONT></P>
+<P><FONT class=extract>Creation/Removal:</FONT></P>
+<P><FONT class=extract>int driver_create_file(struct device_driver *, const struct driver_attribute *);<BR>void driver_remove_file(struct device_driver *, const struct driver_attribute *);</FONT></P>
+<P><BR><FONT class=extract>Documentation<BR>~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>The sysfs directory structure and the attributes in each directory define an<BR>ABI between the kernel and user space. As for any ABI, it is important that<BR>this ABI is stable and properly documented. All new sysfs attributes must be<BR>documented in Documentation/ABI. See also Documentation/ABI/README for more<BR>information.</FONT>

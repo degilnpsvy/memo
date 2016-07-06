@@ -1,0 +1,7 @@
+int __class_register(struct class *cls, struct lock_class_key *key)<BR>{<BR>&nbsp;struct subsys_private *cp;<BR>&nbsp;int error; 
+<P></P>
+<P>&nbsp;pr_debug("device class '%s': registering\n", cls-&gt;name);</P>
+<P>&nbsp;cp = kzalloc(sizeof(*cp), GFP_KERNEL);<BR>&nbsp;if (!cp)<BR>&nbsp;&nbsp;return -ENOMEM;<BR>&nbsp;klist_init(&amp;cp-&gt;klist_devices, klist_class_dev_get, klist_class_dev_put);<BR>&nbsp;INIT_LIST_HEAD(&amp;cp-&gt;interfaces);<BR>&nbsp;kset_init(&amp;cp-&gt;glue_dirs);<BR>&nbsp;__mutex_init(&amp;cp-&gt;mutex, "subsys mutex", key);<BR>&nbsp;error = kobject_set_name(&amp;cp-&gt;subsys.kobj, "%s", cls-&gt;name);<BR>&nbsp;if (error) {<BR>&nbsp;&nbsp;kfree(cp);<BR>&nbsp;&nbsp;return error;<BR>&nbsp;}</P>
+<P>&nbsp;/* set the default /sys/dev directory for devices of this class */<BR>&nbsp;if (!cls-&gt;dev_kobj)<BR>&nbsp;&nbsp;cls-&gt;dev_kobj = sysfs_dev_char_kobj;</P>
+<P>#if defined(CONFIG_BLOCK)<BR>&nbsp;/* let the block class directory show up in the root of sysfs */<BR>&nbsp;if (!sysfs_deprecated || cls != &amp;block_class)<BR>&nbsp;&nbsp;cp-&gt;subsys.kobj.kset = class_kset;<BR>#else<BR>&nbsp;cp-&gt;subsys.kobj.kset = class_kset;<BR>#endif<BR>&nbsp;cp-&gt;subsys.kobj.ktype = &amp;class_ktype;<BR>&nbsp;cp-&gt;class = cls;<BR>&nbsp;cls-&gt;p = cp;</P>
+<P>&nbsp;error = kset_register(&amp;cp-&gt;subsys);<BR>&nbsp;if (error) {<BR>&nbsp;&nbsp;kfree(cp);<BR>&nbsp;&nbsp;return error;<BR>&nbsp;}<BR>&nbsp;error = add_class_attrs(class_get(cls));<BR>&nbsp;class_put(cls);<BR>&nbsp;return error;<BR>}<BR>EXPORT_SYMBOL_GPL(__class_register);

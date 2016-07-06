@@ -1,0 +1,157 @@
+<H3 id=title-IDABUFLH class=docSection1Title>14.5. When It Doesn't Boot</H3>
+<P class=docText>One of the most frequently asked questions on the various mailing lists that serve embedded Linux goes something like this:</P>
+<P class=docText><SPAN class=docEmphasis>I am trying to boot Linux on my board, and I get stuck after this message prints to my console:</SPAN></P>
+<P class=docText><SPAN class=docEmphasis>"Uncompressing Kernel Image . . . OK."</SPAN></P>
+<P class=docText><A name=iddle1087></A><A name=iddle1229></A><A name=iddle1300></A><A name=iddle1374></A><A name=iddle1745></A><A name=iddle1891></A><A name=iddle2409></A>Thus starts the long and sometimes frustrating learning curve of embedded Linux! Many things that can go wrong could lead to this common failure. With some knowledge and a JTAG debugger, there are ways to determine what went awry.</P><A name=ch14lev2sec13></A>
+<H4 id=title-IDAAXFLH class=docSection2Title>14.5.1. Early Serial Debug Output</H4>
+<P class=docText>The first tool you might have available is <TT>CONFIG_SERIAL_TEXT_DEBUG</TT>. This Linux kernel-configuration option adds support for debug messages very early in the boot process. At the present time, this feature is limited to the PowerPC architecture, but nothing prevents you from duplicating the functionality in other architectures. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec5.html#ch1422">Listing 14-22</A> provides an example of this feature in use on a PowerPC target using the U-Boot bootloader.</P><A name=ch1422></A>
+<H5 id=title-IDAXXFLH class=docExampleTitle>Listing 14-22. Early Serial Text Debug</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>## Booting image at 00200000 ...
+   Image Name:   Linux-2.6.14
+   Created:      2005-12-19  22:24:03 UTC
+   Image Type:   PowerPC Linux Kernel Image (gzip compressed)
+   Data Size:    607149 Bytes = 592.9 kB
+   Load Address: 00000000
+   Entry Point:  00000000
+   Verifying Checksum ... OK
+   Uncompressing Kernel Image ... OK
+id mach(): done      &lt;== Start of messages enabled by
+MMU:enter            &lt;== CONFIG_SERIAL_TEXT_DEBUG
+MMU:hw init
+MMU:mapin
+MMU:setio
+MMU:exit
+setup_arch: enter
+setup_arch: bootmem
+arch: exit
+arch: real exit</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Using this feature, you can often tell where your board is getting stuck during the boot process. Of course, you can add your own early debug messages in other places in the kernel. Here is an example of its usage found in <TT>.../arch/ppc/mm/init.c</TT>:</P>
+<DIV class=docText><PRE>        /* Map in all of RAM starting at KERNELBASE */
+        if (ppc_md.progress)
+                ppc_md.progress("MMU:mapin", 0x301);
+        mapin_ram();</PRE></DIV><BR>
+<P class=docText><A name=iddle1086></A><A name=iddle1289></A><A name=iddle1734></A><A name=iddle2047></A><A name=iddle2245></A><A name=iddle2246></A>The AMCC Yosemite platform is an excellent example of this infrastructure. Consult the following files in the Linux source tree<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec5.html#ch14fn11">[11]</A></SUP> for details of how this debugging system is implemented:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn11>[11]</A></SUP> All these filenames are unique, so they can be found without full pathname references.</P></BLOCKQUOTE>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=none frame=hsides>
+<COLGROUP span=3 align=left>
+<COL width=100>
+<COL width=100>
+<COL width=200></COLGROUP>
+<THEAD></THEAD>
+<TBODY>
+<TR>
+<TD class=bottomBorder vAlign=top align=left>
+<P class=docText>File</P></TD>
+<TD class=bottomBorder vAlign=top align=left>
+<P class=docText>Function</P></TD>
+<TD class=bottomBorder vAlign=top align=left>
+<P class=docText>Purpose</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>gen550_dbg.c</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>gen550_init</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Serial port setup, called by <TT>yosemite.c</TT> platform-initialization file</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>gen550_dbg.c</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>gen550_progress</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Low-level serial output routine</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>ibm44x_common.c</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>ibm44x_platform_init</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Binds platform-specific progress routine to generic ppc machine-dependent infrastructure</P></TD></TR></TBODY></TABLE></P><BR><A name=ch14lev2sec14></A>
+<H4 id=title-IDAF4FLH class=docSection2Title>14.5.2. Dumping the printk Log Buffer</H4>
+<P class=docText>When we discussed <TT>printk</TT> debugging in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14lev2sec9">Section 14.3.6</A>, we pointed out some of the limitations of this method. <TT>printk</TT> itself is a very robust implementation. One of its shortcomings is that you can't see any <TT>printk</TT> messages until later in the boot sequence when the console device has been initialized. Very often, when your board hangs on boot, quite a few messages are stuck in the <TT>printk</TT> buffer. If you know where to find them, you can often pinpoint the exact problem that is causing the boot to hang. Indeed, many times you will discover that the kernel has encountered an error that led to a call to <TT>panic()</TT>. The output from <TT>panic()</TT> has likely been dumped into the <TT>printk</TT> buffer, and you can often pinpoint the exact line of offending code.</P>
+<P class=docText>This is best accomplished with a JTAG debugger, but it is still possible to use a bootloader and its memory dump capability to display the contents of the <TT>printk</TT> buffer after a reset. Some corruption of memory contents might occur as a result of the reset, but log buffer text is usually very readable.</P>
+<P class=docText>The actual buffer where <TT>printk</TT> stores its message text is declared in the <TT>printk</TT> source file <TT>.../kernel/printk.c</TT>.</P>
+<DIV class=docText><PRE>static char __log_buf[__LOG_BUF_LEN];</PRE></DIV><BR>
+<P class=docText><A name=iddle1890></A>We can easily determine the linked location of this buffer from the Linux kernel map file <TT>System.map</TT>.</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>grep __log_buf System.map</SPAN>
+   c022e5a4 b __log_buf</PRE></DIV><BR>
+<P class=docText>Now if the system happens to hang upon booting, right after displaying the "Uncompressing Kernel Image . . . OK" message, reboot and use the bootloader to examine the buffer. Because the relationship between kernel virtual memory and physical memory is fixed and constant on a given architecture, we can do a simple conversion. The address of <TT>__log_buf</TT> shown earlier is a kernel virtual address; we must convert it to a physical address. On this particular PowerPC architecture, that conversion is a simple subtraction of the constant <TT>KERNELBASE</TT> address, <TT>0xc0000000</TT>. This is where we probe in memory to read the contents, if any, of the <TT>printk</TT> log buffer.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec5.html#ch1423">Listing 14-23</A> is an example of the listing as displayed by the U-Boot memory dump command.</P><A name=ch1423></A>
+<H5 id=title-IDAUJZKH class=docExampleTitle>Listing 14-23. Dump of Raw <TT>printk</TT> Log Buffer</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>=&gt; <SPAN class=docEmphStrong>md 22e5a4</SPAN>
+0022e5a4: 3c353e4c 696e7578 20766572 73696f6e    &lt;5&gt;Linux version
+0022e5b4: 20322e36 2e313320 28636872 6973406a     2.6.13 (chris@
+0022e5c4: 756e696f 72292028 67636320 76657273    junior) (gcc
+0022e5d4: 696f6e20 332e342e 3320284d 6f6e7461    version 3.4.3 (Monta
+0022e5e4: 56697374 6120332e 342e332d 32352e30    Vista 3.4.3-25.0
+0022e5f4: 2e37302e 30353031 39363120 32303035    .70.0501961 2005
+0022e604: 2d31322d 31382929 20233131 20547565    -12-18)) #11 Tue
+0022e614: 20466562 20313420 32313a30 353a3036     Feb 14 21:05:06
+0022e624: 20455354 20323030 360a3c34 3e414d43     EST 2006.&lt;4&gt;AMC
+0022e634: 4320506f 77657250 43203434 30455020    C PowerPC 440EP
+0022e644: 596f7365 6d697465 20506c61 74666f72    Yosemite Platform.
+0022e654: 6d0a3c37 3e4f6e20 6e6f6465 20302074    &lt;7&gt;On node 0
+0022e664: 6f74616c 70616765 733a2036 35353336    totalpages: 65536
+0022e674: 0a3c373e 2020444d 41207a6f 6e653a20    .&lt;7&gt;  DMA zone:
+0022e684: 36353533 36207061 6765732c 204c4946    65536 pages, LIF
+0022e694: 4f206261 7463683a 33310a3c 373e2020    O batch:31.&lt;7&gt;
+=&gt;
+0022e6a4: 4e6f726d 616c207a 6f6e653a 20302070    Normal zone: 0
+0022e6b4: 61676573 2c204c49 464f2062 61746368    pages, LIFO batch
+0022e6c4: 3a310a3c 373e2020 48696768 4d656d20    :1.&lt;7&gt;  HighMemzone:
+0022e6d4: 7a6f6e65 3a203020 70616765 732c204c    0 pages,
+0022e6e4: 49464f20 62617463 683a310a 3c343e42    LIFO batch:1.&lt;4&gt;
+0022e6f4: 75696c74 2031207a 6f6e656c 69737473    Built 1 zonelists
+0022e704: 0a3c353e 4b65726e 656c2063 6f6d6d61    .&lt;5&gt;Kernel command
+0022e714: 6e64206c 696e653a 20636f6e 736f6c65    line: console
+0022e724: 3d747479 53302c31 31353230 3020726f    =ttyS0,115200
+0022e734: 6f743d2f 6465762f 6e667320 72772069    root=/dev/nfs rw
+0022e744: 703d6468 63700a3c 343e5049 44206861    ip=dhcp.&lt;4&gt;PID
+0022e754: 73682074 61626c65 20656e74 72696573    hash table entries
+0022e764: 3a203230 34382028 6f726465 723a2031    : 2048 (order:
+0022e774: 312c2033 32373638 20627974 6573290a    11, 32768 bytes).
+0022e784: 00000000 00000000 00000000 00000000    ................
+0022e794: 00000000 00000000 00000000 00000000    ................
+=&gt;</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1088></A><A name=iddle1250></A><A name=iddle1293></A><A name=iddle1543></A><A name=iddle1738></A><A name=iddle1808></A><A name=iddle2024></A><A name=iddle2544></A>It's not very pretty to read, but the data is there. We can see in this particular example that the kernel crashed someplace after initializing the PID hash table entries. With some additional use of <TT>printk</TT> messages, we can begin to close in on the actual source of the crash.</P>
+<P class=docText>As shown in this example, this is a technique that can be used with no additional tools. You can see the importance of some kind of early serial port output during boot if you are working on a new board port.</P><A name=ch14lev2sec15></A>
+<H4 id=title-IDAMNZKH class=docSection2Title>14.5.3. KGDB on Panic</H4>
+<P class=docText>If KGDB is enabled, the kernel attempts to pass control back to KGDB upon error exceptions. In some cases, the error itself will be readily apparent. To use this feature, a connection must already be established between KGDB and <TT>gdb</TT>. When the exception condition occurs, KGDB emits a Stop Reply packet to <TT>gdb</TT>, indicating the reason for the trap into the debug handler, as well as the address where the trap condition occurred. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec5.html#ch1424">Listing 14-24</A> illustrates the sequence.</P><A name=ch1424></A>
+<H5 id=title-IDAIOZKH class=docExampleTitle>Listing 14-24. Trapping Crash on Panic Using KGDB</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ppc-_4xx-gdb --silent vmlinux</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote /dev/ttyS0</SPAN>
+Remote debugging using /dev/ttyS0
+Malformed response to offset query, qOffsets
+(gdb) <SPAN class=docEmphStrong>target remote /dev/ttyS0</SPAN>
+Remote debugging using /dev/ttyS0
+breakinst () at arch/ppc/kernel/ppc-stub.c:825
+825     }
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+&lt;&lt; KGDB gains control from panic() on crash &gt;&gt;
+Program received signal SIGSEGV, Segmentation fault.
+0xc0215d6c in pcibios_init () at arch/ppc/kernel/pci.c:1263
+1263            *(int *)-1 = 0;
+(gdb) <SPAN class=docEmphStrong>bt</SPAN>
+#0  0xc0215d6c in pcibios_init () at arch/ppc/kernel/pci.c:1263
+#1  0xc020e728 in do_initcalls () at init/main.c:563
+#2  0xc020e7c4 in do_basic_setup () at init/main.c:605
+#3  0xc0001374 in init (unused=0x20) at init/main.c:677
+#4  0xc00049d0 in kernel_thread ()
+Previous frame inner to this frame (corrupt stack?)
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The crash in this example was contrived by a simple write to an invalid memory location (all ones). We first establish a connection from <TT>gdb</TT> to KGDB and allow the kernel to continue to boot. Notice that we didn't even bother to set breakpoints. When the crash occurs, we see the line of offending code and get a nice backtrace to help us determine its cause.

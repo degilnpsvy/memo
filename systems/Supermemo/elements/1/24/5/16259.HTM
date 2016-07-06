@@ -1,0 +1,23 @@
+<H4 class=subsection>12.1.1 Conversion of Guile Types</H4>
+<P><A name=index-convert-guile-types-1046></A><A name=index-guile_002c-conversion-of-types-1047></A><A name=index-types_002c-conversion-of-1048></A><FONT class=extract>There is only one &#8220;data type&#8221; in <CODE>make</CODE>: a string.</FONT> GNU Guile, on the other hand, provides a rich variety of different data types. An important aspect of the interface between <CODE>make</CODE> and GNU Guile is the conversion of Guile data types into <CODE>make</CODE> strings. 
+<P>This conversion is relevant in two places: when a makefile invokes the <CODE>guile</CODE> function to evaluate a Guile expression, the result of that evaluation must be converted into a make string so it can be further evaluated by <CODE>make</CODE>. And secondly, when a Guile script invokes one of the procedures exported by <CODE>make</CODE> the argument provided to the procedure must be converted into a string. 
+<P>The conversion of Guile types into <CODE>make</CODE> strings is as below: 
+<DL>
+<DT><CODE>#f</CODE> 
+<DD>False is converted into the empty string: in <CODE>make</CODE> conditionals the empty string is considered false. <BR>
+<DT><CODE>#t</CODE> 
+<DD>True is converted to the string &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217;: in <CODE>make</CODE> conditionals any non-empty string is considered true. <BR>
+<DT><CODE>symbol</CODE><BR>
+<DT><CODE>number</CODE> 
+<DD>A symbol or number is converted into the string representation of that symbol or number. <BR>
+<DT><CODE>character</CODE> 
+<DD>A printable character is converted to the same character. <BR>
+<DT><CODE>string</CODE> 
+<DD>A string containing only printable characters is converted to the same string. <BR>
+<DT><CODE>list</CODE> 
+<DD>A list is converted recursively according to the above rules. This implies that any structured list will be flattened (that is, a result of &#8216;<SAMP><SPAN class=samp>'(a b (c d) e)</SPAN></SAMP>&#8217; will be converted to the <CODE>make</CODE> string &#8216;<SAMP><SPAN class=samp>a b c d e</SPAN></SAMP>&#8217;). <BR>
+<DT><CODE>other</CODE> 
+<DD>Any other Guile type results in an error. In future versions of <CODE>make</CODE>, other Guile types may be converted. </DD></DL>
+<P>The translation of &#8216;<SAMP><SPAN class=samp>#f</SPAN></SAMP>&#8217; (to the empty string) and &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217; (to the non-empty string &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217;) is designed to allow you to use Guile boolean results directly as <CODE>make</CODE> boolean conditions. For example: <PRE class=example>     $(if $(guile (access? "myfile" R_OK)),$(info myfile exists))
+</PRE>
+<P>As a consequence of these conversion rules you must consider the result of your Guile script, as that result will be converted into a string and parsed by <CODE>make</CODE>. If there is no natural result for the script (that is, the script exists solely for its side-effects), you should add &#8216;<SAMP><SPAN class=samp>#f</SPAN></SAMP>&#8217; as the final expression in order to avoid syntax errors in your makefile.

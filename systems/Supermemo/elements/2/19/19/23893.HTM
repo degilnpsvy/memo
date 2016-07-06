@@ -1,0 +1,17 @@
+<P class=docText><FONT class=extract><TT>kmalloc()</TT> is a memory-allocation function that returns contiguous memory from <TT>ZONE_NORMAL</TT>. The prototype is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>void *kmalloc(int count, int flags);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Where <TT>count</TT> is the number of bytes to allocate, and <TT>flags</TT></FONT><A name=in></A><FONT class=extract> is a mode specifier. All supported flags are listed in <SPAN class=docEmphasis>include/linux./gfp.h</SPAN></FONT><A name=for></A><FONT class=extract> (gfp stands for <SPAN class=docEmphasis>get free pages</SPAN>), but these are the commonly used ones:</FONT></P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><TT><FONT class=extract>GFP_KERNEL</FONT></TT><A name="is specified"></A><FONT class=extract> Used by process context code to allocate memory. If this flag is specified, <TT>kmalloc()</TT></FONT><A name="is allowed"></A><FONT class=extract> is allowed to go to sleep and wait for pages to get freed up.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><TT><FONT class=extract>GFP_ATOMIC</FONT></TT><A name="interrupt context"></A><FONT class=extract> Used by interrupt context code to get hold of memory. In this mode, <TT>kmalloc()</TT></FONT><A name="not allowed"></A><FONT class=extract> is not allowed to sleep-wait for free pages, so the probability of successful allocation with <TT>GFP_ATOMIC</TT> is lower than with <TT>GFP_KERNEL</TT>.</FONT></P></DIV></LI></OL></DIV>
+<P class=docText><FONT class=extract>Because memory returned by <TT>kmalloc()</TT></FONT><A name="a security"></A><FONT class=extract> retains the contents from its previous incarnation, there could be a security risk if it's exposed to user space. To get zeroed kmalloced memory, use <TT>kzalloc()</TT>.</FONT></P>
+<P class=docText><A name="large memory"></A><FONT class=extract>If you need to allocate large memory buffers, and you don't require the memory to be physically contiguous, use <TT>vmalloc()</TT> rather than <TT>kmalloc()</TT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>void *vmalloc(unsigned long count);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Here <TT>count</TT> is the requested allocation size. The function returns kernel virtual addresses.</FONT></P>
+<P class=docText><FONT class=extract><TT>vmalloc()</TT> enjoys bigger allocation size limits than <TT>kmalloc()</TT></FONT><A name="cannot use"></A><FONT class=extract> but is slower and can't be called from interrupt context. Moreover, you cannot use the physically discontiguous memory returned by <TT>vmalloc()</TT> to perform <SPAN class=docEmphasis>Direct Memory Access</SPAN> (DMA). High-performance network drivers commonly use <TT>vmalloc()</TT></FONT><A name="the device"></A><FONT class=extract> to allocate large descriptor rings when the device is opened.</FONT></P>
+<P class=docText><A name=include></A>The kernel offers more sophisticated memory allocation techniques. These include <SPAN class=docEmphasis><A name="aside buffers"></A>look aside buffers</SPAN>, <SPAN class=docEmphasis>slabs</SPAN>, and <SPAN class=docEmphasis>mempools</SPAN>, which are beyond the scope of this chapter.

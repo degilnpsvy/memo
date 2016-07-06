@@ -1,0 +1,21 @@
+<H4 class=subsection>12.2.1 The <CODE>load</CODE> Directive</H4>
+<P><A name=index-load-directive-1058></A><A name=index-extensions_002c-load-directive-1059></A>Objects are loaded into GNU <CODE>make</CODE> by placing the <CODE>load</CODE> directive into your makefile. The syntax of the <CODE>load</CODE> directive is as follows: 
+<P><A name=index-load-1060></A><PRE class=example>     load <VAR>object-file</VAR> ...
+</PRE>
+<P>or: <PRE class=example>     load <VAR>object-file</VAR>(<VAR>symbol-name</VAR>) ...
+</PRE>
+<P>The file <VAR>object-file</VAR> is dynamically loaded by GNU <CODE>make</CODE>. If <VAR>object-file</VAR> does not include a directory path then it is first looked for in the current directory. If it is not found there, or a directory path is included, then system-specific paths will be searched. If the load fails for any reason, <CODE>make</CODE> will print a message and exit. 
+<P>If the load succeeds <CODE>make</CODE> will invoke an initializing function. 
+<P>If <VAR>symbol-name</VAR> is provided, it will be used as the name of the initializing function. 
+<P>If no <VAR>symbol-name</VAR> is provided, the initializing function name is created by taking the base file name of <VAR>object-file</VAR>, up to the first character which is not a valid symbol name character (alphanumerics and underscores are valid symbol name characters). To this prefix will be appended the suffix <CODE>_gmk_setup</CODE>. 
+<P>More than one object file may be loaded with a single <CODE>load</CODE> directive, and both forms of <CODE>load</CODE> arguments may be used in the same directive. 
+<P>The initializing function will be provided the file name and line number of the invocation of the <CODE>load</CODE> operation. It should return a value of type <CODE>int</CODE>, which must be <CODE>0</CODE> on failure and non-<CODE>0</CODE> on success. If the return value is <CODE>-1</CODE>, then GNU make will <EM>not</EM> attempt to rebuild the object file (see <A href="https://www.gnu.org/software/make/manual/make.html#Remaking-Loaded-Objects">How Loaded Objects Are Remade</A>). 
+<P>For example: <PRE class=example>     load ../mk_funcs.so
+</PRE>
+<P>will load the dynamic object <SAMP><SPAN class=file>../mk_funcs.so</SPAN></SAMP>. After the object is loaded, <CODE>make</CODE> will invoke the function (assumed to be defined by the shared object) <CODE>mk_funcs_gmk_setup</CODE>. 
+<P>On the other hand: <PRE class=example>     load ../mk_funcs.so(init_mk_func)
+</PRE>
+<P>will load the dynamic object <SAMP><SPAN class=file>../mk_funcs.so</SPAN></SAMP>. After the object is loaded, <CODE>make</CODE> will invoke the function <CODE>init_mk_func</CODE>. 
+<P>Regardless of how many times an object file appears in a <CODE>load</CODE> directive, it will only be loaded (and its setup function will only be invoked) once. 
+<P><A name=index-g_t_002eLOADED-1061></A>After an object has been successfully loaded, its file name is appended to the <CODE>.LOADED</CODE> variable. 
+<P><A name=index-g_t_002dload-1062></A>If you would prefer that failure to load a dynamic object not be reported as an error, you can use the <CODE>-load</CODE> directive instead of <CODE>load</CODE>. GNU <CODE>make</CODE> will not fail and no message will be generated if an object fails to load. The failed object is not added to the <CODE>.LOADED</CODE> variable, which can then be consulted to determine if the load was successful.

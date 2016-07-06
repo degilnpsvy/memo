@@ -1,0 +1,174 @@
+<H4 class=subsection>11.2.1 Cutting out Fields and Columns</H4><A name=index-cut-utility></A><A name=index-cut-utility-1></A><A name=index-fields_002c-cutting></A><A name=index-columns_002c-cutting></A>
+<P>The <CODE>cut</CODE> utility selects, or &#8220;cuts,&#8221; characters or fields from its standard input and sends them to its standard output. Fields are separated by TABs by default, but you may supply a command-line option to change the field <EM>delimiter</EM> (i.e., the field-separator character). <CODE>cut</CODE>&#8217;s definition of fields is less general than <CODE>awk</CODE>&#8217;s. </P>
+<P>A common use of <CODE>cut</CODE> might be to pull out just the login name of logged-on users from the output of <CODE>who</CODE>. For example, the following pipeline generates a sorted, unique list of the logged-on users: </P>
+<DIV class=example><PRE class=example>who | cut -c1-8 | sort | uniq
+</PRE></DIV>
+<P>The options for <CODE>cut</CODE> are: </P>
+<DL compact>
+<DT><CODE>-c <VAR>list</VAR></CODE></DT>
+<DD>
+<P>Use <VAR>list</VAR> as the list of characters to cut out. Items within the list may be separated by commas, and ranges of characters can be separated with dashes. The list &#8216;<SAMP>1-8,15,22-35</SAMP>&#8217; specifies characters 1 through 8, 15, and 22 through 35. </P></DD>
+<DT><CODE>-f <VAR>list</VAR></CODE></DT>
+<DD>
+<P>Use <VAR>list</VAR> as the list of fields to cut out. </P></DD>
+<DT><CODE>-d <VAR>delim</VAR></CODE></DT>
+<DD>
+<P>Use <VAR>delim</VAR> as the field-separator character instead of the TAB character. </P></DD>
+<DT><CODE>-s</CODE></DT>
+<DD>
+<P>Suppress printing of lines that do not contain the field delimiter. </P></DD></DL>
+<P>The <CODE>awk</CODE> implementation of <CODE>cut</CODE> uses the <CODE>getopt()</CODE> library function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Getopt-Function">Getopt Function</A>) and the <CODE>join()</CODE> library function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Join-Function">Join Function</A>). </P>
+<P>The program begins with a comment describing the options, the library functions needed, and a <CODE>usage()</CODE> function that prints out a usage message and exits. <CODE>usage()</CODE> is called if invalid arguments are supplied: </P><A name=index-cut_002eawk-program></A>
+<DIV class=example><PRE class=example># cut.awk --- implement cut in awk
+
+# Options:
+#    -f list     Cut fields
+#    -d c        Field delimiter character
+#    -c list     Cut characters
+#
+#    -s          Suppress lines without the delimiter
+#
+# Requires getopt() and join() library functions
+
+</PRE><PRE class=example>function usage(    e1, e2)
+{
+    e1 = "usage: cut [-f list] [-d c] [-s] [files...]"
+    e2 = "usage: cut [-c list] [files...]"
+    print e1 &gt; "/dev/stderr"
+    print e2 &gt; "/dev/stderr"
+    exit 1
+}
+</PRE></DIV>
+<P>The variables <CODE>e1</CODE> and <CODE>e2</CODE> are used so that the function fits nicely on the page. screen. </P><A name=index-BEGIN-pattern_002c-running-awk-programs-and></A><A name=index-FS-variable_002c-running-awk-programs-and></A>
+<P>Next comes a <CODE>BEGIN</CODE> rule that parses the command-line options. It sets <CODE>FS</CODE> to a single TAB character, because that is <CODE>cut</CODE>&#8217;s default field separator. The rule then sets the output field separator to be the same as the input field separator. A loop using <CODE>getopt()</CODE> steps through the command-line options. Exactly one of the variables <CODE>by_fields</CODE> or <CODE>by_chars</CODE> is set to true, to indicate that processing should be done by fields or by characters, respectively. When cutting by characters, the output field separator is set to the null string: </P>
+<DIV class=example><PRE class=example>BEGIN    \
+{
+    FS = "\t"    # default
+    OFS = FS
+    while ((c = getopt(ARGC, ARGV, "sf:c:d:")) != -1) {
+        if (c == "f") {
+            by_fields = 1
+            fieldlist = Optarg
+        } else if (c == "c") {
+            by_chars = 1
+            fieldlist = Optarg
+            OFS = ""
+        } else if (c == "d") {
+            if (length(Optarg) &gt; 1) {
+                printf("Using first character of %s" \
+                       " for delimiter\n", Optarg) &gt; "/dev/stderr"
+                Optarg = substr(Optarg, 1, 1)
+            }
+            FS = Optarg
+            OFS = FS
+            if (FS == " ")    # defeat awk semantics
+                FS = "[ ]"
+        } else if (c == "s")
+            suppress++
+        else
+            usage()
+    }
+
+    # Clear out options
+    for (i = 1; i &lt; Optind; i++)
+        ARGV[i] = ""
+</PRE></DIV><A name=index-field-separators_002c-spaces-as></A>
+<P>The code must take special care when the field delimiter is a space. Using a single space (<CODE>"&nbsp;"<!-- /@w --></CODE>) for the value of <CODE>FS</CODE> is incorrect&#8212;<CODE>awk</CODE> would separate fields with runs of spaces, TABs, and/or newlines, and we want them to be separated with individual spaces. Also remember that after <CODE>getopt()</CODE> is through (as described in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Getopt-Function">Getopt Function</A>), we have to clear out all the elements of <CODE>ARGV</CODE> from 1 to <CODE>Optind</CODE>, so that <CODE>awk</CODE> does not try to process the command-line options as file names. </P>
+<P>After dealing with the command-line options, the program verifies that the options make sense. Only one or the other of <SAMP>-c</SAMP> and <SAMP>-f</SAMP> should be used, and both require a field list. Then the program calls either <CODE>set_fieldlist()</CODE> or <CODE>set_charlist()</CODE> to pull apart the list of fields or characters: </P>
+<DIV class=example><PRE class=example>    if (by_fields &amp;&amp; by_chars)
+        usage()
+
+    if (by_fields == 0 &amp;&amp; by_chars == 0)
+        by_fields = 1    # default
+
+    if (fieldlist == "") {
+        print "cut: needs list for -c or -f" &gt; "/dev/stderr"
+        exit 1
+    }
+
+    if (by_fields)
+        set_fieldlist()
+    else
+        set_charlist()
+}
+</PRE></DIV>
+<P><CODE>set_fieldlist()</CODE> splits the field list apart at the commas into an array. Then, for each element of the array, it looks to see if the element is actually a range, and if so, splits it apart. The function checks the range to make sure that the first number is smaller than the second. Each number in the list is added to the <CODE>flist</CODE> array, which simply lists the fields that will be printed. Normal field splitting is used. The program lets <CODE>awk</CODE> handle the job of doing the field splitting: </P>
+<DIV class=example><PRE class=example>function set_fieldlist(        n, m, i, j, k, f, g)
+{
+    n = split(fieldlist, f, ",")
+    j = 1    # index in flist
+    for (i = 1; i &lt;= n; i++) {
+        if (index(f[i], "-") != 0) { # a range
+            m = split(f[i], g, "-")
+</PRE><PRE class=example>            if (m != 2 || g[1] &gt;= g[2]) {
+                printf("bad field list: %s\n",
+                                  f[i]) &gt; "/dev/stderr"
+                exit 1
+            }
+</PRE><PRE class=example>            for (k = g[1]; k &lt;= g[2]; k++)
+                flist[j++] = k
+        } else
+            flist[j++] = f[i]
+    }
+    nfields = j - 1
+}
+</PRE></DIV>
+<P>The <CODE>set_charlist()</CODE> function is more complicated than <CODE>set_fieldlist()</CODE>. The idea here is to use <CODE>gawk</CODE>&#8217;s <CODE>FIELDWIDTHS</CODE> variable (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Constant-Size">Constant Size</A>), which describes constant-width input. When using a character list, that is exactly what we have. </P>
+<P>Setting up <CODE>FIELDWIDTHS</CODE> is more complicated than simply listing the fields that need to be printed. We have to keep track of the fields to print and also the intervening characters that have to be skipped. For example, suppose you wanted characters 1 through 8, 15, and 22 through 35. You would use &#8216;<SAMP>-c 1-8,15,22-35</SAMP>&#8217;. The necessary value for <CODE>FIELDWIDTHS</CODE> is <CODE>"8&nbsp;6&nbsp;1&nbsp;6&nbsp;14"<!-- /@w --></CODE>. This yields five fields, and the fields to print are <CODE>$1</CODE>, <CODE>$3</CODE>, and <CODE>$5</CODE>. The intermediate fields are <EM>filler</EM>, which is stuff in between the desired data. <CODE>flist</CODE> lists the fields to print, and <CODE>t</CODE> tracks the complete field list, including filler fields: </P>
+<DIV class=example><PRE class=example>function set_charlist(    field, i, j, f, g, n, m, t,
+                          filler, last, len)
+{
+    field = 1   # count total fields
+    n = split(fieldlist, f, ",")
+    j = 1       # index in flist
+    for (i = 1; i &lt;= n; i++) {
+        if (index(f[i], "-") != 0) { # range
+            m = split(f[i], g, "-")
+            if (m != 2 || g[1] &gt;= g[2]) {
+                printf("bad character list: %s\n",
+                               f[i]) &gt; "/dev/stderr"
+                exit 1
+            }
+            len = g[2] - g[1] + 1
+            if (g[1] &gt; 1)  # compute length of filler
+                filler = g[1] - last - 1
+            else
+                filler = 0
+</PRE><PRE class=example>            if (filler)
+                t[field++] = filler
+</PRE><PRE class=example>            t[field++] = len  # length of field
+            last = g[2]
+            flist[j++] = field - 1
+        } else {
+            if (f[i] &gt; 1)
+                filler = f[i] - last - 1
+            else
+                filler = 0
+            if (filler)
+                t[field++] = filler
+            t[field++] = 1
+            last = f[i]
+            flist[j++] = field - 1
+        }
+    }
+    FIELDWIDTHS = join(t, 1, field - 1)
+    nfields = j - 1
+}
+</PRE></DIV>
+<P>Next is the rule that actually processes the data. If the <SAMP>-s</SAMP> option is given, then <CODE>suppress</CODE> is true. The first <CODE>if</CODE> statement makes sure that the input record does have the field separator. If <CODE>cut</CODE> is processing fields, <CODE>suppress</CODE> is true, and the field separator character is not in the record, then the record is skipped. </P>
+<P>If the record is valid, then <CODE>gawk</CODE> has split the data into fields, either using the character in <CODE>FS</CODE> or using fixed-length fields and <CODE>FIELDWIDTHS</CODE>. The loop goes through the list of fields that should be printed. The corresponding field is printed if it contains data. If the next field also has data, then the separator character is written out between the fields: </P>
+<DIV class=example><PRE class=example>{
+    if (by_fields &amp;&amp; suppress &amp;&amp; index($0, FS) == 0)
+        next
+
+    for (i = 1; i &lt;= nfields; i++) {
+        if ($flist[i] != "") {
+            printf "%s", $flist[i]
+            if (i &lt; nfields &amp;&amp; $flist[i+1] != "")
+                printf "%s", OFS
+        }
+    }
+    print ""
+}
+</PRE></DIV>
+<P>This version of <CODE>cut</CODE> relies on <CODE>gawk</CODE>&#8217;s <CODE>FIELDWIDTHS</CODE> variable to do the character-based cutting. While it is possible in other <CODE>awk</CODE> implementations to use <CODE>substr()</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>), it is also extremely painful. The <CODE>FIELDWIDTHS</CODE> variable supplies an elegant solution to the problem of picking the input line apart by characters.

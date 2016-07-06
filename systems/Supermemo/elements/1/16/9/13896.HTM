@@ -1,0 +1,122 @@
+<H3 class=section>15.6 Standard Targets for Users</H3>
+<P>All GNU programs should have the following targets in their Makefiles: 
+<DL>
+<DT>&#8216;<SAMP><SPAN class=samp>all</SPAN></SAMP>&#8217; 
+<DD>Compile the entire program. This should be the default target. This target need not rebuild any documentation files; Info files should normally be included in the distribution, and DVI (and other documentation format) files should be made only when explicitly asked for. 
+<P>By default, the Make rules should compile and link with &#8216;<SAMP><SPAN class=samp>-g</SPAN></SAMP>&#8217;, so that executable programs have debugging symbols. Otherwise, you are essentially helpless in the face of a crash, and it is often far from easy to reproduce with a fresh build. <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>install</SPAN></SAMP>&#8217; 
+<DD>Compile the program and copy the executables, libraries, and so on to the file names where they should reside for actual use. If there is a simple test to verify that a program is properly installed, this target should run that test. 
+<P>Do not strip executables when installing them. This helps eventual debugging that may be needed later, and nowadays disk space is cheap and dynamic loaders typically ensure debug sections are not loaded during normal execution. Users that need stripped binaries may invoke the <CODE>install-strip</CODE> target to do that. 
+<P>If possible, write the <CODE>install</CODE> target rule so that it does not modify anything in the directory where the program was built, provided &#8216;<SAMP><SPAN class=samp>make all</SPAN></SAMP>&#8217; has just been done. This is convenient for building the program under one user name and installing it under another. 
+<P>The commands should create all the directories in which files are to be installed, if they don't already exist. This includes the directories specified as the values of the variables <CODE>prefix</CODE> and <CODE>exec_prefix</CODE>, as well as all subdirectories that are needed. One way to do this is by means of an <CODE>installdirs</CODE> target as described below. 
+<P>Use &#8216;<SAMP><SPAN class=samp>-</SPAN></SAMP>&#8217; before any command for installing a man page, so that <CODE>make</CODE> will ignore any errors. This is in case there are systems that don't have the Unix man page documentation system installed. 
+<P>The way to install Info files is to copy them into <SAMP><SPAN class=file>$(infodir)</SPAN></SAMP> with <CODE>$(INSTALL_DATA)</CODE> (see <A href="https://www.gnu.org/software/make/manual/make.html#Command-Variables">Command Variables</A>), and then run the <CODE>install-info</CODE> program if it is present. <CODE>install-info</CODE> is a program that edits the Info <SAMP><SPAN class=file>dir</SPAN></SAMP> file to add or update the menu entry for the given Info file; it is part of the Texinfo package. 
+<P>Here is a sample rule to install an Info file that also tries to handle some additional situations, such as <CODE>install-info</CODE> not being present. <!-- This example has been carefully formatted for the Make manual. --><!-- Please do not reformat it without talking to bug-make@gnu.org. --><PRE class=smallexample>          do-install-info: foo.info installdirs
+                  $(NORMAL_INSTALL)
+          # Prefer an info file in . to one in srcdir.
+                  if test -f foo.info; then d=.; \
+                   else d="$(srcdir)"; fi; \
+                  $(INSTALL_DATA) $$d/foo.info \
+                    "$(DESTDIR)$(infodir)/foo.info"
+          # Run install-info only if it exists.
+          # Use `if' instead of just prepending `-' to the
+          # line so we notice real errors from install-info.
+          # Use `$(SHELL) -c' because some shells do not
+          # fail gracefully when there is an unknown command.
+                  $(POST_INSTALL)
+                  if $(SHELL) -c 'install-info --version' \
+                     &gt;/dev/null 2&gt;&amp;1; then \
+                    install-info --dir-file="$(DESTDIR)$(infodir)/dir" \
+                                 "$(DESTDIR)$(infodir)/foo.info"; \
+                  else true; fi
+</PRE>
+<P>When writing the <CODE>install</CODE> target, you must classify all the commands into three categories: normal ones, <DFN>pre-installation</DFN> commands and <DFN>post-installation</DFN> commands. See <A href="https://www.gnu.org/software/make/manual/make.html#Install-Command-Categories">Install Command Categories</A>. <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>install-html</SPAN></SAMP>&#8217; 
+<DT>&#8216;<SAMP><SPAN class=samp>install-dvi</SPAN></SAMP>&#8217; 
+<DT>&#8216;<SAMP><SPAN class=samp>install-pdf</SPAN></SAMP>&#8217; 
+<DT>&#8216;<SAMP><SPAN class=samp>install-ps</SPAN></SAMP>&#8217; 
+<DD>These targets install documentation in formats other than Info; they're intended to be called explicitly by the person installing the package, if that format is desired. GNU prefers Info files, so these must be installed by the <CODE>install</CODE> target. 
+<P>When you have many documentation files to install, we recommend that you avoid collisions and clutter by arranging for these targets to install in subdirectories of the appropriate installation directory, such as <CODE>htmldir</CODE>. As one example, if your package has multiple manuals, and you wish to install HTML documentation with many files (such as the &#8220;split&#8221; mode output by <CODE>makeinfo --html</CODE>), you'll certainly want to use subdirectories, or two nodes with the same name in different manuals will overwrite each other. 
+<P>Please make these <CODE>install-</CODE><VAR>format</VAR> targets invoke the commands for the <VAR>format</VAR> target, for example, by making <VAR>format</VAR> a dependency. <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>uninstall</SPAN></SAMP>&#8217; 
+<DD>Delete all the installed files&#8212;the copies that the &#8216;<SAMP><SPAN class=samp>install</SPAN></SAMP>&#8217; and &#8216;<SAMP><SPAN class=samp>install-*</SPAN></SAMP>&#8217; targets create. 
+<P>This rule should not modify the directories where compilation is done, only the directories where files are installed. 
+<P>The uninstallation commands are divided into three categories, just like the installation commands. See <A href="https://www.gnu.org/software/make/manual/make.html#Install-Command-Categories">Install Command Categories</A>. <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>install-strip</SPAN></SAMP>&#8217; 
+<DD>Like <CODE>install</CODE>, but strip the executable files while installing them. In simple cases, this target can use the <CODE>install</CODE> target in a simple way: <PRE class=smallexample>          install-strip:
+                  $(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' \
+                          install
+</PRE>
+<P>But if the package installs scripts as well as real executables, the <CODE>install-strip</CODE> target can't just refer to the <CODE>install</CODE> target; it has to strip the executables but not the scripts. 
+<P><CODE>install-strip</CODE> should not strip the executables in the build directory which are being copied for installation. It should only strip the copies that are installed. 
+<P>Normally we do not recommend stripping an executable unless you are sure the program has no bugs. However, it can be reasonable to install a stripped executable for actual execution while saving the unstripped executable elsewhere in case there is a bug. <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>clean</SPAN></SAMP>&#8217; 
+<DD>Delete all files in the current directory that are normally created by building the program. Also delete files in other directories if they are created by this makefile. However, don't delete the files that record the configuration. Also preserve files that could be made by building, but normally aren't because the distribution comes with them. There is no need to delete parent directories that were created with &#8216;<SAMP><SPAN class=samp>mkdir -p</SPAN></SAMP>&#8217;, since they could have existed anyway. 
+<P>Delete <SAMP><SPAN class=file>.dvi</SPAN></SAMP> files here if they are not part of the distribution. <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>distclean</SPAN></SAMP>&#8217; 
+<DD>Delete all files in the current directory (or created by this makefile) that are created by configuring or building the program. If you have unpacked the source and built the program without creating any other files, &#8216;<SAMP><SPAN class=samp>make distclean</SPAN></SAMP>&#8217; should leave only the files that were in the distribution. However, there is no need to delete parent directories that were created with &#8216;<SAMP><SPAN class=samp>mkdir -p</SPAN></SAMP>&#8217;, since they could have existed anyway. <BR>
+<DT>&#8216;<SAMP><SPAN class=samp>mostlyclean</SPAN></SAMP>&#8217; 
+<DD>Like &#8216;<SAMP><SPAN class=samp>clean</SPAN></SAMP>&#8217;, but may refrain from deleting a few files that people normally don't want to recompile. For example, the &#8216;<SAMP><SPAN class=samp>mostlyclean</SPAN></SAMP>&#8217; target for GCC does not delete <SAMP><SPAN class=file>libgcc.a</SPAN></SAMP>, because recompiling it is rarely necessary and takes a lot of time. <BR>
+<DT>&#8216;<SAMP><SPAN class=samp>maintainer-clean</SPAN></SAMP>&#8217; 
+<DD>Delete almost everything that can be reconstructed with this Makefile. This typically includes everything deleted by <CODE>distclean</CODE>, plus more: C source files produced by Bison, tags tables, Info files, and so on. 
+<P>The reason we say &#8220;almost everything&#8221; is that running the command &#8216;<SAMP><SPAN class=samp>make maintainer-clean</SPAN></SAMP>&#8217; should not delete <SAMP><SPAN class=file>configure</SPAN></SAMP> even if <SAMP><SPAN class=file>configure</SPAN></SAMP> can be remade using a rule in the Makefile. More generally, &#8216;<SAMP><SPAN class=samp>make maintainer-clean</SPAN></SAMP>&#8217; should not delete anything that needs to exist in order to run <SAMP><SPAN class=file>configure</SPAN></SAMP> and then begin to build the program. Also, there is no need to delete parent directories that were created with &#8216;<SAMP><SPAN class=samp>mkdir -p</SPAN></SAMP>&#8217;, since they could have existed anyway. These are the only exceptions; <CODE>maintainer-clean</CODE> should delete everything else that can be rebuilt. 
+<P>The &#8216;<SAMP><SPAN class=samp>maintainer-clean</SPAN></SAMP>&#8217; target is intended to be used by a maintainer of the package, not by ordinary users. You may need special tools to reconstruct some of the files that &#8216;<SAMP><SPAN class=samp>make maintainer-clean</SPAN></SAMP>&#8217; deletes. Since these files are normally included in the distribution, we don't take care to make them easy to reconstruct. If you find you need to unpack the full distribution again, don't blame us. 
+<P>To help make users aware of this, the commands for the special <CODE>maintainer-clean</CODE> target should start with these two: <PRE class=smallexample>          @echo 'This command is intended for maintainers to use; it'
+          @echo 'deletes files that may need special tools to rebuild.'
+</PRE><BR>
+<DT>&#8216;<SAMP><SPAN class=samp>TAGS</SPAN></SAMP>&#8217; 
+<DD>Update a tags table for this program. <!-- ADR: how? --><BR>
+<DT>&#8216;<SAMP><SPAN class=samp>info</SPAN></SAMP>&#8217; 
+<DD>Generate any Info files needed. The best way to write the rules is as follows: <PRE class=smallexample>          info: foo.info
+          
+          foo.info: foo.texi chap1.texi chap2.texi
+                  $(MAKEINFO) $(srcdir)/foo.texi
+</PRE>
+<P class=noindent>You must define the variable <CODE>MAKEINFO</CODE> in the Makefile. It should run the <CODE>makeinfo</CODE> program, which is part of the Texinfo distribution. 
+<P>Normally a GNU distribution comes with Info files, and that means the Info files are present in the source directory. Therefore, the Make rule for an info file should update it in the source directory. When users build the package, ordinarily Make will not update the Info files because they will already be up to date. <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>dvi</SPAN></SAMP>&#8217; 
+<DT>&#8216;<SAMP><SPAN class=samp>html</SPAN></SAMP>&#8217; 
+<DT>&#8216;<SAMP><SPAN class=samp>pdf</SPAN></SAMP>&#8217; 
+<DT>&#8216;<SAMP><SPAN class=samp>ps</SPAN></SAMP>&#8217; 
+<DD>Generate documentation files in the given format. These targets should always exist, but any or all can be a no-op if the given output format cannot be generated. These targets should not be dependencies of the <CODE>all</CODE> target; the user must manually invoke them. 
+<P>Here's an example rule for generating DVI files from Texinfo: <PRE class=smallexample>          dvi: foo.dvi
+          
+          foo.dvi: foo.texi chap1.texi chap2.texi
+                  $(TEXI2DVI) $(srcdir)/foo.texi
+</PRE>
+<P class=noindent>You must define the variable <CODE>TEXI2DVI</CODE> in the Makefile. It should run the program <CODE>texi2dvi</CODE>, which is part of the Texinfo distribution. (<CODE>texi2dvi</CODE> uses TeX to do the real work of formatting. TeX is not distributed with Texinfo.) Alternatively, write only the dependencies, and allow GNU <CODE>make</CODE> to provide the command. 
+<P>Here's another example, this one for generating HTML from Texinfo: <PRE class=smallexample>          html: foo.html
+          
+          foo.html: foo.texi chap1.texi chap2.texi
+                  $(TEXI2HTML) $(srcdir)/foo.texi
+</PRE>
+<P class=noindent>Again, you would define the variable <CODE>TEXI2HTML</CODE> in the Makefile; for example, it might run <CODE>makeinfo --no-split --html</CODE> (<SAMP><SPAN class=command>makeinfo</SPAN></SAMP> is part of the Texinfo distribution). <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>dist</SPAN></SAMP>&#8217; 
+<DD>Create a distribution tar file for this program. The tar file should be set up so that the file names in the tar file start with a subdirectory name which is the name of the package it is a distribution for. This name can include the version number. 
+<P>For example, the distribution tar file of GCC version 1.40 unpacks into a subdirectory named <SAMP><SPAN class=file>gcc-1.40</SPAN></SAMP>. 
+<P>The easiest way to do this is to create a subdirectory appropriately named, use <CODE>ln</CODE> or <CODE>cp</CODE> to install the proper files in it, and then <CODE>tar</CODE> that subdirectory. 
+<P>Compress the tar file with <CODE>gzip</CODE>. For example, the actual distribution file for GCC version 1.40 is called <SAMP><SPAN class=file>gcc-1.40.tar.gz</SPAN></SAMP>. It is ok to support other free compression formats as well. 
+<P>The <CODE>dist</CODE> target should explicitly depend on all non-source files that are in the distribution, to make sure they are up to date in the distribution. See <A href="https://www.gnu.org/software/make/manual/standards.html#Releases">Making Releases</A>. <BR></P>
+<DT>&#8216;<SAMP><SPAN class=samp>check</SPAN></SAMP>&#8217; 
+<DD>Perform self-tests (if any). The user must build the program before running the tests, but need not install the program; you should write the self-tests so that they work when the program is built but not installed. </DD></DL>
+<P>The following targets are suggested as conventional names, for programs in which they are useful. 
+<DL>
+<DT><CODE>installcheck</CODE> 
+<DD>Perform installation tests (if any). The user must build and install the program before running the tests. You should not assume that <SAMP><SPAN class=file>$(bindir)</SPAN></SAMP> is in the search path. <BR>
+<DT><CODE>installdirs</CODE> 
+<DD>It's useful to add a target named &#8216;<SAMP><SPAN class=samp>installdirs</SPAN></SAMP>&#8217; to create the directories where files are installed, and their parent directories. There is a script called <SAMP><SPAN class=file>mkinstalldirs</SPAN></SAMP> which is convenient for this; you can find it in the Gnulib package. You can use a rule like this: <!-- This has been carefully formatted to look decent in the Make manual. --><!-- Please be sure not to make it extend any further to the right.-roland --><PRE class=smallexample>          # Make sure all installation directories (e.g. $(bindir))
+          # actually exist by making them if necessary.
+          installdirs: mkinstalldirs
+                  $(srcdir)/mkinstalldirs $(bindir) $(datadir) \
+                                          $(libdir) $(infodir) \
+                                          $(mandir)
+</PRE>
+<P class=noindent>or, if you wish to support <SAMP><SPAN class=env>DESTDIR</SPAN></SAMP> (strongly encouraged), <PRE class=smallexample>          # Make sure all installation directories (e.g. $(bindir))
+          # actually exist by making them if necessary.
+          installdirs: mkinstalldirs
+                  $(srcdir)/mkinstalldirs \
+                      $(DESTDIR)$(bindir) $(DESTDIR)$(datadir) \
+                      $(DESTDIR)$(libdir) $(DESTDIR)$(infodir) \
+                      $(DESTDIR)$(mandir)
+</PRE>
+<P>This rule should not modify the directories where compilation is done. It should do nothing but create installation directories. </P></DD></DL>

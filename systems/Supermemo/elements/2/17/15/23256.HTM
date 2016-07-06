@@ -1,0 +1,131 @@
+<H3 id=700181-1000 class=docSection1Title>8.3. Driver Methods</H3>
+<P class=docText><A name=iddle1333></A><A name=iddle1437></A><A name=iddle1685></A><A name=iddle1841></A><A name=iddle1842></A><A name=iddle2084></A><A name=iddle2168></A><A name=iddle2366></A>We've covered much ground in our short treatment of module utilities. In the remaining sections of this chapter, we describe the basic mechanism for communicating with a device driver from a user space program (your application code).</P>
+<P class=docText>We have introduced the two fundamental methods responsible for one-time initialization and exit processing of the module. Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A> that these are <TT>module_init()</TT> and <TT>module_exit()</TT>. We discovered that these routines are invoked at the time the module is inserted into or removed from a running kernel. Now we need some methods to interface with our device driver from our application program. After all, two of the more important reasons we use device drivers are to isolate the user from the perils of writing code in kernel space and to present a unified method to communicate with hardware or kernel-level devices.</P><A name=ch08lev2sec14></A>
+<H4 id=title-IDAABGCD class=docSection2Title>8.3.1. Driver File System Operations</H4>
+<P class=docText>After the device driver is loaded into a live kernel, the first action we must take is to prepare the driver for subsequent operations. The <TT>open()</TT> method is used for this purpose. After the driver has been opened, we need routines for reading and writing to the driver. A <TT>release()</TT> routine is provided to clean up after operations when complete (basically, a close call). Finally, a special system call is provided for nonstandard communication to the driver. This is called <TT>ioctl()</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec3.html#ch08list10">Listing 8-10</A> adds this infrastructure to our example device driver.</P><A name=ch08list10></A>
+<H5 id=title-IDA4BGCD class=docExampleTitle>Listing 8-10. Adding File System Ops to <TT>Hello.c</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>#include &lt;linux/module.h&gt;
+#include &lt;linux/fs.h&gt;
+
+
+#define HELLO_MAJOR 234
+
+
+static int debug_enable = 0;
+module_param(debug_enable, int, 0);
+MODULE_PARM_DESC(debug_enable, "Enable module debug mode.");
+
+
+struct file_operations hello_fops;
+
+
+static int hello_open(struct inode *inode, struct file *file)
+{
+
+    printk("hello_open: successful\n");
+    return 0;
+}
+
+
+static int hello_release(struct inode *inode, struct file *file)
+{
+
+    printk("hello_release: successful\n");
+    return 0;
+}
+
+
+static ssize_t hello_read(struct file *file, char *buf, size_t count,
+                loff_t *ptr)
+{
+
+    printk("hello_read: returning zero bytes\n");
+    return 0;
+}
+
+
+static ssize_t hello_write(struct file *file, const char *buf,
+                size_t count, loff_t * ppos)
+{
+
+    printk("hello_read: accepting zero bytes\n");
+    return 0;
+}
+
+
+static int hello_ioctl(struct inode *inode, struct file *file,
+                unsigned int cmd, unsigned long arg)
+{
+
+    printk("hello_ioctl: cmd=%ld, arg=%ld\n", cmd, arg);
+    return 0;
+}
+
+
+static int __init hello_init(void)
+{
+    int ret;
+    printk("Hello Example Init - debug mode is %s\n",
+            debug_enable ? "enabled" : "disabled");
+    ret = register_chrdev(HELLO_MAJOR, "hello1", &amp;hello_fops);
+        if (ret &lt; 0) {
+            printk("Error registering hello device\n");
+            goto hello_fail1;
+        }
+    printk("Hello: registered module successfully!\n");
+
+
+    /* Init processing here... */
+
+
+    return 0;
+
+
+hello_fail1:
+    return ret;
+}
+
+
+static void __exit hello_exit(void)
+{
+    printk("Hello Example Exit\n");
+}
+
+
+struct file_operations hello_fops = {
+    owner:   THIS_MODULE,
+    read:    hello_read,
+    write:   hello_write,
+    ioctl:   hello_ioctl,
+    open:    hello_open,
+    release: hello_release,
+};
+
+
+module_init(hello_init);
+module_exit(hello_exit);
+
+
+MODULE_AUTHOR("Chris Hallinan");
+MODULE_DESCRIPTION("Hello World Example");
+MODULE_LICENSE("GPL");</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1332></A><A name=iddle2066></A><A name=iddle2306></A>This expanded device driver example includes many new lines. From the top, we've had to add a new kernel header file to get the definitions for the file system operations. We've also defined a major number for our device driver. (<SPAN class=docEmphasis>Note to device driver authors:</SPAN> This is <SPAN class=docEmphUl>not</SPAN> the proper way to allocate a device driver major number. Refer to the Linux kernel documentation (<TT>.../Documentation/devices.txt</TT>) or one of the excellent texts on device drivers for guidance on the allocation of major device numbers. For this simple example, we simply choose one that we know isn't in use on our system.)</P>
+<P class=docText>Next we see definitions for four new functions, our open, close, read, and write methods. In keeping with good coding practices, we've adopted a consistent naming scheme that will not collide with any other subsystems in the kernel. Our new methods are called <TT>hello_open()</TT>, <TT>hello_release()</TT>, <TT>hello_read()</TT>, and <TT>hello_write()</TT>, respectively. For purposes of this simple exercise, they are do-nothing functions that simply print a message to the kernel log subsystem.</P>
+<P class=docText>Notice that we've also added a new function call to our <TT>hello_init()</TT> routine. This line registers our device driver with the kernel. With that registration call, we pass a structure containing pointers to the required methods. The kernel uses this structure, of type <TT>struct file_operations</TT>, to bind our specific device functions with the appropriate requests from the file system. When an application opens a device represented by our device driver and requests a <TT>read()</TT> operation, the file system associates that generic <TT>read()</TT> request with our module's <TT>hello_read()</TT> function. The following sections examine this process in detail.</P><A name=ch08lev2sec15></A>
+<H4 id=title-IDATEGCD class=docSection2Title>8.3.2. Device Nodes and mknod</H4>
+<P class=docText><A name=iddle1327></A><A name=iddle1341></A><A name=iddle1346></A><A name=iddle2096></A><A name=iddle2156></A><A name=iddle2169></A><A name=iddle2589></A>To understand how an application binds its requests to a specific device represented by our device driver, we must understand the concept of a device node. A device node is a special file type in Linux that represents a device. Virtually all Linux distributions keep device nodes in a common location (specified by the Filesystem Hierarchy Standard <SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec3.html#ch08fn06">[6]</A></SUP>), in a directory called <TT>/dev</TT>. A dedicated utility is used to create a device node on a file system. This utility is called <TT>mknod</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch08fn06>[6]</A></SUP> Reference to this standard is found in the "<A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec6.html#ch08lev2sec16__title">Suggestions for Additional Reading</A>," at the end of this chapter.</P></BLOCKQUOTE>
+<P class=docText>An example of node creation is the best way to illustrate its functionality and the information it conveys. In keeping with our simple device driver example, let's create the proper device node to exercise it:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>mknod /dev/hello1 c 234 0</SPAN></PRE></DIV><BR>
+<P class=docText>After executing this command on our target embedded system, we end up with a new file called <TT>/dev/hello1</TT> that represents our device driver module. If we list this file to the console, it looks like this:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ls -l /dev/hello1</SPAN>
+crw-r--r--   1 root  root  234, 0 Jul 14 2005 /dev/hello1</PRE></DIV><BR>
+<P class=docText>The parameters we passed to <TT>mknod</TT> include the name, type, and major and minor numbers for our device driver. The name we chose, of course, was <TT>hello1</TT>. Because we are demonstrating the use of a character driver, we use <TT>c</TT> to indicate that. The major number is 234, the number we chose for this example, and the minor number is 0.</P>
+<P class=docText>By itself, the device node is just another file on our file system. However, because of its special status as a device node, we use it to bind to an installed device driver. If an application process issues an <TT>open()</TT> system call with our device node as the path parameter, the kernel searches for a valid device driver registered with a major number that matches the device nodein our case, 234. This is the mechanism by which the kernel associates our particular device to the device node.</P>
+<P class=docText>As most C programmers know, the <TT>open()</TT> system call, or any of its variants, returns a reference (file descriptor) that our applications use to issue subsequent file system operations, such as read, write, and close. This reference is then passed to the various file system operations, such as read, write, or their variants.</P>
+<P class=docText><A name=iddle1328></A><A name=iddle1335></A><A name=iddle1419></A><A name=iddle1900></A><A name=iddle2087></A>For those curious about the purpose of the minor number, it is a mechanism for handling multiple devices or subdevices with a single device driver. It is not used by the operating system; it is simply passed to the device driver. The device driver can use the minor number in any way it sees fit. As an example, with a multiport serial card, the major number would specify the driver. The minor number might specify one of the multiple ports handled by the same driver on the multiport card. Interested readers are encouraged to consult one of the excellent texts on device drivers for further details.

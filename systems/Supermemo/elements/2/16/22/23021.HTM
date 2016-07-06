@@ -1,0 +1,268 @@
+<H3 id=-100000 class=docSection1Title>The Linux Device Model</H3>
+<P class=docText><A name="The new"></A>The new Linux device model introduces C++-like abstractions that factor out commonalities from device drivers into bus and core layers. Let's look at the different components constituting the device model such as <SPAN class=docEmphasis>udev</SPAN>, <SPAN class=docEmphasis>sysfs</SPAN>, <SPAN class=docEmphasis>kobjects</SPAN>, and <SPAN class=docEmphasis>device classes</SPAN><A name="effects on"></A> and their effects on key kernel subsystems such as <SPAN class=docEmphasis>/dev</SPAN><A name="firmware download"></A> node management, hotplug, firmware download, and module autoload. <SPAN class=docEmphasis>Udev</SPAN><A name="of the"></A> is the best vantage point to view the benefits of the device model, so let's start from there.</P><A name=ch04lev2sec5></A>
+<H4 id=title-ID0EYPOM class=docSection2Title>Udev</H4>
+<P class=docText><A name="it was"></A>Years ago when Linux was young, it was not fun to administer device nodes. All the needed nodes (which could run into thousands) had to be statically created under the <A name=iddle1771></A><SPAN class=docEmphasis>/dev</SPAN><A name="UNIX systems"></A> directory. This problem, in fact, dated all the way back to original UNIX systems. With the advent of the 2.4 kernels came <SPAN class=docEmphasis>devfs</SPAN><A name="provided services"></A>, which introduced dynamic device node creation. Devfs provided services to generate device nodes in an in-memory filesystem, but the onus of naming the nodes still rested with device drivers. Device naming policy is administrative and does not mix well with the kernel, however. The place for policy is in header files, kernel module parameters, or user space. Udev arrived on the scene to push device management to user space.</P>
+<P class=docText>Udev depends on the following to do its work:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Kernel <SPAN class=docEmphasis>sysfs</SPAN><A name="device model"></A> support, which is an important part of the Linux device model. Sysfs is an in-memory filesystem mounted under <SPAN class=docEmphasis>/sys</SPAN><A name="boot time"></A> at boot time (look at <SPAN class=docEmphasis>/etc/fstab</SPAN><A name="but for"></A> for the specifier). We will look at sysfs in the next section, but for now, take the corresponding sysfs file accesses for granted.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="A set"></A>A set of user-space daemons and utilities such as <SPAN class=docEmphasis>udevd</SPAN> and <SPAN class=docEmphasis>udevinfo</SPAN>.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="in the"></A>User-specified rules located in the <SPAN class=docEmphasis>/etc/udev/rules.d/</SPAN><A name="may frame"></A> directory. You may frame rules to get a consistent view of your devices.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="that you"></A>To understand how to use udev, let's look at an example. Assume that you have a USB DVD drive and a USB CD-RW drive. Depending on the order in which you hotplug these devices, one of them is assigned the name <SPAN class=docEmphasis>/dev/sr0</SPAN><A name=name></A>, and the other gets the name <SPAN class=docEmphasis>/dev/sr1.</SPAN><A name="before you"></A> During pre-udev days, you had to figure out the associated names before you could use the devices. But with udev, you can consistently view the DVD (as say, <SPAN class=docEmphasis>/dev/usbdvd)</SPAN> and the CD-RW (as say, <SPAN class=docEmphasis>/dev/usbcdrw</SPAN><A name="they are"></A>) irrespective of the order in which they are plugged in or out.</P>
+<P class=docText><A name="that the"></A>First, pull product attributes from corresponding files in sysfs. Assume that the (Targus) DVD drive has been assigned the device node <SPAN class=docEmphasis>/dev/sr0</SPAN><A name="that the"></A> and that the (Addonics) CD-RW drive has been given the name <SPAN class=docEmphasis>/dev/sr1</SPAN>. Use <TT>udevinfo</TT> to collect device information:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; udevinfo -a -p /sys/block/sr0</SPAN>
+...
+looking at the device chain at
+'/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-4':
+ BUS=&#31108;usb&#31108;
+ ID=&#31108;1-4&#31108;
+ SYSFS{bConfigurationValue}=&#31108;1&#31108;
+ ...
+ SYSFS{idProduct}=&#31108;0701&#31108;
+ SYSFS{idVendor}=&#31108;05e3&#31108;
+ SYSFS{manufacturer}=&#31108;Genesyslogic&#31108;
+ SYSFS{maxchild}=&#31108;0&#31108;
+ SYSFS{product}=&#31108;USB Mass Storage Device&#31108;
+ ...
+
+<SPAN class=docEmphStrong>bash&gt; udevinfo -a -p /sys/block/sr1</SPAN>
+ ...
+ looking at the device chain at
+ '/sys/devices/pci0000:00/0000:00:1d.7/usb1/1-3':
+ BUS=&#31108;usb&#31108;
+ ID=&#31108;1-3&#31108;
+ SYSFS{bConfigurationValue}=&#31108;2&#31108;
+  ...
+ SYSFS{idProduct}=&#31108;0302&#31108;
+ SYSFS{idVendor}=&#31108;0dbf&#31108;
+ SYSFS{manufacturer}=&#31108;Addonics&#31108;
+ SYSFS{maxchild}=&#31108;0&#31108;
+ SYSFS{product}=&#31108;USB to IDE Cable&#31108;
+ ...
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="add udev"></A>Next, let's use the product information gleaned to identify the devices and add udev naming rules. Create a file called <SPAN class=docEmphasis>/etc/udev/rules.d/40-cdvd.rules</SPAN><A name="and add"></A> and add the following rules to it:</P>
+<DIV class=docText><PRE>BUS="usb", SYSFS{idProduct}="0701", SYSFS{idVendor}="05e3",
+KERNEL="sr[0-9]*", NAME="%k", SYMLINK="usbdvd"
+
+BUS="usb", SYSFS{idProduct}="0302", SYSFS{idVendor}="0dbf",
+KERNEL="sr[0-9]*", NAME="%k", SYMLINK="usbcdrw"</PRE></DIV><BR>
+<P class=docText><A name="rule tells"></A>The first rule tells udev that whenever it finds a USB device with a product ID of 0x0701, vendor ID of 0x05e3, and a name starting with <SPAN class=docEmphasis>sr</SPAN><A name="should create"></A>, it should create a node of the same name under <SPAN class=docEmphasis>/dev</SPAN> and produce a symbolic link named <SPAN class=docEmphasis>usbdvd</SPAN><A name="a symbolic"></A> to the created node. Similarly, the second rule orders creation of a symbolic link named <SPAN class=docEmphasis>usbcdrw</SPAN> for the CD-RW drive.</P>
+<P class=docText><A name="in your"></A>To test for syntax errors in your rules, run udevtest on <SPAN class=docEmphasis>/sys/block/sr*</SPAN>. To turn on verbose messages in <SPAN class=docEmphasis>/var/log/messages</SPAN>, set <TT>udev_log</TT> to "yes" in <SPAN class=docEmphasis>/etc/udev/udev.conf</SPAN>. To repopulate the <SPAN class=docEmphasis>/dev</SPAN><A name="this is"></A> directory with newly added rules on-the-fly, restart udev using udevstart. When this is done, your DVD drive consistently appears to the system as <A name=iddle1478></A><A name=iddle1773></A><A name=iddle1780></A><A name=iddle1782></A><A name=iddle1786></A><A name=iddle2069></A><A name=iddle2669></A><A name=iddle2677></A><A name=iddle2692></A><A name=iddle2693></A><A name=iddle2694></A><A name=iddle2695></A><A name=iddle2774></A><A name=iddle2776></A><A name=iddle2780></A><A name=iddle3313></A><A name=iddle4194></A><SPAN class=docEmphasis>/dev/usbdvd</SPAN>, and your CD-RW drive always appears as <SPAN class=docEmphasis>/dev/usbcdrw.</SPAN><A name="shell scripts"></A> You can deterministically mount them from shell scripts using commands such as these:</P>
+<DIV class=docText><PRE>mount /dev/usbdvd /mnt/dvd</PRE></DIV><BR>
+<P class=docText><A name="the sole"></A>Consistent naming of device nodes (and network interfaces) is not the sole capability of udev. It has metamorphed into the Linux hotplug manager, too. Udev is also in charge of automatically loading modules on demand and downloading microcode onto devices that need them. But before digging into those capabilities, let's obtain a basic understanding of the innards of the device model.</P><A name=ch04lev2sec6></A>
+<H4 id=title-ID0EJZOM class=docSection2Title>Sysfs, Kobjects, and Device Classes</H4>
+<P class=docText><A name="device classes"></A>Sysfs, kobjects, and device classes are the building blocks of the device model but are publicity shy and prefer to remain behind the scenes. They are mostly in the usage domain of bus and core implementations, and hide inside APIs that provide services to device drivers.</P>
+<P class=docText><A name="procfs in"></A>Sysfs is the user-space manifestation of the kernel's structured device model. It's similar to procfs in that both are in-memory filesystems containing information about kernel data structures. <FONT class=extract>Whereas procfs is a generic window into kernel internals, sysfs is specific to the device model<FONT class=extract>.</FONT></FONT> Sysfs is, hence, not a replacement for procfs. Information such as process descriptors and sysctl parameters belong to procfs and not sysfs. As will be apparent soon, udev depends on sysfs for most of its extended functions.</P>
+<P class=docText><A name="Kobjects introduce"></A>Kobjects introduce an encapsulation of common object properties such as usage reference counts. They are usually embedded within larger structures. The following are the main fields of a kobject, which is defined in <SPAN class=docEmphasis>include/linux/kobject.h</SPAN>:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>A <SPAN class=docEmphasis>kref</SPAN><A name="performs reference"></A> object that performs reference count management. The <TT>kref_init()</TT><A name="initializes a"></A> interface initializes a kref, <TT>kref_get()</TT> increments the reference count associated with the kref, and <TT>kref_put()</TT><A name="there are"></A> decrements the reference count and frees the object if there are no remaining references. The URB structure (explained in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A><A name="to track"></A>, "Universal Serial Bus"), for example, contains a kref to track the number of references to it.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04fn02">[2]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch04fn02>[2]</A></SUP> The <TT>usb_alloc_urb()</TT> interface calls <TT>kref_init()</TT>, <TT>usb_submit_urb()</TT> invokes <TT>kref_get()</TT>, and <TT>usb_free_urb()</TT> calls <TT>kref_put()</TT>.</P></BLOCKQUOTE></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>A pointer to a <SPAN class=docEmphasis>kset</SPAN>, which is an object set to which the kobject belongs.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>A <SPAN class=docEmphasis>kobj_type</SPAN>, which is an object type that describes the kobject.</P></DIV></LI></OL></DIV>
+<P class=docText><A name=iddle1479></A><A name=iddle2386></A><A name="kernel has"></A><FONT class=extract>Kobjects are intertwined with sysfs. Every kobject instantiated within the kernel has a sysfs representation.</FONT></P>
+<P class=docText><A name="another feature"></A>The concept of device classes is another feature of the device model and is an interface you're more likely to use in a driver. The class interface abstracts the idea that each device falls under a broader class (or category) of devices. A USB mouse, a PS/2 keyboard, and a joystick all fall under the <SPAN class=docEmphasis>input</SPAN> class and own entries under <SPAN class=docEmphasis>/sys/class/input/</SPAN>.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04tab02">Figure 4.4</A><A name="has an"></A> shows the sysfs hierarchy on a laptop that has an external USB mouse connected to it. The top-level <SPAN class=docEmphasis>bus</SPAN>, <SPAN class=docEmphasis>class</SPAN>, and <SPAN class=docEmphasis>device</SPAN><A name="are expanded"></A> directories are expanded to show that sysfs provides a view of the USB mouse based on its device type as well as its physical connection. The mouse is an input class device but is physically a USB device answering to two endpoint addresses, a control endpoint <SPAN class=docEmphasis>ep00</SPAN>, and an interrupt endpoint, <SPAN class=docEmphasis>ep81.</SPAN><A name="controller on"></A> The USB port in question belongs to the USB host controller on bus 2, and the USB host controller itself is bridged to the CPU via the PCI bus. If these details are not making much sense at this point, don't worry; rewind to this section after reading the chapters that teach input drivers (<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07">Chapter 7</A><A name="PCI drivers"></A>), PCI drivers (<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A><A name="USB drivers"></A>, "Peripheral Component Interconnect"), and USB drivers (<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A>).</P><A name=ch04tab02></A>
+<H5 id=title-ID0EV4OM class=docExampleTitle>Figure 4.4. Sysfs hierarchy of a USB mouse.</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>[/sys]
+     +[block]
+     -[bus]&#37413;&#25850;usb]&#37413;&#25850;devices]&#37413;&#25850;usb2]&#37413;&#25850;2-2]&#37413;&#25850;2-2:1.0]-[usbendpoint:usbdev2.2-ep81]
+     -[class]-[input]&#37413;&#25850;mouse2]&#37413;&#25850;device]&#37413;&#25850;bus]&#37413;&#25850;usbendpoint:usbdev2.2-ep81]
+             -[usb_device]&#37413;&#25850;usbdev2.2]&#37413;&#25850;device]&#37413;&#25850;bus]
+             -[usb_endpoint]&#37413;&#25850;usbdev2.2-ep00]&#37413;&#25850;device]
+                            &#37413;&#25850;usbdev2.2-ep81]&#37413;&#25850;device]
+     -[devices]&#37413;&#25850;pci0000:00]&#37413;&#25850;0000:00:1d:1]&#37413;&#25850;usb2]&#37413;&#25850;2-2]&#37413;&#25850;2-2:1.0]
+     +[firmware]
+     +[fs]
+     +[kernel]
+     +[module]
+     +[power]
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=through></A>Browse through <SPAN class=docEmphasis>/sys</SPAN><A name="network card"></A> looking for entries that associate with another device (for example, your network card) to get a better feel of its hierarchical organization. The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec2.html#ch10lev1sec2">Addressing and Identification</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A><A name="physical connection"></A> illustrates how sysfs mirrors the physical connection of a CardBus Ethernet-Modem card on a laptop.</P>
+<P class=docText><A name="kobjects and"></A>The class programming interface is built on top of kobjects and sysfs, so it's a good place to start digging to understand the end-to-end interactions between the components of the device model. Let's turn to the RTC driver for an example. The <A name=iddle3002></A>RTC driver (<SPAN class=docEmphasis>drivers/char/rtc.c</SPAN><A name="drivers in"></A>) is a miscellaneous (or "misc") driver. We discuss misc drivers in detail when we look at character device drivers in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A>.</P>
+<P class=docText><A name="the nodes"></A>Insert the RTC driver module and look at the nodes created under <SPAN class=docEmphasis>/sys</SPAN> and <SPAN class=docEmphasis>/dev:</SPAN></P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; modprobe rtc</SPAN>
+<SPAN class=docEmphStrong>bash&gt; ls -lR /sys/class/misc</SPAN>
+drwr-xr-x 2 root root 0 Jan 15 01:23 rtc
+/sys/class/misc/rtc:
+total 0
+-r--r--r-- 1 root root 4096 Jan 15 01:23 dev
+--w------- 1 root root 4096 Jan 15 01:23 uevent
+<SPAN class=docEmphStrong>bash&gt; ls -l /dev/rtc</SPAN>
+crw-r--r-- 1 root root 10, 135 Jan 15 01:23 /dev/rtc</PRE></DIV><BR>
+<P class=docText><SPAN class=docEmphasis>/sys/class/misc/rtc/dev</SPAN><A name="the major"></A> contains the major and minor numbers (discussed in the next chapter) assigned to this device, <SPAN class=docEmphasis>/sys/class/misc/rtc/uevent</SPAN> is used for coldplugging (discussed in the next section), and <SPAN class=docEmphasis>/dev/rtc</SPAN> is used by applications to access the RTC driver.</P>
+<P class=docText><A name="the services"></A>Let's understand the code flow through the device model. Misc drivers utilize the services of <TT>misc_register()</TT><A name="during initialization"></A> during initialization, which looks like this if you peel off some code:</P>
+<DIV class=docText><PRE>/* ... */
+dev = MKDEV(MISC_MAJOR, misc-&gt;minor);
+
+misc-&gt;class = class_device_create(misc_class, NULL, dev,
+                                  misc-&gt;dev,
+                                  "%s", misc-&gt;name);
+if (IS_ERR(misc-&gt;class)) {
+  err = PTR_ERR(misc-&gt;class);
+  goto out;
+}
+/* ... */</PRE></DIV><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04fig04">Figure 4.5</A><A name="peel off"></A> continues to peel off more layers to get to the bottom of the device modeling. It illustrates the transitions that ripple through classes, kobjects, sysfs, and udev, which result in the generation of the <SPAN class=docEmphasis>/sys</SPAN> and <SPAN class=docEmphasis>/dev</SPAN><A name="listed previously"></A> files listed previously.</P>
+<P class=docText></P><A name=ch04fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 4.5. Tying the pieces of the device model.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC81aGlnNGNzZ2ku.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzVoaWc0c2M-.jpg" width=500 height=439> 
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1346></A>Look at the parallel port LED driver (<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05ex06">Listing 5.6</A> in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05lev1sec4">Talking to the Parallel Port</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A>) and the virtual mouse input driver (<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec1.html#ch07ex02">Listing 7.2</A> in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec1.html#ch07lev3sec1">Device Example: Virtual Mouse</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07">Chapter 7</A>) for examples on creating device control files inside sysfs.</P>
+<P class=docText><A name="is the"></A>Another abstraction that is part of the device model is the <SPAN class=docEmphasis>bus-device-driver</SPAN><A name="cleanly structured"></A> programming interface. Kernel device support is cleanly structured into buses, devices, and drivers. This renders the individual driver implementations simpler and more general. <SPAN class=docEmphasis>Bus</SPAN><A name="particular device"></A> implementations can, for example, search for drivers that can handle a particular device.</P>
+<P class=docText>Consider the kernel's I<SUP>2</SUP>C subsystem (explored in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08.html#ch08">Chapter 8</A>, "The Inter-Integrated Circuit Protocol"). The I<SUP>2</SUP><A name="device drivers"></A>C layer consists of a core infrastructure, device drivers for bus adapters, and drivers for client devices. The I<SUP>2</SUP>C core layer registers each detected I<SUP>2</SUP>C <A name=iddle1347></A><A name=iddle1519></A><A name=iddle1776></A><A name=iddle1781></A><A name=iddle1854></A><A name=iddle2232></A><A name=iddle2775></A><A name=iddle4383></A>bus adapter using <TT>bus_register()</TT>. When an I<SUP>2</SUP>C client device (say, an <SPAN class=docEmphasis>Electrically Erasable Programmable Read-Only Memory</SPAN> [EEPROM] chip) is probed and detected, its existence is recorded via <TT>device_register()</TT>. Finally, the I<SUP>2</SUP>C EEPROM client driver registers itself using <TT>driver_register()</TT><A name="offered by"></A>. These registrations are performed indirectly using service functions offered by the I<SUP>2</SUP>C core.</P>
+<P class=docText><TT>bus_register()</TT><A name="a corresponding"></A> adds a corresponding entry to <SPAN class=docEmphasis>/sys/bus/</SPAN>, while <TT>device_register()</TT> adds entries under <SPAN class=docEmphasis>/sys/devices/.</SPAN> <TT>struct bus_type</TT>, <TT>struct device</TT>, and <TT>struct device_driver</TT><A name="a peek"></A> are the main data structures used respectively by buses, devices, and drivers. Take a peek inside <SPAN class=docEmphasis>include/linux/device.h</SPAN><A name="for their"></A> for their definitions.</P><A name=ch04lev2sec7></A>
+<H4 id=title-ID0EIHPM class=docSection2Title>Hotplug and Coldplug</H4>
+<P class=docText><A name="to a"></A>Devices connected to a running system on-the-fly are said to be <SPAN class=docEmphasis>hotplugged</SPAN><A name="those connected"></A>, whereas those connected prior to system boot are considered to be <SPAN class=docEmphasis>coldplugged.</SPAN><A name="events by"></A> Earlier, the kernel used to notify user space about hotplug events by invoking a helper program registered via the <SPAN class=docEmphasis>/proc</SPAN><A name="they dispatch"></A> filesystem. But when current kernels detect hotplug, they dispatch uevents to user space via netlink sockets. Netlink sockets are an efficient mechanism to communicate between kernel space and user space using socket APIs. At the user-space end, udevd, the daemon that manages device node creation and removal, receives the uevents and manages hotplug.</P><A name=ch04sb02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<P class=docText><A name="levels of"></A>To see how hotplug handling has evolved recently, let's consider progressive levels of udev running different versions of the 2.6 kernel:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>With a <SPAN class=docEmphasis>udev-039</SPAN><A name="detects a"></A> package and a 2.6.9 kernel, when the kernel detects a hotplug event, it invokes the user space helper registered with <SPAN class=docEmphasis>/proc/sys/kernel/hotplug.</SPAN> This defaults to <SPAN class=docEmphasis>/sbin/hotplug</SPAN><A name="its environment"></A>, which receives attributes of the hotplugged device in its environment. <SPAN class=docEmphasis>/sbin/hotplug</SPAN><A name="inside the"></A> looks inside the hotplug configuration directory (usually <SPAN class=docEmphasis>/etc/hotplug.d/default/</SPAN>) and runs, for example, <SPAN class=docEmphasis>/etc/hotplug.d/default/10-udev.hotplug</SPAN>, after executing other scripts under <SPAN class=docEmphasis>/etc/hotplug/</SPAN>.</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ls -l /etc/hotplug.d/default/</SPAN>
+...
+lrwcrwxrwx 1 root root 14 May 11 2005 10-udev.hotplug -&gt; /sbin/udevsend
+...</PRE></DIV>
+<P class=docList>When <SPAN class=docEmphasis>/sbin/udevsend</SPAN> thus gets executed, it passes the hotplugged device information to udevd.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>With udev-058 and a 2.6.11 kernel, the story changes somewhat. The udevsend utility replaces /<SPAN class=docEmphasis>sbin/hotplug</SPAN>:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /proc/sys/kernel/hotplug</SPAN>
+/sbin/udevsend</PRE></DIV></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="full responsibility"></A>With the latest levels of udev and the kernel, udevd assumes full responsibility of managing hotplug without depending on udevsend. It now pulls hotplug events directly from the kernel via netlink sockets (see <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04tab02">Figure 4.4</A>). <SPAN class=docEmphasis>/proc/sys/kernel/hotplug</SPAN><A name="contains nothing"></A> contains nothing:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /proc/sys/kernel/hotplug</SPAN>
+<SPAN class=docEmphStrong>bash&gt;</SPAN></PRE></DIV></DIV></LI></OL></DIV></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle1783></A><A name=iddle2777></A><A name=iddle2989></A><A name=iddle3798></A><A name="handles coldplug"></A>Udev also handles coldplug. Because udev is part of user space and is started only after the kernel boots, a special mechanism is needed to emulate hotplug events over coldplugged devices. At boot time, the kernel creates a file named <SPAN class=docEmphasis>uevent</SPAN><A name="sysfs for"></A> under sysfs for all devices and emits coldplug events to those files. When udev starts, it reads all the <SPAN class=docEmphasis>uevent</SPAN> files from <SPAN class=docEmphasis>/sys</SPAN> and generates hotplug uevents for each coldplugged device.</P><A name=ch04lev2sec8></A>
+<H4 id=title-ID0EQMPM class=docSection2Title>Microcode Download</H4>
+<P class=docText><A name="they can"></A>You have to feed microcode to some devices before they can get ready for action. The microcode gets executed by an on-card microcontroller. Device drivers used to store microcode inside static arrays in header files. But this has become untenable because microcode is usually distributed as proprietary binary images by device vendors, and that doesn't mix homogeneously with the GPL-ed kernel. Another reason against mixing firmware with kernel sources is that they run on different release time lines. The solution apparently is to separately maintain microcode in user space and pass it down to the kernel when required. Sysfs and udev provide an infrastructure to achieve this.</P>
+<P class=docText><A name="Intel PRO"></A>Let's take the example of the Intel PRO/Wireless 2100 WiFi mini PCI card found on several laptops. The card is built around a microcontroller that needs to execute externally supplied microcode for normal operation. Let's walk through the steps that the Linux driver follows to download microcode to the card. Assume that you have obtained the required microcode image (<SPAN class=docEmphasis>ipw2100-1.3.fw</SPAN>) from <A class=docLink href="http://ipw2100.sourceforge.net/firmware.php" target=_blank>http://ipw2100.sourceforge.net/firmware.php</A> and saved it under <SPAN class=docEmphasis>/lib/firmware/</SPAN><A name="driver module"></A> on your system and that you have inserted the driver module <SPAN class=docEmphasis>ipw2100.ko</SPAN>:</P><A name=ch04pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>During initialization, the driver invokes the following:<BR><BR>
+<DIV class=docText><PRE>request_firmware(..,"ipw2100-1.3.fw",..);</PRE></DIV><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>This dispatches a hotplug uevent to user space, along with the identity of the requested microcode image.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Udevd receives the uevent and responds by invoking <SPAN class=docEmphasis>/sbin/firmware_helper.</SPAN> For this, it uses a rule similar to the following from a file under /<SPAN class=docEmphasis>etc/udev/rules.d/</SPAN>:<BR><BR>
+<DIV class=docText><PRE>ACTION=="add", SUBSYSTEM=="firmware", RUN="/sbin/firmware_helper"</PRE></DIV><BR></DIV></TD></TR>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>4. </B></DIV></TD>
+<TD>
+<DIV class=docText><A name=iddle1199></A><A name=iddle1754></A><A name=iddle1784></A><A name=iddle2536></A><A name=iddle2778></A><A name=iddle3034></A><A name=iddle3035></A><A name=iddle3788></A><SPAN class=docEmphasis>/sbin/firmware_helper</SPAN> looks inside /<SPAN class=docEmphasis>lib/firmware/</SPAN> and locates the requested microcode image <SPAN class=docEmphasis>ipw2100-1.3.fw.</SPAN> It dumps the image to <SPAN class=docEmphasis>/sys/class/0000:02:02.0/data</SPAN>. (0000:02:02 is the PCI <SPAN class=docEmphasis>bus:device:function</SPAN> identifier of the WiFi card in this case.)<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>5. </B></DIV></TD>
+<TD>
+<DIV class=docText>The driver receives the microcode and downloads it onto the device. When done, it calls <TT>release_firmware()</TT> to free the corresponding data structures.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>6. </B></DIV></TD>
+<TD>
+<DIV class=docText>The driver goes through the rest of the initializations and the WiFi adapter beacons.<BR><BR></DIV></TD></TR></TBODY></TABLE><A name=ch04lev2sec9></A>
+<H4 id=title-ID0EBSPM class=docSection2Title>Module Autoload</H4>
+<P class=docText><A name="is a"></A>Automatically loading kernel modules on demand is a convenient feature that Linux supports. To understand how the kernel emits a "module fault" and how udev handles it, let's insert a Xircom CardBus Ethernet adapter into a laptop's PC Card slot:</P><A name=ch04pro02></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>During compile time, the identity of supported devices is generated as part of the driver module object. Take a peek at the driver that supports the Xircom CardBus Ethernet combo card (<SPAN class=docEmphasis>drivers/net/tulip/xircom_cb.c</SPAN>) and find this snippet:<BR><BR>
+<DIV class=docText><PRE>static struct pci_device_id xircom_pci_table[] = {
+    {0x115D, 0x0003, PCI_ANY_ID, PCI_ANY_ID,},
+    {0,},
+};
+
+/* Mark the device table */
+MODULE_DEVICE_TABLE(pci, xircom_pci_table);</PRE></DIV><BR>This declares that the driver can support any card having a PCI vendor ID of <TT>0x115D</TT> and a PCI device ID of <TT>0x0003</TT> (more on this in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>). When you install the driver module, the depmod utility looks inside the module image and deciphers the IDs present in the device table. It then adds the following entry to <SPAN class=docEmphasis>/lib/modules/kernel-version/modules.alias</SPAN>:<BR><BR>
+<DIV class=docText><PRE>alias pci:v0000115Dd00000003sv*sd*bc*sc*i* xircom_cb</PRE></DIV><BR>where <TT>v</TT> stands for VendorID, <TT>d</TT> for DeviceID, <TT>sv</TT> for subvendorID, and <TT>*</TT> for wildcard match.<BR><BR></DIV></TD></TR>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText><A name=iddle1788></A><A name=iddle1939></A><A name=iddle2782></A><A name=iddle4380></A><A name=iddle4382></A>When you hotplug the Xircom card into a CardBus slot, the kernel generates a uevent that announces the identity of the newly inserted device. You may look at the generated uevent using udevmonitor:<BR><BR>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; udevmonitor --env</SPAN>
+   ...
+   MODALIAS=pci:v0000115Dd00000003sv0000115Dsd00001181bc02sc00i00
+   ...</PRE></DIV><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Udevd receives the uevent via a netlink socket and invokes modprobe with the above MODALIAS that the kernel passed up to it:<BR><BR>
+<DIV class=docText><PRE>modprobe pci:v0000115Dd00000003sv0000115Dsd00001181bc02sc00i00</PRE></DIV><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>4. </B></DIV></TD>
+<TD>
+<DIV class=docText>Modprobe finds the matching entry in <SPAN class=docEmphasis>/lib/modules/kernel-version/modules.alias</SPAN> created during Step 1, and proceeds to insert <SPAN class=docEmphasis>xircom_cb:</SPAN><BR><BR>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; lsmod</SPAN>
+Module      Size   Used by
+xircom_cb   10433  0
+...</PRE></DIV><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText>The card is now ready to surf.</P>
+<P class=docText><A name=reading></A>You may want to revisit this section after reading <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>.</P><A name=ch04sb03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle><A name="on Embedded"></A>Udev on Embedded Devices</H2>
+<P class=docText><A name="favor of"></A>One school of thought deprecates the use of udev in favor of statically created device nodes on embedded devices for the following reasons:</P>
+<UL>
+<LI>
+<P class=docList><A name="Udev creates"></A>Udev creates <SPAN class=docEmphasis>/dev</SPAN><A name="each reboot"></A> nodes during each reboot, compared to static nodes that are created only once during software install. If your embedded device uses flash storage, flash pages that hold <SPAN class=docEmphasis>/dev</SPAN><A name="suffer an"></A> nodes suffer an erase-write cycle on each boot in the case of the former, and this reduces flash life span. (Flash memory is discussed in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17.html#ch17">Chapter 17</A>, "Memory Technology Devices.") You do have the option of mounting <SPAN class=docEmphasis>/dev</SPAN> over a RAM-based filesystem, however.</P>
+<LI>
+<P class=docList>Udev contributes to increased boot time.</P>
+<LI>
+<P class=docList>Udev features such as dynamic creation of <SPAN class=docEmphasis>/dev</SPAN><A name="indeterminism that"></A> nodes and autoloading of modules create a degree of indeterminism that some solution designers prefer to avoid on special-purpose embedded devices, especially ones that do not interact with the outside world via hotpluggable buses. According to this point of view, static node creation and boot-time insertion of any modules provide more control over the system and make it easier to test.</P></LI></UL></TD></TR></TBODY></TABLE>

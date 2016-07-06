@@ -1,0 +1,88 @@
+<H3 class=section>12.1 GNU Guile Integration</H3>
+<P><A name=index-Guile-1044></A><A name=index-extensions_002c-Guile-1045></A>GNU <CODE>make</CODE> may be built with support for GNU Guile as an embedded extension language. Guile implements the Scheme language. A review of GNU Guile and the Scheme language and its features is beyond the scope of this manual: see the documentation for GNU Guile and Scheme. 
+<P>You can determine if <CODE>make</CODE> contains support for Guile by examining the <CODE>.FEATURES</CODE> variable; it will contain the word <VAR>guile</VAR> if Guile support is available. 
+<P><FONT class=extract>The Guile integration provides one new <CODE>make</CODE> function: <CODE>guile</CODE>. The <CODE>guile</CODE> function takes one argument which is first expanded by <CODE>make</CODE> in the normal fashion, then passed to the GNU Guile evaluator. The result of the evaluator is converted into a string and used as the expansion of the <CODE>guile</CODE> function in the makefile. </FONT>
+<P><FONT class=extract>In addition, GNU <CODE>make</CODE> exposes Guile procedures for use in Guile scripts.</FONT> 
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#Guile-Types">Guile Types</A>: Converting Guile types to <CODE>make</CODE> strings. 
+<LI><A accessKey=2 href="https://www.gnu.org/software/make/manual/make.html#Guile-Interface">Guile Interface</A>: Invoking <CODE>make</CODE> functions from Guile. 
+<LI><A accessKey=3 href="https://www.gnu.org/software/make/manual/make.html#Guile-Example">Guile Example</A>: Example using Guile in <CODE>make</CODE>. </LI></UL>
+<DIV class=node><A name=Guile-Types></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Guile-Interface" rel=next>Guile Interface</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=previous>Guile Integration</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=up>Guile Integration</A> </DIV>
+<H4 class=subsection><FONT class=extract>12.1.1 Conversion of Guile Types</FONT></H4>
+<P><A name=index-convert-guile-types-1046></A><A name=index-guile_002c-conversion-of-types-1047></A><A name=index-types_002c-conversion-of-1048></A><FONT class=extract>There is only one &#8220;data type&#8221; in <CODE>make</CODE>: a string. GNU Guile, on the other hand, provides a rich variety of different data types. An important aspect of the interface between <CODE>make</CODE> and GNU Guile is the conversion of Guile data types into <CODE>make</CODE> strings. </FONT>
+<P><FONT class=extract>This conversion is relevant in two places: when a makefile invokes the <CODE>guile</CODE> function to evaluate a Guile expression, the result of that evaluation must be converted into a make string so it can be further evaluated by <CODE>make</CODE>. And secondly, when a Guile script invokes one of the procedures exported by <CODE>make</CODE> the argument provided to the procedure must be converted into a string. </FONT>
+<P><FONT class=extract>The conversion of Guile types into <CODE>make</CODE> strings is as below: </FONT>
+<DL>
+<DT><FONT class=extract><CODE>#f</CODE> </FONT>
+<DD><FONT class=extract>False is converted into the empty string: in <CODE>make</CODE> conditionals the empty string is considered false. <BR></FONT>
+<DT><FONT class=extract><CODE>#t</CODE> </FONT>
+<DD><FONT class=extract>True is converted to the string &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217;: in <CODE>make</CODE> conditionals any non-empty string is considered true. <BR></FONT>
+<DT><FONT class=extract><CODE>symbol</CODE><BR></FONT>
+<DT><FONT class=extract><CODE>number</CODE> </FONT>
+<DD><FONT class=extract>A symbol or number is converted into the string representation of that symbol or number. <BR></FONT>
+<DT><FONT class=extract><CODE>character</CODE> </FONT>
+<DD><FONT class=extract>A printable character is converted to the same character. <BR></FONT>
+<DT><FONT class=extract><CODE>string</CODE> </FONT>
+<DD><FONT class=extract>A string containing only printable characters is converted to the same string. <BR></FONT>
+<DT><FONT class=extract><CODE>list</CODE> </FONT>
+<DD><FONT class=extract>A list is converted recursively according to the above rules. This implies that any structured list will be flattened (that is, a result of &#8216;<SAMP><SPAN class=samp>'(a b (c d) e)</SPAN></SAMP>&#8217; will be converted to the <CODE>make</CODE> string &#8216;<SAMP><SPAN class=samp>a b c d e</SPAN></SAMP>&#8217;). <BR></FONT>
+<DT><FONT class=extract><CODE>other</CODE> </FONT>
+<DD><FONT class=extract>Any other Guile type results in an error. In future versions of <CODE>make</CODE>, other Guile types may be converted. </FONT></DD></DL>
+<P><FONT class=extract>The translation of &#8216;<SAMP><SPAN class=samp>#f</SPAN></SAMP>&#8217; (to the empty string) and &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217; (to the non-empty string &#8216;<SAMP><SPAN class=samp>#t</SPAN></SAMP>&#8217;) is designed to allow you to use Guile boolean results directly as <CODE>make</CODE> boolean conditions. For example: </FONT><PRE class=example><FONT class=extract>     $(if $(guile (access? "myfile" R_OK)),$(info myfile exists))
+</FONT></PRE>
+<P><FONT class=extract>As a consequence of these conversion rules you must consider the result of your Guile script, as that result will be converted into a string and parsed by <CODE>make</CODE>. If there is no natural result for the script (that is, the script exists solely for its side-effects), you should add &#8216;<SAMP><SPAN class=samp>#f</SPAN></SAMP>&#8217; as the final expression in order to avoid syntax errors in your makefile. </FONT>
+<DIV class=node><A name=Guile-Interface></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Guile-Example" rel=next>Guile Example</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Guile-Types" rel=previous>Guile Types</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=up>Guile Integration</A> </DIV>
+<H4 class=subsection><FONT class=extract>12.1.2 Interfaces from Guile to <CODE>make</CODE></FONT></H4>
+<P><A name=index-make-interface-to-guile-1049></A><A name=index-make-procedures-in-guile-1050></A><FONT class=extract>In addition to the <CODE>guile</CODE> function available in makefiles, <CODE>make</CODE> exposes some procedures for use in your Guile scripts. At startup <CODE>make</CODE> creates a new Guile module, <CODE>gnu make</CODE>, and exports these procedures as public interfaces from that module: </FONT>
+<DL>
+<DT><FONT class=extract><CODE>gmk-expand</CODE> </FONT>
+<DD><A name=index-gmk_002dexpand-1051></A><FONT class=extract>This procedure takes a single argument which is converted into a string. The string is expanded by <CODE>make</CODE> using normal <CODE>make</CODE> expansion rules. The result of the expansion is converted into a Guile string and provided as the result of the procedure. <BR></FONT>
+<DT><FONT class=extract><CODE>gmk-eval</CODE> </FONT>
+<DD><A name=index-gmk_002deval-1052></A><FONT class=extract>This procedure takes a single argument which is converted into a string. The string is evaluated by <CODE>make</CODE> as if it were a makefile. This is the same capability available via the <CODE>eval</CODE> function (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Eval-Function"><FONT class=extract>Eval Function</FONT></A><FONT class=extract>). The result of the <CODE>gmk-eval</CODE> procedure is always the empty string. </FONT>
+<P><FONT class=extract>Note that <CODE>gmk-eval</CODE> is not quite the same as using <CODE>gmk-expand</CODE> with the <CODE>eval</CODE> function: in the latter case the evaluated string will be expanded <EM>twice</EM>; first by <CODE>gmk-expand</CODE>, then again by the <CODE>eval</CODE> function. </FONT></P></DD></DL>
+<DIV class=node><A name=Guile-Example></A>
+<P>
+<HR>
+Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Guile-Interface" rel=previous>Guile Interface</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Guile-Integration" rel=up>Guile Integration</A> </DIV>
+<H4 class=subsection><FONT class=extract>12.1.3 Example Using Guile in <CODE>make</CODE></FONT></H4>
+<P><A name=index-Guile-example-1053></A><A name=index-example-using-Guile-1054></A><FONT class=extract>Here is a very simple example using GNU Guile to manage writing to a file. These Guile procedures simply open a file, allow writing to the file (one string per line), and close the file. Note that because we cannot store complex values such as Guile ports in <CODE>make</CODE> variables, we'll keep the port as a global variable in the Guile interpreter. </FONT>
+<P><FONT class=extract>You can create Guile functions easily using <CODE>define</CODE>/<CODE>endef</CODE> to create a Guile script, then use the <CODE>guile</CODE> function to internalize it: </FONT><PRE class=example><FONT class=extract>     define GUILEIO
+     ;; A simple Guile IO library for GNU make
+     
+     (define MKPORT #f)
+     
+     (define (mkopen name mode)
+       (set! MKPORT (open-file name mode))
+       #f)
+     
+     (define (mkwrite s)
+       (display s MKPORT)
+       (newline MKPORT)
+       #f)
+     
+     (define (mkclose)
+       (close-port MKPORT)
+       #f)
+     
+     #f
+     endef
+     
+     # Internalize the Guile IO functions
+     $(guile $(GUILEIO))
+</FONT></PRE>
+<P><FONT class=extract>If you have a significant amount of Guile support code, you might consider keeping it in a different file (e.g., <SAMP><SPAN class=file>guileio.scm</SPAN></SAMP>) and then loading it in your makefile using the <CODE>guile</CODE> function: </FONT><PRE class=example><FONT class=extract>     $(guile (load "guileio.scm"))
+</FONT></PRE>
+<P><FONT class=extract>An advantage to this method is that when editing <SAMP><SPAN class=file>guileio.scm</SPAN></SAMP>, your editor will understand that this file contains Scheme syntax rather than makefile syntax. </FONT>
+<P><FONT class=extract>Now you can use these Guile functions to create files. Suppose you need to operate on a very large list, which cannot fit on the command line, but the utility you're using accepts the list as input as well: </FONT><PRE class=example><FONT class=extract>     prog: $(PREREQS)
+             @$(guile (mkopen "tmp.out" "w")) \
+              $(foreach X,$^,$(guile (mkwrite "$(X)"))) \
+              $(guile (mkclose))
+             $(LINK) &lt; tmp.out
+</FONT></PRE>
+<P><FONT class=extract>A more comprehensive suite of file manipulation procedures is possible of course. You could, for example, maintain multiple output files at the same time by choosing a symbol for each one and using it as the key to a hash table, where the value is a port, then returning the symbol to be stored in a <CODE>make</CODE> variable.</FONT>

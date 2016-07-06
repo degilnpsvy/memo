@@ -1,0 +1,94 @@
+<H4 class=subsection>11.2.7 Counting Things</H4><A name=index-counting></A><A name=index-input-files_002c-counting-elements-in></A><A name=index-words_002c-counting></A><A name=index-characters_002c-counting></A><A name=index-lines_002c-counting></A><A name=index-wc-utility></A>
+<P>The <CODE>wc</CODE> (word count) utility counts lines, words, and characters in one or more input files. Its usage is as follows: </P>
+<DIV class=example><PRE class=example>wc <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>-lwc<SPAN class=roman><FONT face=Batang>]</FONT></SPAN> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN> <VAR>files</VAR> &#8230; <SPAN class=roman><FONT face=Batang>]</FONT></SPAN>
+</PRE></DIV>
+<P>If no files are specified on the command line, <CODE>wc</CODE> reads its standard input. If there are multiple files, it also prints total counts for all the files. The options and their meanings are shown in the following list: </P>
+<DL compact>
+<DT><CODE>-l</CODE></DT>
+<DD>
+<P>Count only lines. </P></DD>
+<DT><CODE>-w</CODE></DT>
+<DD>
+<P>Count only words. A &#8220;word&#8221; is a contiguous sequence of nonwhitespace characters, separated by spaces and/or TABs. Luckily, this is the normal way <CODE>awk</CODE> separates fields in its input data. </P></DD>
+<DT><CODE>-c</CODE></DT>
+<DD>
+<P>Count only characters. </P></DD></DL>
+<P>Implementing <CODE>wc</CODE> in <CODE>awk</CODE> is particularly elegant, since <CODE>awk</CODE> does a lot of the work for us; it splits lines into words (i.e., fields) and counts them, it counts lines (i.e., records), and it can easily tell us how long a line is. </P>
+<P>This program uses the <CODE>getopt()</CODE> library function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Getopt-Function">Getopt Function</A>) and the file-transition functions (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Filetrans-Function">Filetrans Function</A>). </P>
+<P>This version has one notable difference from traditional versions of <CODE>wc</CODE>: it always prints the counts in the order lines, words, and characters. Traditional versions note the order of the <SAMP>-l</SAMP>, <SAMP>-w</SAMP>, and <SAMP>-c</SAMP> options on the command line, and print the counts in that order. </P>
+<P>The <CODE>BEGIN</CODE> rule does the argument processing. The variable <CODE>print_total</CODE> is true if more than one file is named on the command line: </P><A name=index-wc_002eawk-program></A>
+<DIV class=example><PRE class=example># wc.awk --- count lines, words, characters
+
+# Options:
+#    -l    only count lines
+#    -w    only count words
+#    -c    only count characters
+#
+# Default is to count lines, words, characters
+#
+# Requires getopt() and file transition library functions
+
+BEGIN {
+    # let getopt() print a message about
+    # invalid options. we ignore them
+    while ((c = getopt(ARGC, ARGV, "lwc")) != -1) {
+        if (c == "l")
+            do_lines = 1
+        else if (c == "w")
+            do_words = 1
+        else if (c == "c")
+            do_chars = 1
+    }
+    for (i = 1; i &lt; Optind; i++)
+        ARGV[i] = ""
+
+    # if no options, do all
+    if (! do_lines &amp;&amp; ! do_words &amp;&amp; ! do_chars)
+        do_lines = do_words = do_chars = 1
+
+    print_total = (ARGC - i &gt; 2)
+}
+</PRE></DIV>
+<P>The <CODE>beginfile()</CODE> function is simple; it just resets the counts of lines, words, and characters to zero, and saves the current file name in <CODE>fname</CODE>: </P>
+<DIV class=example><PRE class=example>function beginfile(file)
+{
+    lines = words = chars = 0
+    fname = FILENAME
+}
+</PRE></DIV>
+<P>The <CODE>endfile()</CODE> function adds the current file&#8217;s numbers to the running totals of lines, words, and characters.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT72" name=DOCF72><SUP>72</SUP></A> It then prints out those numbers for the file that was just read. It relies on <CODE>beginfile()</CODE> to reset the numbers for the following data file: </P>
+<DIV class=example><PRE class=example>function endfile(file)
+{
+    tlines += lines
+    twords += words
+    tchars += chars
+    if (do_lines)
+        printf "\t%d", lines
+</PRE><PRE class=example>    if (do_words)
+        printf "\t%d", words
+</PRE><PRE class=example>    if (do_chars)
+        printf "\t%d", chars
+    printf "\t%s\n", fname
+}
+</PRE></DIV>
+<P>There is one rule that is executed for each line. It adds the length of the record, plus one, to <CODE>chars</CODE>.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT73" name=DOCF73><SUP>73</SUP></A> Adding one plus the record length is needed because the newline character separating records (the value of <CODE>RS</CODE>) is not part of the record itself, and thus not included in its length. Next, <CODE>lines</CODE> is incremented for each line read, and <CODE>words</CODE> is incremented by the value of <CODE>NF</CODE>, which is the number of &#8220;words&#8221; on this line: </P>
+<DIV class=example><PRE class=example># do per line
+{
+    chars += length($0) + 1    # get newline
+    lines++
+    words += NF
+}
+</PRE></DIV>
+<P>Finally, the <CODE>END</CODE> rule simply prints the totals for all the files: </P>
+<DIV class=example><PRE class=example>END {
+    if (print_total) {
+        if (do_lines)
+            printf "\t%d", tlines
+        if (do_words)
+            printf "\t%d", twords
+        if (do_chars)
+            printf "\t%d", tchars
+        print "\ttotal"
+    }
+}
+</PRE></DIV>

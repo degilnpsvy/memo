@@ -1,0 +1,39 @@
+<H4 id=title-ID0E1IOM class=docSection2Title>Spinlocks and Mutexes</H4>
+<P class=docText><A name=a></A>A code area that accesses shared resources is called a <SPAN class=docEmphasis>critical</SPAN> section. Spinlocks and <FONT class=extract>mutexes (short for <SPAN class=docEmphasis>mutual exclusion</SPAN></FONT><A name="used to"></A><FONT class=extract>)</FONT> are the two basic mechanisms used to protect critical sections in the kernel. Let's look at each in turn.</P>
+<P class=docText><A name="a critical"></A>A spinlock ensures that only a single thread enters a critical section at a time. Any other thread that desires to enter the critical section has to remain spinning at the door until the first thread exits. Note that we use the term <SPAN class=docEmphasis>thread</SPAN><A name="rather than"></A> to refer to a thread of execution, rather than a kernel thread.</P>
+<P class=docText><FONT class=extract>The basic usage of spinlocks is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <LINUX spinlock.h="">
+spinlock_t mylock = SPIN_LOCK_UNLOCKED; /* Initialize */
+
+/* Acquire the spinlock. This is inexpensive if there
+ * is no one inside the critical section. In the face of
+ * contention, spinlock() has to busy-wait.
+ */
+spin_lock(&amp;mylock);
+
+/* ... Critical Section code ... */
+
+spin_unlock(&amp;mylock); /* Release the lock */</FONT></LINUX></PRE></DIV><BR>
+<P class=docText><A name="a spin"></A>In contrast to spinlocks that put threads into a spin if they attempt to enter a busy critical section, mutexes put contending threads to sleep until it's their turn to occupy the critical section. Because it's a bad thing to consume processor cycles to spin, mutexes are more suitable than spinlocks to protect critical sections when the estimated wait time is long. In mutex terms, anything more than two context switches is considered long, because a mutex has to switch out the contending thread to sleep, and switch it back in when it's time to wake it up.</P>
+<P class=docText><A name="many cases"></A><FONT class=extract>In many cases, therefore, it's easy to decide whether to use a spinlock or a mutex:</FONT></P>
+<UL>
+<LI>
+<P class=docList><A name="but to"></A><FONT class=extract>If the critical section needs to sleep, you have no choice but to use a mutex. It's illegal to schedule, preempt, or sleep on a wait queue after acquiring a spinlock.</FONT></P>
+<LI>
+<P class=docList><A name="Because mutexes"></A><FONT class=extract>Because mutexes put the calling thread to sleep in the face of contention, you have no choice but to use spinlocks inside interrupt handlers. (You will learn more about the constraints of the interrupt context in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><FONT class=extract>.)</FONT></P></LI></UL>
+<P class=docText><A name="usage is"></A><FONT class=extract>Basic mutex usage is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <LINUX mutex.h="">
+
+/* Statically declare a mutex. To dynamically
+   create a mutex, use mutex_init() */
+static DEFINE_MUTEX(mymutex);
+
+/* Acquire the mutex. This is inexpensive if there
+ * is no one inside the critical section. In the face of
+ * contention, mutex_lock() puts the calling thread to sleep.
+ */
+mutex_lock(&amp;mymutex);
+
+/* ... Critical Section code ... */
+
+mutex_unlock(&amp;mymutex);      /* Release the mutex */</LINUX></FONT></PRE></DIV>

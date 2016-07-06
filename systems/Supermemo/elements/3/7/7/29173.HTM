@@ -1,0 +1,37 @@
+include/asm-generic/atomic.h 
+<P></P>
+<P>/*<BR>&nbsp;* Generic C implementation of atomic counter operations. Usable on<BR>&nbsp;* UP systems only. Do not include in machine independent code.<BR>&nbsp;*<BR>&nbsp;* Originally implemented for MN10300.<BR>&nbsp;*<BR>&nbsp;* Copyright (C) 2007 Red Hat, Inc. All Rights Reserved.<BR>&nbsp;* Written by David Howells (<A href="mailto:dhowells@redhat.com">dhowells@redhat.com</A>)<BR>&nbsp;*<BR>&nbsp;* This program is free software; you can redistribute it and/or<BR>&nbsp;* modify it under the terms of the GNU General Public Licence<BR>&nbsp;* as published by the Free Software Foundation; either version<BR>&nbsp;* 2 of the Licence, or (at your option) any later version.<BR>&nbsp;*/<BR>#ifndef __ASM_GENERIC_ATOMIC_H<BR>#define __ASM_GENERIC_ATOMIC_H</P>
+<P></P>
+<P>#include &lt;asm/cmpxchg.h&gt;<BR>#include &lt;asm/barrier.h&gt;</P>
+<P><FONT class=extract>/*<BR>&nbsp;* atomic_$op() - $op integer to atomic variable<BR>&nbsp;* @i: integer value to $op<BR>&nbsp;* @v: pointer to the atomic variable<BR>&nbsp;*<BR>&nbsp;* Atomically $ops @i to @v. Does not strictly guarantee a memory-barrier, use<BR>&nbsp;* smp_mb__{before,after}_atomic().<BR>&nbsp;*/</FONT></P>
+<P><FONT class=extract>/*<BR>&nbsp;* atomic_$op_return() - $op interer to atomic variable and returns the result<BR>&nbsp;* @i: integer value to $op<BR>&nbsp;* @v: pointer to the atomic variable<BR>&nbsp;*<BR>&nbsp;* Atomically $ops @i to @v. Does imply a full memory barrier.<BR>&nbsp;*/</FONT></P>
+<P>#ifdef CONFIG_SMP</P>
+<P>/* we can build all atomic primitives from cmpxchg */</P>
+<P>#define ATOMIC_OP(op, c_op)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>static inline void atomic_##op(int i, atomic_t *v)&nbsp;&nbsp;&nbsp;\<BR>{&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;int c, old;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;c = v-&gt;counter;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;while ((old = cmpxchg(&amp;v-&gt;counter, c, c c_op i)) != c)&nbsp;&nbsp;\<BR>&nbsp;&nbsp;c = old;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>}</P>
+<P>#define ATOMIC_OP_RETURN(op, c_op)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>static inline int atomic_##op##_return(int i, atomic_t *v)&nbsp;&nbsp;\<BR>{&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;int c, old;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;c = v-&gt;counter;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;while ((old = cmpxchg(&amp;v-&gt;counter, c, c c_op i)) != c)&nbsp;&nbsp;\<BR>&nbsp;&nbsp;c = old;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;return c c_op i;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>}</P>
+<P>#else</P>
+<P>#include &lt;linux/irqflags.h&gt;</P>
+<P>#define ATOMIC_OP(op, c_op)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>static inline void atomic_##op(int i, atomic_t *v)&nbsp;&nbsp;&nbsp;\<BR>{&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;unsigned long flags;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;raw_local_irq_save(flags);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;v-&gt;counter = v-&gt;counter c_op i;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;raw_local_irq_restore(flags);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>}</P>
+<P>#define ATOMIC_OP_RETURN(op, c_op)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>static inline int atomic_##op##_return(int i, atomic_t *v)&nbsp;&nbsp;\<BR>{&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;unsigned long flags;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;int ret;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;raw_local_irq_save(flags);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;ret = (v-&gt;counter = v-&gt;counter c_op i);&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;raw_local_irq_restore(flags);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;return ret;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>}</P>
+<P>#endif /* CONFIG_SMP */</P>
+<P>#ifndef atomic_add_return<BR>ATOMIC_OP_RETURN(add, +)<BR>#endif</P>
+<P>#ifndef atomic_sub_return<BR>ATOMIC_OP_RETURN(sub, -)<BR>#endif</P>
+<P>#ifndef atomic_and<BR>ATOMIC_OP(and, &amp;)<BR>#endif</P>
+<P>#ifndef atomic_or<BR>ATOMIC_OP(or, |)<BR>#endif</P>
+<P>#ifndef atomic_xor<BR>ATOMIC_OP(xor, ^)<BR>#endif</P>
+<P>#undef ATOMIC_OP_RETURN<BR>#undef ATOMIC_OP</P>
+<P>/*<BR>&nbsp;* Atomic operations that C can't guarantee us.&nbsp; Useful for<BR>&nbsp;* resource counting etc..<BR>&nbsp;*/</P>
+<P>#define ATOMIC_INIT(i)&nbsp;{ (i) }</P>
+<P>/**<BR>&nbsp;* atomic_read - read atomic variable<BR>&nbsp;* @v: pointer of type atomic_t<BR>&nbsp;*<BR>&nbsp;* Atomically reads the value of @v.<BR>&nbsp;*/<BR>#ifndef atomic_read<BR>#define atomic_read(v)&nbsp;READ_ONCE((v)-&gt;counter)<BR>#endif</P>
+<P>/**<BR>&nbsp;* atomic_set - set atomic variable<BR>&nbsp;* @v: pointer of type atomic_t<BR>&nbsp;* @i: required value<BR>&nbsp;*<BR>&nbsp;* Atomically sets the value of @v to @i.<BR>&nbsp;*/<BR>#define atomic_set(v, i) WRITE_ONCE(((v)-&gt;counter), (i))</P>
+<P>#include &lt;linux/irqflags.h&gt;</P>
+<P>static inline int atomic_add_negative(int i, atomic_t *v)<BR>{<BR>&nbsp;return atomic_add_return(i, v) &lt; 0;<BR>}</P>
+<P>static inline void atomic_add(int i, atomic_t *v)<BR>{<BR>&nbsp;atomic_add_return(i, v);<BR>}</P>
+<P>static inline void atomic_sub(int i, atomic_t *v)<BR>{<BR>&nbsp;atomic_sub_return(i, v);<BR>}</P>
+<P>static inline void atomic_inc(atomic_t *v)<BR>{<BR>&nbsp;atomic_add_return(1, v);<BR>}</P>
+<P>static inline void atomic_dec(atomic_t *v)<BR>{<BR>&nbsp;atomic_sub_return(1, v);<BR>}</P>
+<P>#define atomic_dec_return(v)&nbsp;&nbsp;atomic_sub_return(1, (v))<BR>#define atomic_inc_return(v)&nbsp;&nbsp;atomic_add_return(1, (v))</P>
+<P>#define atomic_sub_and_test(i, v)&nbsp;(atomic_sub_return((i), (v)) == 0)<BR>#define atomic_dec_and_test(v)&nbsp;&nbsp;(atomic_dec_return(v) == 0)<BR>#define atomic_inc_and_test(v)&nbsp;&nbsp;(atomic_inc_return(v) == 0)</P>
+<P>#define atomic_xchg(ptr, v)&nbsp;&nbsp;(xchg(&amp;(ptr)-&gt;counter, (v)))<BR>#define atomic_cmpxchg(v, old, new)&nbsp;(cmpxchg(&amp;((v)-&gt;counter), (old), (new)))</P>
+<P>static inline int __atomic_add_unless(atomic_t *v, int a, int u)<BR>{<BR>&nbsp;int c, old;<BR>&nbsp;c = atomic_read(v);<BR>&nbsp;while (c != u &amp;&amp; (old = atomic_cmpxchg(v, c, c + a)) != c)<BR>&nbsp;&nbsp;c = old;<BR>&nbsp;return c;<BR>}</P>
+<P>#endif /* __ASM_GENERIC_ATOMIC_H */

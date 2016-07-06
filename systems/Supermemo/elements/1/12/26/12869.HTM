@@ -1,0 +1,156 @@
+<DIV class=NAVHEADER style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>Secure Programming for Linux and Unix HOWTO</TH></TR>
+<TR>
+<TD vAlign=bottom align=left width="10%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/java.html">Prev</A></TD>
+<TD vAlign=bottom align=middle width="80%">Chapter 10. Language-Specific Issues</TD>
+<TD vAlign=bottom align=right width="10%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/php.html">Next</A></TD></TR></TBODY></TABLE>
+<HR align=left width="100%">
+</DIV>
+<DIV class=SECT1 style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<H1 class=SECT1><A name=TCL>10.7. Tcl</A></H1>
+<P>Tcl stands for ``tool command language'' and is pronounced ``tickle.'' Tcl is divided into two parts: a language and a library. The language is a simple language, originally intended for issuing commands to interactive programs and including basic programming capabilities. The library can be embedded in application programs. You can find more information about Tcl at sites such as the<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.tcl.tk/" target=_top>Tcl.tk</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>and the<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.sco.com/Technology/tcl/Tcl.html" target=_top>Tcl WWW Info</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>web page and the comp.lang.tcl FAQ launch page at<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.tclfaq.wservice.com/tcl-faq" target=_top>http://www.tclfaq.wservice.com/tcl-faq</A>. My thanks go to Wojciech Kocjan for providing some of this detailed information on using Tcl in secure applications.</P>
+<P>For some security applications, especially interesting components of Tcl are Safe-Tcl (which creates a sandbox in Tcl) and Safe-TK (which implements a sandboxed portable GUI for Safe Tcl), as well as the WebWiseTclTk Toolkit which permits Tcl packages to be automatically located and loaded from anywhere on the World Wide Web. You can find more about the latter from<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.cbl.ncsu.edu/software/WebWiseTclTk" target=_top>http://www.cbl.ncsu.edu/software/WebWiseTclTk</A>. It's not clear to me how much code review this has received.</P>
+<P>Tcl's original design goal to be a small, simple language resulted in a language that was originally somewhat limiting and slow. For an example of the limiting weaknesses in the original language, see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://sdg.lcs.mit.edu/~jchapin/6853-FT97/Papers/stallman-tcl.html" target=_top>Richard Stallman's ``Why You Should Not Use Tcl''</A>. For example, Tcl was originally designed to really support only one data type (string). Thankfully, these issues have been addressed over time. In particular, version 8.0 added support for more data types (integers are stored internally as integers, lists as lists and so on). This improves its capabilities, and in particular improves its speed.</P>
+<P>As with essentially all scripting languages, Tcl has an "eval" command that parses and executes arbitrary Tcl commands. And like all such scripting languages, this eval command needs to be used especially carefully, or an attacker could insert characters in the input to cause malicious things to occur. For example, an attackers may be able insert characters with special meaning to Tcl such as embedded whitespace (including space and newline), double-quote, curly braces, square brackets, dollar signs, backslash, semicolon, or pound sign (or create input to cause these characters to be created during processing). This also applies to any function that passes data to eval as well (depending on how eval is called).</P>
+<P>Here is a small example that may make this concept clearer; first, let's define a small function and then interactively invoke it directly - note that these uses are fine:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> proc something {a b c d e} {
+       puts "A='$a'"
+       puts "B='$b'"
+       puts "C='$c'"
+       puts "D='$d'"
+       puts "E='$e'"
+ }
+ 
+ % # This works normally:
+ % something "test 1" "test2" "t3" "t4" "t5"
+ A='test 1'
+ B='test2'
+ C='t3'
+ D='t4'
+ E='t5'
+ 
+ % # Imagine that str1 is set by an attacker:
+ % set str1 {test 1 [puts HELLOWORLD]}
+ 
+ % # This works as well
+ % something $str1 t2 t3 t4 t5
+ A='test 1 [puts HELLOWORLD]'
+ B='t2'
+ C='t3'
+ D='t4'
+ E='t5'</PRE></FONT></TD></TR></TBODY></TABLE>However, continuing the example, let's see how "eval" can be incorrectly and correctly called. If you call eval in an incorrect (dangerous) way, it allows attackers to misuse it. However, by using commands like list or lrange to correctly group the input, you can avoid this problem:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> % # This is the WRONG way - str1 is interpreted.
+ % eval something $str1 t2 t3
+ HELLOWORLD
+ A='test'
+ B='1'
+ C=''
+ D='t2'
+ E='t3'
+ 
+ % # Here's one solution, using "list".
+ % eval something [list $str1 t2 t3 t4 t5]
+ A='test 1 [puts HELLOWORLD]'
+ B='t2'
+ C='t3'
+ D='t4'
+ E='t5'
+ 
+ % # Here's another solution, using lrange:
+ % eval something [lrange $str1 0 end] t2
+ A='test'
+ B='1'
+ C='[puts'
+ D='HELLOWORLD]'
+ E='t2'</PRE></FONT></TD></TR></TBODY></TABLE>Using lrange is useful when concatenating arguments to a called function, e.g., with more complex libraries using callbacks. In Tcl, eval is often used to create a one-argument version of a function that takes a variable number of arguments, and you need to be careful when using it this way. Here's another example (presuming that you've defined a "printf" function):
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> proc vprintf {str arglist} {
+      eval printf [list $str] [lrange $arglist 0 end]
+ }
+ 
+ % printf "1+1=%d  2+2=%d" 2 4
+ % vprintf "1+1=%d  2+2=%d" {2 4}</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Fundamentally, when passing a command that will be eventually evaluated, you must pass Tcl commands as a properly built list, and not as a (possibly concatentated) string. For example, the "after" command runs a Tcl command after a given number of milliseconds; if the data in $param1 can be controlled by an attacker, this Tcl code is dangerously wrong:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>  # DON'T DO THIS if param1 can be controlled by an attacker
+  after 1000 "someCommand someparam $param1"</PRE></FONT></TD></TR></TBODY></TABLE>This is wrong, because if an attacker can control the value of $param1, the attacker can control the program. For example, if the attacker can cause $param1 to have '[exit]', then the program will exit. Also, if $param1 would be '; exit', it would also exit.</P>
+<P>Thus, the proper alternative would be:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> after 1000 [list someCommand someparam $param1]</PRE></FONT></TD></TR></TBODY></TABLE>Even better would be something like the following:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> set cmd [list someCommand someparam]
+ after 1000 [concat $cmd $param1]</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Here's another example showing what you shouldn't do, pretending that $params is data controlled by possibly malicious user:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> set params "%-20s TESTSTRING"
+ puts "'[eval format $params]'"</PRE></FONT></TD></TR></TBODY></TABLE>will result in:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> 'TESTSTRING       '</PRE></FONT></TD></TR></TBODY></TABLE>But, when if the untrusted user sends data with an embedded newline, like this:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> set params "%-20s TESTSTRING\nputs HELLOWORLD"
+ puts "'[eval format $params]'"</PRE></FONT></TD></TR></TBODY></TABLE>The result will be this (notice that the attacker's code was executed!):
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> HELLOWORLD
+ 'TESTINGSTRING       '</PRE></FONT></TD></TR></TBODY></TABLE>Wojciech Kocjan suggests that the simplest solution in this case is to convert this to a list using lrange, doing this:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> set params "%-20s TESTINGSTRING\nputs HELLOWORLD"
+ puts "'[eval format [lrange $params 0 end]]'"</PRE></FONT></TD></TR></TBODY></TABLE>The result would be:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> 'TESTINGSTRING       '</PRE></FONT></TD></TR></TBODY></TABLE>Note that this solution presumes that the potentially malicious text is concatenated to the end of the text; as with all languages, make sure the attacker cannot control the format text.</P>
+<P>As a matter of style always use curly braces when using if, while, for, expr, and any other command which parses an argument using expr/eval/subst. Doing this will avoid a common error when using Tcl called unintended double substitution (aka double substitution). This is best explained by example; the following code is incorrect:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> while ![eof $file] {
+     set line [gets $file]
+ }</PRE></FONT></TD></TR></TBODY></TABLE>The code is incorrect because the "![eof $file]" text will be evaluated by the Tcl parser when the while command is executed the first time, and not re-evaluated in every iteration as it should be. Instead, do this:
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING> while {![eof $file]} {
+      set line [gets $file]
+ }</PRE></FONT></TD></TR></TBODY></TABLE>Note that both the condition, and the action to be performed, are surrounded by curly braces. Although there are cases where the braces are redundant, they never hurt, and when you fail to include the curly braces where they're needed (say, when making a minor change) subtle and hard-to-find errors often result.</P>
+<P>More information on good Tcl style can be found in documents such as<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.tcl.tk/doc/styleGuide.pdf" target=_top>Ray Johnson's Tcl Style Guide</A>.</P>
+<P>In the past, I have stated that I don't recommend Tcl for writing programs which must mediate a security boundary. Tcl seems to have improved since that time, so while I cannot guarantee Tcl will work for your needs, I can't guarantee that any other language will work for you either. Again, my thanks to Wojciech Kocjan who provided some of these suggestions on how to write Tcl code for secure applications.</P></DIV>
+<DIV class=NAVFOOTER style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR align=left width="100%">
+
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TD vAlign=top align=left width="33%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/java.html">Prev</A></TD>
+<TD vAlign=top align=middle width="34%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/index.html">Home</A></TD>
+<TD vAlign=top align=right width="33%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/php.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="33%">Java</TD>
+<TD vAlign=top align=middle width="34%"><A href="http://www.dwheeler.com/secure-programs/Secure-Programs-HOWTO/language-specific.html">Up</A></TD>
+<TD vAlign=top align=right width="33%">PHP</TD></TR></TBODY></TABLE></DIV>

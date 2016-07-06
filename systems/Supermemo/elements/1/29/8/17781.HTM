@@ -1,0 +1,59 @@
+<H4 class=subsection>6.1.4 Conversion of Strings and Numbers</H4><A name=index-converting_002c-strings-to-numbers></A><A name=index-strings_002c-converting></A><A name=index-numbers_002c-converting></A><A name=index-converting_002c-numbers-to-strings></A>
+<P>Strings are converted to numbers and numbers are converted to strings, if the context of the <CODE>awk</CODE> program demands it. For example, if the value of either <CODE>foo</CODE> or <CODE>bar</CODE> in the expression &#8216;<SAMP>foo + bar</SAMP>&#8217; happens to be a string, it is converted to a number before the addition is performed. If numeric values appear in string concatenation, they are converted to strings. Consider the following: </P>
+<DIV class=example><PRE class=example>two = 2; three = 3
+print (two three) + 4
+</PRE></DIV>
+<P>This prints the (numeric) value 27. The numeric values of the variables <CODE>two</CODE> and <CODE>three</CODE> are converted to strings and concatenated together. The resulting string is converted back to the number 23, to which 4 is then added. </P><A name=index-null-strings_002c-converting-numbers-to-strings></A><A name=index-type-conversion></A>
+<P>If, for some reason, you need to force a number to be converted to a string, concatenate that number with the empty string, <CODE>""</CODE>. To force a string to be converted to a number, add zero to that string. A string is converted to a number by interpreting any numeric prefix of the string as numerals: <CODE>"2.5"</CODE> converts to 2.5, <CODE>"1e3"</CODE> converts to 1000, and <CODE>"25fix"</CODE> has a numeric value of 25. Strings that can&#8217;t be interpreted as valid numbers convert to zero. </P><A name=index-CONVFMT-variable></A>
+<P>The exact manner in which numbers are converted into strings is controlled by the <CODE>awk</CODE> built-in variable <CODE>CONVFMT</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Built_002din-Variables">Built-in Variables</A>). Numbers are converted using the <CODE>sprintf()</CODE> function with <CODE>CONVFMT</CODE> as the format specifier (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>). </P>
+<P><CODE>CONVFMT</CODE>&#8217;s default value is <CODE>"%.6g"</CODE>, which creates a value with at most six significant digits. For some applications, you might want to change it to specify more precision. On most modern machines, 17 digits is usually enough to capture a floating-point number&#8217;s value exactly.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT32" name=DOCF32><SUP>32</SUP></A> </P><A name=index-dark-corner_002c-CONVFMT-variable></A>
+<P>Strange results can occur if you set <CODE>CONVFMT</CODE> to a string that doesn&#8217;t tell <CODE>sprintf()</CODE> how to format floating-point numbers in a useful way. For example, if you forget the &#8216;<SAMP>%</SAMP>&#8217; in the format, <CODE>awk</CODE> converts all numbers to the same constant string. </P>
+<P>As a special case, if a number is an integer, then the result of converting it to a string is <EM>always</EM> an integer, no matter what the value of <CODE>CONVFMT</CODE> may be. Given the following code fragment: </P>
+<DIV class=example><PRE class=example>CONVFMT = "%2.2f"
+a = 12
+b = a ""
+</PRE></DIV>
+<P><CODE>b</CODE> has the value <CODE>"12"</CODE>, not <CODE>"12.00"</CODE>. (d.c.) </P><A name=index-POSIX-awk_002c-OFMT-variable-and-1></A><A name=index-OFMT-variable-1></A><A name=index-portability_002c-new-awk-vs_002e-old-awk></A><A name=index-awk_002c-new-vs_002e-old_002c-OFMT-variable></A>
+<P>Prior to the POSIX standard, <CODE>awk</CODE> used the value of <CODE>OFMT</CODE> for converting numbers to strings. <CODE>OFMT</CODE> specifies the output format to use when printing numbers with <CODE>print</CODE>. <CODE>CONVFMT</CODE> was introduced in order to separate the semantics of conversion from the semantics of printing. Both <CODE>CONVFMT</CODE> and <CODE>OFMT</CODE> have the same default value: <CODE>"%.6g"</CODE>. In the vast majority of cases, old <CODE>awk</CODE> programs do not change their behavior. However, these semantics for <CODE>OFMT</CODE> are something to keep in mind if you must port your new-style program to older implementations of <CODE>awk</CODE>. We recommend that instead of changing your programs, just port <CODE>gawk</CODE> itself. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Print">Print</A>, for more information on the <CODE>print</CODE> statement. </P>
+<P>And, once again, where you are can matter when it comes to converting between numbers and strings. In <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Locales">Locales</A>, we mentioned that the local character set and language (the locale) can affect how <CODE>gawk</CODE> matches characters. The locale also affects numeric formats. In particular, for <CODE>awk</CODE> programs, it affects the decimal point character. The <CODE>"C"</CODE> locale, and most English-language locales, use the period character (&#8216;<SAMP>.</SAMP>&#8217;) as the decimal point. However, many (if not most) European and non-English locales use the comma (&#8216;<SAMP>,</SAMP>&#8217;) as the decimal point character. </P><A name=index-dark-corner_002c-locale_0027s-decimal-point-character></A>
+<P>The POSIX standard says that <CODE>awk</CODE> always uses the period as the decimal point when reading the <CODE>awk</CODE> program source code, and for command-line variable assignments (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Other-Arguments">Other Arguments</A>). However, when interpreting input data, for <CODE>print</CODE> and <CODE>printf</CODE> output, and for number to string conversion, the local decimal point character is used. (d.c.) Here are some examples indicating the difference in behavior, on a GNU/Linux system: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>export POSIXLY_CORRECT=1</EM></KBD>                        <I>Force POSIX behavior</I>
+$ <KBD><EM>gawk 'BEGIN { printf "%g\n", 3.1415927 }'</EM></KBD>
+-| 3.14159
+$ <KBD><EM>LC_ALL=en_DK.utf-8 gawk 'BEGIN { printf "%g\n", 3.1415927 }'</EM></KBD>
+-| 3,14159
+$ <KBD><EM>echo 4,321 | gawk '{ print $1 + 1 }'</EM></KBD>
+-| 5
+$ <KBD><EM>echo 4,321 | LC_ALL=en_DK.utf-8 gawk '{ print $1 + 1 }'</EM></KBD>
+-| 5,321
+</PRE></DIV>
+<P>The &#8216;<SAMP>en_DK.utf-8</SAMP>&#8217; locale is for English in Denmark, where the comma acts as the decimal point separator. In the normal <CODE>"C"</CODE> locale, <CODE>gawk</CODE> treats &#8216;<SAMP>4,321</SAMP>&#8217; as &#8216;<SAMP>4</SAMP>&#8217;, while in the Danish locale, it&#8217;s treated as the full number, 4.321. </P>
+<P>Some earlier versions of <CODE>gawk</CODE> fully complied with this aspect of the standard. However, many users in non-English locales complained about this behavior, since their data used a period as the decimal point, so the default behavior was restored to use a period as the decimal point character. You can use the <SAMP>--use-lc-numeric</SAMP> option (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>) to force <CODE>gawk</CODE> to use the locale&#8217;s decimal point character. (<CODE>gawk</CODE> also uses the locale&#8217;s decimal point character when in POSIX mode, either via <SAMP>--posix</SAMP>, or the <CODE>POSIXLY_CORRECT</CODE> environment variable, as shown previously.) </P>
+<P><A href="http://www.gnu.org/software/gawk/manual/gawk.html#table_002dlocale_002daffects">Table 6.1</A> describes the cases in which the locale&#8217;s decimal point character is used and when a period is used. Some of these features have not been described yet. </P>
+<DIV class=float><A name=table_002dlocale_002daffects></A>
+<TABLE>
+<THEAD>
+<TR>
+<TH width="15%">Feature</TH>
+<TH width="20%">Default</TH>
+<TH width="45%"><SAMP>--posix</SAMP> or <SAMP>--use-lc-numeric</SAMP></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD width="15%"><CODE>%'g</CODE></TD>
+<TD width="20%">Use locale</TD>
+<TD width="45%">Use locale</TD></TR>
+<TR>
+<TD width="15%"><CODE>%g</CODE></TD>
+<TD width="20%">Use period</TD>
+<TD width="45%">Use locale</TD></TR>
+<TR>
+<TD width="15%">Input</TD>
+<TD width="20%">Use period</TD>
+<TD width="45%">Use locale</TD></TR>
+<TR>
+<TD width="15%"><CODE>strtonum()</CODE></TD>
+<TD width="20%">Use period</TD>
+<TD width="45%">Use locale</TD></TR></TBODY></TABLE>
+<DIV class=float-caption>
+<P><STRONG>Table 6.1: </STRONG>Locale Decimal Point versus A Period</P></DIV></DIV>
+<P>Finally, modern day formal standards and IEEE standard floating point representation can have an unusual but important effect on the way <CODE>gawk</CODE> converts some special string values to numbers. The details are presented in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#POSIX-Floating-Point-Problems">POSIX Floating Point Problems</A>.

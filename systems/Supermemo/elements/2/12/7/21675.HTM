@@ -1,0 +1,41 @@
++</P>
+<P><A name=ZFIFO></A>James R. Van Zandt contributed this script which uses named pipes and, in his words, <SPAN class=QUOTE>"really exercises quoting and escaping."</SPAN></P>
+<DIV class=EXAMPLE><A name=FIFO></A>
+<P><B>Example A-14. <I class=FIRSTTERM>fifo</I>: Making daily backups, using named pipes</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# ==&gt; Script by James R. Van Zandt, and used here with his permission.
+
+# ==&gt; Comments added by author of this document.
+
+  
+  HERE=`uname -n`    # ==&gt; hostname
+  THERE=bilbo
+  echo "starting remote backup to $THERE at `date +%r`"
+  # ==&gt; `date +%r` returns time in 12-hour format, i.e. "08:08:34 PM".
+  
+  # make sure /pipe really is a pipe and not a plain file
+  rm -rf /pipe
+  mkfifo /pipe       # ==&gt; Create a "named pipe", named "/pipe" ...
+  
+  # ==&gt; 'su xyz' runs commands as user "xyz".
+  # ==&gt; 'ssh' invokes secure shell (remote login client).
+  su xyz -c "ssh $THERE \"cat &gt; /home/xyz/backup/${HERE}-daily.tar.gz\" &lt; /pipe"&amp;
+  cd /
+  tar -czf - bin boot dev etc home info lib man root sbin share usr var &gt; /pipe
+  # ==&gt; Uses named pipe, /pipe, to communicate between processes:
+  # ==&gt; 'tar/gzip' writes to /pipe and 'ssh' reads from /pipe.
+
+  # ==&gt; The end result is this backs up the main directories, from / on down.
+
+  # ==&gt;  What are the advantages of a "named pipe" in this situation,
+  # ==&gt;+ as opposed to an "anonymous pipe", with |?
+  # ==&gt;  Will an anonymous pipe even work here?
+
+  # ==&gt;  Is it necessary to delete the pipe before exiting the script?
+  # ==&gt;  How could that be done?
+
+
+  exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>

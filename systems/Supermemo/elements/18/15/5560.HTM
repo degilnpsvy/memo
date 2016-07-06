@@ -1,0 +1,26 @@
+Merge Strategies 
+<P></P>
+<P>So far, our examples have been easy to handle because there are only two branches. It might seem like Git&#8217;s extra complexity of DAG-shaped history and long, hard-to-remember commit IDs isn&#8217;t really worth it. And maybe it isn&#8217;t for such a simple case. So, let&#8217;s look at something a little more complicated. </P>
+<P>Imagine that instead of just one person working on in your repository there are three. To keep things simple, suppose that each developer&#8212;Alice, Bob, and Cal&#8212;is able to contribute changes as commits on three separate eponymous branches within a shared repository.</P>
+<P>Because the developers are all contributing to separate branches, let&#8217;s leave it up to one person, Alice, to manage the integration of the various contributions. In the meantime, each developer is allowed to leverage the development of the others by directly incorporating or merging a coworker&#8217;s branch, as needed.</P>
+<P>Eventually, the coders develop a repository with a commit history as shown in Figure 9-1. </P>
+<P>&nbsp;</P>
+<P>Figure 9-1. Criss-cross merge setup </P>
+<P>Imagine that Cal started the project and Alice joined in. Alice worked on it for a while, then Bob joined in. In the meantime, Cal has been working away on his own version. Eventually, Alice merged in Bob&#8217;s changes, and Bob kept on working without merging Alice&#8217;s changes back into his tree. There are now three different branch histories (Figure 9-2). </P>
+<P>&nbsp;</P>
+<P>Figure 9-2. After Alice merges in Bob </P>
+<P>Let&#8217;s imagine that Bob wants to get Cal&#8217;s latest changes. The diagram is looking pretty complicated now, but this part is still relatively easy. Trace up the tree from Bob, through Alice, until you reach the point where she first diverged from Cal. That&#8217;s A, the merge base between Bob and Cal. To merge from Cal, Bob needs to take the set of changes between the merge base, A, and Cal&#8217;s latest, Q, and three-way merge them into his own tree, yielding commit K. The result is the history shown in Figure 9-3. <FONT class=extract>You can always find the merge base between two or more branches by using git merge-base. It is possible for there to be more than one equally valid merge base for a set of branches. </FONT></P>
+<P>So far, so good. </P>
+<P>&nbsp;</P>
+<P>Figure 9-3. After Bob merges in Cal </P>
+<P>Alice now decides that she, too, wants to get Cal&#8217;s latest changes, but she doesn&#8217;t realize Bob has already merged Cal&#8217;s tree into his. So she just merges Cal&#8217;s tree into hers. That&#8217;s another easy operation because it&#8217;s obvious where she diverged from Cal. The resulting history is shown in Figure 9-4. </P>
+<P>&nbsp;</P>
+<P>Figure 9-4. After Alice merges in Cal </P>
+<P>Next, Alice realizes that Bob has done some more work, L, and wants to merge from him again. What&#8217;s the merge base (between L and E) this time? </P>
+<P>Unfortunately, the answer is ambiguous. If you trace all the way back up the tree, you might think the original revision from Cal is a good choice. But that doesn&#8217;t really make sense: both Alice and Bob now have Cal&#8217;s newest revision. If you ask for the differences from Cal&#8217;s original revision to Bob&#8217;s latest then it will also include Cal&#8217;s newer changes, which Alice already has, which is likely to result in a merge conflict. </P>
+<P>What if you use Cal&#8217;s latest revision as the base? It&#8217;s better, but still not quite right: if you take the diff from Cal&#8217;s latest to Bob&#8217;s latest, you get all Bob&#8217;s changes. But Alice already has some of Bob&#8217;s changes, so you&#8217;ll probably get a merge conflict there, too. </P>
+<P>And what if you use the version that Alice last merged from Bob, version J? Creating a diff from there to Bob&#8217;s latest will include only the newest changes from Bob, which is what you want. But it also includes the changes from Cal, which Alice already has! </P>
+<P>What to do? </P>
+<P>This kind of situation is called a criss-cross merge because changes have been merged back and forth between branches. If changes moved in only one direction (e.g., from Cal to Alice to Bob, but never from Bob to Alice or from Alice to Cal), then merging would be simple. Unfortunately, life isn&#8217;t always that easy. </P>
+<P>The Git developers originally wrote a straightforward mechanism to join two branches with a merge commit, but scenarios like the one just described soon led them to realize that a more clever approach was needed. Hence, the developers generalized, parameterized, and introduced alternate, configurable merge strategies to handle different scenarios. </P>
+<P>Let&#8217;s look at the various strategies and see how to apply each one.

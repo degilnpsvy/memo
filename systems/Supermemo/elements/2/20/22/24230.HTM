@@ -1,0 +1,24 @@
+concurrency protection 
+<P></P>
+<P>Case 2: Process and Interrupt Contexts, UP Machine, No Preemption</P>
+<P class=docText><A name="you need"></A><FONT class=clozed>In this case, you need to disable only interrupts to protect the critical region. To see why, assume that A and B are process context threads, and C is an interrupt context thread, all vying to enter the same critical section, as shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=clozed>Figure 2.4</FONT></A><FONT class=clozed>.</FONT></P>
+<P class=docText><FONT class=clozed></FONT></P><A name=ch02fig02></A>
+<P><FONT class=clozed></FONT>
+<CENTER>
+<H5 class=docFigureTitle><A name="Process and"></A><FONT class=clozed>Figure 2.4. Process and interrupt context threads inside a critical section.</FONT></H5>
+<P class=docText><FONT class=clozed><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzRoaWcyc2M-.jpg" width=500 height=288></FONT></P></CENTER>
+<P><FONT class=clozed></FONT></P><BR>
+<P class=docText><A name=iddle2837></A><A name="always runs"></A><FONT class=clozed>Because Thread C is executing in interrupt context and always runs to completion before yielding to Thread A or Thread B, it need not worry about protection. Thread A, for its part, need not be concerned about Thread B (and vice versa) because the kernel is not preemptible. Thus, Thread A and Thread B need to guard against only the possibility of Thread C stomping through the critical section while they are inside the same section. They achieve this by disabling interrupts prior to entering the critical section:</FONT></P>
+<DIV class=docText><PRE><FONT class=clozed>Point A:
+  local_irq_disable();  /* Disable Interrupts in local CPU */
+  /* ... Critical Section ...  */
+  local_irq_enable();   /* Enable Interrupts in local CPU */</FONT></PRE></DIV><BR>
+<P class=docText><A name="when execution"></A><FONT class=clozed>However, if interrupts were already disabled when execution reached Point A, <TT>local_irq_enable()</TT></FONT><A name="restoring interrupt"></A><FONT class=clozed> creates the unpleasant side effect of reenabling interrupts, rather than restoring interrupt state. This can be fixed as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=clozed>unsigned long flags;
+
+Point A:
+  local_irq_save(flags);     /* Disable Interrupts */
+  /* ... Critical Section ... */
+  local_irq_restore(flags);  /* Restore state to what
+                                it was at Point A */</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle1620></A><A name=iddle3632></A><A name=iddle3633></A><A name=iddle3634></A><A name="interrupt state"></A><FONT class=clozed>This works correctly irrespective of the interrupt state at Point A.</FONT>

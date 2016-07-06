@@ -1,0 +1,13 @@
+# Documentation/fb/cmap_xfbdev.txt
+<P></P>
+<P>Understanding fbdev's cmap<BR>--------------------------</P>
+<P></P>
+<P>These notes explain how X's dix layer uses fbdev's cmap structures.</P>
+<P>*. example of relevant structures in fbdev as used for a 3-bit grayscale cmap<BR>struct fb_var_screeninfo {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .bits_per_pixel = 8,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .grayscale&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = 1,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .red =&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; { 4, 3, 0 },<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .green =&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; { 0, 0, 0 },<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .blue =&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; { 0, 0, 0 },<BR>}<BR>struct fb_fix_screeninfo {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .visual =&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FB_VISUAL_STATIC_PSEUDOCOLOR,<BR>}<BR>for (i = 0; i &lt; 8; i++)<BR>&nbsp;info-&gt;cmap.red[i] = (((2*i)+1)*(0xFFFF))/16;<BR>memcpy(info-&gt;cmap.green, info-&gt;cmap.red, sizeof(u16)*8);<BR>memcpy(info-&gt;cmap.blue, info-&gt;cmap.red, sizeof(u16)*8);</P>
+<P>*. X11 apps do something like the following when trying to use grayscale.<BR>for (i=0; i &lt; 8; i++) {<BR>&nbsp;char colorspec[64];<BR>&nbsp;memset(colorspec,0,64);<BR>&nbsp;sprintf(colorspec, "rgb:%x/%x/%x", i*36,i*36,i*36);<BR>&nbsp;if (!XParseColor(outputDisplay, testColormap, colorspec, &amp;wantedColor))<BR>&nbsp;&nbsp;printf("Can't get color %s\n",colorspec);<BR>&nbsp;XAllocColor(outputDisplay, testColormap, &amp;wantedColor);<BR>&nbsp;grays[i] = wantedColor;<BR>}<BR>There's also named equivalents like gray1..x provided you have an rgb.txt.</P>
+<P>Somewhere in X's callchain, this results in a call to X code that handles the<BR>colormap. For example, Xfbdev hits the following:</P>
+<P>xc-011010/programs/Xserver/dix/colormap.c:</P>
+<P>FindBestPixel(pentFirst, size, prgb, channel)</P>
+<P>dr = (long) pent-&gt;co.local.red - prgb-&gt;red;<BR>dg = (long) pent-&gt;co.local.green - prgb-&gt;green;<BR>db = (long) pent-&gt;co.local.blue - prgb-&gt;blue;<BR>sq = dr * dr;<BR>UnsignedToBigNum (sq, &amp;sum);<BR>BigNumAdd (&amp;sum, &amp;temp, &amp;sum);</P>
+<P>co.local.red are entries that were brought in through FBIOGETCMAP which come<BR>directly from the info-&gt;cmap.red that was listed above. The prgb is the rgb<BR>that the app wants to match to. The above code is doing what looks like a least<BR>squares matching function. That's why the cmap entries can't be set to the left<BR>hand side boundaries of a color range.</P>
+<P>&nbsp;

@@ -1,0 +1,570 @@
+<H3 id=-100000 class=docSection1Title>UART Drivers</H3>
+<P class=docText><A name="UART drivers"></A>UART drivers revolve around three key data structures. All three are defined in <SPAN class=docEmphasis>include/linux/serial_core.h</SPAN>:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The per-UART driver structure, <TT>struct uart_driver</TT>:</P>
+<DIV class=docText><PRE>struct uart_driver {
+  struct module  *owner;          /* Module that owns this
+                                     struct */
+  const char     *driver_name;    /* Name */
+  const char     *dev_name;       /* <SPAN class=docEmphasis>/dev</SPAN> node name
+                                     such as <SPAN class=docEmphasis>ttyS</SPAN> */
+  /* ... */
+  int             major;          /* Major number */
+  int             minor;          /* Minor number */
+  /* ... */
+  struct tty_driver *tty_driver;  /* tty driver */
+};</PRE></DIV>
+<P class=docList><A name=iddle3969></A><A name=iddle3970></A><A name=iddle4362></A><A name=iddle4363></A><A name=iddle4364></A><A name=iddle4366></A><A name="against each"></A>The comments against each field explain the associated semantics. The <TT>owner</TT><A name="allows the"></A> field allows the same benefits as that discussed in the previous chapter for the <TT>file_operations</TT> structure.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct uart_port</TT><A name="owned by"></A>. One instance of this structure exists for each port owned by the UART driver:</P>
+<DIV class=docText><PRE>struct uart_port {
+  spinlock_t     lock;             /* port lock */
+  unsigned int   iobase;           /* in/out[bwl]*/
+  unsigned char  __iomem *membase; /* read/write[bwl]*/
+  unsigned int   irq;              /* irq number */
+  unsigned int   uartclk;          /* base uart clock */
+  unsigned char  fifosize;         /* tx fifo size */
+  unsigned char  x_char;           /* xon/xoff flow
+                                      control */
+  /* ... */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct uart_ops</TT><A name="entry points"></A>. This is a superset of entry points that each UART driver has to support and describes the operations that can be done on physical hardware. The methods in this structure are invoked by the tty layer:</P>
+<DIV class=docText><PRE>struct uart_ops {
+  uint (*tx_empty)(struct uart_port *);     /* Is TX FIFO empty? */
+  void (*set_mctrl)(struct uart_port *,
+                    unsigned int mctrl);    /* Set modem control params */
+  uint (*get_mctrl)(struct uart_port *);    /* Get modem control params */
+  void (*stop_tx)(struct uart_port *);      /* Stop xmission */
+  void (*start_tx)(struct uart_port *);     /* Start xmission */
+
+  /* ... */
+  void (*shutdown)(struct uart_port *);     /* Disable the port */
+  void (*set_termios)(struct uart_port *,
+                      struct termios *new,
+                      struct termios *old); /* Set terminal interface
+                                               params */
+  /* ... */
+  void (*config_port)(struct uart_port *,
+                      int);                 /* Configure UART port */
+  /* ... */
+};</PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText><A name=iddle1391></A><A name=iddle1393></A><A name=iddle3780></A><A name=iddle3934></A><A name=iddle3944></A><A name=iddle3946></A><A name=iddle3967></A><A name=iddle4072></A><A name=iddle4203></A><A name=iddle4344></A><A name=iddle4353></A><A name=iddle4355></A><A name=iddle4359></A><A name=iddle4368></A><A name="has to"></A>There are two important steps that a UART driver has to do to tie itself with the kernel:</P><A name=ch06pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Register with the serial core by calling<BR><BR>
+<DIV class=docText><PRE>uart_register_driver(struct uart_driver *);</PRE></DIV><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Invoke <TT>uart_add_one_port(struct uart_driver *</TT>, <TT>struct uart_port *)</TT> to register each individual port that it supports. If your serial hardware is hotplugged, the ports are registered with the core from the entry point that probes the presence of the device. Look at the CardBus Modem driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10ex04">Listing 10.4</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>, "Peripheral Component Interconnect," for an example where the serial device is plugged hot. Note that some drivers use the wrapper registration function <TT>serial8250_register_port(struct uart_port *)</TT>, which internally invokes <TT>uart_add_one_port()</TT>.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name="constitute the"></A>These data structures and registration functions constitute the least common denominator present in all UART drivers. Armed with these structures and routines, let's develop a sample UART driver.</P><A name=ch06lev2sec1></A>
+<H4 id=title-ID0EWDPM class=docSection2Title>Device Example: Cell Phone</H4>
+<P class=docText><A name=embedded></A>Consider a Linux cell phone built around an embedded <SPAN class=docEmphasis>System-on-Chip</SPAN><A name="SoC has"></A> (SoC). The SoC has two built-in UARTs, but as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06fig05">Figure 6.5</A><A name="cellular modem"></A>, both of them are used up, one for communicating with a cellular modem, and the other for interfacing with a Bluetooth chipset. Because there are no free UARTs for debug purposes, the phone uses two USB-to-serial converter chips, one to provide a debug terminal to a PC host, and the other to obtain a spare port. USB-to-serial converters, as you saw earlier in this chapter, let you connect serial devices to your PC via USB. We discuss more on USB-to-serial converters in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A>.</P><A name=ch06fig05></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="Figure "></A>Figure 6.5. <TT>USB_UART</TT><A name="a Linux"></A> ports on a Linux cell phone.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC81aGlnNmNzZ2ku.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzVoaWc2c2M-.jpg" width=500 height=281>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="serial sides"></A>The serial sides of the two USB-to-serial converter chips are connected to the SoC via a <SPAN class=docEmphasis>Complex Programmable Logic Device</SPAN> or CPLD (see the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18lev1sec7.html#ch18lev2sec11">CPLD/FPGA</A>" <A name=iddle1390></A><A name=iddle1395></A><A name=iddle1545></A><A name=iddle1622></A><A name=iddle2054></A><A name=iddle2078></A><A name=iddle2941></A><A name=iddle2996></A><A name=iddle3618></A><A name=iddle3943></A><A name=iddle3948></A><A name=iddle4352></A><A name=iddle4357></A><A name=iddle4518></A><A name=iddle4532></A>in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch18.html#ch18">Chapter 18</A>, "Embedding Linux"). The CPLD creates two virtual UARTs (or <TT>USB_UART</TT><A name=in></A>s) by providing a three-register interface to access each USB-to-serial converter, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06tab01">Table 6.1</A><A name="To write"></A>: a status register, a read-data register, and a write-data register. To write a character to a <TT>USB_UART</TT><A name="clears when"></A>, loop on a bit in the status register that clears when there is space in the chip's internal transmit <SPAN class=docEmphasis>first-in first-out</SPAN><A name="to the"></A> (FIFO) memory and then write the byte to the write-data register. To read a character, wait until a specified bit in the status register shows presence of data in the receive FIFO and then read from the read-data register.</P><A name=ch06tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 6.1. Register Layout of the <TT>USB_UART</TT></H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=175>
+<COL width=200>
+<COL width=175></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Register Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Offset from <TT>USB_UART</TT> Memory Base</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>UU_STATUS_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="full or"></A>Bits to check whether the transmit FIFO is full or whether the receive FIFO is empty</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x0</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>UU_READ_DATA_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="a character"></A>Read a character from the <TT>USB_UART</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x1</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>UU_WRITE_DATA_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Write a character to the <TT>USB_UART</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x2</TT></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>At the PC end, use the appropriate Linux <SPAN class=docEmphasis>usbserial</SPAN> driver (for example, <SPAN class=docEmphasis>drivers/usb/serial/ftdi_sio.c</SPAN><A name="create and"></A> if you are using an FT232AM chip on the cell phone) to create and manage <SPAN class=docEmphasis>/dev/ttyUSBX</SPAN><A name="device nodes"></A> device nodes that correspond to the USB-serial ports. You may run terminal emulators such as <SPAN class=docEmphasis>minicom</SPAN><A name="of these"></A> over one of these device nodes to obtain a console or debug terminal from the cell phone. At the cell phone end, we have to implement a UART driver for the <TT>USB_UART</TT><A name="driver creates"></A>s. This driver creates and manages <SPAN class=docEmphasis>/dev/ttyUUX</SPAN><A name="side of"></A> nodes that are responsible for communication at the device side of the link.</P><A name=ch06note02></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name=iddle1392></A><A name=iddle1396></A><A name=iddle3573></A><A name=iddle3575></A><A name=iddle3576></A><A name=iddle3582></A><A name=iddle3589></A><A name=iddle3785></A><A name=iddle3945></A><A name=iddle3949></A><A name=iddle4354></A><A name=iddle4358></A><A name=iddle4517></A><A name=iddle4565></A><A name=iddle4566></A><A name=iddle4567></A>The cell phone shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06fig05">Figure 6.5</A><A name="gateway for"></A> can act as an intelligent gateway for Bluetooth devices&#37413;&#25878;o the GSM network and, hence, to the Internet. The phone can, for example, ferry data from your Bluetooth blood pressure monitor to your health-care provider's server on the Internet. Or it can alert a doctor if it detects a problem while communicating with your Bluetooth-enabled heart-rate monitor. The Bluetooth MP3 player used in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13.html#ch13">Chapter 13</A>, "Audio Drivers," and the Bluetooth pill dispenser used in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16">Chapter 16</A><A name="Linux cell"></A> are also examples of devices that can use the Linux cell phone to get Internet-enabled.</P>
+<P></P></DIV><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06ex01">Listing 6.1</A> implements the <TT>USB_UART</TT> driver. It's implemented as a <SPAN class=docEmphasis>platform driver.</SPAN><A name="usually used"></A> A platform is a pseudo bus usually used to tie lightweight devices integrated into SoCs, with the Linux device model. A platform consists of</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphRoman>A platform device.</SPAN> The architecture-specific setup code adds the platform device using <TT>platform_device_register()</TT> or its simpler version, <TT>platform_device_register_simple()</TT><A name="one shot"></A>. You may also register multiple platform devices at one shot using <TT>platform_add_devices()</TT>. The <TT>platform_device</TT><A name="defined in"></A> structure defined in <SPAN class=docEmphasis>include/linux/platform_device.h</SPAN> represents a platform device:</P>
+<DIV class=docText><PRE>struct platform_device {
+  const char *name;  /* Device Name */
+  u32 id;            /* Use this field to register multiple
+                        instances of a platform device. In
+                        this example, the two USB_UARTs
+                        have different IDs. */
+  struct device dev; /* Contains a release() method and
+                        platform data */
+  /* ... */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphRoman>A platform driver.</SPAN> <A name=iddle1571></A><A name=iddle3584></A><A name=iddle3587></A><A name=iddle3778></A><A name=iddle4345></A><A name=iddle4369></A><A name=iddle4519></A>The platform driver registers itself into the platform using <TT>platform_driver_register()</TT>. The <TT>platform_driver</TT> structure, also defined in <SPAN class=docEmphasis>include/linux/platform_device.h</SPAN>, represents a platform driver:</P>
+<DIV class=docText><PRE>struct platform_driver {
+  int (*probe)(struct platform_device *); /*Probe method*/
+  int (*remove)(struct platform_device *);/*Remove method*/
+  /* ... */
+  /* The name field in the following structure should match
+     the name field in the associated platform_device
+     structure */
+  struct device_driver driver;
+};</PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText>See <SPAN class=docEmphasis>Documentation/driver-model/platform.txt</SPAN><A name="registers both"></A> for more on platform devices and drivers. For simplicity, our sample driver registers both the platform device and the platform driver.</P>
+<P class=docText><A name="During initialization"></A>During initialization, the <TT>USB_UART</TT><A name="registers itself"></A> driver first registers itself with the serial core using <TT>uart_register_driver()</TT><A name="this is"></A>. When this is done, you will find a new line starting with <TT>usb_uart</TT> in <SPAN class=docEmphasis>/proc/tty/drivers</SPAN>. Next, the driver registers two platform devices (one per <TT>USB_UART</TT>) using <TT>platform_device_register_simple()</TT><A name="board setup"></A>. As mentioned earlier, platform device registrations are usually done during boot-time board setup. Following this, the driver registers platform driver entry points (<TT>probe()</TT>, <TT>remove()</TT>, <TT>suspend()</TT>, and <TT>resume()</TT>) using <TT>platform_driver_register()</TT>. The <TT>USB_UART</TT><A name="the above"></A> platform driver ties into both the above platform devices and has a matching name (<TT>usb_uart</TT><A name="in sysfs"></A>). After this step, you will see two new directories appearing in sysfs, each corresponding to a <TT>USB_UART</TT> port: <SPAN class=docEmphasis>/sys/devices/platform/usb_uart.0/</SPAN> and <SPAN class=docEmphasis>/sys/devices/platform/usb_uart.1/</SPAN>.</P>
+<P class=docText><A name="detects a"></A>Because the Linux device layer now detects a platform driver matching the name of the registered <TT>USB_UART</TT> platform devices, it invokes the <TT>probe()</TT> entry point<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06fn01">[1]</A></SUP> (<TT>usb_uart_probe()</TT>) belonging to the platform driver, once for each <TT>USB_UART</TT>. The probe entry point adds the associated <TT>USB_UART</TT> port using <TT>uart_add_one_port()</TT>. This triggers invocation of the <TT>config_port()</TT> entry point (part of the <TT>uart_ops</TT> structure <A name=iddle1388></A><A name=iddle2106></A><A name=iddle2483></A><A name=iddle2929></A><A name=iddle3942></A><A name=iddle4147></A><A name=iddle4322></A><A name=iddle4325></A><A name=iddle4351></A><A name=iddle4520></A><A name=iddle4521></A>discussed earlier) that claims and maps the <TT>USB_UART</TT> register space. If both <TT>USB_UART</TT><A name="following kernel"></A> ports are successfully added, the serial core emits the following kernel messages:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn01>[1]</A></SUP><A name="platform devices"></A> Such platform devices usually cannot be hotplugged. This invocation semantics of the <TT>probe()</TT><A name="chapters for"></A> method is different from what you will learn in later chapters for hotpluggable devices such as PCMCIA, PCI, and USB, but the similar structure of driver entry points helps the Linux device model to have a uniform and consistent view of all devices.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>ttyUU0 at MMIO 0xe8000000 (irq = 3) is a USB_UART
+ttyUU1 at MMIO 0xe9000000 (irq = 4) is a USB_UART</PRE></DIV><BR>
+<P class=docText><A name="Claiming the"></A>Claiming the IRQ, however, is deferred until an application opens the <TT>USB_UART</TT><A name="is freed"></A> port. The IRQ is freed when the application closes the <TT>USB_UART</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06tab02">Table 6.2</A><A name="the driver"></A> traces the driver's code path for claiming and freeing memory regions and IRQs.</P><A name=ch06tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=none frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 6.2. Claiming and Freeing Memory and IRQ Resources</H5></CAPTION>
+<COLGROUP span=7 align=left>
+<COL width=75>
+<COL width=75>
+<COL width=100>
+<COL width=75>
+<COL width=75>
+<COL width=75>
+<COL width=75></COLGROUP>
+<THEAD></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Module Insert</TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_uart_init()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>uart_register_driver()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_uart_probe()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>uart_add_one_port()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_uart_config_port()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><TT>request_mem_region()</TT></SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Module Unload</TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_uart_exit()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_unregister_driver()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_uart_remove()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>uart_remove_one_port()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_uart_release_port()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><TT>release_mem_region()</TT></SPAN></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Open <SPAN class=docEmphasis>/dev/ttyUUX</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_uart_startup()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><TT>request_irq()</TT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Close <SPAN class=docEmphasis>/dev/ttyUUX</SPAN></TD>
+<TD class=docTableCell vAlign=top align=left><TT>usb_uart_shutdown()</TT></TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphStrong><TT>free_irq()</TT></SPAN></TD>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD>
+<TD class=docTableCell vAlign=top align=left>&nbsp;</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="the circular"></A>In the transmit path, the driver collects egress data from the circular buffer associated with the UART port. Data is present in <TT>port-&gt;info-&gt;xmit.buf[port-&gt;info-&gt;xmit.tail]</TT><A name="UART driver"></A> as is evident from the UART driver's <TT>start_tx()</TT> entry point, <TT>usb_uart_start_tx()</TT>.</P>
+<P class=docText><A name=the></A>In the receive path, the driver pushes data collected from the <TT>USB_UART</TT> to the associated tty driver using <TT>tty_insert_flip_char()</TT> and <TT>tty_flip_buffer_push()</TT><A name="interrupt handler"></A>. This is done in the receive interrupt handler, <TT>usb_uart_rxint()</TT>. Revisit this routine after reading the next section, "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec3.html#ch06lev1sec3">TTY Drivers</A>."</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06ex01">Listing 6.1</A><A name="entry points"></A> uses comments to explain the purpose of driver entry points and their operation. It leaves some of the entry points in the <TT>uart_ops</TT><A name="unimplemented to"></A> structure unimplemented to cut out extra detail.<A name=iddle1394></A><A name=iddle3947></A><A name=iddle4356></A><A name=iddle4516></A></P>
+<P class=docText></P><A name=ch06ex01></A>
+<H5 id=title-ID0EEIAO class=docExampleTitle>Listing 6.1. <TT>USB_UART</TT> Driver for the Linux Cell Phone</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX console.h="">
+#include <LINUX platform_device.h="">
+#include <LINUX tty.h="">
+#include <LINUX tty_flip.h="">
+#include <LINUX serial_core.h="">
+#include <LINUX serial.h="">
+#include <ASM irq.h="">
+#include <ASM io.h="">
+
+#define USB_UART_MAJOR        200  /* You've to get this assigned */
+#define USB_UART_MINOR_START  70   /* Start minor numbering here */
+#define USB_UART_PORTS        2    /* The phone has 2 USB_UARTs */
+#define PORT_USB_UART         30   /* UART type. Add this to
+                                      <SPAN class=docEmphasis>include/linux/serial_core.h</SPAN> */
+
+/* Each USB_UART has a 3-byte register set consisting of
+   UU_STATUS_REGISTER at offset 0, UU_READ_DATA_REGISTER at
+   offset 1, and UU_WRITE_DATA_REGISTER at offset 2 as shown
+   in Table 6.1 */
+#define USB_UART1_BASE    0xe8000000 /* Memory base for USB_UART1 */
+#define USB_UART2_BASE    0xe9000000 /* Memory base for USB_UART2 */
+#define USB_UART_REGISTER_SPACE  0x3
+
+/* Semantics of bits in the status register */
+#define USB_UART_TX_FULL         0x20  /* TX FIFO is full */
+#define USB_UART_RX_EMPTY        0x10  /* TX FIFO is empty */
+#define USB_UART_STATUS          0x0F  /* Parity/frame/overruns? */
+
+#define USB_UART1_IRQ            3     /* USB_UART1 IRQ */
+#define USB_UART2_IRQ            4     /* USB_UART2 IRQ */
+#define USB_UART_FIFO_SIZE       32    /* FIFO size */
+#define USB_UART_CLK_FREQ        16000000
+
+static struct uart_port usb_uart_port[]; /* Defined later on */
+
+/* Write a character to the USB_UART port */
+static void
+usb_uart_putc(struct uart_port *port, unsigned char c)
+{
+  /* Wait until there is space in the TX FIFO of the USB_UART.
+     Sense this by looking at the USB_UART_TX_FULL bit in the
+     status register */
+  while (__raw_readb(port-&gt;membase) &amp; USB_UART_TX_FULL);
+
+  /* Write the character to the data port*/
+  __raw_writeb(c, (port-&gt;membase+1));
+}
+
+/* Read a character from the USB_UART */
+static unsigned char
+usb_uart_getc(struct uart_port *port)
+{
+  /* Wait until data is available in the RX_FIFO */
+  while (__raw_readb(port-&gt;membase) &amp; USB_UART_RX_EMPTY);
+
+  /* Obtain the data */
+  return(__raw_readb(port-&gt;membase+2));
+}
+
+/* Obtain USB_UART status */
+static unsigned char
+usb_uart_status(struct uart_port *port)
+{
+  return(__raw_readb(port-&gt;membase) &amp; USB_UART_STATUS);
+}
+
+/*
+ * Claim the memory region attached to USB_UART port. Called
+ * when the driver adds a USB_UART port via uart_add_one_port().
+ */
+static int
+usb_uart_request_port(struct uart_port *port)
+{
+  if (!request_mem_region(port-&gt;mapbase, USB_UART_REGISTER_SPACE,
+                          "usb_uart")) {
+    return -EBUSY;
+  }
+  return 0;
+}
+
+/* Release the memory region attached to a USB_UART port.
+ * Called when the driver removes a USB_UART port via
+ * uart_remove_one_port().
+ */
+static void
+usb_uart_release_port(struct uart_port *port)
+{
+  release_mem_region(port-&gt;mapbase, USB_UART_REGISTER_SPACE);
+}
+
+/*
+ * Configure USB_UART. Called when the driver adds a USB_UART port.
+ */
+static void
+usb_uart_config_port(struct uart_port *port, int flags)
+{
+  if (flags &amp; UART_CONFIG_TYPE &amp;&amp; usb_uart_request_port(port) == 0)
+  {
+    port-&gt;type = PORT_USB_UART;
+  }
+}
+
+/* Receive interrupt handler */
+static irqreturn_t
+usb_uart_rxint(int irq, void *dev_id)
+{
+  struct uart_port *port = (struct uart_port *) dev_id;
+  struct tty_struct *tty = port-&gt;info-&gt;tty;
+
+  unsigned int status, data;
+  /* ... */
+  do {
+    /* ... */
+    /* Read data */
+    data   = usb_uart_getc(port);
+    /* Normal, overrun, parity, frame error? */
+    status = usb_uart_status(port);
+    /* Dispatch to the tty layer */
+    tty_insert_flip_char(tty, data, status);
+    /* ... */
+  } while (more_chars_to_be_read()); /* More chars */
+  /* ... */
+  tty_flip_buffer_push(tty);
+
+  return IRQ_HANDLED;
+}
+/* Called when an application opens a USB_UART */
+static int
+usb_uart_startup(struct uart_port *port)
+{
+  int retval = 0;
+  /* ... */
+  /* Request IRQ */
+  if ((retval = request_irq(port-&gt;irq, usb_uart_rxint, 0,
+                            "usb_uart", (void *)port))) {
+    return retval;
+  }
+  /* ... */
+  return retval;
+}
+
+/* Called when an application closes a USB_UART */
+static void
+usb_uart_shutdown(struct uart_port *port)
+{
+  /* ... */
+  /* Free IRQ */
+  free_irq(port-&gt;irq, port);
+
+  /* Disable interrupts by writing to appropriate
+     registers */
+  /* ... */
+}
+
+/* Set UART type to USB_UART */
+static const char *
+usb_uart_type(struct uart_port *port)
+{
+  return port-&gt;type == PORT_USB_UART ? "USB_UART" : NULL;
+}
+
+/* Start transmitting bytes */
+static void
+usb_uart_start_tx(struct uart_port *port)
+{
+  while (1) {
+    /* Get the data from the UART circular buffer and
+       write it to the USB_UART's WRITE_DATA register */
+    usb_uart_putc(port,
+                  port-&gt;info-&gt;xmit.buf[port-&gt;info-&gt;xmit.tail]);
+    /* Adjust the tail of the UART buffer */
+    port-&gt;info-&gt;xmit.tail = (port-&gt;info-&gt;xmit.tail + 1) &amp;
+                            (UART_XMIT_SIZE - 1);
+    /* Statistics */
+    port-&gt;icount.tx++;
+    /* Finish if no more data available in the UART buffer */
+    if (uart_circ_empty(&amp;port-&gt;info-&gt;xmit)) break;
+  }
+  /* ... */
+}
+
+/* The UART operations structure */
+static struct uart_ops usb_uart_ops = {
+  .start_tx     = usb_uart_start_tx,    /* Start transmitting */
+  .startup      = usb_uart_startup,     /* App opens USB_UART */
+  .shutdown     = usb_uart_shutdown,    /* App closes USB_UART */
+  .type         = usb_uart_type,        /* Set UART type */
+  .config_port  = usb_uart_config_port, /* Configure when driver
+                                           adds a USB_UART port */
+  .request_port = usb_uart_request_port,/* Claim resources
+                                           associated with a
+                                           USB_UART port */
+  .release_port = usb_uart_release_port,/* Release resources
+                                           associated with a
+                                           USB_UART port */
+#if 0    /* Left unimplemented for the USB_UART */
+  .tx_empty     = usb_uart_tx_empty,    /* Transmitter busy? */
+  .set_mctrl    = usb_uart_set_mctrl,   /* Set modem control */
+  .get_mctrl    = usb_uart_get_mctrl,   /* Get modem control
+  .stop_tx      = usb_uart_stop_tx,     /* Stop transmission */
+  .stop_rx      = usb_uart_stop_rx,     /* Stop reception */
+  .enable_ms    = usb_uart_enable_ms,   /* Enable modem status
+                                           signals */
+  .set_termios  = usb_uart_set_termios, /* Set termios */
+#endif
+};
+
+static struct uart_driver usb_uart_reg = {
+  .owner          = THIS_MODULE,          /* Owner */
+  .driver_name    = "usb_uart",           /* Driver name */
+  .dev_name       = "ttyUU",              /* Node name */
+  .major          = USB_UART_MAJOR,       /* Major number */
+  .minor          = USB_UART_MINOR_START, /* Minor number start */
+  .nr             = USB_UART_PORTS,       /* Number of UART ports */
+  .cons           = &amp;usb_uart_console,    /* Pointer to the console
+                                             structure. Discussed in Chapter
+                                             12, "Video Drivers" */
+};
+
+/* Called when the platform driver is unregistered */
+static int
+usb_uart_remove(struct platform_device *dev)
+{
+  platform_set_drvdata(dev, NULL);
+
+  /* Remove the USB_UART port from the serial core */
+  uart_remove_one_port(&amp;usb_uart_reg, &amp;usb_uart_port[dev-&gt;id]);
+  return 0;
+}
+
+/* Suspend power management event */
+static int
+usb_uart_suspend(struct platform_device *dev, pm_message_t state)
+{
+  uart_suspend_port(&amp;usb_uart_reg, &amp;usb_uart_port[dev-&gt;id]);
+  return 0;
+}
+
+/* Resume after a previous suspend */
+static int
+usb_uart_resume(struct platform_device *dev)
+{
+  uart_resume_port(&amp;usb_uart_reg, &amp;usb_uart_port[dev-&gt;id]);
+  return 0;
+}
+
+/* Parameters of each supported USB_UART port */
+static struct uart_port usb_uart_port[] = {
+  {
+    .mapbase  = (unsigned int) USB_UART1_BASE,
+    .iotype   = UPIO_MEM,           /* Memory mapped */
+    .irq      = USB_UART1_IRQ,      /* IRQ */
+    .uartclk  = USB_UART_CLK_FREQ,  /* Clock HZ */
+    .fifosize = USB_UART_FIFO_SIZE, /* Size of the FIFO */
+    .ops      = &amp;usb_uart_ops,      /* UART operations */
+    .flags    = UPF_BOOT_AUTOCONF,  /* UART port flag */
+    .line     = 0,                  /* UART port number */
+  },
+  {
+    .mapbase  = (unsigned int)USB_UART2_BASE,
+    .iotype   = UPIO_MEM,           /* Memory mapped */
+    .irq      = USB_UART2_IRQ,      /* IRQ */
+    .uartclk  = USB_UART_CLK_FREQ,  /* CLock HZ */
+    .fifosize = USB_UART_FIFO_SIZE, /* Size of the FIFO */
+    .ops      = &amp;usb_uart_ops,      /* UART operations */
+    .flags    = UPF_BOOT_AUTOCONF,  /* UART port flag */
+    .line     = 1,                  /* UART port number */
+  }
+};
+
+/* Platform driver probe */
+static int __init
+usb_uart_probe(struct platform_device *dev)
+{
+  /* ... */
+
+  /* Add a USB_UART port. This function also registers this device
+     with the tty layer and triggers invocation of the config_port()
+     entry point */
+  uart_add_one_port(&amp;usb_uart_reg, &amp;usb_uart_port[dev-&gt;id]);
+  platform_set_drvdata(dev, &amp;usb_uart_port[dev-&gt;id]);
+  return 0;
+}
+
+struct platform_device *usb_uart_plat_device1; /* Platform device
+                                                  for USB_UART 1 */
+struct platform_device *usb_uart_plat_device2; /* Platform device
+                                                  for USB_UART 2 */
+
+static struct platform_driver usb_uart_driver = {
+  .probe   = usb_uart_probe,            /* Probe method */
+  .remove  = __exit_p(usb_uart_remove), /* Detach method */
+  .suspend = usb_uart_suspend,          /* Power suspend */
+  .resume  = usb_uart_resume,           /* Resume after a suspend */
+  .driver  = {
+     .name = "usb_uart",                /* Driver name */
+  },
+};
+/* Driver Initialization */
+static int __init
+usb_uart_init(void)
+{
+   int retval;
+
+   /* Register the USB_UART driver with the serial core */
+   if ((retval = uart_register_driver(&amp;usb_uart_reg))) {
+     return retval;
+   }
+
+   /* Register platform device for USB_UART 1. Usually called
+      during architecture-specific setup */
+   usb_uart_plat_device1 =
+      platform_device_register_simple("usb_uart", 0, NULL, 0);
+   if (IS_ERR(usb_uart_plat_device1)) {
+     uart_unregister_driver(&amp;usb_uart_reg);
+     return PTR_ERR(usb_uart_plat_device1);
+   }
+
+   /* Register platform device for USB_UART 2. Usually called
+      during architecture-specific setup */
+   usb_uart_plat_device2 =
+     platform_device_register_simple("usb_uart", 1, NULL, 0);
+   if (IS_ERR(usb_uart_plat_device2)) {
+     uart_unregister_driver(&amp;usb_uart_reg);
+     platform_device_unregister(usb_uart_plat_device1);
+     return PTR_ERR(usb_uart_plat_device2);
+   }
+
+   /* Announce a matching driver for the platform
+      devices registered above */
+   if ((retval = platform_driver_register(&amp;usb_uart_driver))) {
+     uart_unregister_driver(&amp;usb_uart_reg);
+     platform_device_unregister(usb_uart_plat_device1);
+     platform_device_unregister(usb_uart_plat_device2);
+   }
+   return 0;
+}
+
+/* Driver Exit */
+static void __exit
+usb_uart_exit(void)
+
+{
+  /* The order of unregistration is important. Unregistering the
+     UART driver before the platform driver will crash the system */
+
+  /* Unregister the platform driver */
+  platform_driver_unregister(&amp;usb_uart_driver);
+
+  /* Unregister the platform devices */
+  platform_device_unregister(usb_uart_plat_device1);
+  platform_device_unregister(usb_uart_plat_device2);
+
+  /* Unregister the USB_UART driver */
+  uart_unregister_driver(&amp;usb_uart_reg);
+}
+
+module_init(usb_uart_init);
+module_exit(usb_uart_exit);
+
+					  </ASM></ASM></LINUX></LINUX></LINUX></LINUX></LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P><A name=ch06lev2sec2></A>
+<H4 id=title-ID0EUJAO class=docSection2Title>RS-485</H4>
+<P class=docText><A name=iddle1446></A><A name=iddle1483></A><A name=iddle1641></A><A name=iddle3814></A><A name=iddle3847></A><A name=iddle3864></A><A name=iddle4360></A><A name="embedded space"></A>RS-485 is not a standard PC interface like RS-232, but in the embedded space, you may come across computers that use RS-485 connections to reliably communicate with control systems. RS-485 uses differential signals that let it exchange data over distances of up to a few thousand feet, unlike RS-232 that has a range of only a few dozen feet. On the processor side, the RS-485 interface is a UART operating in half-duplex mode. So, before sending data from the transmit FIFO to the wire, the UART device driver needs to additionally enable the RS-485 transmitter and disable the receiver, possibly by wiggling associated GPIO pins. To obtain data from the wire to the receive FIFO, the UART driver has to perform the reverse operation.</P>
+<P class=docText><A name="You have"></A>You have to enable/disable the RS-485 transmitter/receiver at the right places in the serial layer. If you disable the transmitter too soon, it might not get sufficient time to drain the last bytes from the transmit FIFO, and this can result in data truncation. If you disable the transmitter too late, on the other hand, you prevent data reception for that much time, which might lead to receive data loss.</P>
+<P class=docText><A name="the higher"></A>RS-485 supports multidrop, so the higher-layer protocol must implement a suitable addressing mechanism if you have multiple devices connected to the bus. RS-485 does not support hardware flow control lines using <SPAN class=docEmphasis><A name="To Send"></A>Request To Send</SPAN> (RTS) and <SPAN class=docEmphasis>Clear To Send</SPAN> (CTS).

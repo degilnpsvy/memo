@@ -1,0 +1,72 @@
+<H3 id=title-IDACFELH class=docSection1Title>9.7. Network File System</H3>
+<P class=docText>Those of you who have developed in the UNIX environment will undoubtedly be familiar with the Network File System, or simply NFS. Properly configured, NFS enables you to export a directory on an NFS server and mount that directory on a remote client machine as if it were a local file system. This is useful in general for large networks of UNIX/Linux machines, and it can be a panacea to the embedded developer. Using NFS on your target board, an embedded developer can have access to a huge number of files, libraries, tools, and utilities during development and debugging, even if the target embedded system is resource constrained.</P>
+<P class=docText>As with the other file systems, your kernel must be configured with NFS support, for both the server-side functionality and the client side. NFS server and client functionality is independently configured in the kernel configuration.</P>
+<P class=docText>Detailed instructions for configuring and tuning NFS are beyond the scope of this book, but a short introduction helps to illustrate how useful NFS can be in the embedded environment. See <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec11.html#ch09lev2sec7">Section 9.11.1</A> at the end of this chapter for a pointer to detailed information about NFS, including the complete NFS-Howto.</P>
+<P class=docText>On your development workstation with NFS enabled, a file contains the names of each directory that you want to export via the Network File System. On Red Hat and other distributions, this file is located in the <TT>/etc</TT> directory and is named <TT>exports</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec7.html#ch09list12">Listing 9-12</A> illustrates a sample <TT>/etc/exports</TT> such as might be found on a development workstation used for embedded development.</P>
+<P class=docText></P><A name=ch09list12></A>
+<H5 id=title-IDANGELH class=docExampleTitle>Listing 9-12. Contents of <TT>/etc/exports</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>cat /etc/exports</SPAN>
+# /etc/exports
+/home/chris/sandbox/coyote-target *(rw,sync,no_root_squash)
+/home/chris/workspace *(rw,sync,no_root_squash)
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1014></A><A name=iddle1470></A><A name=iddle1894></A><A name=iddle2108></A><A name=iddle2114></A><A name=iddle2152></A><A name=iddle2604></A><A name=iddle2628></A>This file contains the names of two directories on a Linux development workstation. The first directory contains a target file system for an ADI Engineering Coyote reference board. The second directory is a general workspace that contains projects targeted for an embedded system. This is arbitrary; you can set things up any way you choose.</P>
+<P class=docText>On an embedded system with NFS enabled, the following command mounts the <TT>.../workspace</TT> directory exported by the NFS server on a mount point of our choosing:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>mount -t nfs pluto:/home/chris/workspace /workspace</SPAN></PRE></DIV><BR>
+<P class=docText>Notice some important points about this command. We are instructing the <TT>mount</TT> command to mount a remote directory (on a machine named pluto) onto a local mount point called <TT>/workspace</TT>. For this syntax to work, two requirements must be met on the embedded target. First, for the target to recognize the symbolic machine name pluto, it must be capable of resolving the symbolic name. The easiest way to do this is to place an entry in the <TT>/etc/hosts</TT> file on the target. This allows the networking subsystem to resolve the symbolic name to its corresponding IP address. The entry in the target's <TT>/etc/hosts</TT> file would look like this:</P>
+<DIV class=docText><PRE>192.168.10.9      pluto</PRE></DIV><BR>
+<P class=docText>The second requirement is that the embedded target must have a directory in its root directory called <TT>/workspace</TT>. This is called a mount point. The previous mount command causes the contents of the NFS server's <TT>/home/chris/workspace</TT> directory to be available on the embedded system's <TT>/workspace</TT> path.</P>
+<P class=docText>This is quite useful, especially in a cross-development environment. Let's say that you are working on a large project for your embedded device. Each time you make changes to the project, you need to move that application to your target so you can test and debug it. Using NFS in the manner just described, assuming that you are <A name=iddle1471></A><A name=iddle2025></A><A name=iddle2153></A><A name=iddle2386></A>working in the NFS exported directory on your host, the changes are immediately available on your target embedded system without the need to upload the newly compiled project files. This can speed development considerably.</P><A name=ch09lev2sec4></A>
+<H4 id=title-IDAZMELH class=docSection2Title>9.7.1. Root File System on NFS</H4>
+<P class=docText>Mounting your project workspace on your target embedded system is very useful for development and debugging because it facilitates rapid access to changes and source code for source-level debugging. This is especially useful when the target system is severely resource constrained. NFS really shines as a development tool when you mount your embedded system's root file system entirely from an NFS server. From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec7.html#ch09list12">Listing 9-12</A>, notice the <TT>coyote-target</TT> enTRy. This directory on your development workstation could contain hundreds or thousands of files compatible with your target architecture.</P>
+<P class=docText>The leading embedded Linux distributions targeted at embedded systems ship tens of thousands of files compiled and tested for the chosen target architecture. To illustrate this, <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec7.html#ch09list13">Listing 9-13</A> contains a directory listing of the <TT>coyote-target</TT> directory referenced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec7.html#ch09list12">Listing 9-12</A>.</P><A name=ch09list13></A>
+<H5 id=title-IDABOELH class=docExampleTitle>Listing 9-13. Target File System Example Summary</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>du -h --max-depth=1</SPAN>
+724M    ./usr
+4.0K    ./opt
+39M     ./lib
+12K     ./dev
+27M     ./var
+4.0K    ./tmp
+3.6M    ./boot
+4.0K    ./workspace
+1.8M    ./etc
+4.0K    ./home
+4.0K    ./mnt
+8.0K    ./root
+29M     ./bin
+32M     ./sbin
+4.0K    ./proc
+64K     ./share
+855M    .
+$
+$ <SPAN class=docEmphStrong>find -type f | wc -l</SPAN>
+29430</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1469></A><A name=iddle1730></A><A name=iddle2151></A>This target file system contains just shy of a gigabyte worth of binary files targeted at the ARM architecture. As you can see from the listing, this is more than 29,000 binary, configuration and documentation files. This would hardly fit on the average Flash device found on an embedded system!</P>
+<P class=docText>This is the power of an NFS root mount. For development purposes, it can only increase productivity if your embedded system is loaded with all the tools and utilities you are familiar with on a Linux workstation. Indeed, likely dozens of command line tools and development utilities that you have never seen can help you shave time off your development schedule. You will learn more about some of these useful tools in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13.html#ch13">Chapter 13</A>, "Development Tools."</P>
+<P class=docText>To enable your embedded system to mount its root file system via NFS at boot time is relatively straightforward. First, you must configure your target's kernel for NFS support. There is also a configuration option to enable root mounting of an NFS remote directory. This is illustrated in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec7.html#ch09fig03">Figure 9-3</A>.</P><A name=ch09fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 9-3. NFS kernel configuration</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/09elp03_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/09elp03.jpg" width=500 height=322>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText>Notice that the NFS file system support has been selected, along with support for "Root file system on NFS." After these kernel-configuration parameters have been selected, all that remains is to somehow feed information to the kernel so that it knows where to look for the NFS server. Several methods can be used for this, and some depend on the chosen target architecture and choice of bootloader. At a minimum, the kernel can be passed the proper parameters on the kernel command line <A name=iddle1007></A><A name=iddle1472></A><A name=iddle2248></A><A name=iddle2290></A><A name=iddle2291></A>to configure its IP port and server information on power-up. A typical kernel command line might look like this:</P>
+<DIV class=docText><PRE>console=ttyS0,115200 ip=bootp root=/dev/nfs</PRE></DIV><BR>
+<P class=docText>This tells the kernel to expect a root file system via NFS and to obtain the relevant parameters (server name, server IP address, and root directory to mount) from a BOOTP server. This is a common and tremendously useful configuration during the development phase of a project. If you are statically configuring your target's IP address, your kernel command line might look like this:</P>
+<DIV class=docText><PRE>console=ttyS0,115200                                      \
+ip=192.168.1.139:192.168.1.1:192.168.1.1:255.255.255.0:coyote1:eth0:off  \
+   nfsroot=192.168.1.1:/home/chris/sandbox/coyote-target   \
+   root=/dev/nfs</PRE></DIV><BR>
+<P class=docText>Of course, this would all be on one line. The <TT>ip=</TT> parameter is defined in <TT>.../net/ipv4/ipconfig.c</TT> and has the following syntax, all on one line:</P>
+<DIV class=docText><PRE>ip=&lt;client-ip&gt;:&lt;server-ip&gt;:&lt;gw-ip&gt;:&lt;netmask&gt;:&lt;hostname&gt;:&lt;device&gt;:&lt;PROTO&gt;</PRE></DIV><BR>
+<P class=docText>Here, <TT>client-ip</TT> is the target's IP address; <TT>server-ip</TT> is the address of the NFS server; <TT>gw-ip</TT> is the gateway (router), in case the <TT>server-ip</TT> is on a different subnet; and <TT>netmask</TT> defines the class of IP addressing. <TT>hostname</TT> is a string that is passed as the target hostname; <TT>device</TT> is the Linux device name, such as eth0; and <TT>PROTO</TT> defines the protocol used to obtain initial IP parameters.

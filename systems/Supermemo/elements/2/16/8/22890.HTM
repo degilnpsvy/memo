@@ -1,0 +1,82 @@
+#/Documentation/serial/tty.txt
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;The Lockronomicon</P>
+<P></P>
+<P>Your guide to the ancient and twisted locking policies of the tty layer and<BR>the warped logic behind them. Beware all ye who read on.</P>
+<P>FIXME: still need to work out the full set of BKL assumptions and document<BR>them so they can eventually be killed off.</P>
+<P><BR>Line Discipline<BR>---------------</P>
+<P>Line disciplines are registered with tty_register_ldisc() passing the<BR>discipline number and the ldisc structure. At the point of registration the <BR>discipline must be ready to use and it is possible it will get used before<BR>the call returns success. If the call returns an error then it won't get<BR>called. Do not re-use ldisc numbers as they are part of the userspace ABI<BR>and writing over an existing ldisc will cause demons to eat your computer.<BR>After the return the ldisc data has been copied so you may free your own <BR>copy of the structure. You must not re-register over the top of the line<BR>discipline even with the same data or your computer again will be eaten by<BR>demons.</P>
+<P>In order to remove a line discipline call tty_unregister_ldisc().<BR>In ancient times this always worked. In modern times the function will<BR>return -EBUSY if the ldisc is currently in use. Since the ldisc referencing<BR>code manages the module counts this should not usually be a concern.</P>
+<P>Heed this warning: the reference count field of the registered copies of the<BR>tty_ldisc structure in the ldisc table counts the number of lines using this<BR>discipline. The reference count of the tty_ldisc structure within a tty <BR>counts the number of active users of the ldisc at this instant. In effect it<BR>counts the number of threads of execution within an ldisc method (plus those<BR>about to enter and exit although this detail matters not).</P>
+<P>Line Discipline Methods<BR>-----------------------</P>
+<P>TTY side interfaces:</P>
+<P>open()&nbsp;&nbsp;-&nbsp;Called when the line discipline is attached to<BR>&nbsp;&nbsp;&nbsp;the terminal. No other call into the line<BR>&nbsp;&nbsp;&nbsp;discipline for this tty will occur until it<BR>&nbsp;&nbsp;&nbsp;completes successfully. Returning an error will<BR>&nbsp;&nbsp;&nbsp;prevent the ldisc from being attached. Can sleep.</P>
+<P>close()&nbsp;&nbsp;-&nbsp;This is called on a terminal when the line<BR>&nbsp;&nbsp;&nbsp;discipline is being unplugged. At the point of<BR>&nbsp;&nbsp;&nbsp;execution no further users will enter the<BR>&nbsp;&nbsp;&nbsp;ldisc code for this tty. Can sleep.</P>
+<P>hangup()&nbsp;-&nbsp;Called when the tty line is hung up.<BR>&nbsp;&nbsp;&nbsp;The line discipline should cease I/O to the tty.<BR>&nbsp;&nbsp;&nbsp;No further calls into the ldisc code will occur.<BR>&nbsp;&nbsp;&nbsp;The return value is ignored. Can sleep.</P>
+<P>write()&nbsp;&nbsp;-&nbsp;A process is writing data through the line<BR>&nbsp;&nbsp;&nbsp;discipline.&nbsp; Multiple write calls are serialized<BR>&nbsp;&nbsp;&nbsp;by the tty layer for the ldisc.&nbsp; May sleep. </P>
+<P>flush_buffer()&nbsp;-&nbsp;(optional) May be called at any point between<BR>&nbsp;&nbsp;&nbsp;open and close, and instructs the line discipline<BR>&nbsp;&nbsp;&nbsp;to empty its input buffer.</P>
+<P>chars_in_buffer() -&nbsp;(optional) Report the number of bytes in the input<BR>&nbsp;&nbsp;&nbsp;buffer.</P>
+<P>set_termios()&nbsp;-&nbsp;(optional) Called on termios structure changes.<BR>&nbsp;&nbsp;&nbsp;The caller passes the old termios data and the<BR>&nbsp;&nbsp;&nbsp;current data is in the tty. Called under the<BR>&nbsp;&nbsp;&nbsp;termios semaphore so allowed to sleep. Serialized<BR>&nbsp;&nbsp;&nbsp;against itself only.</P>
+<P>read()&nbsp;&nbsp;-&nbsp;Move data from the line discipline to the user.<BR>&nbsp;&nbsp;&nbsp;Multiple read calls may occur in parallel and the<BR>&nbsp;&nbsp;&nbsp;ldisc must deal with serialization issues. May <BR>&nbsp;&nbsp;&nbsp;sleep.</P>
+<P>poll()&nbsp;&nbsp;-&nbsp;Check the status for the poll/select calls. Multiple<BR>&nbsp;&nbsp;&nbsp;poll calls may occur in parallel. May sleep.</P>
+<P>ioctl()&nbsp;&nbsp;-&nbsp;Called when an ioctl is handed to the tty layer<BR>&nbsp;&nbsp;&nbsp;that might be for the ldisc. Multiple ioctl calls<BR>&nbsp;&nbsp;&nbsp;may occur in parallel. May sleep. </P>
+<P>compat_ioctl()&nbsp;-&nbsp;Called when a 32 bit ioctl is handed to the tty layer<BR>&nbsp;&nbsp;&nbsp;that might be for the ldisc. Multiple ioctl calls<BR>&nbsp;&nbsp;&nbsp;may occur in parallel. May sleep.</P>
+<P>Driver Side Interfaces:</P>
+<P>receive_buf()&nbsp;-&nbsp;Hand buffers of bytes from the driver to the ldisc<BR>&nbsp;&nbsp;&nbsp;for processing. Semantics currently rather<BR>&nbsp;&nbsp;&nbsp;mysterious 8(</P>
+<P>write_wakeup()&nbsp;-&nbsp;May be called at any point between open and close.<BR>&nbsp;&nbsp;&nbsp;The TTY_DO_WRITE_WAKEUP flag indicates if a call<BR>&nbsp;&nbsp;&nbsp;is needed but always races versus calls. Thus the<BR>&nbsp;&nbsp;&nbsp;ldisc must be careful about setting order and to<BR>&nbsp;&nbsp;&nbsp;handle unexpected calls. Must not sleep.</P>
+<P>&nbsp;&nbsp;&nbsp;The driver is forbidden from calling this directly<BR>&nbsp;&nbsp;&nbsp;from the -&gt;write call from the ldisc as the ldisc<BR>&nbsp;&nbsp;&nbsp;is permitted to call the driver write method from<BR>&nbsp;&nbsp;&nbsp;this function. In such a situation defer it.</P>
+<P>dcd_change()&nbsp;-&nbsp;Report to the tty line the current DCD pin status<BR>&nbsp;&nbsp;&nbsp;changes and the relative timestamp. The timestamp<BR>&nbsp;&nbsp;&nbsp;cannot be NULL.</P>
+<P><BR>Driver Access</P>
+<P>Line discipline methods can call the following methods of the underlying<BR>hardware driver through the function pointers within the tty-&gt;driver<BR>structure:</P>
+<P>write()&nbsp;&nbsp;&nbsp;Write a block of characters to the tty device.<BR>&nbsp;&nbsp;&nbsp;Returns the number of characters accepted. The<BR>&nbsp;&nbsp;&nbsp;character buffer passed to this method is already<BR>&nbsp;&nbsp;&nbsp;in kernel space.</P>
+<P>put_char()&nbsp;&nbsp;Queues a character for writing to the tty device.<BR>&nbsp;&nbsp;&nbsp;If there is no room in the queue, the character is<BR>&nbsp;&nbsp;&nbsp;ignored.</P>
+<P>flush_chars()&nbsp;&nbsp;(Optional) If defined, must be called after<BR>&nbsp;&nbsp;&nbsp;queueing characters with put_char() in order to<BR>&nbsp;&nbsp;&nbsp;start transmission.</P>
+<P>write_room()&nbsp;&nbsp;Returns the numbers of characters the tty driver<BR>&nbsp;&nbsp;&nbsp;will accept for queueing to be written.</P>
+<P>ioctl()&nbsp;&nbsp;&nbsp;Invoke device specific ioctl.<BR>&nbsp;&nbsp;&nbsp;Expects data pointers to refer to userspace.<BR>&nbsp;&nbsp;&nbsp;Returns ENOIOCTLCMD for unrecognized ioctl numbers.</P>
+<P>set_termios()&nbsp;&nbsp;Notify the tty driver that the device's termios<BR>&nbsp;&nbsp;&nbsp;settings have changed. New settings are in<BR>&nbsp;&nbsp;&nbsp;tty-&gt;termios. Previous settings should be passed in<BR>&nbsp;&nbsp;&nbsp;the "old" argument.</P>
+<P>&nbsp;&nbsp;&nbsp;The API is defined such that the driver should return<BR>&nbsp;&nbsp;&nbsp;the actual modes selected. This means that the<BR>&nbsp;&nbsp;&nbsp;driver function is responsible for modifying any<BR>&nbsp;&nbsp;&nbsp;bits in the request it cannot fulfill to indicate<BR>&nbsp;&nbsp;&nbsp;the actual modes being used. A device with no<BR>&nbsp;&nbsp;&nbsp;hardware capability for change (eg a USB dongle or<BR>&nbsp;&nbsp;&nbsp;virtual port) can provide NULL for this method.</P>
+<P>throttle()&nbsp;&nbsp;Notify the tty driver that input buffers for the<BR>&nbsp;&nbsp;&nbsp;line discipline are close to full, and it should<BR>&nbsp;&nbsp;&nbsp;somehow signal that no more characters should be<BR>&nbsp;&nbsp;&nbsp;sent to the tty.</P>
+<P>unthrottle()&nbsp;&nbsp;Notify the tty driver that characters can now be<BR>&nbsp;&nbsp;&nbsp;sent to the tty without fear of overrunning the<BR>&nbsp;&nbsp;&nbsp;input buffers of the line disciplines.</P>
+<P>stop()&nbsp;&nbsp;&nbsp;Ask the tty driver to stop outputting characters<BR>&nbsp;&nbsp;&nbsp;to the tty device.</P>
+<P>start()&nbsp;&nbsp;&nbsp;Ask the tty driver to resume sending characters<BR>&nbsp;&nbsp;&nbsp;to the tty device.</P>
+<P>hangup()&nbsp;&nbsp;Ask the tty driver to hang up the tty device.</P>
+<P>break_ctl()&nbsp;&nbsp;(Optional) Ask the tty driver to turn on or off<BR>&nbsp;&nbsp;&nbsp;BREAK status on the RS-232 port.&nbsp; If state is -1,<BR>&nbsp;&nbsp;&nbsp;then the BREAK status should be turned on; if<BR>&nbsp;&nbsp;&nbsp;state is 0, then BREAK should be turned off.<BR>&nbsp;&nbsp;&nbsp;If this routine is not implemented, use ioctls<BR>&nbsp;&nbsp;&nbsp;TIOCSBRK / TIOCCBRK instead.</P>
+<P>wait_until_sent()&nbsp;Waits until the device has written out all of the<BR>&nbsp;&nbsp;&nbsp;characters in its transmitter FIFO.</P>
+<P>send_xchar()&nbsp;&nbsp;Send a high-priority XON/XOFF character to the device.</P>
+<P><BR>Flags</P>
+<P>Line discipline methods have access to tty-&gt;flags field containing the<BR>following interesting flags:</P>
+<P>TTY_THROTTLED&nbsp;&nbsp;Driver input is throttled. The ldisc should call<BR>&nbsp;&nbsp;&nbsp;tty-&gt;driver-&gt;unthrottle() in order to resume<BR>&nbsp;&nbsp;&nbsp;reception when it is ready to process more data.</P>
+<P>TTY_DO_WRITE_WAKEUP&nbsp;If set, causes the driver to call the ldisc's<BR>&nbsp;&nbsp;&nbsp;write_wakeup() method in order to resume<BR>&nbsp;&nbsp;&nbsp;transmission when it can accept more data<BR>&nbsp;&nbsp;&nbsp;to transmit.</P>
+<P>TTY_IO_ERROR&nbsp;&nbsp;If set, causes all subsequent userspace read/write<BR>&nbsp;&nbsp;&nbsp;calls on the tty to fail, returning -EIO.</P>
+<P>TTY_OTHER_CLOSED&nbsp;Device is a pty and the other side has closed.</P>
+<P>TTY_NO_WRITE_SPLIT&nbsp;Prevent driver from splitting up writes into<BR>&nbsp;&nbsp;&nbsp;smaller chunks.</P>
+<P><BR>Locking</P>
+<P>Callers to the line discipline functions from the tty layer are required to<BR>take line discipline locks. The same is true of calls from the driver side<BR>but not yet enforced.</P>
+<P>Three calls are now provided</P>
+<P>&nbsp;ldisc = tty_ldisc_ref(tty);</P>
+<P>takes a handle to the line discipline in the tty and returns it. If no ldisc<BR>is currently attached or the ldisc is being closed and re-opened at this<BR>point then NULL is returned. While this handle is held the ldisc will not<BR>change or go away.</P>
+<P>&nbsp;tty_ldisc_deref(ldisc)</P>
+<P>Returns the ldisc reference and allows the ldisc to be closed. Returning the<BR>reference takes away your right to call the ldisc functions until you take<BR>a new reference.</P>
+<P>&nbsp;ldisc = tty_ldisc_ref_wait(tty);</P>
+<P>Performs the same function as tty_ldisc_ref except that it will wait for an<BR>ldisc change to complete and then return a reference to the new ldisc. </P>
+<P>While these functions are slightly slower than the old code they should have<BR>minimal impact as most receive logic uses the flip buffers and they only<BR>need to take a reference when they push bits up through the driver.</P>
+<P>A caution: The ldisc-&gt;open(), ldisc-&gt;close() and driver-&gt;set_ldisc <BR>functions are called with the ldisc unavailable. Thus tty_ldisc_ref will<BR>fail in this situation if used within these functions. Ldisc and driver<BR>code calling its own functions must be careful in this case. </P>
+<P><BR>Driver Interface<BR>----------------</P>
+<P>open()&nbsp;&nbsp;-&nbsp;Called when a device is opened. May sleep</P>
+<P>close()&nbsp;&nbsp;-&nbsp;Called when a device is closed. At the point of<BR>&nbsp;&nbsp;&nbsp;return from this call the driver must make no <BR>&nbsp;&nbsp;&nbsp;further ldisc calls of any kind. May sleep</P>
+<P>write()&nbsp;&nbsp;-&nbsp;Called to write bytes to the device. May not<BR>&nbsp;&nbsp;&nbsp;sleep. May occur in parallel in special cases. <BR>&nbsp;&nbsp;&nbsp;Because this includes panic paths drivers generally<BR>&nbsp;&nbsp;&nbsp;shouldn't try and do clever locking here.</P>
+<P>put_char()&nbsp;-&nbsp;Stuff a single character onto the queue. The<BR>&nbsp;&nbsp;&nbsp;driver is guaranteed following up calls to<BR>&nbsp;&nbsp;&nbsp;flush_chars.</P>
+<P>flush_chars()&nbsp;-&nbsp;Ask the kernel to write put_char queue</P>
+<P>write_room()&nbsp;-&nbsp;Return the number of characters tht can be stuffed<BR>&nbsp;&nbsp;&nbsp;into the port buffers without overflow (or less).<BR>&nbsp;&nbsp;&nbsp;The ldisc is responsible for being intelligent<BR>&nbsp;&nbsp;&nbsp;&nbsp;about multi-threading of write_room/write calls</P>
+<P>ioctl()&nbsp;&nbsp;-&nbsp;Called when an ioctl may be for the driver</P>
+<P>set_termios()&nbsp;-&nbsp;Called on termios change, serialized against<BR>&nbsp;&nbsp;&nbsp;itself by a semaphore. May sleep.</P>
+<P>set_ldisc()&nbsp;-&nbsp;Notifier for discipline change. At the point this <BR>&nbsp;&nbsp;&nbsp;is done the discipline is not yet usable. Can now<BR>&nbsp;&nbsp;&nbsp;sleep (I think)</P>
+<P>throttle()&nbsp;-&nbsp;Called by the ldisc to ask the driver to do flow<BR>&nbsp;&nbsp;&nbsp;control.&nbsp; Serialization including with unthrottle<BR>&nbsp;&nbsp;&nbsp;is the job of the ldisc layer.</P>
+<P>unthrottle()&nbsp;-&nbsp;Called by the ldisc to ask the driver to stop flow<BR>&nbsp;&nbsp;&nbsp;control.</P>
+<P>stop()&nbsp;&nbsp;-&nbsp;Ldisc notifier to the driver to stop output. As with<BR>&nbsp;&nbsp;&nbsp;throttle the serializations with start() are down<BR>&nbsp;&nbsp;&nbsp;to the ldisc layer.</P>
+<P>start()&nbsp;&nbsp;-&nbsp;Ldisc notifier to the driver to start output.</P>
+<P>hangup()&nbsp;-&nbsp;Ask the tty driver to cause a hangup initiated<BR>&nbsp;&nbsp;&nbsp;from the host side. [Can sleep ??]</P>
+<P>break_ctl()&nbsp;-&nbsp;Send RS232 break. Can sleep. Can get called in<BR>&nbsp;&nbsp;&nbsp;parallel, driver must serialize (for now), and<BR>&nbsp;&nbsp;&nbsp;with write calls.</P>
+<P>wait_until_sent() -&nbsp;Wait for characters to exit the hardware queue<BR>&nbsp;&nbsp;&nbsp;of the driver. Can sleep</P>
+<P>send_xchar()&nbsp;&nbsp; -&nbsp;Send XON/XOFF and if possible jump the queue with<BR>&nbsp;&nbsp;&nbsp;it in order to get fast flow control responses.<BR>&nbsp;&nbsp;&nbsp;Cannot sleep ??</P>
+<P>&nbsp;

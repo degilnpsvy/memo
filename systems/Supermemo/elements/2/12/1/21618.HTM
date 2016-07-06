@@ -1,0 +1,549 @@
+<H1><A name=GOTCHAS></A>Chapter 34. Gotchas</H1>
+<TABLE class=EPIGRAPH border=0 cellSpacing=0 cellPadding=0 width="100%">
+<TBODY>
+<TR>
+<TD width="45%">&nbsp;</TD>
+<TD vAlign=top width="45%" align=left><I>
+<P><I>Turandot: <I class=FOREIGNPHRASE>Gli enigmi sono tre, la morte una!</I></I></P>
+<P><I>Caleph: <I class=FOREIGNPHRASE>No, no! Gli enigmi sono tre, una la vita!</I></I></P>
+<P><I>--Puccini</I></P></I></TD></TR></TBODY></TABLE>
+<P><A name=BASH3GOTCHA></A></P>
+<P>Here are some (non-recommended!) scripting practices that will bring excitement into an otherwise dull life.</P>
+<P></P>
+<UL>
+<LI>
+<P><A name=INAPPVN></A></P>
+<P>Assigning reserved words or characters to variable names.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>case=value0       # Causes problems.
+23skidoo=value1   # Also problems.
+# Variable names starting with a digit are reserved by the shell.
+# Try _23skidoo=value1. Starting variables with an underscore is okay.
+
+# However . . .   using just an underscore will not work.
+_=25
+echo $_           # $_ is a special variable set to last arg of last command.
+# But . . .       _ is a valid function name!
+
+xyz((!*=value2    # Causes severe problems.
+# As of version 3 of Bash, periods are not allowed within variable names.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P>Using a hyphen or other reserved characters in a variable name (or function name).</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>var-1=23
+# Use 'var_1' instead.
+
+function-whatever ()   # Error
+# Use 'function_whatever ()' instead.
+
+ 
+# As of version 3 of Bash, periods are not allowed within function names.
+function.whatever ()   # Error
+# Use 'functionWhatever ()' instead.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P>Using the same name for a variable and a function. This can make a script difficult to understand.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>do_something ()
+{
+  echo "This function does something with \"$1\"."
+}
+
+do_something=do_something
+
+do_something do_something
+
+# All this is legal, but highly confusing.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=WSBAD></A>Using <A href="http://tldp.org/LDP/abs/html/abs-guide.html#WHITESPACEREF">whitespace</A> inappropriately. In contrast to other programming languages, Bash can be quite finicky about whitespace.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>var1 = 23   # 'var1=23' is correct.
+# On line above, Bash attempts to execute command "var1"
+# with the arguments "=" and "23".
+	
+let c = $a - $b   # Instead:   let c=$a-$b   or   let "c = $a - $b"
+
+if [ $a -le 5]    # if [ $a -le 5 ]   is correct.
+#           ^^      if [ "$a" -le 5 ]   is even better.
+                  # [[ $a -le 5 ]] also works.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=OMITSEMICOLON></A></P>
+<P>Not terminating with a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SEMICOLONREF">semicolon</A> the final command in a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CODEBLOCKREF">code block within curly brackets</A>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>{ ls -l; df; echo "Done." }
+# bash: syntax error: unexpected end of file
+
+{ ls -l; df; echo "Done."; }
+#                        ^     ### Final command needs semicolon.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=UNINITVAR></A></P>
+<P>Assuming uninitialized variables (variables before a value is assigned to them) are <SPAN class=QUOTE>"zeroed out"</SPAN>. An uninitialized variable has a value of <I class=FIRSTTERM>null</I>, <EM>not</EM> zero.</P>
+<P><A name=BASH4.2-UNINITIALIZED></A></P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+echo "uninitialized_var = $uninitialized_var"
+# uninitialized_var =
+
+# However . . .
+# if $BASH_VERSION &#8805; 4.2; then
+
+if [[ ! -v uninitialized_var ]]
+then
+  uninitialized_var=0   # Initialize it to zero!
+fi
+
+</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=EQDIF></A></P>
+<P>Mixing up <I class=FIRSTTERM>=</I> and <I class=FIRSTTERM>-eq</I> in a test. Remember, <I class=FIRSTTERM>=</I> is for comparing literal variables and <I class=FIRSTTERM>-eq</I> for integers.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>if [ "$a" = 273 ]      # Is $a an integer or string?
+if [ "$a" -eq 273 ]    # If $a is an integer.
+
+# Sometimes you can interchange -eq and = without adverse consequences.
+# However . . .
+
+
+a=273.0   # Not an integer.
+	   
+if [ "$a" = 273 ]
+then
+  echo "Comparison works."
+else  
+  echo "Comparison does not work."
+fi    # Comparison does not work.
+
+# Same with   a=" 273"  and a="0273".
+
+
+# Likewise, problems trying to use "-eq" with non-integer values.
+	   
+if [ "$a" -eq 273.0 ]
+then
+  echo "a = $a"
+fi  # Aborts with an error message.  
+# test.sh: [: 273.0: integer expression expected</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=NUMSTRCOMPNE></A></P>
+<P>Misusing <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SCOMPARISON1">string comparison</A> operators.</P>
+<DIV class=EXAMPLE><A name=BADOP></A>
+<P><B>Example 34-1. Numerical and string comparison are not equivalent</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# bad-op.sh: Trying to use a string comparison on integers.
+
+echo
+number=1
+
+#  The following while-loop has two errors:
+#+ one blatant, and the other subtle.
+
+while [ "$number" &lt; 5 ]    # Wrong! Should be:  while [ "$number" -lt 5 ]
+do
+  echo -n "$number "
+  let "number += 1"
+done  
+#  Attempt to run this bombs with the error message:
+#+ bad-op.sh: line 10: 5: No such file or directory
+#  Within single brackets, "&lt;" must be escaped,
+#+ and even then, it's still wrong for comparing integers.
+
+echo "---------------------"
+
+while [ "$number" \&lt; 5 ]    #  1 2 3 4
+do                          #
+  echo -n "$number "        #  It *seems* to work, but . . .
+  let "number += 1"         #+ it actually does an ASCII comparison,
+done                        #+ rather than a numerical one.
+
+echo; echo "---------------------"
+
+# This can cause problems. For example:
+
+lesser=5
+greater=105
+
+if [ "$greater" \&lt; "$lesser" ]
+then
+  echo "$greater is less than $lesser"
+fi                          # 105 is less than 5
+#  In fact, "105" actually is less than "5"
+#+ in a string comparison (ASCII sort order).
+
+echo
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<LI>
+<P><A name=LETBAD></A></P>
+<P>Attempting to use <A href="http://tldp.org/LDP/abs/html/abs-guide.html#LETREF">let</A> to set string variables.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>let "a = hello, you"
+echo "$a"   # 0</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=FAILQUOTE></A></P>
+<P>Sometimes variables within <SPAN class=QUOTE>"test"</SPAN> brackets ([ ]) need to be quoted (double quotes). Failure to do so may cause unexpected behavior. See <A href="http://tldp.org/LDP/abs/html/abs-guide.html#STRTEST">Example 7-6</A>, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#REDIR2">Example 20-5</A>, and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ARGLIST">Example 9-6</A>.</P>
+<LI>
+<P><A name=FAILNOTQUOTE></A></P>
+<P>Quoting a variable containing whitespace <A href="http://tldp.org/LDP/abs/html/abs-guide.html#WSQUO">prevents splitting</A>. Sometimes this produces <A href="http://tldp.org/LDP/abs/html/abs-guide.html#VARSPLITTING">unintended consequences</A>.</P>
+<LI>
+<P><A name=EXECPERM></A></P>
+<P>Commands issued from a script may fail to execute because the script owner lacks execute permission for them. If a user cannot invoke a command from the command-line, then putting it into a script will likewise fail. Try changing the attributes of the command in question, perhaps even setting the suid bit (as <I class=FIRSTTERM>root</I>, of course).</P>
+<LI>
+<P><A name=DASHNREDR></A></P>
+<P>Attempting to use <B class=COMMAND>-</B> as a redirection operator (which it is not) will usually result in an unpleasant surprise.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>command1 2&gt; - | command2
+# Trying to redirect error output of command1 into a pipe . . .
+# . . . will not work.	
+
+command1 2&gt;&amp; - | command2  # Also futile.
+
+Thanks, S.C.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=LATEVERF></A></P>
+<P>Using Bash <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BASH2REF">version 2+</A> functionality may cause a bailout with error messages. Older Linux machines may have version 1.XX of Bash as the default installation.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+minimum_version=2
+# Since Chet Ramey is constantly adding features to Bash,
+# you may set $minimum_version to 2.XX, 3.XX, or whatever is appropriate.
+E_BAD_VERSION=80
+
+if [ "$BASH_VERSION" \&lt; "$minimum_version" ]
+then
+  echo "This script works only with Bash, version $minimum or greater."
+  echo "Upgrade strongly recommended."
+  exit $E_BAD_VERSION
+fi
+
+...</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P>Using Bash-specific functionality in a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BASHDEF">Bourne shell</A> script (<TT class=USERINPUT><B>#!/bin/sh</B></TT>) on a non-Linux machine <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BINSH">may cause unexpected behavior</A>. A Linux system usually aliases <B class=COMMAND>sh</B> to <B class=COMMAND>bash</B>, but this does not necessarily hold true for a generic UNIX machine.</P>
+<LI>
+<P><A name=UNDOCF></A></P>
+<P>Using undocumented features in Bash turns out to be a dangerous practice. In previous releases of this book there were several scripts that depended on the <SPAN class=QUOTE>"feature"</SPAN> that, although the maximum value of an <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITSTATUSREF">exit</A> or <A href="http://tldp.org/LDP/abs/html/abs-guide.html#RETURNREF">return</A> value was 255, that limit did not apply to <EM>negative</EM> integers. Unfortunately, in version 2.05b and later, that loophole disappeared. See <A href="http://tldp.org/LDP/abs/html/abs-guide.html#RETURNTEST">Example 24-9</A>.</P>
+<LI>
+<P><A name=GOTCHAEXITVALANAMALIES></A></P>
+<P>In certain contexts, a misleading <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITSTATUSREF">exit status</A> may be returned. This may occur when <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITVALANOMALY01">setting a local variable within a function</A> or when <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITVALANOMALY02">assigning an arithmetic value to a variable</A>.</P>
+<LI>
+<P><A name=ARXS1></A>The <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ARXS">exit status of an arithmetic expression</A> is <EM>not</EM> equivalent to an <I class=FIRSTTERM>error code</I>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>var=1 &amp;&amp; ((--var)) &amp;&amp; echo $var
+#        ^^^^^^^^^ Here the and-list terminates with exit status 1.
+#                     $var doesn't echo!
+echo $?   # 1</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=DOSNEWLINES></A></P>
+<P>A script with DOS-type newlines (<TT class=REPLACEABLE><I>\r\n</I></TT>) will fail to execute, since <TT class=USERINPUT><B>#!/bin/bash\r\n</B></TT> is <EM>not</EM> recognized, <EM>not</EM> the same as the expected <TT class=USERINPUT><B>#!/bin/bash\n</B></TT>. The fix is to convert the script to UNIX-style newlines.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+echo "Here"
+
+unix2dos $0    # Script changes itself to DOS format.
+chmod 755 $0   # Change back to execute permission.
+               # The 'unix2dos' command removes execute permission.
+
+./$0           # Script tries to run itself again.
+               # But it won't work as a DOS file.
+
+echo "There"
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=BINSH></A></P>
+<P>A shell script headed by <TT class=USERINPUT><B>#!/bin/sh</B></TT> will not run in full Bash-compatibility mode. Some Bash-specific functions might be disabled. Scripts that need complete access to all the Bash-specific extensions should start with <TT class=USERINPUT><B>#!/bin/bash</B></TT>.</P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#INDENTEDLS">Putting whitespace in front of the terminating limit string</A> of a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#HEREDOCREF">here document</A> will cause unexpected behavior in a script.</P>
+<LI>
+<P><A name=RVTCAUTION2></A>Putting more than one <I class=FIRSTTERM>echo</I> statement in a function <A href="http://tldp.org/LDP/abs/html/abs-guide.html#RVT">whose output is captured</A>. 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>add2 ()
+{
+  echo "Whatever ... "   # Delete this line!
+  let "retval = $1 + $2"
+    echo $retval
+    }
+
+    num1=12
+    num2=43
+    echo "Sum of $num1 and $num2 = $(add2 $num1 $num2)"
+
+#   Sum of 12 and 43 = Whatever ... 
+#   55
+
+#        The "echoes" concatenate.</PRE></FONT></TD></TR></TBODY></TABLE>This <A href="http://tldp.org/LDP/abs/html/abs-guide.html#RVTCAUTION">will not work</A>.</P>
+<LI>
+<P><A name=PARCHILDPROBREF></A></P>
+<P>A script may not <B class=COMMAND>export</B> variables back to its <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FORKREF">parent process</A>, the shell, or to the environment. Just as we learned in biology, a child process can inherit from a parent, but not vice versa.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>WHATEVER=/home/bozo
+export WHATEVER
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash$ </TT><B class=COMMAND>echo $WHATEVER</B>
+<TT class=COMPUTEROUTPUT></TT>
+<TT class=PROMPT>bash$ </TT></PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Sure enough, back at the command prompt, $WHATEVER remains unset. </P>
+<LI>
+<P><A name=VARSUBSH></A></P>
+<P>Setting and manipulating variables in a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SUBSHELLSREF">subshell</A>, then attempting to use those same variables outside the scope of the subshell will result an unpleasant surprise.</P>
+<DIV class=EXAMPLE><A name=SUBPIT></A>
+<P><B>Example 34-2. Subshell Pitfalls</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# Pitfalls of variables in a subshell.
+
+outer_variable=outer
+echo
+echo "outer_variable = $outer_variable"
+echo
+
+(
+# Begin subshell
+
+echo "outer_variable inside subshell = $outer_variable"
+inner_variable=inner  # Set
+echo "inner_variable inside subshell = $inner_variable"
+outer_variable=inner  # Will value change globally?
+echo "outer_variable inside subshell = $outer_variable"
+
+# Will 'exporting' make a difference?
+#    export inner_variable
+#    export outer_variable
+# Try it and see.
+
+# End subshell
+)
+
+echo
+echo "inner_variable outside subshell = $inner_variable"  # Unset.
+echo "outer_variable outside subshell = $outer_variable"  # Unchanged.
+echo
+
+exit 0
+
+# What happens if you uncomment lines 19 and 20?
+# Does it make a difference?</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<LI>
+<P><A name=BADREAD0></A></P>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#PIPEREF">Piping</A> <B class=COMMAND>echo</B> output to a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#READREF">read</A> may produce unexpected results. In this scenario, the <B class=COMMAND>read</B> acts as if it were running in a subshell. Instead, use the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SETREF">set</A> command (as in <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SETPOS">Example 15-18</A>).</P>
+<DIV class=EXAMPLE><A name=BADREAD></A>
+<P><B>Example 34-3. Piping the output of <I class=FIRSTTERM>echo</I> to a <I class=FIRSTTERM>read</I></B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+#  badread.sh:
+#  Attempting to use 'echo and 'read'
+#+ to assign variables non-interactively.
+
+#   shopt -s lastpipe
+
+a=aaa
+b=bbb
+c=ccc
+
+echo "one two three" | read a b c
+# Try to reassign a, b, and c.
+
+echo
+echo "a = $a"  # a = aaa
+echo "b = $b"  # b = bbb
+echo "c = $c"  # c = ccc
+# Reassignment failed.
+
+### However . . .
+##  Uncommenting line 6:
+#   shopt -s lastpipe
+##+ fixes the problem!
+### This is a new feature in Bash, version 4.2.
+
+# ------------------------------
+
+# Try the following alternative.
+
+var=`echo "one two three"`
+set -- $var
+a=$1; b=$2; c=$3
+
+echo "-------"
+echo "a = $a"  # a = one
+echo "b = $b"  # b = two
+echo "c = $c"  # c = three 
+# Reassignment succeeded.
+
+# ------------------------------
+
+#  Note also that an echo to a 'read' works within a subshell.
+#  However, the value of the variable changes *only* within the subshell.
+
+a=aaa          # Starting all over again.
+b=bbb
+c=ccc
+
+echo; echo
+echo "one two three" | ( read a b c;
+echo "Inside subshell: "; echo "a = $a"; echo "b = $b"; echo "c = $c" )
+# a = one
+# b = two
+# c = three
+echo "-----------------"
+echo "Outside subshell: "
+echo "a = $a"  # a = aaa
+echo "b = $b"  # b = bbb
+echo "c = $c"  # c = ccc
+echo
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=PIPELOOP></A></P>
+<P>In fact, as Anthony Richardson points out, piping to <EM>any</EM> loop can cause a similar problem.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># Loop piping troubles.
+#  This example by Anthony Richardson,
+#+ with addendum by Wilbert Berendsen.
+
+
+foundone=false
+find $HOME -type f -atime +30 -size 100k |
+while true
+do
+   read f
+   echo "$f is over 100KB and has not been accessed in over 30 days"
+   echo "Consider moving the file to archives."
+   foundone=true
+   # ------------------------------------
+     echo "Subshell level = $BASH_SUBSHELL"
+   # Subshell level = 1
+   # Yes, we're inside a subshell.
+   # ------------------------------------
+done
+   
+#  foundone will always be false here since it is
+#+ set to true inside a subshell
+if [ $foundone = false ]
+then
+   echo "No files need archiving."
+fi
+
+# =====================Now, here is the correct way:=================
+
+foundone=false
+for f in $(find $HOME -type f -atime +30 -size 100k)  # No pipe here.
+do
+   echo "$f is over 100KB and has not been accessed in over 30 days"
+   echo "Consider moving the file to archives."
+   foundone=true
+done
+   
+if [ $foundone = false ]
+then
+   echo "No files need archiving."
+fi
+
+# ==================And here is another alternative==================
+
+#  Places the part of the script that reads the variables
+#+ within a code block, so they share the same subshell.
+#  Thank you, W.B.
+
+find $HOME -type f -atime +30 -size 100k | {
+     foundone=false
+     while read f
+     do
+       echo "$f is over 100KB and has not been accessed in over 30 days"
+       echo "Consider moving the file to archives."
+       foundone=true
+     done
+
+     if ! $foundone
+     then
+       echo "No files need archiving."
+     fi
+}</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><A name=PTAILGREP></A></P>
+<P>A lookalike problem occurs when trying to write the <TT class=FILENAME>stdout</TT> of a <B class=COMMAND>tail -f</B> piped to <A href="http://tldp.org/LDP/abs/html/abs-guide.html#GREPREF">grep</A>. 
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>tail -f /var/log/messages | grep "$ERROR_MSG" &gt;&gt; error.log
+#  The "error.log" file will not have anything written to it.
+#  As Samuli Kaipiainen points out, this results from grep
+#+ buffering its output.
+#  The fix is to add the "--line-buffered" parameter to grep.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=SUIDSCR></A></P>
+<P>Using <SPAN class=QUOTE>"suid"</SPAN> commands within scripts is risky, as it may compromise system security. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN19993" name=AEN19993><SPAN class=footnote>[123]</SPAN></A> </P>
+<LI>
+<P><A name=CGIREF></A></P>
+<P>Using shell scripts for CGI programming may be problematic. Shell script variables are not <SPAN class=QUOTE>"typesafe,"</SPAN> and this can cause undesirable behavior as far as CGI is concerned. Moreover, it is difficult to <SPAN class=QUOTE>"cracker-proof"</SPAN> shell scripts.</P>
+<LI>
+<P>Bash does not handle the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#DOUBLESLASHREF">double slash (<SPAN class=TOKEN>//</SPAN>) string</A> correctly.</P>
+<LI>
+<P><A name=GNUREF></A></P>
+<P>Bash scripts written for Linux or BSD systems may need fixups to run on a commercial UNIX machine. Such scripts often employ the GNU set of commands and filters, which have greater functionality than their generic UNIX counterparts. This is particularly true of such text processing utilites as <A href="http://tldp.org/LDP/abs/html/abs-guide.html#TRREF">tr</A>.</P>
+<LI>
+<P><A name=UPDATEBREAKS></A></P>
+<P>Sadly, updates to Bash itself have broken older scripts that <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PARAGRAPHSPACE">used to work perfectly fine</A>. Let us recall <A href="http://tldp.org/LDP/abs/html/abs-guide.html#UNDOCF">how risky it is to use undocumented Bash features</A>.</P></LI></UL>
+<TABLE class=EPIGRAPH border=0 cellSpacing=0 cellPadding=0 width="100%">
+<TBODY>
+<TR>
+<TD width="45%">&nbsp;</TD>
+<TD vAlign=top width="45%" align=left><I>
+<P><I>Danger is near thee --</I></P>
+<P><I>Beware, beware, beware, beware.</I></P>
+<P><I>Many brave hearts are asleep in the deep.</I></P>
+<P><I>So beware --</I></P>
+<P><I>Beware.</I></P>
+<P><I>--A.J. Lamb and H.W. Petrie</I></P></I></TD></TR></TBODY></TABLE>

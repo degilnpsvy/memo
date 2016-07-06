@@ -1,0 +1,125 @@
+<H3 id=title-IDAR53PF class=docSection1Title>15.3. Debugging with Shared Libraries</H3>
+<P class=docText>Now that you understand how to invoke a remote debug session using GDB on the host and <TT>gdbserver</TT> on the target, we turn our attention to the complexities of shared libraries and debug symbols. Unless your application is a statically linked executable (linked with the <TT>-static</TT> linker command line switch), many symbols in your application will reference code outside your application. Obvious examples include the use of standard C library routines such as <TT>fopen</TT>,<TT>printf</TT>,<TT>malloc</TT>, and <TT>memcpy</TT>. Less obvious examples might include calls to application-specific functions, such as <TT>jack_transport_locate()</TT> (a routine from the JACK low-latency audio server), which calls a library function outside the standard C libraries.</P>
+<P class=docText><A name=iddle1930></A>To have symbols from these routines available, you must satisfy two requirements for GDB<TT>:</TT></P>
+<UL>
+<LI>
+<P class=docList>You must have debug versions of the libraries available.</P></LI>
+<LI>
+<P class=docList>GDB must know where to find them.</P></LI></UL>
+<P class=docText>If you don't have debug versions of the libraries available, you can still debug your application; you just won't have any debug information available for library routines called by your application. Often this is perfectly acceptable, unless, of course, you are developing a shared library object as part of your embedded project.</P>
+<P class=docText>Look back at <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list04">Listing 15-4</A>, where we invoked GDB on a remote target. After GDB connected via the <TT>target remote</TT> command, GDB issued a two-line response:</P>
+<DIV class=docText><PRE>Remote debugging using 192.168.1.141:2001
+0x40000790 in ?? ()</PRE></DIV><BR>
+<P class=docText>This confirms that GDB connected to our target at the indicated IP address and port. GDB then reports the location of the program counter as 0x40000790. Why do we get question marks instead of a symbolic location? Because this is the Linux dynamic loader (<TT>ld-x.y.z.so</TT>), and on this particular platform, we do not have debug symbols available for this shared library. How do we know this?</P>
+<P class=docText>Recall our introduction of the <TT>/proc</TT> file system from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, "File Systems." One of the more useful entries was the <TT>maps</TT> enTRy (see <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec8.html#ch09list16">Listing 9-16</A>, in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>) in the per-process directory structure. We know the process ID (PID) of our target application from the <TT>gdbserver</TT> output in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list03">Listing 15-3</A>. Our process was assigned PID 197. Given that, we can see the memory segments in use right after process startup, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list06">Listing 15-6</A>.</P><A name=ch15list06></A>
+<H5 id=title-IDARDBWD class=docExampleTitle>Listing 15-6. Initial Target Memory Segment Mapping</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote:~<SPAN class=docEmphStrong># cat /proc/197/maps</SPAN>
+00008000-00026000 r-xp 00000000 00:0e 4852444    ./websdemo-stripped
+0002d000-0002e000 rw-p 0001d000 00:0e 4852444    ./websdemo-stripped
+40000000-40017000 r-xp 00000000 00:0a 4982583    /lib/ld-2.3.3.so
+4001e000-40020000 rw-p 00016000 00:0a 4982583    /lib/ld-2.3.3.so
+bedf9000-bee0e000 rwxp bedf9000 00:00 0          [stack]
+root@coyote:~<SPAN class=docEmphStrong>#</SPAN></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1414></A><A name=iddle1544></A><A name=iddle2020></A><A name=iddle2415></A>Here we see the target <TT>websdemo-stripped</TT> application occupying two memory segments. The first is the read-only executable segment at 0x8000, and the second is a read-write data segment at 0x2d000. The third memory segment is the one of interest. It is the Linux dynamic linker's executable code segment. Notice that it starts at address 0x40000000. If we investigate further, we can confirm that GDB is actually sitting at the first line of code for the dynamic linker, before any code from our own application has been executed. Using our cross version of <TT>readelf</TT>, we can confirm the starting address of the linker as follows:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>xscale_be-readelf -S ld-2.3.3.so | grep \.text</SPAN>
+[ 9] .text    PROGBITS    00000790 000790 012c6c 00  AX  0   0 16</PRE></DIV><BR>
+<P class=docText>From this data, we conclude that the address GDB reports on startup is the first instruction from <TT>ld-2.3.3.so</TT>, the Linux dynamic linker/loader. You can use this technique to get rough ideas of where your code is if you don't have symbolic debug information for a process or shared library.</P>
+<P class=docText>Remember that we are executing this cross <TT>readelf</TT> command on our development host. Therefore, the <TT>ld-2.3.3.so</TT> file, itself an XScale binary object, must be accessible to your development host. Most typically, this file resides on your development host, and is a component of your embedded Linux distribution installed on your host.</P><A name=ch15lev2sec2></A>
+<H4 id=title-IDALGBWD class=docSection2Title>15.3.1. Shared Library Events in GDB</H4>
+<P class=docText>GDB can alert you to shared library events. This can be useful for understanding your application's behavior or the behavior of the Linux loader, or for setting breakpoints in shared library routines you want to debug or step through. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list07">Listing 15-7</A> illustrates this technique. Normally, the complete path to the library is displayed. This listing has been edited for better readability.</P><A name=ch15list07></A>
+<H5 id=title-IDADHBWD class=docExampleTitle>Listing 15-7. Stopping GDB on Shared Library Events</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>xscale_be-gdb -q websdemo</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote 192.168.1.141:2001</SPAN>
+Remote debugging using 192.168.1.141:2001
+0x40000790 in ?? ()
+(gdb) <SPAN class=docEmphStrong>i shared</SPAN>       &lt;&lt;&lt;Display loaded shared libs
+No shared libraries loaded at this time.
+(gdb) <SPAN class=docEmphStrong>b main</SPAN>         &lt;&lt;&lt;Break at main
+Breakpoint 1 at 0x12b80: file main.c, line 72.
+(gdb)  <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+
+Breakpoint 1, main (argc=0x1, argv=0xbec7fdc4) at main.c:72
+72               int localvar = 9;
+(gdb) <SPAN class=docEmphStrong>i shared</SPAN>
+From        To          Syms Read   Shared Object Library
+0x40033300  0x4010260c  Yes         /opt/mvl/.../lib/tls/libc.so.6
+0x40000790  0x400133fc  Yes         /opt/mvl/.../lib/ld-linux.so.3
+(gdb) <SPAN class=docEmphStrong>set stop-on-solib-events 1</SPAN>
+(gdb)  <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+Stopped due to shared library event
+(gdb)  <SPAN class=docEmphStrong>i shared</SPAN>
+From        To          Syms Read   Shared Object Library
+0x40033300  0x4010260c  Yes         /opt/mvl/.../lib/tls/libc.so.6
+0x40000790  0x400133fc  Yes         /opt/mvl/.../lib/ld-linux.so.3
+0x4012bad8  0x40132104  Yes         /opt/mvl/.../libnss_files.so.2
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1816></A><A name=iddle1953></A>When the debug session is first started, of course, no shared libraries are loaded. You can see this with the first <TT>i shared</TT> command. This command displays the shared libraries that are currently loaded. Setting a breakpoint at our application's <TT>main()</TT> function, we see that two shared libraries are now loaded. These are the Linux dynamic linker/loader and the standard C library component <TT>libc</TT>.</P>
+<P class=docText>From here, we issue the <TT>set stop-on-solib-event</TT> command and continue program execution. When the application tries to execute a function from another shared library, that library is loaded. In case you are wondering, the <TT>gethostbyname()</TT> function is encountered and causes the next shared object load.</P>
+<P class=docText>This example illustrates an important cross-development concept. The binary application (ELF image) running on the target contains information on the libraries it needs to resolve its external references. We can view this information easily using the <TT>ldd</TT> command introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch11.html#ch11">Chapter 11</A>, "BusyBox," and detailed in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13.html#ch13">Chapter 13</A>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list08">Listing 15-8</A> shows the output of <TT>ldd</TT> invoked from the target board.</P><A name=ch15list08></A>
+<H5 id=title-IDA3SBWD class=docExampleTitle>Listing 15-8. <TT>ldd</TT> Executed on Target Board</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote:/workspace# <SPAN class=docEmphStrong>ldd websdemo</SPAN>
+         libc.so.6 =&gt; /lib/tls/libc.so.6 (0x40020000)
+         /lib/ld-linux.so.3    (0x40000000)
+root@coyote:/workspace#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1952></A>Notice that the paths to the shared libraries on the target are absolute paths starting at <TT>/lib</TT> on the root file system. But GDB running on your host development workstation cannot use these paths to find the libraries. You should realize that to do so would result in your host GDB loading libraries from the wrong architecture. Your host is likely x86, whereas, in this example, the target is ARM XScale.</P>
+<P class=docText>If you invoke your cross version of <TT>ldd</TT>, you will see the paths that were preconfigured into your toolchain. Your toolchain must have knowledge of where these files exist on your host development system.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15fn2">[2]</A></SUP> <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list09">Listing 15-9</A> illustrates this. Again, we have edited the listing for readability; long paths have been abbreviated.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch15fn2>[2]</A></SUP> It is certainly possible to pass these locations to your compiler, linker, and debugger for every invocation, but any good embedded Linux distribution will configure these defaults into the toolchain as a convenience to the developer.</P></BLOCKQUOTE><A name=ch15list09></A>
+<H5 id=title-IDAUUBWD class=docExampleTitle>Listing 15-9. <TT>ldd</TT> Executed on Development Host</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>xscale_be-ldd    websdemo</SPAN>
+   libc.so.6 =&gt; /opt/mvl/.../xscale_be/target/lib/libc.so.6 (0xdead1000)
+   ld-linux.so.3 =&gt; /opt/mvl/.../xscale_be/target/lib/ld-linux.so.3 (0xdead2000)
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Your cross toolchain should be preconfigured with these library locations. Not only does your host GDB need to know where they are located, but, of course, your compiler and linker also need this knowledge.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15fn3">[3]</A></SUP> GDB can tell you where it is configured to look for these libraries using the show <TT>solib-absolute-prefix</TT> command:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch15fn3>[3]</A></SUP> Of course, your compiler also needs to know the location of target files such as architecture-specific system and library header files.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>(gdb) <SPAN class=docEmphStrong>show solib-absolute-prefix</SPAN>
+Prefix for loading absolute shared library symbol files is
+"/opt/mvl/pro/devkit/arm/xscale_be/target".
+(gdb)</PRE></DIV><BR>
+<P class=docText>You can set or change where GDB searches for shared libraries using the GDB commands <TT>set solib-absolute-prefix</TT> and <TT>set solib-search-path</TT>. If you are developing your own shared library modules or have custom library locations on your system, you can use <TT>solib-search-path</TT> to instruct GDB where to look for <A name=iddle1973></A>your libraries. For more details about these and other GDB commands, consult the online GDB manual referenced at the end of this chapter in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec6.html#ch15lev2sec8">Section 15.6.1</A>, "Suggestions for Additional Reading."</P>
+<P class=docText>One final note about <TT>ldd</TT>. You might have noticed the addresses from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list08">Listing 15-8</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list09">15-9</A> associated with the libraries. <TT>ldd</TT> displays the load address for the start of these code segments as they would be if the program were loaded by the Linux dynamic linker/loader. Executed on the target, the addresses in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list05">Listing 15-5</A> make perfect sense, and we can correlate these with the <TT>/proc/&lt;pid&gt;/maps</TT> listing of the running process on the target. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list10">Listing 15-10</A> displays the memory segments for this target process after it is completely loaded and running.</P><A name=ch15list10></A>
+<H5 id=title-IDACALXC class=docExampleTitle>Listing 15-10. Memory Segments from <TT>/proc/&lt;pid&gt;/maps</TT> on Target</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote:~# <SPAN class=docEmphStrong>cat /proc/197/maps</SPAN>
+00008000-00026000 r-xp 00000000 00:0e 4852444    /workspace/websdemo-stripped
+0002d000-0002e000 rw-p 0001d000 00:0e 4852444    /workspace/websdemo-stripped
+0002e000-0005e000 rwxp 0002e000 00:00 0          [heap]
+40000000-40017000 r-xp 00000000 00:0a 4982583    /lib/ld-2.3.3.so
+40017000-40019000 rw-p 40017000 00:00 0
+4001e000-4001f000 r--p 00016000 00:0a 4982583    /lib/ld-2.3.3.so
+4001f000-40020000 rw-p 00017000 00:0a 4982583    /lib/ld-2.3.3.so
+40020000-4011d000 r-xp 00000000 00:0a 4982651    /lib/tls/libc-2.3.3.so
+4011d000-40120000 ---p 000fd000 00:0a 4982651    /lib/tls/libc-2.3.3.so
+40120000-40124000 rw-p 000f8000 00:0a 4982651    /lib/tls/libc-2.3.3.so
+40124000-40126000 r--p 000fc000 00:0a 4982651    /lib/tls/libc-2.3.3.so
+40126000-40128000 rw-p 000fe000 00:0a 4982651    /lib/tls/libc-2.3.3.so
+40128000-4012a000 rw-p 40128000 00:00 0
+4012a000-40133000 r-xp 00000000 00:0a 4982652    /lib/tls/libnss_files-2.3.3.so
+40133000-4013a000 ---p 00009000 00:0a 4982652    /lib/tls/libnss_files-2.3.3.so
+4013a000-4013b000 r--p 00008000 00:0a 4982652    /lib/tls/libnss_files-2.3.3.so
+4013b000-4013c000 rw-p 00009000 00:0a 4982652    /lib/tls/libnss_files-2.3.3.so
+becaa000-becbf000 rwxp becaa000 00:00 0          [stack]
+root@coyote:~#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice the correlation of the target <TT>ldd</TT> output from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list08">Listing 15-8</A> to the memory segments displayed in the <TT>/proc</TT> file system for this process. The start (beginning of <TT>.text</TT> segment) of the Linux loader is <TT>0x40000000</TT> and the start of <TT>libc</TT> is at <TT>0x40020000</TT>. These are the virtual addresses where these portions of the application have been loaded, and are reported by the target invocation of <TT>ldd</TT>. However, the load addresses reported by the cross version of <TT>ldd</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec3.html#ch15list09">Listing 15-9</A> (<TT>0xdead1000</TT> and <TT>0xdead2000</TT>) are there to remind you that these libraries cannot be loaded on <A name=iddle1035></A><A name=iddle1278></A><A name=iddle1517></A><A name=iddle2017></A><A name=iddle2140></A><A name=iddle2256></A><A name=iddle2257></A>your host system (they are ARM architecture binaries), and the load addresses are simply placeholders.

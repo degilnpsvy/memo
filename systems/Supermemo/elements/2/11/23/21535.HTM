@@ -1,0 +1,134 @@
+<H1 class=SECT1><A name=QUOTINGVAR></A>5.1. Quoting Variables</H1>
+<P>When referencing a variable, it is generally advisable to enclose its name in double quotes. This prevents reinterpretation of all special characters within the quoted string -- except <SPAN class=TOKEN>$</SPAN>, <SPAN class=TOKEN>`</SPAN> (backquote), and <SPAN class=TOKEN>\</SPAN> (escape). <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN2630" name=AEN2630><SPAN class=footnote>[30]</SPAN></A> Keeping <SPAN class=TOKEN>$</SPAN> as a special character within double quotes permits referencing a quoted variable (<TT class=REPLACEABLE><I>"$variable"</I></TT>), that is, replacing the variable with its value (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX9">Example 4-1</A>, above).</P>
+<P><A name=WSQUO></A></P>
+<P>Use double quotes to prevent word splitting. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN2688" name=AEN2688><SPAN class=footnote>[31]</SPAN></A> An argument enclosed in double quotes presents itself as a single word, even if it contains <A href="http://tldp.org/LDP/abs/html/abs-guide.html#WHITESPACEREF">whitespace</A> separators.</P>
+<P><A name=VARSPLITTING></A></P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>List="one two three"
+
+for a in $List     # Splits the variable in parts at whitespace.
+do
+  echo "$a"
+done
+# one
+# two
+# three
+
+echo "---"
+
+for a in "$List"   # Preserves whitespace in a single variable.
+do #     ^     ^
+  echo "$a"
+done
+# one two three</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>A more elaborate example:</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>variable1="a variable containing five words"
+COMMAND This is $variable1    # Executes COMMAND with 7 arguments:
+# "This" "is" "a" "variable" "containing" "five" "words"
+
+COMMAND "This is $variable1"  # Executes COMMAND with 1 argument:
+# "This is a variable containing five words"
+
+
+variable2=""    # Empty.
+
+COMMAND $variable2 $variable2 $variable2
+                # Executes COMMAND with no arguments. 
+COMMAND "$variable2" "$variable2" "$variable2"
+                # Executes COMMAND with 3 empty arguments. 
+COMMAND "$variable2 $variable2 $variable2"
+                # Executes COMMAND with 1 argument (2 spaces). 
+
+# Thanks, St&#233;phane Chazelas.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DIV class=TIP>
+<P></P>
+<TABLE class=TIP border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Tip src="http://tldp.org/LDP/abs/images/tip.gif"></TD>
+<TD vAlign=top align=left>
+<P>Enclosing the arguments to an <B class=COMMAND>echo</B> statement in double quotes is necessary only when word splitting or preservation of <A href="http://tldp.org/LDP/abs/html/abs-guide.html#WHITESPACEREF">whitespace</A> is an issue.</P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=EXAMPLE><A name=WEIRDVARS></A>
+<P><B>Example 5-1. Echoing Weird Variables</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# weirdvars.sh: Echoing weird variables.
+
+echo
+
+var="'(]\\{}\$\""
+echo $var        # '(]\{}$"
+echo "$var"      # '(]\{}$"     Doesn't make a difference.
+
+echo
+
+IFS='\'
+echo $var        # '(] {}$"     \ converted to space. Why?
+echo "$var"      # '(]\{}$"
+
+# Examples above supplied by Stephane Chazelas.
+
+echo
+
+var2="\\\\\""
+echo $var2       #   "
+echo "$var2"     # \\"
+echo
+# But ... var2="\\\\"" is illegal. Why?
+var3='\\\\'
+echo "$var3"     # \\\\
+# Strong quoting works, though.
+
+
+# ************************************************************ #
+# As the first example above shows, nesting quotes is permitted.
+
+echo "$(echo '"')"           # "
+#    ^           ^
+
+
+# At times this comes in useful.
+
+var1="Two bits"
+echo "\$var1 = "$var1""      # $var1 = Two bits
+#    ^                ^
+
+# Or, as Chris Hiestand points out ...
+
+if [[ "$(du "$My_File1")" -gt "$(du "$My_File2")" ]]
+#     ^     ^         ^ ^     ^     ^         ^ ^
+then
+  ...
+fi
+# ************************************************************ #</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Single quotes (<SPAN class=TOKEN>' '</SPAN>) operate similarly to double quotes, but do not permit referencing variables, since the special meaning of <SPAN class=TOKEN>$</SPAN> is turned off. Within single quotes, <EM>every</EM> special character except <SPAN class=TOKEN>'</SPAN> gets interpreted literally. Consider single quotes (<SPAN class=QUOTE>"full quoting"</SPAN>) to be a stricter method of quoting than double quotes (<SPAN class=QUOTE>"partial quoting"</SPAN>).</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>Since even the escape character (<SPAN class=TOKEN>\</SPAN>) gets a literal interpretation within single quotes, trying to enclose a single quote within single quotes will not yield the expected result. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>echo "Why can't I write 's between single quotes"
+
+echo
+
+# The roundabout method.
+echo 'Why can'\''t I write '"'"'s between single quotes'
+#    |-------|  |----------|   |-----------------------|
+# Three single-quoted strings, with escaped and quoted single quotes between.
+
+# This example courtesy of St&#233;phane Chazelas.</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>

@@ -1,0 +1,73 @@
+# Documentation/scheduler/sched-design-CFS.txt 
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =============<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CFS Scheduler<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =============</P>
+<P></P>
+<P><BR>1.&nbsp; OVERVIEW</P>
+<P>CFS stands for "Completely Fair Scheduler," and is the new "desktop" process<BR>scheduler implemented by Ingo Molnar and merged in Linux 2.6.23.&nbsp; It is the<BR>replacement for the previous vanilla scheduler's SCHED_OTHER interactivity<BR>code.</P>
+<P>80% of CFS's design can be summed up in a single sentence: CFS basically models<BR>an "ideal, precise multi-tasking CPU" on real hardware.</P>
+<P>"Ideal multi-tasking CPU" is a (non-existent&nbsp; :-)) CPU that has 100% physical<BR>power and which can run each task at precise equal speed, in parallel, each at<BR>1/nr_running speed.&nbsp; For example: if there are 2 tasks running, then it runs<BR>each at 50% physical power --- i.e., actually in parallel.</P>
+<P>On real hardware, we can run only a single task at once, so we have to<BR>introduce the concept of "virtual runtime."&nbsp; The virtual runtime of a task<BR>specifies when its next timeslice would start execution on the ideal<BR>multi-tasking CPU described above.&nbsp; In practice, the virtual runtime of a task<BR>is its actual runtime normalized to the total number of running tasks.</P>
+<P>&nbsp;</P>
+<P>2.&nbsp; FEW IMPLEMENTATION DETAILS</P>
+<P>In CFS the virtual runtime is expressed and tracked via the per-task<BR>p-&gt;se.vruntime (nanosec-unit) value.&nbsp; This way, it's possible to accurately<BR>timestamp and measure the "expected CPU time" a task should have gotten.</P>
+<P>[ small detail: on "ideal" hardware, at any time all tasks would have the same<BR>&nbsp; p-&gt;se.vruntime value --- i.e., tasks would execute simultaneously and no task<BR>&nbsp; would ever get "out of balance" from the "ideal" share of CPU time.&nbsp; ]</P>
+<P>CFS's task picking logic is based on this p-&gt;se.vruntime value and it is thus<BR>very simple: it always tries to run the task with the smallest p-&gt;se.vruntime<BR>value (i.e., the task which executed least so far).&nbsp; CFS always tries to split<BR>up CPU time between runnable tasks as close to "ideal multitasking hardware" as<BR>possible.</P>
+<P>Most of the rest of CFS's design just falls out of this really simple concept,<BR>with a few add-on embellishments like nice levels, multiprocessing and various<BR>algorithm variants to recognize sleepers.</P>
+<P>&nbsp;</P>
+<P>3.&nbsp; THE RBTREE</P>
+<P>CFS's design is quite radical: it does not use the old data structures for the<BR>runqueues, but it uses a time-ordered rbtree to build a "timeline" of future<BR>task execution, and thus has no "array switch" artifacts (by which both the<BR>previous vanilla scheduler and RSDL/SD are affected).</P>
+<P>CFS also maintains the rq-&gt;cfs.min_vruntime value, which is a monotonic<BR>increasing value tracking the smallest vruntime among all tasks in the<BR>runqueue.&nbsp; The total amount of work done by the system is tracked using<BR>min_vruntime; that value is used to place newly activated entities on the left<BR>side of the tree as much as possible.</P>
+<P>The total number of running tasks in the runqueue is accounted through the<BR>rq-&gt;cfs.load value, which is the sum of the weights of the tasks queued on the<BR>runqueue.</P>
+<P>CFS maintains a time-ordered rbtree, where all runnable tasks are sorted by the<BR>p-&gt;se.vruntime key (there is a subtraction using rq-&gt;cfs.min_vruntime to<BR>account for possible wraparounds).&nbsp; CFS picks the "leftmost" task from this<BR>tree and sticks to it.<BR>As the system progresses forwards, the executed tasks are put into the tree<BR>more and more to the right --- slowly but surely giving a chance for every task<BR>to become the "leftmost task" and thus get on the CPU within a deterministic<BR>amount of time.</P>
+<P>Summing up, CFS works like this: it runs a task a bit, and when the task<BR>schedules (or a scheduler tick happens) the task's CPU usage is "accounted<BR>for": the (small) time it just spent using the physical CPU is added to<BR>p-&gt;se.vruntime.&nbsp; Once p-&gt;se.vruntime gets high enough so that another task<BR>becomes the "leftmost task" of the time-ordered rbtree it maintains (plus a<BR>small amount of "granularity" distance relative to the leftmost task so that we<BR>do not over-schedule tasks and trash the cache), then the new leftmost task is<BR>picked and the current task is preempted.</P>
+<P>&nbsp;</P>
+<P>4.&nbsp; SOME FEATURES OF CFS</P>
+<P>CFS uses nanosecond granularity accounting and does not rely on any jiffies or<BR>other HZ detail.&nbsp; Thus the CFS scheduler has no notion of "timeslices" in the<BR>way the previous scheduler had, and has no heuristics whatsoever.&nbsp; There is<BR>only one central tunable (you have to switch on CONFIG_SCHED_DEBUG):</P>
+<P>&nbsp;&nbsp; /proc/sys/kernel/sched_min_granularity_ns</P>
+<P>which can be used to tune the scheduler from "desktop" (i.e., low latencies) to<BR>"server" (i.e., good batching) workloads.&nbsp; It defaults to a setting suitable<BR>for desktop workloads.&nbsp; SCHED_BATCH is handled by the CFS scheduler module too.</P>
+<P>Due to its design, the CFS scheduler is not prone to any of the "attacks" that<BR>exist today against the heuristics of the stock scheduler: fiftyp.c, thud.c,<BR>chew.c, ring-test.c, massive_intr.c all work fine and do not impact<BR>interactivity and produce the expected behavior.</P>
+<P>The CFS scheduler has a much stronger handling of nice levels and SCHED_BATCH<BR>than the previous vanilla scheduler: both types of workloads are isolated much<BR>more aggressively.</P>
+<P>SMP load-balancing has been reworked/sanitized: the runqueue-walking<BR>assumptions are gone from the load-balancing code now, and iterators of the<BR>scheduling modules are used.&nbsp; The balancing code got quite a bit simpler as a<BR>result.</P>
+<P>&nbsp;</P>
+<P>5. Scheduling policies</P>
+<P>CFS implements three scheduling policies:</P>
+<P>&nbsp; - SCHED_NORMAL (traditionally called SCHED_OTHER): The scheduling<BR>&nbsp;&nbsp;&nbsp; policy that is used for regular tasks.</P>
+<P>&nbsp; - SCHED_BATCH: Does not preempt nearly as often as regular tasks<BR>&nbsp;&nbsp;&nbsp; would, thereby allowing tasks to run longer and make better use of<BR>&nbsp;&nbsp;&nbsp; caches but at the cost of interactivity. This is well suited for<BR>&nbsp;&nbsp;&nbsp; batch jobs.</P>
+<P>&nbsp; - SCHED_IDLE: This is even weaker than nice 19, but its not a true<BR>&nbsp;&nbsp;&nbsp; idle timer scheduler in order to avoid to get into priority<BR>&nbsp;&nbsp;&nbsp; inversion problems which would deadlock the machine.</P>
+<P>SCHED_FIFO/_RR are implemented in sched/rt.c and are as specified by<BR>POSIX.</P>
+<P>The command chrt from util-linux-ng 2.13.1.1 can set all of these except<BR>SCHED_IDLE.</P>
+<P>&nbsp;</P>
+<P>6.&nbsp; SCHEDULING CLASSES</P>
+<P>The new CFS scheduler has been designed in such a way to introduce "Scheduling<BR>Classes," an extensible hierarchy of scheduler modules.&nbsp; These modules<BR>encapsulate scheduling policy details and are handled by the scheduler core<BR>without the core code assuming too much about them.</P>
+<P>sched/fair.c implements the CFS scheduler described above.</P>
+<P>sched/rt.c implements SCHED_FIFO and SCHED_RR semantics, in a simpler way than<BR>the previous vanilla scheduler did.&nbsp; It uses 100 runqueues (for all 100 RT<BR>priority levels, instead of 140 in the previous scheduler) and it needs no<BR>expired array.</P>
+<P>Scheduling classes are implemented through the sched_class structure, which<BR>contains hooks to functions that must be called whenever an interesting event<BR>occurs.</P>
+<P>This is the (partial) list of the hooks:</P>
+<P>&nbsp;- enqueue_task(...)</P>
+<P>&nbsp;&nbsp; Called when a task enters a runnable state.<BR>&nbsp;&nbsp; It puts the scheduling entity (task) into the red-black tree and<BR>&nbsp;&nbsp; increments the nr_running variable.</P>
+<P>&nbsp;- dequeue_task(...)</P>
+<P>&nbsp;&nbsp; When a task is no longer runnable, this function is called to keep the<BR>&nbsp;&nbsp; corresponding scheduling entity out of the red-black tree.&nbsp; It decrements<BR>&nbsp;&nbsp; the nr_running variable.</P>
+<P>&nbsp;- yield_task(...)</P>
+<P>&nbsp;&nbsp; This function is basically just a dequeue followed by an enqueue, unless the<BR>&nbsp;&nbsp; compat_yield sysctl is turned on; in that case, it places the scheduling<BR>&nbsp;&nbsp; entity at the right-most end of the red-black tree.</P>
+<P>&nbsp;- check_preempt_curr(...)</P>
+<P>&nbsp;&nbsp; This function checks if a task that entered the runnable state should<BR>&nbsp;&nbsp; preempt the currently running task.</P>
+<P>&nbsp;- pick_next_task(...)</P>
+<P>&nbsp;&nbsp; This function chooses the most appropriate task eligible to run next.</P>
+<P>&nbsp;- set_curr_task(...)</P>
+<P>&nbsp;&nbsp; This function is called when a task changes its scheduling class or changes<BR>&nbsp;&nbsp; its task group.</P>
+<P>&nbsp;- task_tick(...)</P>
+<P>&nbsp;&nbsp; This function is mostly called from time tick functions; it might lead to<BR>&nbsp;&nbsp; process switch.&nbsp; This drives the running preemption.</P>
+<P>&nbsp;</P>
+<P><BR>7.&nbsp; GROUP SCHEDULER EXTENSIONS TO CFS</P>
+<P>Normally, the scheduler operates on individual tasks and strives to provide<BR>fair CPU time to each task.&nbsp; Sometimes, it may be desirable to group tasks and<BR>provide fair CPU time to each such task group.&nbsp; For example, it may be<BR>desirable to first provide fair CPU time to each user on the system and then to<BR>each task belonging to a user.</P>
+<P>CONFIG_CGROUP_SCHED strives to achieve exactly that.&nbsp; It lets tasks to be<BR>grouped and divides CPU time fairly among such groups.</P>
+<P>CONFIG_RT_GROUP_SCHED permits to group real-time (i.e., SCHED_FIFO and<BR>SCHED_RR) tasks.</P>
+<P>CONFIG_FAIR_GROUP_SCHED permits to group CFS (i.e., SCHED_NORMAL and<BR>SCHED_BATCH) tasks.</P>
+<P>&nbsp;&nbsp; These options need CONFIG_CGROUPS to be defined, and let the administrator<BR>&nbsp;&nbsp; create arbitrary groups of tasks, using the "cgroup" pseudo filesystem.&nbsp; See<BR>&nbsp;&nbsp; Documentation/cgroups/cgroups.txt for more information about this filesystem.</P>
+<P>When CONFIG_FAIR_GROUP_SCHED is defined, a "cpu.shares" file is created for each<BR>group created using the pseudo filesystem.&nbsp; See example steps below to create<BR>task groups and modify their CPU share using the "cgroups" pseudo filesystem.</P>
+<P>&nbsp;# mount -t tmpfs cgroup_root /sys/fs/cgroup<BR>&nbsp;# mkdir /sys/fs/cgroup/cpu<BR>&nbsp;# mount -t cgroup -ocpu none /sys/fs/cgroup/cpu<BR>&nbsp;# cd /sys/fs/cgroup/cpu</P>
+<P>&nbsp;# mkdir multimedia&nbsp;# create "multimedia" group of tasks<BR>&nbsp;# mkdir browser&nbsp;&nbsp;# create "browser" group of tasks</P>
+<P>&nbsp;# #Configure the multimedia group to receive twice the CPU bandwidth<BR>&nbsp;# #that of browser group</P>
+<P>&nbsp;# echo 2048 &gt; multimedia/cpu.shares<BR>&nbsp;# echo 1024 &gt; browser/cpu.shares</P>
+<P>&nbsp;# firefox &amp;&nbsp;# Launch firefox and move it to "browser" group<BR>&nbsp;# echo &lt;firefox_pid&gt; &gt; browser/tasks</P>
+<P>&nbsp;# #Launch gmplayer (or your favourite movie player)<BR>&nbsp;# echo &lt;movie_player_pid&gt; &gt; multimedia/tasks

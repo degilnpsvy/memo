@@ -1,0 +1,73 @@
+<H4 class=subsection>11.2.3 Printing out User Information</H4><A name=index-printing_002c-user-information></A><A name=index-users_002c-information-about_002c-printing></A><A name=index-id-utility></A>
+<P>The <CODE>id</CODE> utility lists a user&#8217;s real and effective user ID numbers, real and effective group ID numbers, and the user&#8217;s group set, if any. <CODE>id</CODE> only prints the effective user ID and group ID if they are different from the real ones. If possible, <CODE>id</CODE> also supplies the corresponding user and group names. The output might look like this: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>id</EM></KBD>
+-| uid=500(arnold) gid=500(arnold) groups=6(disk),7(lp),19(floppy)
+</PRE></DIV><A name=index-PROCINFO-array_002c-and-user-and-group-ID-numbers></A>
+<P>This information is part of what is provided by <CODE>gawk</CODE>&#8217;s <CODE>PROCINFO</CODE> array (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Built_002din-Variables">Built-in Variables</A>). However, the <CODE>id</CODE> utility provides a more palatable output than just individual numbers. </P>
+<P>Here is a simple version of <CODE>id</CODE> written in <CODE>awk</CODE>. It uses the user database library functions (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Passwd-Functions">Passwd Functions</A>) and the group database library functions (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Group-Functions">Group Functions</A>): </P>
+<P>The program is fairly straightforward. All the work is done in the <CODE>BEGIN</CODE> rule. The user and group ID numbers are obtained from <CODE>PROCINFO</CODE>. The code is repetitive. The entry in the user database for the real user ID number is split into parts at the &#8216;<SAMP>:</SAMP>&#8217;. The name is the first field. Similar code is used for the effective user ID number and the group numbers: </P><A name=index-id_002eawk-program></A>
+<DIV class=example><PRE class=example># id.awk --- implement id in awk
+#
+# Requires user and group library functions
+# output is:
+# uid=12(foo) euid=34(bar) gid=3(baz) \
+#             egid=5(blat) groups=9(nine),2(two),1(one)
+
+</PRE><PRE class=example>BEGIN    \
+{
+    uid = PROCINFO["uid"]
+    euid = PROCINFO["euid"]
+    gid = PROCINFO["gid"]
+    egid = PROCINFO["egid"]
+</PRE><PRE class=example>    printf("uid=%d", uid)
+    pw = getpwuid(uid)
+    if (pw != "") {
+        split(pw, a, ":")
+        printf("(%s)", a[1])
+    }
+
+    if (euid != uid) {
+        printf(" euid=%d", euid)
+        pw = getpwuid(euid)
+        if (pw != "") {
+            split(pw, a, ":")
+            printf("(%s)", a[1])
+        }
+    }
+
+    printf(" gid=%d", gid)
+    pw = getgrgid(gid)
+    if (pw != "") {
+        split(pw, a, ":")
+        printf("(%s)", a[1])
+    }
+
+    if (egid != gid) {
+        printf(" egid=%d", egid)
+        pw = getgrgid(egid)
+        if (pw != "") {
+            split(pw, a, ":")
+            printf("(%s)", a[1])
+        }
+    }
+
+    for (i = 1; ("group" i) in PROCINFO; i++) {
+        if (i == 1)
+            printf(" groups=")
+        group = PROCINFO["group" i]
+        printf("%d", group)
+        pw = getgrgid(group)
+        if (pw != "") {
+            split(pw, a, ":")
+            printf("(%s)", a[1])
+        }
+        if (("group" (i+1)) in PROCINFO)
+            printf(",")
+    }
+
+    print ""
+}
+</PRE></DIV>
+<P>The test in the <CODE>for</CODE> loop is worth noting. Any supplementary groups in the <CODE>PROCINFO</CODE> array have the indices <CODE>"group1"</CODE> through <CODE>"group<VAR>N</VAR>"</CODE> for some <VAR>N</VAR>, i.e., the total number of supplementary groups. However, we don&#8217;t know in advance how many of these groups there are. </P>
+<P>This loop works by starting at one, concatenating the value with <CODE>"group"</CODE>, and then using <CODE>in</CODE> to see if that value is in the array (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Reference-to-Elements">Reference to Elements</A>). Eventually, <CODE>i</CODE> is incremented past the last group in the array and the loop exits. </P>
+<P>The loop is also correct if there are <EM>no</EM> supplementary groups; then the condition is false the first time it&#8217;s tested, and the loop body never executes.

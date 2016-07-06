@@ -1,0 +1,66 @@
+<H3 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=section>6.4 Nested Functions</H3>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><A name=index-nested-functions-2655></A><A name=index-downward-funargs-2656></A><A name=index-thunks-2657></A>A<SPAN class=Apple-converted-space>&nbsp;</SPAN><DFN>nested function</DFN><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a function defined inside another function. Nested functions are supported as an extension in GNU C, but are not supported by GNU C++.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The nested function's name is local to the block where it is defined. For example, here we define a nested function named<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>square</CODE>, and call it twice:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     foo (double a, double b)
+     {
+       double square (double z) { return z * z; }
+     
+       return square (a) + square (b);
+     }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The nested function can access all the variables of the containing function that are visible at the point of its definition. This is called<DFN>lexical scoping</DFN>. For example, here we show a nested function which uses an inherited variable named<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>offset</CODE>:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     bar (int *array, int offset, int size)
+     {
+       int access (int *array, int index)
+         { return array[index + offset]; }
+       int i;
+       /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */
+       for (i = 0; i &lt; size; i++)
+         /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */ access (array, i) /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */
+     }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Nested function definitions are permitted within functions in the places where variable definitions are allowed; that is, in any block, mixed with the other declarations and statements in the block.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">It is possible to call the nested function from outside the scope of its name by storing its address or passing the address to another function:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     hack (int *array, int size)
+     {
+       void store (int index, int value)
+         { array[index] = value; }
+     
+       intermediate (store, size);
+     }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here, the function<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>intermediate</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>receives the address of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>store</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>as an argument. If<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>intermediate</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>calls<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>store</CODE>, the arguments given to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>store</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>are used to store into<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>array</CODE>. But this technique works only so long as the containing function (<CODE>hack</CODE>, in this example) does not exit.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">If you try to call the nested function through its address after the containing function exits, all hell breaks loose. If you try to call it after a containing scope level exits, and if it refers to some of the variables that are no longer in scope, you may be lucky, but it's not wise to take the risk. If, however, the nested function does not refer to anything that has gone out of scope, you should be safe.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">GCC implements taking the address of a nested function using a technique called<SPAN class=Apple-converted-space>&nbsp;</SPAN><DFN>trampolines</DFN>. This technique was described in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CITE>Lexical Closures for C++</CITE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(Thomas M. Breuel, USENIX C++ Conference Proceedings, October 17-21, 1988).</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A nested function can jump to a label inherited from a containing function, provided the label is explicitly declared in the containing function (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://gcc.gnu.org/onlinedocs/gcc-4.9.1/gcc/Local-Labels.html#Local-Labels">Local Labels</A>). Such a jump returns instantly to the containing function, exiting the nested function that did the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>goto</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and any intermediate functions as well. Here is an example:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     bar (int *array, int offset, int size)
+     {
+       __label__ failure;
+       int access (int *array, int index)
+         {
+           if (index &gt; size)
+             goto failure;
+           return array[index + offset];
+         }
+       int i;
+       /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */
+       for (i = 0; i &lt; size; i++)
+         /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */ access (array, i) /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */
+       /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */
+       return 0;
+     
+      /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>Control comes here from </SPAN><CODE>access</CODE><SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>
+         if it detects an error.</SPAN>  */
+      failure:
+       return -1;
+     }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A nested function always has no linkage. Declaring one with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>extern</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>static</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is erroneous. If you need to declare the nested function before its definition, use<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>auto</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(which is otherwise meaningless for function declarations).</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     bar (int *array, int offset, int size)
+     {
+       __label__ failure;
+       auto int access (int *, int);
+       /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */
+       int access (int *array, int index)
+         {
+           if (index &gt; size)
+             goto failure;
+           return array[index + offset];
+         }
+       /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */
+     }</PRE>

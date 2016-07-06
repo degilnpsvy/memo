@@ -1,0 +1,517 @@
+<H3 id=-100000 class=docSection1Title>Frame Buffer Drivers</H3>
+<P class=docText><A name="Now that"></A>Now that you have an idea of the frame buffer API and how it provides hardware independence, let's discover the architecture of a low-level frame buffer device driver using the example of a navigation system.</P><A name=ch12lev2sec1></A>
+<H4 id=title-ID0EDZPM class=docSection2Title>Device Example: Navigation System</H4>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12fig06">Figure 12.6</A><A name="operation on"></A> shows video operation on an example vehicle navigation system built around an embedded SoC. A GPS receiver streams coordinates to the SoC via a UART interface. An application produces graphics from the received location information and updates a frame buffer in system memory. The frame buffer driver DMAs this picture data to display buffers that are part of the SoC's LCD controller. The controller forwards the pixel data to the QVGA LCD panel for display.</P><A name=ch12fig06></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="Display on"></A>Figure 12.6. Display on a Linux navigation device.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzZmMmhpZ2Y-.jpg" width=500 height=310></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="this system"></A>Our goal is to develop the video software for this system. Let's assume that Linux supports the SoC used on this navigation device and that all architecture-dependent interfaces such as DMA are supported by the kernel.</P><A name=ch12note03></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="the device"></A>One possible hardware implementation of the device shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12fig06">Figure 12.6</A><A name="that case"></A> is by using a Freescale i.MX21 SoC. The CPU core in that case is an ARM9 core, and the on-chip video controller is the Liquid Crystal Display Controller (LCDC). SoCs commonly have a high-performance internal local bus that connects to controllers such as DRAM and video. In the case of the iMX.21, this bus is called the Advanced High-Performance Bus (AHB). The LCDC connects to the AHB.</P>
+<P></P></DIV><BR>
+<P class=docText><A name="as a"></A>The navigation system's video software is broadly architected as a GPS application operating over a low-level frame buffer driver for the LCD controller. The application fetches location coordinates from the GPS receiver by reading <SPAN class=docEmphasis>/dev/ttySX</SPAN>, where <SPAN class=docEmphasis>X</SPAN><A name="the geographic"></A> is the UART number connected to the receiver. It then translates the geographic fix information into a picture and writes the pixel data to the frame buffer associated with the LCD controller. This is done on the lines of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec4.html#ch12ex01">Listing 12.1</A><A name="data is"></A>, except that picture data is dispatched rather than zeros to clear the screen.</P>
+<P class=docText><A name=iddle2723></A><A name="of this"></A>The rest of this section focuses only on the low-level frame buffer device driver. Like many other driver subsystems, the full complement of facilities, modes, and options offered by the frame buffer core layer are complex and can be learned only with coding experience. The frame buffer driver for the example navigation system is relatively simplistic and is only a starting point for deeper explorations.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12tab01">Table 12.1</A><A name="describes the"></A> describes the register model of the LCD controller shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12fig06">Figure 12.6</A><A name="buffer driver"></A>. The frame buffer driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12ex02">Listing 12.2</A><A name="over these"></A> operates over these registers.</P><A name=ch12tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 12.1. Register Layout of the LCD Controller Shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12fig06">Figure 12.6</A></H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=200>
+<COL width=350></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Register Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Used to Configure</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>SIZE_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>LCD panel's maximum X and Y dimensions</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>HSYNC_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>HSYNC</TT> duration</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>VSYNC_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left><TT>VSYNC</TT> duration</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CONF_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Bits per pixel, pixel polarity, clock dividers for generating pixclock, color/monochrome mode, and so on</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CTRL_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Enable/disable LCD controller, clocks, and DMA</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>DMA_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Frame buffer's DMA start address, burst length, and watermark sizes</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>STATUS_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Status values</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CONTRAST_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Contrast level</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle2098></A><A name=iddle3202></A>Our frame buffer driver (called <SPAN class=docEmphasis>myfb</SPAN>) is implemented as a platform driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12ex02">Listing 12.2</A>. As you learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="connect lightweight"></A>, a platform is a pseudo bus usually used to connect lightweight devices integrated into SoCs, with the kernel's device model. Architecture-specific setup code (in <SPAN class=docEmphasis>arch/your-arch/your-platform/</SPAN>) adds the platform using <TT>platform_device_add()</TT>; but for simplicity, the <TT>probe()</TT><A name="performs this"></A> method of the myfb driver performs this before registering itself as a platform driver. Refer back to the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06lev1sec2.html#ch06lev2sec1">Device Example: Cell Phone</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="associated entry"></A> for the general architecture of a platform driver and associated entry points.</P><A name=ch12lev3sec1></A>
+<H5 id=title-ID0EYCAO class=docSection3Title>Data Structures</H5>
+<P class=docText><A name="structures and"></A>Let's take a look at the major data structures and methods associated with frame buffer drivers and then zoom in on myfb. The following two are the main structures:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct fb_info</TT><A name="is defined"></A> is the centerpiece data structure of frame buffer drivers. This structure is defined in <SPAN class=docEmphasis>include/linux/fb.h</SPAN> as follows:</P>
+<DIV class=docText><PRE>struct fb_info {
+  /* ... */
+  struct fb_var_screeninfo var;    /* Variable screen information.
+                                      Discussed earlier. */
+  struct fb_fix_screeninfo fix;    /* Fixed screen information.
+                                      Discussed earlier. */
+  /* ... */
+  struct fb_cmap cmap;             /* Color map.
+                                      Discussed earlier. */
+  /* ... */
+  struct fb_ops *fbops;            /* Driver operations.
+                                      Discussed next. */
+  /* ... */
+  char __iomem *screen_base;       /* Frame buffer's
+                                      virtual address */
+  unsigned long screen_size;       /* Frame buffer's size */
+  /* ... */
+  /* From here on everything is device dependent */
+  void *par;                       /* Private area */
+};</PRE></DIV>
+<P class=docList>Memory for <TT>fb_info</TT> is allocated by <TT>framebuffer_alloc()</TT><A name="provided by"></A>, a library routine provided by the frame buffer core. This function also takes the size of a private area as an argument and appends that to the end of the allocated <TT>fb_info</TT><A name="area can"></A>. This private area can be referenced using the <TT>par</TT><A name="pointer in"></A> pointer in the <TT>fb_info</TT><A name=of></A> structure. The semantics of <TT>fb_info</TT><A name="such as"></A> fields such as <TT>fb_var_screeninfo</TT> and <TT>fb_fix_screeninfo</TT> were discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec4.html#ch12lev1sec4">The Frame Buffer API</A>."</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The <TT>fb_ops</TT><A name="by the"></A> structure contains the addresses of all entry points provided by the low-level frame buffer driver. The first few methods in <TT>fb_ops</TT><A name="of the"></A> are necessary for the functioning of the driver, while the remaining are optional ones that provide for graphics acceleration. The responsibility of each function is briefly explained within comments:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>struct fb_ops {
+  struct module *owner;
+  /* Driver open */
+  int (*fb_open)(struct fb_info *info, int user);
+  /* Driver close */
+  int (*fb_release)(struct fb_info *info, int user);
+  /* ... */
+  /* Sanity check on video parameters */
+  int (*fb_check_var)(struct fb_var_screeninfo *var,
+                      struct fb_info *info);
+  /* Configure the video controller registers */
+  int (*fb_set_par)(struct fb_info *info);
+  /* Create pseudo color palette map */
+  int (*fb_setcolreg)(unsigned regno, unsigned red,
+                unsigned green, unsigned blue,
+                unsigned transp, struct fb_info *info);
+  /* Blank/unblank display */
+  int (*fb_blank)(int blank, struct fb_info *info);
+  /* ... */
+  /* Accelerated method to fill a rectangle with pixel lines */
+  void (*fb_fillrect)(struct fb_info *info,
+                      const struct fb_fillrect *rect);
+  /* Accelerated method to copy a rectangular area from one
+     screen region to another */
+  void (*fb_copyarea)(struct fb_info *info,
+                      const struct fb_copyarea *region);
+  /* Accelerated method to draw an image to the display */
+  void (*fb_imageblit)(struct fb_info *info,
+                       const struct fb_image *image);
+  /* Accelerated method to rotate the display */
+  void (*fb_rotate)(struct fb_info *info, int angle);
+  /* Ioctl interface to support device-specific commands */
+  int (*fb_ioctl)(struct fb_info *info, unsigned int cmd,
+                  unsigned long arg);
+  /* ... */
+};
+
+					  </PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText><A name=iddle2046></A><A name=iddle2100></A><A name=iddle3204></A>Let's now look at the driver methods that <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12ex02">Listing 12.2</A> implements for the myfb driver.</P><A name=ch12lev3sec2></A>
+<H5 id=title-ID0EMGAO class=docSection3Title>Checking and Setting Parameters</H5>
+<P class=docText>The <TT>fb_check_var()</TT><A name="and bits"></A> method performs a sanity check of variables such as X-resolution, Y-resolution, and bits per pixel. So, if you use fbset to set an X-resolution less than the minimum supported by the LCD controller (64 in our example), this function will limit it to the minimum allowed by the hardware.</P>
+<P class=docText><TT>fb_check_var()</TT><A name="uses "></A> also sets the appropriate RGB format. Our example uses 16 bits per pixel, and the controller maps each data word in the frame buffer into the commonly used RGB565 code: 5 bits for red, 6 bits for green, and 5 bits for blue. The offsets into the data word for each of the three colors are also set accordingly.</P>
+<P class=docText>The <TT>fb_set_par()</TT><A name="the values"></A> method configures the registers of the LCD controller depending on the values found in <TT>fb_info.var</TT>. This includes setting</P>
+<UL>
+<LI>
+<P class=docList><A name="and right"></A>Horizontal sync duration, left margin, and right margin in <TT>HSYNC_REG</TT></P></LI>
+<LI>
+<P class=docList><A name="upper margin"></A>Vertical sync duration, upper margin, and lower margin in <TT>VSYNC_REG</TT></P></LI>
+<LI>
+<P class=docList><A name="The visible"></A>The visible X and Y resolutions in <TT>SIZE_REG</TT></P></LI>
+<LI>
+<P class=docList><A name=in></A>DMA parameters in <TT>DMA_REG</TT></P></LI></UL>
+<P class=docText><A name="that the"></A>Assume that the GPS application attempts to alter the resolution of the QVGA display to 50x50. The following is the train of events:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The display is initially at QVGA resolution:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; fbset</SPAN>
+mode "320x240-76"
+    # D: 5.830 MHz, H: 18.219 kHz, V: 75.914 Hz
+    geometry 320 240 320 240 16
+    timings 171521 0 0 0 0 0 0
+    rgba 5/11,6/5,5/0,0/0
+endmode</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle1521></A><A name=iddle2096></A><A name=iddle3200></A>The application does something like this:</P>
+<DIV class=docText><PRE>struct fb_var_screeninfo vinfo;
+fbfd = open("/dev/fb0", O_RDWR);
+vinfo.xres = 50;
+vinfo.yres = 50;
+vinfo.bits_per_pixel = 8;
+
+ioctl(fbfd, FBIOPUT_VSCREENINFO, &amp;vinfo);</PRE></DIV>
+<P class=docList>Note that this is equivalent to the command <TT>fbset -xres 50 -yres 50 -depth 8</TT>.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The <TT>FBIOPUT_VSCREENINFO</TT> ioctl in the previous step triggers invocation of <TT>myfb_check_var()</TT><A name="requested resolution"></A>. This driver method expresses displeasure and rounds up the requested resolution to the minimum supported by the hardware, which is 64x64 in this case.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>myfb_set_par()</TT><A name="buffer core"></A> is invoked by the frame buffer core, which programs the new display parameters into LCD controller registers.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>fbset now outputs new parameters:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; fbset</SPAN>
+mode "64x64-1423"
+    # D: 5.830 MHz, H: 91.097 kHz, V: 1423.386 Hz
+    geometry 64 64 320 240 16
+    timings 171521 0 0 0 0 0 0
+    rgba 5/11,6/5,5/0,0/0
+endmode</PRE></DIV></DIV></LI></OL></DIV><A name=ch12lev3sec3></A>
+<H5 id=title-ID0E5KAO class=docSection3Title>Color Modes</H5>
+<P class=docText>Common color modes supported by video hardware include <SPAN class=docEmphasis>pseudo color</SPAN> and <SPAN class=docEmphasis>true color.</SPAN><A name="By choosing"></A> In the former, index numbers are mapped to RGB pixel encodings. By choosing a subset of available colors and by using the indices corresponding to the colors instead of the pixel values themselves, you can reduce demands on frame buffer memory. Your hardware needs to support this scheme of a modifiable color set (or <SPAN class=docEmphasis>palette</SPAN>), however.</P>
+<P class=docText><A name="example LCD"></A>In true color mode (which is what our example LCD controller supports), modifiable palettes are not relevant. However, you still have to satisfy the demands of the frame buffer console driver, which uses only 16 colors. For this, you have to create a pseudo palette by encoding the corresponding 16 raw RGB values into bits that can be directly fed to the hardware. This pseudo palette is stored in the <TT>pseudo_palette</TT> <A name=iddle2045></A><A name=iddle2101></A><A name=iddle3205></A><A name=iddle3894></A>field of the <TT>fb_info</TT> structure. In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12ex02">Listing 12.2</A>, <TT>myfb_setcolreg()</TT> populates it as follows:</P>
+<DIV class=docText><PRE>((u32*)(info-&gt;pseudo_palette))[color_index] =
+              (red &lt;&lt; info-&gt;var.red.offset)     |
+              (green &lt;&lt; info-&gt;var.green.offset) |
+              (blue &lt;&lt; info-&gt;var.blue.offset)   |
+              (transp &lt;&lt; info-&gt;var.transp.offset);</PRE></DIV><BR>
+<P class=docText><A name="as you"></A>Our LCD controller uses 16 bits per pixel and the RGB565 format, so as you saw earlier, the <TT>fb_check_var()</TT><A name="the red"></A> method ensures that the red, green and blue values reside at bit offsets 11, 5, and 0, respectively. In addition to the color index and the red, blue, and green values, <TT>fb_setcolreg()</TT><A name="an argument"></A> takes in an argument <TT>transp</TT><A name="to specify"></A>, to specify desired transparency effects. This mechanism, called <SPAN class=docEmphasis>alpha blending</SPAN><A name="specified pixel"></A>, combines the specified pixel value with the background color. The LCD controller in this example does not support alpha blending, so <TT>myfb_check_var()</TT><A name=the></A> sets the <TT>transp</TT> offset and length to zero.</P><A name=ch12note04></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="applications from"></A>The frame buffer abstraction is powerful enough to insulate applications from the characteristics of the display panel&#37413;&#25882;hether it's RGB or BGR or something else. The red, blue, and green offsets set by <TT>fb_check_var()</TT><A name=the></A> percolate to user space via the <TT>fb_var_screeninfo</TT> structure populated by the <TT>FBIOGET_VSCREENINFO ioctl()</TT><A name="paint pixels"></A>. Because applications such as X Windows are frame buffer-compliant, they paint pixels into the frame buffer according to the color offsets returned by this <TT>ioctl()</TT>.</P>
+<P></P></DIV><BR>
+<P class=docText><A name="in this"></A>Bit lengths used by the RGB encoding (5+6+5=16 in this case) is called the <SPAN class=docEmphasis>color depth</SPAN><A name="choose the"></A>, which is used by the frame buffer console driver to choose the logo file to display during boot (see the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec6.html#ch12lev2sec3">Boot Logo</A>").</P><A name=ch12lev3sec4></A>
+<H5 id=title-ID0EYOAO class=docSection3Title>Screen Blanking</H5>
+<P class=docText>The <TT>fb_blank()</TT><A name="for blanking"></A> method provides support for blanking and unblanking the display. This is mainly used for power management. To blank the navigation system's display after a 10-minute period of inactivity, do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; setterm -blank 10</SPAN></PRE></DIV><BR>
+<P class=docText><A name="percolates down"></A>This command percolates down the layers to the frame buffer layer and results in the invocation of <TT>myfb_blank()</TT><A name="which programs"></A>, which programs appropriate bits in <TT>CTRL_REG</TT>.</P><A name=ch12lev3sec5></A>
+<H5 id=title-ID0EYPAO class=docSection3Title>Accelerated Methods</H5>
+<P class=docText><A name=iddle1013></A><A name=iddle1407></A><A name=iddle1824></A><A name=iddle2047></A><A name=iddle2095></A><A name=iddle2099></A><A name=iddle3199></A><A name=iddle3203></A><A name="user interface"></A>If your user interface needs to perform heavy-duty video operations such as blending, stretching, moving bitmaps, or dynamic gradient generation, you likely require graphics acceleration to obtain acceptable performance. Let's briefly visit the <TT>fb_ops</TT><A name="that you"></A> methods that you can leverage if your video hardware supports graphics acceleration.</P>
+<P class=docText>The <TT>fb_imageblit()</TT><A name="provides an"></A> method draws an image to the display. This entry point provides an opportunity to your driver to leverage any special capabilities that your video controller might possess to hasten this operation. <TT>cfb_imageblit()</TT><A name="provided by"></A> is a generic library function provided by the frame buffer core to achieve this if you have nonaccelerated hardware. It's used, for instance, to output a logo to the screen during boot up. <TT>fb_copyarea()</TT> copies a rectangular area from one screen region to another. <TT>cfb_copyarea()</TT><A name="graphics controller"></A> provides an optimized way of doing this if your graphics controller does not possess any magic to accelerate this operation. The <TT>fb_fillrect()</TT> method speedily fills a rectangle with pixel lines. <TT>cfb_fillrect()</TT><A name="LCD controller"></A> offers a generic non-accelerated way to achieve this. The LCD controller in our navigation system does not provide for acceleration, so the example driver populates these methods using the generic software-optimized routines offered by the frame buffer core.</P><A name=ch12sb04></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>DirectFB</H2>
+<P class=docText>DirectFB (<A class=docLink href="http://www.directfb.org/" target=_blank>www.directfb.org</A><A name="interface that"></A>) is a library built on top of the frame buffer interface that provides a simple window manager framework and hooks for hardware graphics acceleration and virtual interfaces that allow coexistence of multiple frame buffer applications. DirectFB, along with an accelerated frame buffer device driver downstream and a DirectFB-aware rendering engine such as Cairo (<A class=docLink href="http://www.cairographics.org/" target=_blank>www.cairographics.org</A><A name="on graphics"></A>) upstream, is sometimes used on graphics-intensive embedded devices instead of more traditional solutions such as X Windows.</P></TD></TR></TBODY></TABLE></P><BR><A name=ch12lev3sec6></A>
+<H5 id=title-ID0EYTAO class=docSection3Title>DMA from the Frame Buffer</H5>
+<P class=docText><A name="controller in"></A>The LCD controller in the navigation system contains a DMA engine that fetches picture frames from system memory. The controller dispatches the obtained graphics data to the display panel. The rate of DMA sustains the refresh rate of the display. A non-cacheable frame buffer suitable for coherent access is allocated using <TT>dma_alloc_coherent()</TT><A name=from></A> from <TT>myfb_probe()</TT><A name="DMA mapping"></A>. (We discussed coherent DMA mapping <A name=iddle1202></A><A name=iddle1598></A><A name=iddle2097></A><A name=iddle3201></A>in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>, "Peripheral Component Interconnect.") <TT>myfb_set_par()</TT><A name="this allocated"></A> writes this allocated DMA address to the <TT>DMA_REG</TT> register in the LCD controller.</P>
+<P class=docText>When the driver enables DMA by calling <TT>myfb_enable_controller()</TT><A name="buffer to"></A>, the controller starts ferrying pixel data from the frame buffer to the display using synchronous DMA. So, when the GPS application maps the frame buffer (using <TT>mmap()</TT><A name="the pixels"></A>) and writes location information to it, the pixels gets painted onto the LCD.</P><A name=ch12lev3sec7></A>
+<H5 id=title-ID0ECWAO class=docSection3Title>Contrast and Backlight</H5>
+<P class=docText><A name="control using"></A>The LCD controller in the navigation system supports contrast control using the <TT>CONTRAST_REG</TT><A name=via></A> register. The driver exports this to user space via <TT>myfb_ioctl()</TT>. The GPS application controls contrast as follows:</P>
+<DIV class=docText><PRE>unsigned int my_fd, desired_contrast_level = 100;
+/* Open the frame buffer */
+my_fd = open("/dev/fb0", O_RDWR);
+ioctl(my_fd, MYFB_SET_BRIGHTNESS, &amp;desired_contrast_level);</PRE></DIV><BR>
+<P class=docText><A name="a backlight"></A>The LCD panel on the navigation system is illuminated using a backlight. The processor controls the backlight inverter through GPIO lines, so you can turn the light on or off by wiggling the corresponding pins. The kernel abstracts a generic backlight interface via sysfs nodes. To tie with this interface, your driver has to populate a <TT>backlight_ops</TT><A name="for obtaining"></A> structure with methods for obtaining and updating backlight brightness, and register it with the kernel using <TT>backlight_device_register()</TT>. Look inside <SPAN class=docEmphasis>drivers/video/backlight/</SPAN><A name="backlight interface"></A> for the backlight interface sources and recursively grep the <SPAN class=docEmphasis>drivers/</SPAN><A name="tree for"></A> tree for <TT>backlight_device_register()</TT><A name="video drivers"></A> to locate video drivers that use this interface. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec5.html#ch12ex02">Listing 12.2</A><A name="not implement"></A> does not implement backlight manipulation operations.</P><A name=ch12ex02></A>
+<H5 id=title-ID0EQXAO class=docExampleTitle>Listing 12.2. Frame Buffer Driver for the Navigation System</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX fb.h="">
+#include <LINUX dma-mapping.h="">
+#include <LINUX platform_device.h="">
+
+/* Address map of LCD controller registers */
+#define LCD_CONTROLLER_BASE   0x01000D00
+#define SIZE_REG     (*(volatile u32 *)(LCD_CONTROLLER_BASE))
+#define HSYNC_REG    (*(volatile u32 *)(LCD_CONTROLLER_BASE + 4))
+#define VSYNC_REG    (*(volatile u32 *)(LCD_CONTROLLER_BASE + 8))
+#define CONF_REG     (*(volatile u32 *)(LCD_CONTROLLER_BASE + 12))
+#define CTRL_REG     (*(volatile u32 *)(LCD_CONTROLLER_BASE + 16))
+#define DMA_REG      (*(volatile u32 *)(LCD_CONTROLLER_BASE + 20))
+#define STATUS_REG   (*(volatile u32 *)(LCD_CONTROLLER_BASE + 24))
+#define CONTRAST_REG (*(volatile u32 *)(LCD_CONTROLLER_BASE + 28))
+#define LCD_CONTROLLER_SIZE   32
+
+/* Resources for the LCD controller platform device */
+static struct resource myfb_resources[] = {
+  [0] = {
+    .start      = LCD_CONTROLLER_BASE,
+    .end        = LCD_CONTROLLER_SIZE,
+    .flags      = IORESOURCE_MEM,
+  },
+};
+
+/* Platform device definition */
+static struct platform_device myfb_device = {
+  .name      = "myfb",
+  .id        = 0,
+  .dev       = {
+    .coherent_dma_mask = 0xffffffff,
+  },
+  .num_resources = ARRAY_SIZE(myfb_resources),
+  .resource      = myfb_resources,
+};
+
+/* Set LCD controller parameters */
+static int
+myfb_set_par(struct fb_info *info)
+{
+  unsigned long adjusted_fb_start;
+  struct fb_var_screeninfo *var = &amp;info-&gt;var;
+  struct fb_fix_screeninfo *fix = &amp;info-&gt;fix;
+
+  /* Top 16 bits of HSYNC_REG hold HSYNC duration, next 8 contain
+     the left margin, while the bottom 8 house the right margin */
+  HSYNC_REG = (var-&gt;hsync_len &lt;&lt; 16) |
+              (var-&gt;left_margin &lt;&lt; 8)|
+              (var-&gt;right_margin);
+  /* Top 16 bits of VSYNC_REG hold VSYNC duration, next 8 contain
+     the upper margin, while the bottom 8 house the lower margin */
+  VSYNC_REG = (var-&gt;vsync_len &lt;&lt; 16)  |
+              (var-&gt;upper_margin &lt;&lt; 8)|
+              (var-&gt;lower_margin);
+
+  /* Top 16 bits of SIZE_REG hold xres, bottom 16 hold yres */
+  SIZE_REG  = (var-&gt;xres &lt;&lt; 16) | (var-&gt;yres);
+
+  /* Set bits per pixel, pixel polarity, clock dividers for
+     the pixclock, and color/monochrome mode in CONF_REG */
+  /* ... */
+
+  /* Fill DMA_REG with the start address of the frame buffer
+     coherently allocated from myfb_probe(). Adjust this address
+     to account for any offset to the start of screen area */
+  adjusted_fb_start = fix-&gt;smem_start +
+          (var-&gt;yoffset * var-&gt;xres_virtual + var-&gt;xoffset) *
+          (var-&gt;bits_per_pixel) / 8;
+  __raw_writel(adjusted_fb_start, (unsigned long *)DMA_REG);
+
+  /*  Set the DMA burst length and watermark sizes in DMA_REG */
+  /* ... */
+
+  /* Set fixed information */
+  fix-&gt;accel  = FB_ACCEL_NONE;       /* No hardware acceleration */
+  fix-&gt;visual = FB_VISUAL_TRUECOLOR; /* True color mode */
+  fix-&gt;line_length = var-&gt;xres_virtual * var-&gt;bits_per_pixel/8;
+
+  return 0;
+}
+
+/* Enable LCD controller */
+static void
+myfb_enable_controller(struct fb_info *info)
+{
+  /* Enable LCD controller, start DMA, enable clocks and power
+     by writing to CTRL_REG */
+  /* ... */
+}
+/* Disable LCD controller */
+static void
+myfb_disable_controller(struct fb_info *info)
+{
+  /* Disable LCD controller, stop DMA, disable clocks and power
+     by writing to CTRL_REG */
+  /* ... */
+}
+
+/* Sanity check and adjustment of variables */
+static int
+myfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
+{
+  /* Round up to the minimum resolution supported by
+     the LCD controller */
+  if (var-&gt;xres &lt; 64) var-&gt;xres = 64;
+  if (var-&gt;yres &lt; 64) var-&gt;yres = 64;
+
+  /* ... */
+  /* This hardware supports the RGB565 color format.
+     See the section "Color Modes" for more details */
+  if (var-&gt;bits_per_pixel == 16) {
+    /* Encoding Red */
+    var-&gt;red.length = 5;
+    var-&gt;red.offset = 11;
+    /* Encoding Green */
+    var-&gt;green.length = 6;
+    var-&gt;green.offset = 5;
+    /* Encoding Blue */
+    var-&gt;blue.length = 5;
+    var-&gt;blue.offset = 0;
+    /* No hardware support for alpha blending */
+    var-&gt;transp.length = 0;
+    var-&gt;transp.offset = 0;
+  }
+  return 0;
+}
+
+/* Blank/unblank screen */
+static int
+myfb_blank(int blank_mode, struct fb_info *info)
+{
+  switch (blank_mode) {
+  case FB_BLANK_POWERDOWN:
+  case FB_BLANK_VSYNC_SUSPEND:
+  case FB_BLANK_HSYNC_SUSPEND:
+  case FB_BLANK_NORMAL:
+    myfb_disable_controller(info);
+    break;
+  case FB_BLANK_UNBLANK:
+    myfb_enable_controller(info);
+    break;
+  }
+  return 0;
+}
+
+/* Configure pseudo color palette map */
+static int
+myfb_setcolreg(u_int color_index, u_int red, u_int green,
+               u_int blue, u_int transp, struct fb_info *info)
+{
+  if (info-&gt;fix.visual == FB_VISUAL_TRUECOLOR) {
+    /* Do any required translations to convert red, blue, green and
+       transp, to values that can be directly fed to the hardware */
+    /* ... */
+
+    ((u32 *)(info-&gt;pseudo_palette))[color_index] =
+           (red &lt;&lt; info-&gt;var.red.offset)     |
+           (green &lt;&lt; info-&gt;var.green.offset) |
+           (blue &lt;&lt; info-&gt;var.blue.offset)   |
+           (transp &lt;&lt; info-&gt;var.transp.offset);
+  }
+  return 0;
+}
+
+/* Device-specific ioctl definition */
+#define MYFB_SET_BRIGHTNESS _IOW('M', 3, int8_t)
+
+/* Device-specific ioctl */
+static int
+myfb_ioctl(struct fb_info *info, unsigned int cmd,
+           unsigned long arg)
+{
+  u32 blevel ;
+  switch (cmd) {
+    case MYFB_SET_BRIGHTNESS :
+      copy_from_user((void *)&amp;blevel, (void *)arg,
+                     sizeof(blevel)) ;
+      /* Write blevel to CONTRAST_REG */
+      /* ... */
+      break;
+    default:
+      return &#37413;&#25544;INVAL;
+  }
+  return 0;
+}
+
+/* The fb_ops structure */
+static struct fb_ops myfb_ops = {
+  .owner        = THIS_MODULE,
+  .fb_check_var = myfb_check_var,/* Sanity check */
+  .fb_set_par   = myfb_set_par,  /* Program controller registers */
+  .fb_setcolreg = myfb_setcolreg,/* Set color map */
+  .fb_blank     = myfb_blank,    /* Blank/unblank display */
+  .fb_fillrect  = cfb_fillrect,  /* Generic function to fill
+                                    rectangle */
+  .fb_copyarea  = cfb_copyarea,  /* Generic function to copy area */
+  .fb_imageblit = cfb_imageblit, /* Generic function to draw */
+  .fb_ioctl     = myfb_ioctl,    /* Device-specific ioctl */
+};
+
+/* Platform driver's probe() routine */
+static int __init
+myfb_probe(struct platform_device *pdev)
+{
+  struct fb_info *info;
+  struct resource *res;
+
+  info = framebuffer_alloc(0, &amp;pdev-&gt;dev);
+  /* ... */
+  /* Obtain the associated resource defined while registering the
+     corresponding platform_device */
+  res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+  /* Get the kernel's sanction for using the I/O memory chunk
+     starting from LCD_CONTROLLER_BASE and having a size of
+     LCD_CONTROLLER_SIZE bytes */
+  res = request_mem_region(res-&gt;start, res-&gt;end - res-&gt;start + 1,
+                           pdev-&gt;name);
+
+  /* Fill the fb_info structure with fixed (info-&gt;fix) and variable
+     (info-&gt;var) values such as frame buffer length, xres, yres,
+     bits_per_pixel, fbops, cmap, etc */
+  initialize_fb_info(info, pdev);  /* Not expanded */
+  info-&gt;fbops = &amp;myfb_ops;
+  fb_alloc_cmap(&amp;info-&gt;cmap, 16, 0);
+
+  /* DMA-map the frame buffer memory coherently. info-&gt;screen_base
+     holds the CPU address of the mapped buffer,
+     info-&gt;fix.smem_start carries the associated hardware address */
+  info-&gt;screen_base = dma_alloc_coherent(0, info-&gt;fix.smem_len,
+                                  (dma_addr_t *)&amp;info-&gt;fix.smem_start,
+                                   GFP_DMA | GFP_KERNEL);
+  /* Set the information in info-&gt;var to the appropriate
+     LCD controller registers */
+  myfb_set_par(info);
+
+  /* Register with the frame buffer core */
+  register_framebuffer(info);
+  return 0;
+}
+
+/* Platform driver's remove() routine */
+static int
+myfb_remove(struct platform_device *pdev)
+{
+  struct fb_info *info = platform_get_drvdata(pdev);
+  struct resource *res;
+
+  /* Disable screen refresh, turn off DMA,.. */
+  myfb_disable_controller(info);
+
+  /* Unregister frame buffer driver */
+  unregister_framebuffer(info);
+  /* Deallocate color map */
+  fb_dealloc_cmap(&amp;info-&gt;cmap);
+  kfree(info-&gt;pseudo_palette);
+
+  /* Reverse of framebuffer_alloc() */
+  framebuffer_release(info);
+  /* Release memory region */
+  res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+  release_mem_region(res-&gt;start, res-&gt;end - res-&gt;start + 1);
+  platform_set_drvdata(pdev, NULL);
+
+  return 0;
+}
+
+/* The platform driver structure */
+static struct platform_driver myfb_driver = {
+  .probe     = myfb_probe,
+  .remove    = myfb_remove,
+  .driver    = {
+    .name    = "myfb",
+  },
+};
+
+/* Module Initialization */
+int __init
+myfb_init(void)
+{
+  platform_device_add(&amp;myfb_device);
+  return platform_driver_register(&amp;myfb_driver);
+}
+
+/* Module Exit */
+void __exit
+myfb_exit(void)
+{
+  platform_driver_unregister(&amp;myfb_driver);
+  platform_device_unregister(&amp;myfb_device);
+}
+
+module_init(myfb_init);
+module_exit(myfb_exit);
+
+					  </LINUX></LINUX></LINUX></PRE></TD></TR></TBODY></TABLE>

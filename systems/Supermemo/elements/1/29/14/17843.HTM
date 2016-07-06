@@ -1,0 +1,240 @@
+<H4 class=subsection>9.1.3 String-Manipulation Functions</H4><A name=index-string_002dmanipulation-functions></A>
+<P>The functions in this section look at or change the text of one or more strings. </P>
+<P><CODE>gawk</CODE> understands locales (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Locales">Locales</A>), and does all string processing in terms of <EM>characters</EM>, not <EM>bytes</EM>. This distinction is particularly important to understand for locales where one character may be represented by multiple bytes. Thus, for example, <CODE>length()</CODE> returns the number of characters in a string, and not the number of bytes used to represent those characters. Similarly, <CODE>index()</CODE> works with character indices, and not byte indices. </P>
+<P>In the following list, optional parameters are enclosed in square brackets&nbsp;([&nbsp;]).<!-- /@w --> Several functions perform string substitution; the full discussion is provided in the description of the <CODE>sub()</CODE> function, which comes towards the end since the list is presented in alphabetic order. Those functions that are specific to <CODE>gawk</CODE> are marked with a pound sign&nbsp;(&#8216;<SAMP>#</SAMP>&#8217;):<!-- /@w --> </P>
+<TABLE class=menu border=0 cellSpacing=0>
+<TBODY>
+<TR>
+<TD vAlign=top align=left>&#8226; <A accessKey=1 href="http://www.gnu.org/software/gawk/manual/gawk.html#Gory-Details">Gory Details</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>More than you want to know about &#8216;<SAMP>\</SAMP>&#8217; and &#8216;<SAMP>&amp;</SAMP>&#8217; with <CODE>sub()</CODE>, <CODE>gsub()</CODE>, and <CODE>gensub()</CODE>. </TD></TR></TBODY></TABLE>
+<DL compact>
+<DT><CODE>asort(<VAR>source</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>dest</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>how</VAR> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN>) #</CODE></DT>
+<DT><CODE>asorti(<VAR>source</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>dest</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>how</VAR> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN>) #</CODE></DT>
+<DD><A name=index-asorti_0028_0029-function-_0028gawk_0029></A><A name=index-sort-array></A><A name=index-arrays_002c-elements_002c-retrieving-number-of></A><A name=index-asort_0028_0029-function-_0028gawk_0029></A><A name=index-sort-array-indices></A>
+<P>These two functions are similar in behavior, so they are described together. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> The following description ignores the third argument, <VAR>how</VAR>, since it requires understanding features that we have not discussed yet. Thus, the discussion here is a deliberate simplification. (We do provide all the details later on: See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Array-Sorting-Functions">Array Sorting Functions</A>, for the full story.) </P></BLOCKQUOTE>
+<P>Both functions return the number of elements in the array <VAR>source</VAR>. For <CODE>asort()</CODE>, <CODE>gawk</CODE> sorts the values of <VAR>source</VAR> and replaces the indices of the sorted values of <VAR>source</VAR> with sequential integers starting with one. If the optional array <VAR>dest</VAR> is specified, then <VAR>source</VAR> is duplicated into <VAR>dest</VAR>. <VAR>dest</VAR> is then sorted, leaving the indices of <VAR>source</VAR> unchanged. </P><A name=index-gawk_002c-IGNORECASE-variable-in-3></A>
+<P>When comparing strings, <CODE>IGNORECASE</CODE> affects the sorting (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Array-Sorting-Functions">Array Sorting Functions</A>). If the <VAR>source</VAR> array contains subarrays as values (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Arrays-of-Arrays">Arrays of Arrays</A>), they will come last, after all scalar values. </P>
+<P>For example, if the contents of <CODE>a</CODE> are as follows: </P>
+<DIV class=example><PRE class=example>a["last"] = "de"
+a["first"] = "sac"
+a["middle"] = "cul"
+</PRE></DIV>
+<P>A call to <CODE>asort()</CODE>: </P>
+<DIV class=example><PRE class=example>asort(a)
+</PRE></DIV>
+<P>results in the following contents of <CODE>a</CODE>: </P>
+<DIV class=example><PRE class=example>a[1] = "cul"
+a[2] = "de"
+a[3] = "sac"
+</PRE></DIV>
+<P>The <CODE>asorti()</CODE> function works similarly to <CODE>asort()</CODE>, however, the <EM>indices</EM> are sorted, instead of the values. Thus, in the previous example, starting with the same initial set of indices and values in <CODE>a</CODE>, calling &#8216;<SAMP>asorti(a)</SAMP>&#8217; would yield: </P>
+<DIV class=example><PRE class=example>a[1] = "first"
+a[2] = "last"
+a[3] = "middle"
+</PRE></DIV>
+<P><CODE>asort()</CODE> and <CODE>asorti()</CODE> are <CODE>gawk</CODE> extensions; they are not available in compatibility mode (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). </P></DD>
+<DT><CODE>gensub(<VAR>regexp</VAR>, <VAR>replacement</VAR>, <VAR>how</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>target</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>) #</CODE></DT>
+<DD><A name=index-gensub_0028_0029-function-_0028gawk_0029-1></A><A name=index-search-and-replace-in-strings></A><A name=index-substitute-in-string></A>
+<P>Search the target string <VAR>target</VAR> for matches of the regular expression <VAR>regexp</VAR>. If <VAR>how</VAR> is a string beginning with &#8216;<SAMP>g</SAMP>&#8217; or &#8216;<SAMP>G</SAMP>&#8217; (short for &#8220;global&#8221;), then replace all matches of <VAR>regexp</VAR> with <VAR>replacement</VAR>. Otherwise, <VAR>how</VAR> is treated as a number indicating which match of <VAR>regexp</VAR> to replace. If no <VAR>target</VAR> is supplied, use <CODE>$0</CODE>. It returns the modified string as the result of the function and the original target string is <EM>not</EM> changed. </P>
+<P><CODE>gensub()</CODE> is a general substitution function. Its purpose is to provide more features than the standard <CODE>sub()</CODE> and <CODE>gsub()</CODE> functions. </P>
+<P><CODE>gensub()</CODE> provides an additional feature that is not available in <CODE>sub()</CODE> or <CODE>gsub()</CODE>: the ability to specify components of a regexp in the replacement text. This is done by using parentheses in the regexp to mark the components and then specifying &#8216;<SAMP>\<VAR>N</VAR></SAMP>&#8217; in the replacement text, where <VAR>N</VAR> is a digit from 1 to 9. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk '</EM></KBD>
+&gt; <KBD><EM>BEGIN {</EM></KBD>
+&gt;      <KBD><EM>a = "abc def"</EM></KBD>
+&gt;      <KBD><EM>b = gensub(/(.+) (.+)/, "\\2 \\1", "g", a)</EM></KBD>
+&gt;      <KBD><EM>print b</EM></KBD>
+&gt; <KBD><EM>}'</EM></KBD>
+-| def abc
+</PRE></DIV>
+<P>As with <CODE>sub()</CODE>, you must type two backslashes in order to get one into the string. In the replacement text, the sequence &#8216;<SAMP>\0</SAMP>&#8217; represents the entire matched text, as does the character &#8216;<SAMP>&amp;</SAMP>&#8217;. </P>
+<P>The following example shows how you can use the third argument to control which match of the regexp should be changed: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo a b c a b c |</EM></KBD>
+&gt; <KBD><EM>gawk '{ print gensub(/a/, "AA", 2) }'</EM></KBD>
+-| a b c AA b c
+</PRE></DIV>
+<P>In this case, <CODE>$0</CODE> is the default target string. <CODE>gensub()</CODE> returns the new string as its result, which is passed directly to <CODE>print</CODE> for printing. </P>
+<P>If the <VAR>how</VAR> argument is a string that does not begin with &#8216;<SAMP>g</SAMP>&#8217; or &#8216;<SAMP>G</SAMP>&#8217;, or if it is a number that is less than or equal to zero, only one substitution is performed. If <VAR>how</VAR> is zero, <CODE>gawk</CODE> issues a warning message. </P>
+<P>If <VAR>regexp</VAR> does not match <VAR>target</VAR>, <CODE>gensub()</CODE>&#8217;s return value is the original unchanged value of <VAR>target</VAR>. </P>
+<P><CODE>gensub()</CODE> is a <CODE>gawk</CODE> extension; it is not available in compatibility mode (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). </P></DD>
+<DT><CODE>gsub(<VAR>regexp</VAR>, <VAR>replacement</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>target</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>)</CODE></DT>
+<DD><A name=index-gsub_0028_0029-function-1></A>
+<P>Search <VAR>target</VAR> for <EM>all</EM> of the longest, leftmost, <EM>nonoverlapping</EM> matching substrings it can find and replace them with <VAR>replacement</VAR>. The &#8216;<SAMP>g</SAMP>&#8217; in <CODE>gsub()</CODE> stands for &#8220;global,&#8221; which means replace everywhere. For example: </P>
+<DIV class=example><PRE class=example>{ gsub(/Britain/, "United Kingdom"); print }
+</PRE></DIV>
+<P>replaces all occurrences of the string &#8216;<SAMP>Britain</SAMP>&#8217; with &#8216;<SAMP>United Kingdom</SAMP>&#8217; for all input records. </P>
+<P>The <CODE>gsub()</CODE> function returns the number of substitutions made. If the variable to search and alter (<VAR>target</VAR>) is omitted, then the entire input record (<CODE>$0</CODE>) is used. As in <CODE>sub()</CODE>, the characters &#8216;<SAMP>&amp;</SAMP>&#8217; and &#8216;<SAMP>\</SAMP>&#8217; are special, and the third argument must be assignable. </P></DD>
+<DT><CODE>index(<VAR>in</VAR>, <VAR>find</VAR>)</CODE></DT>
+<DD><A name=index-index_0028_0029-function></A><A name=index-search-in-string></A><A name=index-find-substring-in-string></A>
+<P>Search the string <VAR>in</VAR> for the first occurrence of the string <VAR>find</VAR>, and return the position in characters where that occurrence begins in the string <VAR>in</VAR>. Consider the following example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN { print index("peanut", "an") }'</EM></KBD>
+-| 3
+</PRE></DIV>
+<P>If <VAR>find</VAR> is not found, <CODE>index()</CODE> returns zero. (Remember that string indices in <CODE>awk</CODE> start at one.) </P>
+<P>It is a fatal error to use a regexp constant for <VAR>find</VAR>. </P></DD>
+<DT><CODE>length(<SPAN class=roman><FONT face=Batang>[</FONT></SPAN><VAR>string</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>)</CODE></DT>
+<DD><A name=index-length_0028_0029-function></A><A name=index-string-length></A><A name=index-length-of-string></A>
+<P>Return the number of characters in <VAR>string</VAR>. If <VAR>string</VAR> is a number, the length of the digit string representing that number is returned. For example, <CODE>length("abcde")</CODE> is five. By contrast, <CODE>length(15 * 35)</CODE> works out to three. In this example, 15 * 35 = 525, and 525 is then converted to the string <CODE>"525"</CODE>, which has three characters. </P><A name=index-length-of-input-record></A><A name=index-input-record_002c-length-of></A>
+<P>If no argument is supplied, <CODE>length()</CODE> returns the length of <CODE>$0</CODE>. </P><A name=index-portability_002c-length_0028_0029-function></A><A name=index-POSIX-awk_002c-functions-and_002c-length_0028_0029></A>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> In older versions of <CODE>awk</CODE>, the <CODE>length()</CODE> function could be called without any parentheses. Doing so is considered poor practice, although the 2008 POSIX standard explicitly allows it, to support historical practice. For programs to be maximally portable, always supply the parentheses. </P></BLOCKQUOTE><A name=index-dark-corner_002c-length_0028_0029-function></A>
+<P>If <CODE>length()</CODE> is called with a variable that has not been used, <CODE>gawk</CODE> forces the variable to be a scalar. Other implementations of <CODE>awk</CODE> leave the variable without a type. (d.c.) Consider: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk 'BEGIN { print length(x) ; x[1] = 1 }'</EM></KBD>
+-| 0
+error&#8594; gawk: fatal: attempt to use scalar `x' as array
+
+$ <KBD><EM>nawk 'BEGIN { print length(x) ; x[1] = 1 }'</EM></KBD>
+-| 0
+</PRE></DIV>
+<P>If <SAMP>--lint</SAMP> has been specified on the command line, <CODE>gawk</CODE> issues a warning about this. </P><A name=index-common-extensions_002c-length_0028_0029-applied-to-an-array></A><A name=index-extensions_002c-common_002c-length_0028_0029-applied-to-an-array></A><A name=index-differences-between-gawk-and-awk></A><A name=index-number-of-array-elements></A><A name=index-array_002c-number-of-elements></A>
+<P>With <CODE>gawk</CODE> and several other <CODE>awk</CODE> implementations, when given an array argument, the <CODE>length()</CODE> function returns the number of elements in the array. (c.e.) This is less useful than it might seem at first, as the array is not guaranteed to be indexed from one to the number of elements in it. If <SAMP>--lint</SAMP> is provided on the command line (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>), <CODE>gawk</CODE> warns that passing an array argument is not portable. If <SAMP>--posix</SAMP> is supplied, using an array argument is a fatal error (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Arrays">Arrays</A>). </P></DD>
+<DT><CODE>match(<VAR>string</VAR>, <VAR>regexp</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>array</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>)</CODE></DT>
+<DD><A name=index-match_0028_0029-function></A><A name=index-string_002c-regular-expression-match></A><A name=index-match-regexp-in-string></A>
+<P>Search <VAR>string</VAR> for the longest, leftmost substring matched by the regular expression, <VAR>regexp</VAR> and return the character position, or <EM>index</EM>, at which that substring begins (one, if it starts at the beginning of <VAR>string</VAR>). If no match is found, return zero. </P>
+<P>The <VAR>regexp</VAR> argument may be either a regexp constant (<CODE>/&#8230;/</CODE>) or a string constant (<CODE>"&#8230;"</CODE>). In the latter case, the string is treated as a regexp to be matched. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Computed-Regexps">Computed Regexps</A>, for a discussion of the difference between the two forms, and the implications for writing your program correctly. </P>
+<P>The order of the first two arguments is backwards from most other string functions that work with regular expressions, such as <CODE>sub()</CODE> and <CODE>gsub()</CODE>. It might help to remember that for <CODE>match()</CODE>, the order is the same as for the &#8216;<SAMP>~</SAMP>&#8217; operator: &#8216;<SAMP><VAR>string</VAR> ~ <VAR>regexp</VAR></SAMP>&#8217;. </P><A name=index-RSTART-variable_002c-match_0028_0029-function-and></A><A name=index-RLENGTH-variable_002c-match_0028_0029-function-and></A><A name=index-match_0028_0029-function_002c-RSTART_002fRLENGTH-variables></A>
+<P>The <CODE>match()</CODE> function sets the built-in variable <CODE>RSTART</CODE> to the index. It also sets the built-in variable <CODE>RLENGTH</CODE> to the length in characters of the matched substring. If no match is found, <CODE>RSTART</CODE> is set to zero, and <CODE>RLENGTH</CODE> to -1. </P>
+<P>For example: </P>
+<DIV class=example><PRE class=example>{
+       if ($1 == "FIND")
+         regex = $2
+       else {
+         where = match($0, regex)
+         if (where != 0)
+           print "Match of", regex, "found at",
+                     where, "in", $0
+       }
+}
+</PRE></DIV>
+<P>This program looks for lines that match the regular expression stored in the variable <CODE>regex</CODE>. This regular expression can be changed. If the first word on a line is &#8216;<SAMP>FIND</SAMP>&#8217;, <CODE>regex</CODE> is changed to be the second word on that line. Therefore, if given: </P>
+<DIV class=example><PRE class=example>FIND ru+n
+My program runs
+but not very quickly
+FIND Melvin
+JF+KM
+This line is property of Reality Engineering Co.
+Melvin was here.
+</PRE></DIV>
+<P><CODE>awk</CODE> prints: </P>
+<DIV class=example><PRE class=example>Match of ru+n found at 12 in My program runs
+Match of Melvin found at 1 in Melvin was here.
+</PRE></DIV><A name=index-differences-in-awk-and-gawk_002c-match_0028_0029-function></A>
+<P>If <VAR>array</VAR> is present, it is cleared, and then the zeroth element of <VAR>array</VAR> is set to the entire portion of <VAR>string</VAR> matched by <VAR>regexp</VAR>. If <VAR>regexp</VAR> contains parentheses, the integer-indexed elements of <VAR>array</VAR> are set to contain the portion of <VAR>string</VAR> matching the corresponding parenthesized subexpression. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo foooobazbarrrrr |</EM></KBD>
+&gt; <KBD><EM>gawk '{ match($0, /(fo+).+(bar*)/, arr)</EM></KBD>
+&gt;         <KBD><EM>print arr[1], arr[2] }'</EM></KBD>
+-| foooo barrrrr
+</PRE></DIV>
+<P>In addition, multidimensional subscripts are available providing the start index and length of each matched subexpression: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo foooobazbarrrrr |</EM></KBD>
+&gt; <KBD><EM>gawk '{ match($0, /(fo+).+(bar*)/, arr)</EM></KBD>
+&gt;           <KBD><EM>print arr[1], arr[2]</EM></KBD>
+&gt;           <KBD><EM>print arr[1, "start"], arr[1, "length"]</EM></KBD>
+&gt;           <KBD><EM>print arr[2, "start"], arr[2, "length"]</EM></KBD>
+&gt; <KBD><EM>}'</EM></KBD>
+-| foooo barrrrr
+-| 1 5
+-| 9 7
+</PRE></DIV>
+<P>There may not be subscripts for the start and index for every parenthesized subexpression, since they may not all have matched text; thus they should be tested for with the <CODE>in</CODE> operator (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Reference-to-Elements">Reference to Elements</A>). </P><A name=index-troubleshooting_002c-match_0028_0029-function></A>
+<P>The <VAR>array</VAR> argument to <CODE>match()</CODE> is a <CODE>gawk</CODE> extension. In compatibility mode (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>), using a third argument is a fatal error. </P></DD>
+<DT><CODE>patsplit(<VAR>string</VAR>, <VAR>array</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>fieldpat</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>seps</VAR> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN>) #</CODE></DT>
+<DD><A name=index-patsplit_0028_0029-function-_0028gawk_0029></A><A name=index-split-string-into-array></A>
+<P>Divide <VAR>string</VAR> into pieces defined by <VAR>fieldpat</VAR> and store the pieces in <VAR>array</VAR> and the separator strings in the <VAR>seps</VAR> array. The first piece is stored in <CODE><VAR>array</VAR>[1]</CODE>, the second piece in <CODE><VAR>array</VAR>[2]</CODE>, and so forth. The third argument, <VAR>fieldpat</VAR>, is a regexp describing the fields in <VAR>string</VAR> (just as <CODE>FPAT</CODE> is a regexp describing the fields in input records). It may be either a regexp constant or a string. If <VAR>fieldpat</VAR> is omitted, the value of <CODE>FPAT</CODE> is used. <CODE>patsplit()</CODE> returns the number of elements created. <CODE><VAR>seps</VAR>[<VAR>i</VAR>]</CODE> is the separator string between <CODE><VAR>array</VAR>[<VAR>i</VAR>]</CODE> and <CODE><VAR>array</VAR>[<VAR>i</VAR>+1]</CODE>. Any leading separator will be in <CODE><VAR>seps</VAR>[0]</CODE>. </P>
+<P>The <CODE>patsplit()</CODE> function splits strings into pieces in a manner similar to the way input lines are split into fields using <CODE>FPAT</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Splitting-By-Content">Splitting By Content</A>. </P>
+<P>Before splitting the string, <CODE>patsplit()</CODE> deletes any previously existing elements in the arrays <VAR>array</VAR> and <VAR>seps</VAR>. </P><A name=index-troubleshooting_002c-patsplit_0028_0029-function></A>
+<P>The <CODE>patsplit()</CODE> function is a <CODE>gawk</CODE> extension. In compatibility mode (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>), it is not available. </P></DD>
+<DT><CODE>split(<VAR>string</VAR>, <VAR>array</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>fieldsep</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>seps</VAR> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN> <SPAN class=roman><FONT face=Batang>]</FONT></SPAN>)</CODE></DT>
+<DD><A name=index-split_0028_0029-function></A>
+<P>Divide <VAR>string</VAR> into pieces separated by <VAR>fieldsep</VAR> and store the pieces in <VAR>array</VAR> and the separator strings in the <VAR>seps</VAR> array. The first piece is stored in <CODE><VAR>array</VAR>[1]</CODE>, the second piece in <CODE><VAR>array</VAR>[2]</CODE>, and so forth. The string value of the third argument, <VAR>fieldsep</VAR>, is a regexp describing where to split <VAR>string</VAR> (much as <CODE>FS</CODE> can be a regexp describing where to split input records; see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Regexp-Field-Splitting">Regexp Field Splitting</A>). If <VAR>fieldsep</VAR> is omitted, the value of <CODE>FS</CODE> is used. <CODE>split()</CODE> returns the number of elements created. <VAR>seps</VAR> is a <CODE>gawk</CODE> extension with <CODE><VAR>seps</VAR>[<VAR>i</VAR>]</CODE> being the separator string between <CODE><VAR>array</VAR>[<VAR>i</VAR>]</CODE> and <CODE><VAR>array</VAR>[<VAR>i</VAR>+1]</CODE>. If <VAR>fieldsep</VAR> is a single space then any leading whitespace goes into <CODE><VAR>seps</VAR>[0]</CODE> and any trailing whitespace goes into <CODE><VAR>seps</VAR>[<VAR>n</VAR>]</CODE> where <VAR>n</VAR> is the return value of <CODE>split()</CODE> (that is, the number of elements in <VAR>array</VAR>). </P>
+<P>The <CODE>split()</CODE> function splits strings into pieces in a manner similar to the way input lines are split into fields. For example: </P>
+<DIV class=example><PRE class=example>split("cul-de-sac", a, "-", seps)
+</PRE></DIV><A name=index-strings-splitting_002c-example></A>
+<P>splits the string &#8216;<SAMP>cul-de-sac</SAMP>&#8217; into three fields using &#8216;<SAMP>-</SAMP>&#8217; as the separator. It sets the contents of the array <CODE>a</CODE> as follows: </P>
+<DIV class=example><PRE class=example>a[1] = "cul"
+a[2] = "de"
+a[3] = "sac"
+</PRE></DIV>
+<P>and sets the contents of the array <CODE>seps</CODE> as follows: </P>
+<DIV class=example><PRE class=example>seps[1] = "-"
+seps[2] = "-"
+</PRE></DIV>
+<P>The value returned by this call to <CODE>split()</CODE> is three. </P><A name=index-differences-in-awk-and-gawk_002c-split_0028_0029-function></A>
+<P>As with input field-splitting, when the value of <VAR>fieldsep</VAR> is <CODE>"&nbsp;"</CODE><!-- /@w -->, leading and trailing whitespace is ignored in values assigned to the elements of <VAR>array</VAR> but not in <VAR>seps</VAR>, and the elements are separated by runs of whitespace. Also as with input field-splitting, if <VAR>fieldsep</VAR> is the null string, each individual character in the string is split into its own array element. (c.e.) </P>
+<P>Note, however, that <CODE>RS</CODE> has no effect on the way <CODE>split()</CODE> works. Even though &#8216;<SAMP>RS = ""</SAMP>&#8217; causes newline to also be an input field separator, this does not affect how <CODE>split()</CODE> splits strings. </P><A name=index-dark-corner_002c-split_0028_0029-function></A>
+<P>Modern implementations of <CODE>awk</CODE>, including <CODE>gawk</CODE>, allow the third argument to be a regexp constant (<CODE>/abc/</CODE>) as well as a string. (d.c.) The POSIX standard allows this as well. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Computed-Regexps">Computed Regexps</A>, for a discussion of the difference between using a string constant or a regexp constant, and the implications for writing your program correctly. </P>
+<P>Before splitting the string, <CODE>split()</CODE> deletes any previously existing elements in the arrays <VAR>array</VAR> and <VAR>seps</VAR>. </P>
+<P>If <VAR>string</VAR> is null, the array has no elements. (So this is a portable way to delete an entire array with one statement. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Delete">Delete</A>.) </P>
+<P>If <VAR>string</VAR> does not match <VAR>fieldsep</VAR> at all (but is not null), <VAR>array</VAR> has one element only. The value of that element is the original <VAR>string</VAR>. </P></DD>
+<DT><CODE>sprintf(<VAR>format</VAR>, <VAR>expression1</VAR>, &#8230;)</CODE></DT>
+<DD><A name=index-sprintf_0028_0029-function-1></A><A name=index-formatting-strings></A>
+<P>Return (without printing) the string that <CODE>printf</CODE> would have printed out with the same arguments (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Printf">Printf</A>). For example: </P>
+<DIV class=example><PRE class=example>pival = sprintf("pi = %.2f (approx.)", 22/7)
+</PRE></DIV>
+<P>assigns the string &#8216;<SAMP>pi&nbsp;=&nbsp;3.14&nbsp;(approx.)</SAMP>&#8217;<!-- /@w --> to the variable <CODE>pival</CODE>. </P><A name=index-strtonum_0028_0029-function-_0028gawk_0029></A><A name=index-convert-string-to-number></A></DD>
+<DT><CODE>strtonum(<VAR>str</VAR>) #</CODE></DT>
+<DD>
+<P>Examine <VAR>str</VAR> and return its numeric value. If <VAR>str</VAR> begins with a leading &#8216;<SAMP>0</SAMP>&#8217;, <CODE>strtonum()</CODE> assumes that <VAR>str</VAR> is an octal number. If <VAR>str</VAR> begins with a leading &#8216;<SAMP>0x</SAMP>&#8217; or &#8216;<SAMP>0X</SAMP>&#8217;, <CODE>strtonum()</CODE> assumes that <VAR>str</VAR> is a hexadecimal number. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo 0x11 |</EM></KBD>
+&gt; <KBD><EM>gawk '{ printf "%d\n", strtonum($1) }'</EM></KBD>
+-| 17
+</PRE></DIV>
+<P>Using the <CODE>strtonum()</CODE> function is <EM>not</EM> the same as adding zero to a string value; the automatic coercion of strings to numbers works only for decimal data, not for octal or hexadecimal.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT46" name=DOCF46><SUP>46</SUP></A> </P>
+<P>Note also that <CODE>strtonum()</CODE> uses the current locale&#8217;s decimal point for recognizing numbers (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Locales">Locales</A>). </P>
+<P><CODE>strtonum()</CODE> is a <CODE>gawk</CODE> extension; it is not available in compatibility mode (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). </P></DD>
+<DT><CODE>sub(<VAR>regexp</VAR>, <VAR>replacement</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>target</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>)</CODE></DT>
+<DD><A name=index-sub_0028_0029-function-1></A><A name=index-replace-in-string></A>
+<P>Search <VAR>target</VAR>, which is treated as a string, for the leftmost, longest substring matched by the regular expression <VAR>regexp</VAR>. Modify the entire string by replacing the matched text with <VAR>replacement</VAR>. The modified string becomes the new value of <VAR>target</VAR>. Return the number of substitutions made (zero or one). </P>
+<P>The <VAR>regexp</VAR> argument may be either a regexp constant (<CODE>/&#8230;/</CODE>) or a string constant (<CODE>"&#8230;"</CODE>). In the latter case, the string is treated as a regexp to be matched. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Computed-Regexps">Computed Regexps</A>, for a discussion of the difference between the two forms, and the implications for writing your program correctly. </P>
+<P>This function is peculiar because <VAR>target</VAR> is not simply used to compute a value, and not just any expression will do&#8212;it must be a variable, field, or array element so that <CODE>sub()</CODE> can store a modified value there. If this argument is omitted, then the default is to use and alter <CODE>$0</CODE>.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT47" name=DOCF47><SUP>47</SUP></A> For example: </P>
+<DIV class=example><PRE class=example>str = "water, water, everywhere"
+sub(/at/, "ith", str)
+</PRE></DIV>
+<P>sets <CODE>str</CODE> to &#8216;<SAMP>wither,&nbsp;water,&nbsp;everywhere</SAMP>&#8217;<!-- /@w -->, by replacing the leftmost longest occurrence of &#8216;<SAMP>at</SAMP>&#8217; with &#8216;<SAMP>ith</SAMP>&#8217;. </P>
+<P>If the special character &#8216;<SAMP>&amp;</SAMP>&#8217; appears in <VAR>replacement</VAR>, it stands for the precise substring that was matched by <VAR>regexp</VAR>. (If the regexp can match more than one string, then this precise substring may vary.) For example: </P>
+<DIV class=example><PRE class=example>{ sub(/candidate/, "&amp; and his wife"); print }
+</PRE></DIV>
+<P>changes the first occurrence of &#8216;<SAMP>candidate</SAMP>&#8217; to &#8216;<SAMP>candidate and his wife</SAMP>&#8217; on each input line. Here is another example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN {</EM></KBD>
+&gt;         <KBD><EM>str = "daabaaa"</EM></KBD>
+&gt;         <KBD><EM>sub(/a+/, "C&amp;C", str)</EM></KBD>
+&gt;         <KBD><EM>print str</EM></KBD>
+&gt; <KBD><EM>}'</EM></KBD>
+-| dCaaCbaaa
+</PRE></DIV>
+<P>This shows how &#8216;<SAMP>&amp;</SAMP>&#8217; can represent a nonconstant string and also illustrates the &#8220;leftmost, longest&#8221; rule in regexp matching (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Leftmost-Longest">Leftmost Longest</A>). </P>
+<P>The effect of this special character (&#8216;<SAMP>&amp;</SAMP>&#8217;) can be turned off by putting a backslash before it in the string. As usual, to insert one backslash in the string, you must write two backslashes. Therefore, write &#8216;<SAMP>\\&amp;</SAMP>&#8217; in a string constant to include a literal &#8216;<SAMP>&amp;</SAMP>&#8217; in the replacement. For example, the following shows how to replace the first &#8216;<SAMP>|</SAMP>&#8217; on each line with an &#8216;<SAMP>&amp;</SAMP>&#8217;: </P>
+<DIV class=example><PRE class=example>{ sub(/\|/, "\\&amp;"); print }
+</PRE></DIV><A name=index-sub_0028_0029-function_002c-arguments-of></A><A name=index-gsub_0028_0029-function_002c-arguments-of></A>
+<P>As mentioned, the third argument to <CODE>sub()</CODE> must be a variable, field or array element. Some versions of <CODE>awk</CODE> allow the third argument to be an expression that is not an lvalue. In such a case, <CODE>sub()</CODE> still searches for the pattern and returns zero or one, but the result of the substitution (if any) is thrown away because there is no place to put it. Such versions of <CODE>awk</CODE> accept expressions like the following: </P>
+<DIV class=example><PRE class=example>sub(/USA/, "United States", "the USA and Canada")
+</PRE></DIV><A name=index-troubleshooting_002c-gsub_0028_0029_002fsub_0028_0029-functions></A>
+<P>For historical compatibility, <CODE>gawk</CODE> accepts such erroneous code. However, using any other nonchangeable object as the third parameter causes a fatal error and your program will not run. </P>
+<P>Finally, if the <VAR>regexp</VAR> is not a regexp constant, it is converted into a string, and then the value of that string is treated as the regexp to match. </P></DD>
+<DT><CODE>substr(<VAR>string</VAR>, <VAR>start</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>length</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>)</CODE></DT>
+<DD><A name=index-substr_0028_0029-function></A><A name=index-substring></A>
+<P>Return a <VAR>length</VAR>-character-long substring of <VAR>string</VAR>, starting at character number <VAR>start</VAR>. The first character of a string is character number one.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT48" name=DOCF48><SUP>48</SUP></A> For example, <CODE>substr("washington", 5, 3)</CODE> returns <CODE>"ing"</CODE>. </P>
+<P>If <VAR>length</VAR> is not present, <CODE>substr()</CODE> returns the whole suffix of <VAR>string</VAR> that begins at character number <VAR>start</VAR>. For example, <CODE>substr("washington", 5)</CODE> returns <CODE>"ington"</CODE>. The whole suffix is also returned if <VAR>length</VAR> is greater than the number of characters remaining in the string, counting from character <VAR>start</VAR>. </P><A name=index-Brian-Kernighan_0027s-awk-12></A>
+<P>If <VAR>start</VAR> is less than one, <CODE>substr()</CODE> treats it as if it was one. (POSIX doesn&#8217;t specify what to do in this case: Brian Kernighan&#8217;s <CODE>awk</CODE> acts this way, and therefore <CODE>gawk</CODE> does too.) If <VAR>start</VAR> is greater than the number of characters in the string, <CODE>substr()</CODE> returns the null string. Similarly, if <VAR>length</VAR> is present but less than or equal to zero, the null string is returned. </P><A name=index-troubleshooting_002c-substr_0028_0029-function></A>
+<P>The string returned by <CODE>substr()</CODE> <EM>cannot</EM> be assigned. Thus, it is a mistake to attempt to change a portion of a string, as shown in the following example: </P>
+<DIV class=example><PRE class=example>string = "abcdef"
+# try to get "abCDEf", won't work
+substr(string, 3, 3) = "CDE"
+</PRE></DIV>
+<P>It is also a mistake to use <CODE>substr()</CODE> as the third argument of <CODE>sub()</CODE> or <CODE>gsub()</CODE>: </P>
+<DIV class=example><PRE class=example>gsub(/xyz/, "pdq", substr($0, 5, 20))  # WRONG
+</PRE></DIV><A name=index-portability_002c-substr_0028_0029-function></A>
+<P>(Some commercial versions of <CODE>awk</CODE> treat <CODE>substr()</CODE> as assignable, but doing so is not portable.) </P>
+<P>If you need to replace bits and pieces of a string, combine <CODE>substr()</CODE> with string concatenation, in the following manner: </P>
+<DIV class=example><PRE class=example>string = "abcdef"
+&#8230;
+string = substr(string, 1, 2) "CDE" substr(string, 6)
+</PRE></DIV><A name=index-case-sensitivity_002c-converting-case></A><A name=index-strings_002c-converting-letter-case></A></DD>
+<DT><CODE>tolower(<VAR>string</VAR>)</CODE></DT>
+<DD><A name=index-tolower_0028_0029-function></A><A name=index-convert-string-to-lower-case></A>
+<P>Return a copy of <VAR>string</VAR>, with each uppercase character in the string replaced with its corresponding lowercase character. Nonalphabetic characters are left unchanged. For example, <CODE>tolower("MiXeD cAsE 123")</CODE> returns <CODE>"mixed case 123"</CODE>. </P></DD>
+<DT><CODE>toupper(<VAR>string</VAR>)</CODE></DT>
+<DD><A name=index-toupper_0028_0029-function></A><A name=index-convert-string-to-upper-case></A>
+<P>Return a copy of <VAR>string</VAR>, with each lowercase character in the string replaced with its corresponding uppercase character. Nonalphabetic characters are left unchanged. For example, <CODE>toupper("MiXeD cAsE 123")</CODE> returns <CODE>"MIXED CASE 123"</CODE>. </P></DD></DL>

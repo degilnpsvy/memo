@@ -1,0 +1,194 @@
+<H3 id=-100000 class=docSection1Title>WiFi</H3>
+<P class=docText><A name=or></A>WiFi, or <SPAN class=docEmphasis>wireless local-area network</SPAN><A name="alternative to"></A> (WLAN), is an alternative to wired LAN and is generally used within a campus. The IEEE 802.11a WLAN standard uses the 5GHz ISM (<SPAN class=docEmphasis>Industrial, Scientific, Medical</SPAN><A name="and supports"></A>) band and supports speeds of up to 54Mbps. The 802.11b and the 802.11g standards use the 2.4GHz band and support speeds of 11Mbps and 54Mbps, respectively.</P>
+<P class=docText><A name="MAC addresses"></A>WLAN resembles wired Ethernet in that both are assigned MAC addresses from the same address pool and both appear to the operating system as regular network <A name=iddle1039></A><A name=iddle1583></A><A name=iddle2344></A><A name=iddle3980></A><A name=iddle4141></A><A name=iddle4639></A>interfaces. For example, <SPAN class=docEmphasis>Address Resolution Protocol</SPAN><A name="alongside Ethernet"></A> (ARP) tables contain WLAN MAC addresses alongside Ethernet MAC addresses.</P>
+<P class=docText>WLAN and wired Ethernet differ significantly at the link layer, however:</P>
+<UL>
+<LI>
+<P class=docList><A name="detection "></A>The 802.11 WLAN standard uses collision avoidance (CSMA/CA) rather than collision detection (CSMA/CD) used by wired Ethernet.</P></LI>
+<LI>
+<P class=docList>WLAN frames, unlike Ethernet frames, are acknowledged.</P></LI>
+<LI>
+<P class=docList><A name="WLAN uses"></A>Due to security issues inherent in wireless networking, WLAN uses an encryption mechanism called <SPAN class=docEmphasis>Wired Equivalent Privacy</SPAN><A name="combines a"></A> (WEP) to provide a level of security equivalent to wired Ethernet. WEP combines a 40-bit or a 104-bit key with a random 24-bit initialization vector to encrypt and decrypt data.</P></LI></UL>
+<P class=docText><A name="communication modes"></A>WLAN supports two communication modes:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis>Ad-hoc mode</SPAN><A name="small group"></A>, where a small group of nearby stations directly communicate without using an access point.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis><A name="Infrastructure mode"></A>Infrastructure mode</SPAN><A name="exchanges pass"></A>, where data exchanges pass via an access point. Access points periodically broadcast a <SPAN class=docEmphasis><A name="set identifier"></A>service set identifier</SPAN> (SSID or ESSID) that identifies one WLAN network from another.</P></DIV></LI></OL></DIV>
+<P class=docText>Let's find out how Linux supports WLAN.</P><A name=ch16lev2sec18></A>
+<H4 id=title-ID0EYPAO class=docSection2Title>Configuration</H4>
+<P class=docText>The <SPAN class=docEmphasis>Wireless Extensions</SPAN><A name="device drivers"></A> project defines a generic Linux API to configure WLAN device drivers in a device-independent manner. It also provides a set of common tools to set and access information from WLAN drivers. Individual drivers implement support for Wireless Extensions to connect themselves with the common interface and, hence, with the tools.</P>
+<P class=docText><A name="three ways"></A>With Wireless Extensions, there are primarily three ways to talk to WLAN drivers:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Standard operations using the <SPAN class=docEmphasis>iwconfig</SPAN><A name="prescribed functions"></A> utility. To glue your driver to iwconfig, you need to implement prescribed functions corresponding to commands that set parameters such as ESSID and WEP keys.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Special-purpose operations using <SPAN class=docEmphasis>iwpriv</SPAN><A name="ioctls relevant"></A>. To use iwpriv over your driver, define private ioctls relevant to your hardware and implement the corresponding handler functions.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>WiFi-specific statistics through <SPAN class=docEmphasis>/proc/net/wireless</SPAN>. For this, implement the <TT>get_wireless_stats()</TT> method in your driver. This is in addition to the <TT>get_stats()</TT><A name="described in"></A> method implemented by NIC drivers for generic statistics collection as described in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec1.html#ch15lev2sec6">Statistics</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15">Chapter 15</A>, "Network Interface Cards."</P></DIV></LI></OL></DIV>
+<P class=docText><A name="these three"></A>WLAN drivers tie these three pieces of information inside a structure called <TT>iw_handler_def</TT>, defined in <SPAN class=docEmphasis>include/net/iw_handler.h</SPAN><A name="of this"></A>. The address of this structure is supplied to the kernel via the device's <TT>net_device</TT><A name="structure "></A> structure (discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15">Chapter 15</A>) during initialization. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec3.html#ch16ex03">Listing 16.3</A><A name="skeletal WLAN"></A> shows a skeletal WLAN driver implementing support for Wireless Extensions. The comments in the listing explain the associated code.</P><A name=ch16ex03></A>
+<H5 id=title-ID0EMSAO class=docExampleTitle>Listing 16.3. Supporting Wireless Extensions</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <NET iw_handler.h="">
+#include <LINUX wireless.h="">
+
+/* Populate the iw_handler_def structure with the location and number
+   of standard and private handlers, argument details of private
+   handlers, and location of get_wireless_stats() */
+static struct iw_handler_def mywifi_handler_def = {
+  .standard           = mywifi_std_handlers,
+  .num_standard       = sizeof(mywifi_std_handlers) /
+                        sizeof(iw_handler),
+  .private            = (iw_handler *) mywifi_pvt_handlers,
+  .num_private        = sizeof(mywifi_pvt_handlers) /
+                        sizeof(iw_handler),
+  .private_args       = (struct iw_priv_args *)mywifi_pvt_args,
+  .num_private_args   = sizeof(mywifi_pvt_args) /
+                        sizeof(struct iw_priv_args),
+  .get_wireless_stats = mywifi_stats,
+};
+
+
+/* Handlers corresponding to iwconfig */
+static iw_handler mywifi_std_handlers[] = {
+  NULL,                /* SIOCSIWCOMMIT */
+  mywifi_get_name,     /* SIOCGIWNAME */
+  NULL,                /* SIOCSIWNWID */
+  NULL,                /* SIOCGIWNWID */
+  mywifi_set_freq,     /* SIOCSIWFREQ */
+  mywifi_get_freq,     /* SIOCGIWFREQ */
+  mywifi_set_mode,     /* SIOCSIWMODE */
+  mywifi_get_mode,     /* SIOCGIWMODE */
+  /* ... */
+};
+#define MYWIFI_MYPARAMETER   SIOCIWFIRSTPRIV
+
+/* Handlers corresponding to iwpriv */
+static iw_handler mywifi_pvt_handlers[] = {
+  mywifi_set_myparameter,
+  /* ... */
+};
+
+/* Argument description of private handlers */
+static const struct iw_priv_args mywifi_pvt_args[] = {
+  { MYWIFI_MYPARAMATER,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "myparam"},
+}
+
+struct iw_statistics mywifi_stats; /* WLAN Statistics */
+
+/* Method to set operational frequency supplied via mywifi_std_handlers. Similarly
+implement the rest of the methods */
+mywifi_set_freq()
+{
+  /* Set frequency as specified in the data sheet */
+  /* ... */
+}
+
+/* Called when you read <SPAN class=docEmphasis>/proc/net/wireless</SPAN> */
+static struct iw_statistics *
+mywifi_stats(struct net_device *dev)
+{
+  /* Fill the fields in mywifi_stats */
+  /* ... */
+  return(&amp;mywifi_stats);
+}
+
+
+/*Device initialization. For PCI-based cards, this is called from the
+  probe() method. Revisit init_mycard() in Listing 15.1 in Chapter 15
+  for a full discussion */
+static int
+init_mywifi_card()
+{
+  struct net_device *netdev;
+  /* Allocate WiFi network device. Internally calls
+     alloc_etherdev() */
+  netdev = alloc_ieee80211(sizeof(struct mywifi_priv));
+  /* ... */
+
+  /* Register Wireless Extensions support */
+  netdev-&gt;wireless_handlers = &amp;mywifi_handler_def;
+
+  /* ... */
+  register_netdev(netdev);
+}
+
+					  </LINUX></NET></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A name="Wireless Extensions"></A>With Wireless Extensions support compiled in, you can use iwconfig to configure the ESSID and the WEP key, peek at supported private commands, and dump network statistics:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; iwconfig eth1 essid blue key 1234-5678-9012-3456-7890-1234-56</SPAN>
+
+<SPAN class=docEmphStrong>bash&gt; iwconfig eth1</SPAN>
+eth1   IEEE 802.11b ESSID:"blue" Nickname:"ipw2100"
+       Mode:Managed Frequency:2.437 GHz Access Point: 00:40:96:5E:07:2E
+       ...
+       Encryption key:1234-5678-9012-3456-7890-1234-56
+       Security mode:open
+       ...
+<SPAN class=docEmphStrong>bash&gt; dhcpcd eth1</SPAN>
+
+<SPAN class=docEmphStrong>bash&gt; ifconfig</SPAN>
+eth1    Link encap:Ethernet  Hwaddr 00:13:E8:02:EE:18
+        inet addr:192.168.0.41   Bcasr:192.168.0.255
+        Mask:255.255.255.0
+       ...
+<SPAN class=docEmphStrong>bash&gt; iwpriv eth1</SPAN>
+eth1   Available private ioctls:
+       myparam   (8BE2): set 2 int  &amp; get 0
+
+<SPAN class=docEmphStrong>bash&gt; cat /proc/net/wireless</SPAN>
+Inter-| sta-| Quality        | Discarded packets             | Missed | WE
+ face | tus |link level noise|nwid  crypt   frag  retry  misc| beacon | 19
+  eth1: 0004  100.  207.  0.    0      0      0     2     1        0</PRE></DIV><BR>
+<P class=docText><A name=iddle2049></A><A name=iddle2051></A><A name=iddle2168></A><A name=iddle2177></A><A name=iddle3315></A><A name=iddle3343></A><A name=iddle4633></A><A name=iddle4638></A><A name="key should"></A>Local iwconfig parameters such as the ESSID and WEP key should match the configuration at the access point.</P>
+<P class=docText>There is another project called <SPAN class=docEmphasis>cfg80211</SPAN><A name="This has"></A> having similar goals as Wireless Extensions. This has been merged into the mainline kernel starting with the 2.6.22 kernel release.</P><A name=ch16lev2sec19></A>
+<H4 id=title-ID0ENWAO class=docSection2Title>Device Drivers</H4>
+<P class=docText>There are hundreds of WLAN <SPAN class=docEmphasis>original equipment manufacturers</SPAN><A name="such as"></A> (OEMs) in the market, and cards come in several form factors such as PCI, Mini PCI, CardBus, PCMCIA, Compact Flash, USB, and SDIO (see the sidebar "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec3.html#ch16sb04">WiFi over SDIO</A><A name="at the"></A>") . However, the number of controller chips that lie at the heart of these devices, and hence the number of Linux device drivers, are relatively less in number. The Intersil Prism chipset, Lucent Hermes chipset, Atheros chipset, and Intel Pro/Wireless are among the popular WLAN controllers. The following are example devices built using these controllers:</P>
+<UL>
+<LI>
+<P class=docText><SPAN class=docEmphStrong>Intersil Prism2 WLAN Compact Flash Card&#37413;?</SPAN><A name="and Hermes"></A> The Orinoco WLAN driver, part of the kernel source tree, supports both Prism-based and Hermes-based cards. Look at <SPAN class=docEmphasis>orinoco.c</SPAN> and <SPAN class=docEmphasis>hermes.c</SPAN> in <SPAN class=docEmphasis>drivers/net/wireless/</SPAN> for the sources. <SPAN class=docEmphasis>orinoco_cs</SPAN> provides PCMCIA/CF Card Services support.</P></LI>
+<LI>
+<P class=docText><SPAN class=docEmphStrong><A name="CardBus adapter"></A>The Cisco Aironet CardBus adapter&#37413;?</SPAN><A name="uses an"></A> This card uses an Atheros chipset. The <SPAN class=docEmphasis>Madwifi</SPAN><A name="project "></A> project (<A class=docLink href="http://madwifi.org/" target=_blank>http://madwifi.org/</A><A name="Linux driver"></A>) offers a Linux driver that works on hardware built using Atheros controllers. The Madwifi source base is not part of the kernel source tree primarily due to licensing issues. One of the modules of the Madwifi driver called <SPAN class=docEmphasis><A name="Access Layer"></A>Hardware Access Layer</SPAN><A name="capable of"></A> (HAL) is closed source. This is because the Atheros chip is capable of operating at frequencies that are outside permissible ISM bands and can work at various power levels. The U.S. <SPAN class=docEmphasis>Federal Communications Commission</SPAN><A name="not be"></A> (FCC) mandates that such settings should not be easily changeable by users. Part of HAL is distributed as binary-only to comply with FCC regulations. This binary-only portion is independent of the kernel version.</P></LI>
+<LI>
+<P class=docText><SPAN class=docEmphStrong>Intel Pro/Wireless Mini PCI (and PCIe Mini) cards embedded on many laptops&#37413;?</SPAN><A name="drivers for"></A> The kernel source tree contains drivers for these cards. The drivers for the 2100 and 2200 BG series cards are <SPAN class=docEmphasis>drivers/net/wireless/ipw2100.c</SPAN> and <SPAN class=docEmphasis>drivers/net/wireless/ipw2200.c</SPAN><A name="download the"></A>, respectively. These devices need on-card firmware to work. You can download the firmware from <A class=docLink href="http://ipw2100.sourceforge.net/" target=_blank>http://ipw2100.sourceforge.net/</A> <A name=iddle1006></A>or <A class=docLink href="http://ipw2200.sourceforge.net/" target=_blank>http://ipw2200.sourceforge.net/</A> depending on whether you have a 2100 or a 2200. The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04lev2sec8">Microcode Download</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="these cards"></A>, "Laying the Groundwork," described the steps needed to download firmware on to these cards. Intel's distribution terms for the firmware are restrictive.</P></LI>
+<LI>
+<P class=docText><SPAN class=docEmphStrong>WLAN USB devices&#37413;?</SPAN><A name="WLAN driver"></A> The Atmel USB WLAN driver (<A class=docLink href="http://atmelwlandriver.sourceforge.net/" target=_blank>http://atmelwlandriver.sourceforge.net/</A><A name="WLAN devices"></A>) supports USB WLAN devices built using Atmel chipsets.</P></LI></UL>
+<P class=docText><A name="The WLAN"></A>The WLAN driver's task is to let your card appear as a normal network interface. Driver implementations are generally split into the following parts:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphStrong><A name="that communicates"></A>The interface that communicates with the Linux networking stack&#37413;?</SPAN><A name="discussed this"></A> We discussed this in detail in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec1.html#ch15lev2sec2">The Net Device Interface</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15">Chapter 15</A>. You can use <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec4.html#ch15ex01">Listing 15.1</A><A name="portion of"></A> in that chapter as a template to implement this portion of your WLAN driver.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphStrong>Form factor&#37413;&#25618;pecific code&#37413;?</SPAN><A name="PCI card"></A> If your card is a PCI card, it has to be architected to conform to the kernel PCI subsystem as described in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A><A name="with their"></A>, "Peripheral Component Interconnect." Similarly, PCMCIA and USB cards have to tie in with their respective core layers.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphStrong>Chipset specific part&#37413;?</SPAN><A name="driver and"></A> This is the cornerstone of the WLAN driver and is based on register specifications in the chip's data sheet. Many companies do not release adequate documentation for writing open source device drivers, however, so this portion of some Linux WLAN drivers is at least partly based on reverse-engineering.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><SPAN class=docEmphStrong>Support for Wireless Extensions&#37413;?</SPAN> <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec3.html#ch16ex03">Listing 16.3</A>, shown earlier, implements an example.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="implemented as"></A>Hardware-independent portions of the 802.11 stack are reusable across drivers, so they are implemented as a collection of common library functions in the <SPAN class=docEmphasis>net/ieee80211/</SPAN> directory. <SPAN class=docEmphasis>ieee80211</SPAN><A name="protocol module"></A> is the core protocol module, but if you want to configure WEP keys via the <TT>iwconfig</TT><A name="to load"></A> command, you have to load <SPAN class=docEmphasis>ieee80211_crypt</SPAN><A name=and></A> and <SPAN class=docEmphasis>ieee80211_crypt_wep</SPAN><A name="debugging output"></A>, too. To generate debugging output from the 802.11 stack, enable <TT>CONFIG_IEEE80211_DEBUG</TT><A name="configuring your"></A> while configuring your kernel. You can use <SPAN class=docEmphasis>/proc/net/ieee80211/debug_level</SPAN><A name="that you"></A> as a knob to fine-tune the type of debug messages that you want to see. Starting with the 2.6.22 release, the kernel has an alternate 802.11 stack (<SPAN class=docEmphasis>net/mac80211/</SPAN><A name="WiFi device"></A>) donated by a company called Devicescape. WiFi device drivers may migrate to this new stack in the future.</P>
+<P class=docText></P><A name=ch16sb04></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>WiFi over SDIO</H2>
+<P class=docText><A name=iddle1399></A><A name=iddle2134></A><A name=iddle2146></A><A name=iddle2162></A><A name=iddle2166></A><A name="to various"></A>Like PCMCIA cards whose functionality has extended from storage to various other technologies, SD cards are no longer confined to the consumer electronics memory space. The <SPAN class=docEmphasis>Secure Digital Input/Output</SPAN><A name="to the"></A> (SDIO) standard brings technologies such as WiFi, Bluetooth, and GPS to the SD realm. The Linux-SDIO project hosted at <A class=docLink href="http://sourceforge.net/projects/sdio-linux/" target=_blank>http://sourceforge.net/projects/sdio-linux/</A> offers drivers for several SDIO cards.</P>
+<P class=docText>Go to <A class=docLink href="http://www.sdcard.org/" target=_blank>www.sdcard.org</A><A name="the association"></A> to browse the SD Card Association's website. The latest standards adopted by the association are microSD and miniSD, which are miniature form factor versions of the SD card.</P></TD></TR></TBODY></TABLE></P><BR><A name=ch16lev2sec20></A>
+<H4 id=title-ID0EE6AO class=docSection2Title>Looking at the Sources</H4>
+<P class=docText><A name="live in"></A>WiFi device drivers live in <SPAN class=docEmphasis>drivers/net/wireless/.</SPAN> Look inside <SPAN class=docEmphasis>net/wireless/</SPAN><A name="implementations of"></A> for the implementations of Wireless Extensions and the new <SPAN class=docEmphasis>cfg80211</SPAN><A name="configuration interface"></A> configuration interface. The two Linux 802.11 stacks live under <SPAN class=docEmphasis>net/ieee80211/</SPAN> and <SPAN class=docEmphasis>net/mac80211/</SPAN>, respectively.

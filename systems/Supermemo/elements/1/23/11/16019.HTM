@@ -1,0 +1,28 @@
+<P style="MARGIN: 0cm 0cm 0pt" class=MsoNormal><SPAN style="FONT-SIZE: 15.5pt; mso-bidi-font-size: 12.0pt; mso-font-kerning: 0pt" lang=EN-US>A mutex prevents multiple threads from accessing a shared variable at the same time. A condition variable allows one thread to inform other threads about changes in the state of a shared variable (or other shared resource) and allows the other threads to wait (block) for such notification.</SPAN></P>
+<P style="MARGIN: 0cm 0cm 0pt" class=MsoNormal><SPAN style="FONT-SIZE: 15.5pt; mso-bidi-font-size: 12.0pt; mso-font-kerning: 0pt" lang=EN-US>A simple example that doesn&#8217;t use condition variables serves to demonstrate why they are useful. Suppose that we have a number of threads that produce some &#8220;result units&#8221; that are consumed by the main thread, and that we use a mutex-protected variable, avail, to represent the number of produced units awaiting consumption:</SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>static int avail = 0;</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>The code segments shown in this section can be found in the file threads/prod_no_condvar.c in the source code distribution for this book.</EM></SPAN></P>
+<P style="MARGIN: 0cm 0cm 0pt" class=MsoNormal><SPAN style="FONT-SIZE: 15.5pt; mso-bidi-font-size: 12.0pt; mso-font-kerning: 0pt" lang=EN-US>In the producer threads, we would have code such as the following:</SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>/* Code to produce a unit omitted */</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>s = pthread_mutex_lock(&amp;mtx);</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>if (s != 0)</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>errExitEN(s, "pthread_mutex_lock");</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>avail++; /* Let consumer know another unit is available */</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>s = pthread_mutex_unlock(&amp;mtx);</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>if (s != 0)</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>errExitEN(s, "pthread_mutex_unlock");</EM></SPAN></P>
+<P style="MARGIN: 0cm 0cm 0pt" class=MsoNormal><SPAN style="FONT-SIZE: 15.5pt; mso-bidi-font-size: 12.0pt; mso-font-kerning: 0pt" lang=EN-US>And in the main (consumer) thread, we could employ the following code:</SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>for (;;) {</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>s = pthread_mutex_lock(&amp;mtx);</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>if (s != 0)</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>errExitEN(s, "pthread_mutex_lock");</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>while (avail &gt; 0) { /* Consume all available units */</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>/* Do something with produced unit */</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>avail--;</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>}</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>s = pthread_mutex_unlock(&amp;mtx);</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>if (s != 0)</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>errExitEN(s, "pthread_mutex_unlock");</EM></SPAN></P>
+<P style="MARGIN: 0cm 10.5pt 0pt" class=a><SPAN style="FONT-SIZE: 14pt; mso-bidi-font-size: 12.0pt" lang=EN-US><EM>}</EM></SPAN></P>
+<P style="MARGIN: 0cm 0cm 0pt" class=MsoNormal><SPAN style="FONT-SIZE: 15.5pt; mso-bidi-font-size: 12.0pt; mso-font-kerning: 0pt" lang=EN-US>The above code works, but it wastes CPU time, because the main thread continually loops, checking the state of the variable avail. A condition variable remedies this problem. It allows a thread to sleep (wait) until another thread notifies (signals) it that it must do something (i.e., that some &#8220;condition&#8221; has arisen that the sleeper must now respond to).</SPAN>

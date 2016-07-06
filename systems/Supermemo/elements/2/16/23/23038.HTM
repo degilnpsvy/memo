@@ -1,0 +1,99 @@
+<H3 id=-100000 class=docSection1Title>TTY Drivers</H3>
+<P class=docText><A name=iddle3966></A><A name=iddle4321></A><A name=iddle4324></A><A name=iddle4335></A><A name="now take"></A>Let's now take a look at the structures and registration functions that lie at the heart of tty drivers. Three structures are important for their operation:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct tty_struct</TT> defined in <SPAN class=docEmphasis>include/linux/tty.h.</SPAN><A name="contains all"></A> This structure contains all state information associated with an open tty. It's an enormous structure, but here are some important fields:</P>
+<DIV class=docText><PRE>  struct tty_struct {
+    int magic;                     /* Magic marker */
+    struct tty_driver *driver;     /* Pointer to the tty
+                                      driver */
+    struct tty_ldisc ldisc;        /* Attached Line
+                                      discipline */
+    /* ... */
+    struct tty_flip_buffer flip;   /* Flip Buffer. See
+                                      below. */
+    /* ... */
+
+    wait_queue_head_t write_wait;  /* See the section
+                                      "Line Disciplines" */
+    wait_queue_head_t read_wait;   /* See the section
+                                      "Line Disciplines" */
+    /* ... */
+  };</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct tty_flip_buffer</TT><A name=the></A> or the <SPAN class=docEmphasis>flip buffer</SPAN> embedded inside <TT>tty_struct</TT><A name="processing mechanism"></A>. This is the centerpiece of the data collection and processing mechanism:</P>
+<DIV class=docText><PRE>  struct tty_flip_buffer {
+    /* ... */
+    struct semaphore pty_sem;     /* Serialize */
+    char *char_buf_ptr;           /* Pointer to the flip
+                                     buffer */
+    /* ... */
+    unsigned char char_buf[2*TTY_FLIPBUF_SIZE]; /* The flip
+                                                   buffer */
+    /* ... */
+  };</PRE></DIV>
+<P class=docList><A name="half of"></A>The low-level serial driver uses one half of the flip buffer for gathering data, while the line discipline uses the other half for processing the data. The buffer <A name=iddle4315></A><A name=iddle4317></A><A name=iddle4319></A><A name="discipline are"></A>pointers used by the serial driver and the line discipline are then flipped, and the process continues. Have a look at the function <TT>flush_to_ldisc()</TT> in <SPAN class=docEmphasis>drivers/char/tty_io.c</SPAN> to see the flip in action.</P>
+<P class=docList>In recent kernels, the <TT>tty_flip_buffer</TT><A name="up of"></A> structure has been somewhat redesigned. It's now made up of a buffer header (<TT>tty_bufhead</TT>) and a buffer list (<TT>tty_buffer</TT>):</P>
+<DIV class=docText><PRE>struct tty_bufhead {
+  /* ... */
+  struct semaphore pty_sem;            /* Serialize */
+  struct tty_buffer *head, tail, free; /* See below */
+  /* ... */
+};
+
+struct tty_buffer {
+  struct tty_buffer *next;
+  char *char_buf_ptr;       /* Pointer to the flip buffer */
+  /* ... */
+  unsigned long data[0];    /* The flip buffer, memory for
+                               which is dynamically
+                               allocated */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>struct tty_driver</TT> defined in <SPAN class=docEmphasis>include/linux/tty_driver.h.</SPAN><A name="and higher"></A> This specifies the programming interface between tty drivers and higher layers:</P>
+<DIV class=docText><PRE>struct tty_driver {
+  int magic;             /* Magic number */
+  /* ... */
+  int major;             /* Major number */
+  int minor_start;       /* Start of minor number */
+  /* ... */
+  /* Interface routines between a tty driver and higher
+     layers */
+  int  (*open)(struct tty_struct *tty, struct file *filp);
+  void (*close)(struct tty_struct *tty, struct file *filp);
+  int  (*write)(struct tty_struct *tty,
+                const unsigned char *buf, int count);
+  void (*put_char)(struct tty_struct *tty,
+                   unsigned char ch);
+  /* ... */
+};</PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText><A name=iddle2752></A><A name=iddle3678></A><A name=iddle3684></A><A name=iddle3685></A><A name=iddle3959></A><A name=iddle4314></A><A name=iddle4331></A><A name=iddle4332></A><A name=iddle4451></A><A name=iddle4599></A><A name=iddle4611></A><A name=iddle4612></A><A name="a UART"></A>Like a UART driver, a tty driver needs to perform two steps to register itself with the kernel:</P><A name=ch06pro02></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Call <TT>tty_register_driver(struct tty_driver *tty_d)</TT> to register itself with the tty core.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>Call<BR><BR>
+<DIV class=docText><PRE>tty_register_device(struct tty_driver *tty_d,
+                    unsigned device_index,
+                    struct device *device)</PRE></DIV><BR>to register each individual tty that it supports.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name="ones used"></A>We won't develop a sample tty driver, but here are some common ones used on Linux:</P>
+<UL>
+<LI>
+<P class=docList><A name="Serial emulation"></A>Serial emulation over Bluetooth, discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16">Chapter 16</A><A name="in the"></A>, is implemented in the form of a tty driver. This driver (<SPAN class=docEmphasis>drivers/net/bluetooth/rfcomm/</SPAN><SPAN class=docEmphasis>tty.c</SPAN>) calls <TT>tty_register_driver()</TT><A name="initialization and"></A> during initialization and <TT>tty_register_device()</TT> while handling each incoming Bluetooth connection.</P></LI>
+<LI>
+<P class=docList><A name="you need"></A>To work with a system console on a Linux desktop, you need the services of <SPAN class=docEmphasis>virtual terminals</SPAN><A name="mode or"></A> (VTs) if you are in text mode or <SPAN class=docEmphasis>pseudo terminals</SPAN><A name="implemented as"></A> (PTYs) if you are in graphics mode. VTs and PTYs are implemented as tty drivers and live in <SPAN class=docEmphasis>drivers/char/</SPAN><SPAN class=docEmphasis>vt.c</SPAN> and <SPAN class=docEmphasis>drivers/char/</SPAN><SPAN class=docEmphasis>pty.c</SPAN>, respectively.</P></LI>
+<LI>
+<P class=docList><A name="UARTs resides"></A>The tty driver used over conventional UARTs resides in <SPAN class=docEmphasis>drivers/serial/serial_core.c</SPAN>.</P></LI>
+<LI>
+<P class=docList>The USB-serial tty driver is in <SPAN class=docEmphasis>drivers/usb/serial/</SPAN><SPAN class=docEmphasis>usb-serial.c</SPAN>.</P></LI></UL>

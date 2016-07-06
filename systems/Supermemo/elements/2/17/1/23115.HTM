@@ -1,0 +1,17 @@
+<H3 id=-100000 class=docSection1Title>Buffer Management and Concurrency Control</H3>
+<P class=docText><A name=iddle1337></A><A name=iddle1551></A><A name=iddle3271></A><A name=iddle3272></A><A name="A high"></A>A high-performance NIC driver is a complex piece of software requiring intricate data structure management. As discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10lev1sec5.html#ch10lev2sec4">Data Transfer</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A><A name="driver maintains"></A>, a NIC driver maintains linked lists (or "rings") of transmit and receive DMA descriptors, and implements free and in-use pools for buffer management. The driver typically implements a multipronged strategy to maintain buffer levels: preallocate a ring of DMA descriptors and associated <TT>sk_buff</TT><A name="during device"></A>s during device open, replenish free pools by allocating new memory if available buffers dip below a predetermined watermark, and reclaim used buffers into the free pool when the NIC generates transmit-complete and receive interrupts.</P>
+<P class=docText><A name="as follows"></A>Each element in the NIC driver's receive ring, for example, is populated as follows:</P>
+<DIV class=docText><PRE>/* Allocate an sk_buff and the associated data buffer.
+   See Figure 15.1 */
+skb = dev_alloc_skb(MAX_NIC_PACKET_SIZE);
+/* Align the data pointer */
+  skb_reserve(skb, NET_IP_ALIGN);
+/* DMA map for NIC access. The following invocation assumes a PCI
+   NIC. pdev is a pointer to the associated pci_dev structure */
+pci_map_single(pdev, skb-&gt;data, MAX_NIC_PACKET_SIZE,
+               PCI_DMA_FROMDEVICE);
+/* Create a descriptor containing this sk_buff and add it
+   to the RX ring */
+/* ... */</PRE></DIV><BR>
+<P class=docText><A name="to an"></A>During reception, the NIC directly DMA's data to an <TT>sk_buff</TT><A name="receive interrupt"></A> in the preceding preallocated ring and interrupts the processor. The receive interrupt handler, in turn, passes the packet to higher protocol layers. Developing ring data structures will make this discussion as well as the example driver in the next section loaded, so refer to the sources of the Intel PRO/1000 driver in the <SPAN class=docEmphasis>drivers/net/e1000/</SPAN> directory for a complete illustration.</P>
+<P class=docText><A name="complex data"></A>Concurrent access protection goes hand-in-hand with managing such complex data structures in the face of multiple execution threads such as transmit, receive, transmit-complete interrupts, receive interrupts, and NAPI polling. We discussed several concurrency control techniques in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02.html#ch02">Chapter 2</A>, "A Peek Inside the Kernel."

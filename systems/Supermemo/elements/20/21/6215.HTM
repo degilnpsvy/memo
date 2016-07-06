@@ -1,0 +1,56 @@
+Example: A Shallow Clone of a Single Branch </P>
+<P>To begin, let&#8217;s make a shallow clone of a single SVN branch. Specifically, let&#8217;s work with the source code of SVN itself (which is guaranteed to be managed with SVN for as long as this book is in print) and a particular set of revisions, 33005 through 33142, from the 1.5.x branch of SVN. </P>
+<P>The first step is to clone the SVN repository: </P>
+<P>$ git svn clone -r33005:33142&nbsp;<A href="http://svn.collab.net/repos/">http://svn.collab.net/repos/</A> </P>
+<P>svn/branches/1.5.x/ svn.git</P>
+<P>In some Git packages, such as those provided by the Debian and Ubuntu Linux distributions, the git svn command is an optional part of Git. If you type git svn and are warned that &#8220;svn is not a git-command,&#8221; try to install the git-svn package. (See Chapter 2 for details about installing Git packages.) </P>
+<P>The git svn clone command is more verbose than the typical git clone and is usually slower than running either Git or SVN separately.( 1. The git svn command is sluggish because it isn&#8217;t highly optimized. SVN support in Git has fewer users and developers than plain Git or plain SVN. Additionally, git svn simply has more work to do. Git downloads the repository&#8217;s history, not just the most recent version, whereas the SVN protocol is optimized for downloading just one version at a time.) In this example, however, the initial clone won&#8217;t be too slow, because the working set is but a small portion of the history of a single branch.</P>
+<P>Once git svn clone finishes, glance at your new Git repository: </P>
+<P>$ cd svn.git </P>
+<P>$ ls </P>
+<P>./ build/ contrib/ HACKING README win-tests.py </P>
+<P>../ build.conf COPYING INSTALL STATUS www/</P>
+<P>aclocal.m4 CHANGES doc/ Makefile.in subversion/ </P>
+<P>autogen.sh* COMMITTERS gen-make.py* notes/ tools/ </P>
+<P>BUGS configure.ac .git/ packages/ TRANSLATING</P>
+<P>$ git branch -a </P>
+<P>* master</P>
+<P>git-svn </P>
+<P>$ git log -1</P>
+<P>commit 05026566123844aa2d65a6896bf7c6e65fc53f7c </P>
+<P>Author: hwright </P>
+<P><HWRIGHT@612F8EBC-C883-4BE0-9EE0-A4E9EF946E3A>Date: Wed Sep 17 17:45:15 2008 +0000 </P>
+<P>Merge r32790, r32796, r32798 from trunk: </P>
+<P>* r32790, r32796, r32798</P>
+<P>Fix issue #2505: make switch continue after deleting locally modified directories, as it update and merge do. </P>
+<P>Notes:</P>
+<P>r32796 updates the docstring. .</P>
+<P>r32798 is an obvious fix.</P>
+<P>Justification: </P>
+<P>Small fix (with test). User requests. </P>
+<P>Votes:</P>
+<P>+1: danielsh, zhakov, cmpilato</P>
+<P>git-svn-id: <A href="http://svn.collab.net/repos/svn/branches/">http://svn.collab.net/repos/svn/branches/</A> </P>
+<P>1.5.x@33142 612f8ebc-c883-4be0-9ee0-a4e9ef946e3a</P>
+<P>$ git log --pretty=oneline --abbrev-commit</P>
+<P>0502656... Merge r32790, r32796, r32798 from trunk: </P>
+<P>77a44ab... Cast some votes, approving changes. </P>
+<P>de50536... Add r33136 to the r33137 group. </P>
+<P>96d6de4... Recommend r33137 for backport to 1.5.x. </P>
+<P>e2d810c... * STATUS: Nominate r32771 and vote for r32968, r32975. </P>
+<P>23e5373... * subversion/po/ko.po: Korean translation updated (no fuzzy left; applied from trunk of r33034) </P>
+<P>92902fa... * subversion/po/ko.po: Merged translation from trunk r32990 </P>
+<P>4e7f79a... Per the proposal in</P>
+<P>http://svn.haxx.se/dev/archive-2008-08/0148.shtml, Add release stream openness indications to the STATUS files on our various release branches. </P>
+<P>f9eae83... Merge r31546 from trunk:</P>
+<P>There are a few things to observe:</P>
+<P>? You can now manipulate all the imported commits directly with Git, ignoring the SVN server. Only git svn commands talk to the server; other Git commands such as git blame, git log, and git diff are as fast as always and function even when you&#8217;re not online. This offline feature is a major reason developers prefer to use git svn instead of SVN. </P>
+<P>? The working directory lacks .svn directories, but it does have the familiar .git directory. Normally, when you check out a SVN project, each subdirectory contains a .svn directory for bookkeeping. However, git svn does its bookkeeping in the .git directory, as Git always does. The git svn command does use an extra directory called .git/svn, which is described momentarily. </P>
+<P>? Even though you checked out a branch named 1.5.x, the local branch has the standard Git name master. Nonetheless, it still corresponds to the 1.5.x branch, revision 33142. The local repository also has a remote ref called git-svn, which is the parent of the local master branch. </P>
+<P>? The author&#8217;s name and email address in git log is atypical for Git. For example, the author is listed as hwright instead of the author&#8217;s real name, Hyrum Wright. Moreover, his email address a string of hex digits. Unfortunately, SVN doesn&#8217;t store an author&#8217;s full name or email address. Instead, it stores only the author&#8217;s login, which in this case is hwright. However, because Git wants the extra information, git svn fabricates it. The string of hex digits is the unique ID of the SVN repository. With it, Git can uniquely identify this particular hwright user on this particular server by using his generated email address.</P>
+<P>If you know the proper name and email address of every developer in your SVN project, you can specify the --authors-file option to use a list of known identities instead of a set of manufactured ones. However, this is optional and matters only if you care about the aesthetics of your logs. Most developers don&#8217;t. Run the command git help svn for more information.</P>
+<P>User identification differs between SVN and Git. Every SVN user must have a login on the central repository server to make a commit. Login names must be unique and thus are suitable for identification in SVN. Git, on the other hand, does not require a server. In Git&#8217;s case, the user&#8217;s email address is the only reliable, easily understood, and globally unique string.</P>
+<P>? SVN users don&#8217;t typically write one-line summaries in commit messages, as Git users do, so the one line format from git log produces rather ugly results. There&#8217;s not much you can do about this, but you might ask or encourage your SVN colleagues to adopt the one-line summary voluntarily. After all, a one-line summary is helpful in any VCS. </P>
+<P>? There&#8217;s an extra line in each commit message, prefixed with git-svn-id. This line is used by git svn to keep track of where the commit came from. In this case, the commit came from http://svn.collab.net/repos/svn/branches/1.5.x, as of revision 33142, and the server unique ID is the same one used to generate Hyrum&#8217;s fake email address. </P>
+<P>? git svn created a new commit ID number (0502656...) for each commit. If you used exactly the same Git software and command-line options as those shown here, then the commit numbers you see on your local system should likewise be identical. That&#8217;s appropriate, because your local commits are the same commits from the same remote repository. This detail is critical in certain git svn work flows, as you&#8217;ll see shortly. </P>
+<P>It&#8217;s also fragile. If you use different git svn clone options, even just cloning a different revision sequence, then all your commit IDs will change.

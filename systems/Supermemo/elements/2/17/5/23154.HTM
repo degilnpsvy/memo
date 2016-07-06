@@ -1,0 +1,110 @@
+<H3 id=-100000 class=docSection1Title>Accessing Memory Regions</H3>
+<P class=docText><A name=iddle1018></A><A name=iddle2882></A><A name=iddle2901></A><A name=iddle2926></A><A name=iddle2951></A><A name=iddle3016></A><A name=iddle3018></A><A name=iddle3045></A><A name=iddle3076></A><A name=iddle4180></A><A name=iddle4537></A><A name=iddle4670></A><A name="Memory mapping"></A>Memory mapping (or <SPAN class=docEmphasis>mmaping</SPAN><A name="associates it"></A>) a file associates it with an area of user virtual memory. Because Linux treats devices as files, you can also map device memory to RAM and directly operate on it from user space. Here are some <TT>mmap()</TT> users on Linux:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="X Windows"></A>Graphical user interfaces, such as X Windows (<A class=docLink href="http://www.xfree86.org/" target=_blank>www.xfree86.org</A>) and SVGAlib (<A class=docLink href="http://www.svgalib.org/" target=_blank>www.svgalib.org</A><A name="and directly"></A>), mmap video memory and directly access graphics hardware.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><SPAN class=docEmphasis>Madplay</SPAN><A name="so madplay"></A> is an integer-only MP3 player that runs on several architectures. Memory mapping improves throughput, so madplay mmaps MP3 files for faster access. This helps maintain the correct bit rates necessary for high-quality music playback.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>MPEG (<SPAN class=docEmphasis>Moving Picture Experts Group</SPAN><A name="directly operating"></A>) decoders play movies by directly operating on mmapped frame buffer memory.</P></DIV></LI></OL></DIV>
+<P class=docText>The prototype of the <TT>mmap()</TT> system call looks like this:</P>
+<DIV class=docText><PRE>void *mmap(void *start, size_t length, int prot, int flag,
+           int fd, off_t offset);</PRE></DIV><BR>
+<P class=docText><A name="device file"></A>This requests the kernel to associate the device file specified by the file descriptor <TT>fd</TT><A name="memory beginning"></A> to a chunk of user memory beginning at <TT>start</TT>. (<TT>start</TT><A name=to></A> is only a preference and is usually set to <TT>0</TT>; the actual associated memory is returned by <TT>mmap()</TT>.) The kernel maps <TT>length</TT> bytes of memory starting from <TT>offset</TT> in the specified file. <TT>prot</TT> specifies the desired access protection, and <TT>flag</TT> describes the type of the mapping. The <TT>MAP_SHARED</TT><A name="of the"></A> flag mirrors your modifications to other users of the same memory region, whereas <TT>MAP_PRIVATE</TT><A name="keeps your"></A> keeps your changes to yourself.</P>
+<P class=docText><A name="pages need"></A>All mmapped pages need not be present in physical memory. Areas not being accessed can be in swap space from where they are paged in on demand. Underlying device drivers may control the semantics of the <TT>mmap()</TT><A name=an></A> system call by implementing an <TT>mmap()</TT> method.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec3.html#ch19ex04">Listing 19.4</A><A name="display program"></A> is an image display program that illustrates usage of <TT>mmap()</TT> as follows:</P>
+<UL>
+<LI>
+<P class=docList>Mmaps a frame buffer. (We discussed frame buffer drivers in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12.html#ch12">Chapter 12</A>, "Video Drivers.")</P></LI>
+<LI>
+<P class=docList>Mmaps an image file.</P></LI>
+<LI>
+<P class=docList><A name=iddle1812></A><A name=iddle2318></A><A name="depending on"></A>Transfers the latter to the former after performing necessary transformations depending on the properties of the image file (not shown in the listing).</P></LI></UL><A name=ch19ex04></A>
+<H5 id=title-ID0EFTAO class=docExampleTitle>Listing 19.4. Displaying an Image Using Mmap</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <FCNTL.H>
+#include <SYS stat.h="">
+#include <SYS mman.h="">  /* For definition of mmap() */
+#include <LINUX fb.h="">  /* For frame buffer structures and ioctls */
+
+
+int
+main(int argc, char *argv[])
+{
+  int imagefd, fbfd;                  /* File descriptors */
+  char *imagebuf, *fbbuf;             /* mmap buffers */
+  struct fb_var_screeninfo vinfo;     /* Variable Screen info */
+  struct stat statbuf;                /* Image info */
+  int fbsize;                         /* Frame buffer size */
+
+  /* Open image file */
+  if ((imagefd = open(argv[1], O_RDONLY)) &lt; 0) {
+    perror("Bad image open\n");
+    exit(1);
+  }
+
+  /* Get the size of the image file */
+  if (fstat(imagefd, &amp;statbuf) &lt; 0) {
+    perror("Bad fstat\n");
+    exit(1);
+  }
+
+
+  /* mmap the image file */
+  if ((imagebuf = mmap(0, statbuf.st_size, PROT_READ, MAP_SHARED,
+                       imagefd, 0)) == (char *) -1){
+    perror("Bad image mmap\n");
+    exit(1);
+  }
+  /* Open video memory */
+  if ((fbfd = open("/dev/fb0", O_RDWR)) &lt; 0) {
+    perror("Bad frame buffer open\n");
+    exit(1);
+  }
+
+  /* Get screen attributes such as resolution and depth */
+  if (ioctl(fbfd, FBIOGET_VSCREENINFO, &amp;vinfo)) {
+    perror("Bad vscreeninfo ioctl\n");
+    exit(1);
+  }
+
+  /* Size of video memory =
+     (X-resolution * Y-resolution * Bytes per pixel) */
+  fbsize = (vinfo.xres * vinfo.yres * vinfo.bits_per_pixel)/8;
+
+  /* mmap the video memory */
+  if ((fbbuf = mmap(0, fbsize, PROT_WRITE, MAP_SHARED, fbfd, 0))
+      == (char *) -1){
+    perror("Bad frame buffer mmap\n");
+    exit(1);
+  }
+
+  /* Transfer imagebuf to fbbuf after applying transformations
+     dependent on the format, resolution, depth, data offset,
+     and other properties of the image file. Not implemented in
+     this listing */
+  copy_image_to_fb();
+
+  msync(fbbuf, fbsize, MS_SYNC); /* Flush changes to device */
+
+  /* ... */
+
+  /* Unmap frame buffer memory */
+  munmap(fbbuf, fbsize);
+  close(fbfd);
+
+  /* Unmap image file */
+  munmap(imagebuf, statbuf.st_size);
+  close(imagefd);
+
+}
+
+					  </LINUX></SYS></SYS></FCNTL.H></PRE></TD></TR></TBODY></TABLE>

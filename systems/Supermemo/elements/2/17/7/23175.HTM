@@ -1,0 +1,135 @@
+<H3 id=-100000 class=docSection1Title>Profiling</H3>
+<P class=docText><A name="Profiling points"></A>Profiling points you to those regions of code that burn more CPU cycles. Profilers help sense the presence of code bottlenecks and come in different flavors. The <SPAN class=docEmphasis>OProfile</SPAN><A name="with the"></A> kernel profiler, included with the 2.6 kernel, uses hardware assist to gather profile data. The <SPAN class=docEmphasis>gprof</SPAN><A name="relies on"></A> application profiler, on the other hand, relies on compiler assist to collect profiling information.</P><A name=ch21lev2sec16></A>
+<H4 id=title-ID0EWVAO class=docSection2Title>Kernel Profiling with OProfile</H4>
+<P class=docText><A name="at regular"></A>OProfile samples data at regular intervals using hardware performance counters supported by many processors. The performance counters can be programmed to count events such as the number of cache misses. On systems where the processor does not support performance counters, OProfile obtains limited information by collecting data during timer events.</P>
+<P class=docText>OProfile consists of the following:</P>
+<UL>
+<LI>
+<P class=docList>A kernel layer that collects profiling information.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec4.html#ch21fn07">[7]</A></SUP> To enable OProfile in your kernel, enable <TT>CONFIG_PROFILING</TT>, <TT>CONFIG_OPROFILE</TT>, and <TT>CONFIG_APIC</TT> and recompile.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch21fn07>[7]</A></SUP><A name="your kernel"></A> If you are still using a 2.4 kernel, you have to patch your kernel sources with OProfile support.</P></BLOCKQUOTE></LI>
+<LI>
+<P class=docList>The <SPAN class=docEmphasis>oprofiled</SPAN> daemon.</P></LI>
+<LI>
+<P class=docList><A name="such as"></A>A suite of post-profiling tools such as <SPAN class=docEmphasis>opcontrol</SPAN>, <SPAN class=docEmphasis>opreport</SPAN>, and <SPAN class=docEmphasis>op_help</SPAN><A name="collected data"></A> that help in detailed analysis of the collected data. These tools are included with several distributions; if your distribution doesn't have them, however, you can download precompiled binaries.</P></LI></UL>
+<P class=docText><A name=iddle2072></A><A name=iddle3322></A><A name=iddle3340></A><A name=iddle3669></A><A name=iddle4579></A><A name=iddle4593></A><A name="kernel profiling"></A>To illustrate the basics of kernel profiling, let's simulate a bottleneck in the filesystem layer and use OProfile to detect it. Our code area of interest is the portion of the filesystem layer that reads directories (function <TT>vfs_readdir()</TT> in <SPAN class=docEmphasis>fs/readdir.c</SPAN>)</P>
+<P class=docText>First, use opcontrol to configure OProfile:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; opcontrol --setup --vmlinux=/path/to/kernelsources/vmlinux</SPAN>
+                <SPAN class=docEmphStrong>--event=GLOBAL_POWER_EVENTS:100000:1:1:1</SPAN></PRE></DIV><BR>
+<P class=docText><A name=during></A>The event specifier asks OProfile to collect samples during <TT>GLOBAL_POWER_EVENTS</TT><A name="numerals adjacent"></A> (time during which the processor is not stopped). The numerals adjacent to the event specifier denote the sampling count in clock cycles, unit mask filter, kernel-space counting, and user-space counting, respectively. If you would like to sample <TT>x</TT><A name="times every"></A> times every second and your processor is running at a frequency of <TT>cpu_speed</TT><A name="count should"></A> HZ, your sample count should approximately be <TT>(cpu_speed/x)</TT><A name="a finer"></A>. A larger count generates a finer profile but also results in more CPU overhead.</P>
+<P class=docText><A name="by OProfile"></A>The events supported by OProfile depend on your processor:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; opcontrol -l</SPAN>  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>List available events on a Pentium 4 CPU</SPAN>
+GLOBAL_POWER_EVENTS: (counter: 0, 4)
+        time during which processor is not stopped (min count: 3000)
+BRANCH_RETIRED: (counter: 3, 7)
+        retired branches (min count: 3000)
+MISPRED_BRANCH_RETIRED: (counter: 3, 7)
+        retired mispredicted branches (min count: 3000)
+BSQ_CACHE_REFERENCE: (counter: 0, 4)
+...</PRE></DIV><BR>
+<P class=docText><A name="parts of"></A>Next, start OProfile and run a benchmarking tool that stresses those parts of the kernel you would like to profile. Look at <A class=docLink href="http://lbs.sourceforge.net/" target=_blank>http://lbs.sourceforge.net/</A><A name="benchmarking projects"></A> for a list of benchmarking projects on Linux. For this example, let's exercise the <SPAN class=docEmphasis>Virtual File System</SPAN><A name="the system"></A> (VFS) layer by recursively listing all files in the system:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; opcontrol --start</SPAN>   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Start data collection</SPAN>
+<SPAN class=docEmphStrong>bash&gt; ls -lR /</SPAN>            <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Stress test</SPAN>
+<SPAN class=docEmphStrong>bash&gt; opcontrol --dump</SPAN>    <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Save profiled data</SPAN></PRE></DIV><BR>
+<P class=docText><A name=iddle3336></A><A name=iddle3341></A><A name=iddle3670></A><A name=iddle4580></A><A name="the profiling"></A>Use opreport to look at the profiling results. The % column provides a measure of the function's load on the system:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; opreport -l /path/to/kernelsources/vmlinux</SPAN>
+
+CPU: P4 / Xeon, speed 2992.9 MHz (estimated)
+Counted GLOBAL_POWER_EVENTS events (time during which processor
+is not stopped) with a unit mask of 0x01 (count cycles when processor is active)
+count 100000
+samples  %        symbol name
+914506   24.2423  vgacon_scroll   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong><SPAN class=docEmphasis>ls</SPAN> output printed to console</SPAN>
+406619   10.7789  do_con_write
+273023    7.2375  vgacon_cursor
+206611    5.4770  __d_lookup
+...
+1380      0.0366  vfs_readdir     <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphStrong>Our routine of interest</SPAN>
+...
+1        2.7e-05  vma_prio_tree_next
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="by introducing"></A>Let's now simulate a bottleneck in the VFS code by introducing a 1-millisecond delay in <TT>vfs_readdir()</TT>. This is done in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec4.html#ch21ex06">Listing 21.6</A>.</P><A name=ch21ex06></A>
+<H5 id=title-ID0EZ4AO class=docExampleTitle>Listing 21.6. <SPAN class=docEmphRoman><TT>vfs_readdir()</TT></SPAN> Defined in fs/read_dir.c</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>int vfs_readdir(struct file *file, filldir_t filler, void *buf)
+{
+  struct inode *inode = file-&gt;f_ dentry-&gt;d_inode;
+  int res = -ENOTDIR;
+
+<SPAN class=docEmphStrong>+ /* Introduce a millisecond bottleneck</SPAN>
+<SPAN class=docEmphStrong>+    (HZ is set to 1000 on this system) */</SPAN>
+<SPAN class=docEmphStrong>+ unsigned long timeout = jiffies+1;</SPAN>
+<SPAN class=docEmphStrong>+ while (time_before(jiffies, timeout));</SPAN>
+<SPAN class=docEmphStrong>+ /* End of bottleneck */</SPAN>
+
+  /* ... */
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1358></A><A name=iddle2928></A><A name=iddle3339></A><A name=iddle3668></A><A name="recollect the"></A>Compile the kernel with this change and recollect the profile. The new data looks like this:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; opreport -l /path/to/kernelsources/vmlinux</SPAN>
+
+CPU: P4 / Xeon, speed 2993.08 MHz (estimated)
+Counted GLOBAL_POWER_EVENTS events (time during which processor is not stopped)
+with a unit mask of 0x01 (count cycles when processor is active)
+count 100000
+samples  %        symbol name
+6178015  57.1640  vfs_readdir    <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Our routine of interest
+1065197  9.8561   vgacon_scroll  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphasis>ls</SPAN> output printed to console
+479801   4.4395   do_con_write
+...
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="As you"></A>As you can see, the bottleneck is clearly reflected in the profiled data. <TT>vfs_readdir()</TT><A name="jumped to"></A> has now jumped to the top of the list!</P>
+<P class=docText><A name="to obtain"></A>You can use OProfile to obtain a lot more information. You can, for example, gather the percentage of data cache line misses. Caches are fast memory close to the processor. Fetches to cache are done in units of the processor cache line (32 bytes for Pentium 4). If the data you need to access is not already present in the cache (a cache miss), the processor has to fetch it from main memory, and this burns more CPU cycles. Subsequent accesses to that memory (and the surrounding bytes touched into the cache) will be faster until the corresponding cache line gets invalidated. You can configure OProfile to count the number of cache misses by profiling your kernel code for the <TT>BSQ_CACHE_REFERENCE</TT><A name="can then"></A> event (for Pentium 4). You can then tune your code, possibly by realigning fields in data structures, to achieve better cache utilization:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; opcontrol --setup</SPAN>
+                <SPAN class=docEmphStrong>--event=BSQ_CACHE_REFERENCE:50000:0x100:1:1</SPAN>
+                <SPAN class=docEmphStrong>--vmlinux=/path/to/kernelsources/vmlinux</SPAN>
+                                 <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Unit mask 0x100 denotes an L2 cache miss
+<SPAN class=docEmphStrong>bash&gt; opcontrol --start</SPAN>          <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Start data collection
+<SPAN class=docEmphStrong>bash&gt; ls -lR /</SPAN>                   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Stress
+<SPAN class=docEmphStrong>bash&gt; opcontrol --dump</SPAN>           <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Save profile
+<SPAN class=docEmphStrong>bash&gt; opreport -l /path/to/kernelsources/vmlinux</SPAN>
+CPU: P4 / Xeon, speed 2993.68 MHz (estimated)
+Counted BSQ_CACHE_REFERENCE events (cache references seen by the bus unit) with a
+unit mask of 0x100 (read 2nd level cache miss) count 50000
+samples  %        symbol name
+73       29.6748  find_inode_fast
+59       23.9837  __d_lookup
+27       10.9756  inode_init_once
+...
+
+					  </PRE></DIV><BR>
+<P class=docText><A name=iddle1727></A><A name=iddle2160></A><A name=iddle3667></A><A name="at the"></A>If you run OProfile on different kernel versions and look at the corresponding change logs, you might be able to figure out reasons for code changes in different parts of the kernel.</P>
+<P class=docText><A name="the surface"></A>You have only touched the surface of what can be accomplished using OProfile. For more information, visit <A class=docLink href="http://oprofile.sourceforge.net/" target=_blank>http://oprofile.sourceforge.net/</A>.</P><A name=ch21lev2sec17></A>
+<H4 id=title-ID0EGDBO class=docSection2Title>Application Profiling with Gprof</H4>
+<P class=docText><A name="application process"></A>If you need to profile only an application process in isolation without profiling the kernel code that might get executed on its behalf, use <SPAN class=docEmphasis>gprof</SPAN><A name="additional code"></A> rather than OProfile. Gprof relies on additional code generated by the compiler to profile C, Pascal, or Fortran programs. Let's use gprof to profile the following code snippet:</P>
+<DIV class=docText><PRE>main(int argc, char *argv[])
+{
+  int i;
+
+  for (i=0; i&lt;10; i++) {
+    if (!do_task()) {      /* Perform task */
+      do_error_handling(); /* Handle errors */
+    }
+  }
+}</PRE></DIV><BR>
+<P class=docText>Use the <TT>-pg</TT><A name="code that"></A> option to ask the compiler to include extra code that generates a call graph profile when the program runs. The <TT>-g</TT> option generates symbolic information:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; gcc -pg -g -o myprog myprog.c</SPAN>
+<SPAN class=docEmphStrong>bash&gt; ./myprog</SPAN></PRE></DIV><BR>
+<P class=docText><A name=iddle1732></A><A name=iddle2799></A><A name=iddle2868></A><A name=iddle2869></A><A name=iddle4296></A><A name=iddle4301></A>This produces <SPAN class=docEmphasis>gmon.out</SPAN>, which is a call graph of <SPAN class=docEmphasis>myprog.</SPAN> Run gprof to view the profile:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; gprof -p -b myprog</SPAN>
+
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self    total
+ time   seconds   seconds    calls   s/call  s/call   name
+ 65.17     2.75      2.75        2     1.38    1.38   do_error_handling
+ 34.83     4.22      1.47       10     0.15    0.15   do_task</PRE></DIV><BR>
+<P class=docText><A name="hit twice"></A>This shows that the error path was hit twice during execution. You can tune the code to produce fewer traversals of the error path and rerun gprof to generate an updated profile.

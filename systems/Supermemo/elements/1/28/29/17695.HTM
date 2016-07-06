@@ -1,0 +1,55 @@
+<H4 class=subsection>1.1.6 Shell-Quoting Issues</H4><A name=index-shell-quoting_002c-rules-for></A>
+<TABLE class=menu border=0 cellSpacing=0>
+<TBODY>
+<TR>
+<TD vAlign=top align=left>&#8226; <A accessKey=1 href="http://www.gnu.org/software/gawk/manual/gawk.html#DOS-Quoting">DOS Quoting</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Quoting in Windows Batch Files. </TD></TR></TBODY></TABLE>
+<P>For short to medium length <CODE>awk</CODE> programs, it is most convenient to enter the program on the <CODE>awk</CODE> command line. This is best done by enclosing the entire program in single quotes. This is true whether you are entering the program interactively at the shell prompt, or writing it as part of a larger shell script: </P>
+<DIV class=example><PRE class=example>awk '<VAR>program text</VAR>' <VAR>input-file1</VAR> <VAR>input-file2</VAR> &#8230;
+</PRE></DIV><A name=index-shells_002c-quoting_002c-rules-for></A><A name=index-Bourne-shell_002c-quoting-rules-for></A>
+<P>Once you are working with the shell, it is helpful to have a basic knowledge of shell quoting rules. The following rules apply only to POSIX-compliant, Bourne-style shells (such as Bash, the GNU Bourne-Again Shell). If you use the C shell, you&#8217;re on your own. </P>
+<UL>
+<LI>Quoted items can be concatenated with nonquoted items as well as with other quoted items. The shell turns everything into one argument for the command. </LI>
+<LI>Preceding any single character with a backslash (&#8216;<SAMP>\</SAMP>&#8217;) quotes that character. The shell removes the backslash and passes the quoted character on to the command. </LI>
+<LI><A name=index-_005c-_0028backslash_0029_002c-in-shell-commands></A><A name=index-backslash-_0028_005c_0029_002c-in-shell-commands></A><A name=index-single-quote-_0028_0027_0029_002c-in-shell-commands></A><A name=index-_0027-_0028single-quote_0029_002c-in-shell-commands></A>Single quotes protect everything between the opening and closing quotes. The shell does no interpretation of the quoted text, passing it on verbatim to the command. It is <EM>impossible</EM> to embed a single quote inside single-quoted text. Refer back to <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Comments">Comments</A>, for an example of what happens if you try. </LI>
+<LI><A name=index-double-quote-_0028_0022_0029_002c-in-shell-commands></A><A name=index-_0022-_0028double-quote_0029_002c-in-shell-commands></A>Double quotes protect most things between the opening and closing quotes. The shell does at least variable and command substitution on the quoted text. Different shells may do additional kinds of processing on double-quoted text. 
+<P>Since certain characters within double-quoted text are processed by the shell, they must be <EM>escaped</EM> within the text. Of note are the characters &#8216;<SAMP>$</SAMP>&#8217;, &#8216;<SAMP>`</SAMP>&#8217;, &#8216;<SAMP>\</SAMP>&#8217;, and &#8216;<SAMP>"</SAMP>&#8217;, all of which must be preceded by a backslash within double-quoted text if they are to be passed on literally to the program. (The leading backslash is stripped first.) Thus, the example seen previously in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Read-Terminal">Read Terminal</A>, is applicable: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk "BEGIN { print \"Don't Panic!\" }"</EM></KBD>
+-| Don't Panic!
+</PRE></DIV><A name=index-single-quote-_0028_0027_0029_002c-with-double-quotes></A><A name=index-_0027-_0028single-quote_0029_002c-with-double-quotes></A>
+<P>Note that the single quote is not special within double quotes. </P></LI>
+<LI>Null strings are removed when they occur as part of a non-null command-line argument, while explicit non-null objects are kept. For example, to specify that the field separator <CODE>FS</CODE> should be set to the null string, use: 
+<DIV class=example><PRE class=example>awk -F "" '<VAR>program</VAR>' <VAR>files</VAR> # correct
+</PRE></DIV><A name=index-null-strings-in-gawk-arguments_002c-quoting-and></A>
+<P>Don&#8217;t use this: </P>
+<DIV class=example><PRE class=example>awk -F"" '<VAR>program</VAR>' <VAR>files</VAR>  # wrong!
+</PRE></DIV>
+<P>In the second case, <CODE>awk</CODE> will attempt to use the text of the program as the value of <CODE>FS</CODE>, and the first file name as the text of the program! This results in syntax errors at best, and confusing behavior at worst. </P></LI></UL><A name=index-quoting-in-gawk-command-lines_002c-tricks-for></A>
+<P>Mixing single and double quotes is difficult. You have to resort to shell quoting tricks, like this: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN { print "Here is a single quote &lt;'"'"'&gt;" }'</EM></KBD>
+-| Here is a single quote &lt;'&gt;
+</PRE></DIV>
+<P>This program consists of three concatenated quoted strings. The first and the third are single-quoted, the second is double-quoted. </P>
+<P>This can be &#8220;simplified&#8221; to: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN { print "Here is a single quote &lt;'\''&gt;" }'</EM></KBD>
+-| Here is a single quote &lt;'&gt;
+</PRE></DIV>
+<P>Judge for yourself which of these two is the more readable. </P>
+<P>Another option is to use double quotes, escaping the embedded, <CODE>awk</CODE>-level double quotes: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk "BEGIN { print \"Here is a single quote &lt;'&gt;\" }"</EM></KBD>
+-| Here is a single quote &lt;'&gt;
+</PRE></DIV>
+<P>This option is also painful, because double quotes, backslashes, and dollar signs are very common in more advanced <CODE>awk</CODE> programs. </P>
+<P>A third option is to use the octal escape sequence equivalents (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Escape-Sequences">Escape Sequences</A>) for the single- and double-quote characters, like so: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN { print "Here is a single quote &lt;\47&gt;" }'</EM></KBD>
+-| Here is a single quote &lt;'&gt;
+$ <KBD><EM>awk 'BEGIN { print "Here is a double quote &lt;\42&gt;" }'</EM></KBD>
+-| Here is a double quote &lt;"&gt;
+</PRE></DIV>
+<P>This works nicely, except that you should comment clearly what the escapes mean. </P>
+<P>A fourth option is to use command-line variable assignment, like this: </P>
+<DIV class=example><PRE class=example>$ awk -v sq="'" 'BEGIN { print "Here is a single quote &lt;" sq "&gt;" }'
+-| Here is a single quote &lt;'&gt;
+</PRE></DIV>
+<P>If you really need both single and double quotes in your <CODE>awk</CODE> program, it is probably best to move it into a separate file, where the shell won&#8217;t be part of the picture, and you can say what you mean.

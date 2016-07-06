@@ -1,0 +1,36 @@
+<H4 class=subsection>12.2.2 Sorting Array Values and Indices with <CODE>gawk</CODE></H4><A name=index-arrays_002c-sorting></A><A name=index-asort_0028_0029-function-_0028gawk_0029-1></A><A name=index-asort_0028_0029-function-_0028gawk_0029_002c-arrays_002c-sorting></A><A name=index-asorti_0028_0029-function-_0028gawk_0029-1></A><A name=index-asorti_0028_0029-function-_0028gawk_0029_002c-arrays_002c-sorting></A><A name=index-sort-function_002c-arrays_002c-sorting></A>
+<P>In most <CODE>awk</CODE> implementations, sorting an array requires writing a <CODE>sort()</CODE> function. While this can be educational for exploring different sorting algorithms, usually that&#8217;s not the point of the program. <CODE>gawk</CODE> provides the built-in <CODE>asort()</CODE> and <CODE>asorti()</CODE> functions (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>) for sorting arrays. For example: </P>
+<DIV class=example><PRE class=example><VAR>populate the array</VAR> data
+n = asort(data)
+for (i = 1; i &lt;= n; i++)
+    <VAR>do something with</VAR> data[i]
+</PRE></DIV>
+<P>After the call to <CODE>asort()</CODE>, the array <CODE>data</CODE> is indexed from 1 to some number <VAR>n</VAR>, the total number of elements in <CODE>data</CODE>. (This count is <CODE>asort()</CODE>&#8217;s return value.) <CODE>data[1]</CODE> &lt;= <CODE>data[2]</CODE> &lt;= <CODE>data[3]</CODE>, and so on. The default comparison is based on the type of the elements (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Typing-and-Comparison">Typing and Comparison</A>). All numeric values come before all string values, which in turn come before all subarrays. </P><A name=index-side-effects_002c-asort_0028_0029-function></A>
+<P>An important side effect of calling <CODE>asort()</CODE> is that <EM>the array&#8217;s original indices are irrevocably lost</EM>. As this isn&#8217;t always desirable, <CODE>asort()</CODE> accepts a second argument: </P>
+<DIV class=example><PRE class=example><VAR>populate the array</VAR> source
+n = asort(source, dest)
+for (i = 1; i &lt;= n; i++)
+    <VAR>do something with</VAR> dest[i]
+</PRE></DIV>
+<P>In this case, <CODE>gawk</CODE> copies the <CODE>source</CODE> array into the <CODE>dest</CODE> array and then sorts <CODE>dest</CODE>, destroying its indices. However, the <CODE>source</CODE> array is not affected. </P>
+<P>Often, what&#8217;s needed is to sort on the values of the <EM>indices</EM> instead of the values of the elements. To do that, use the <CODE>asorti()</CODE> function. The interface and behavior are identical to that of <CODE>asort()</CODE>, except that the index values are used for sorting, and become the values of the result array: </P>
+<DIV class=example><PRE class=example>{ source[$0] = some_func($0) }
+
+END {
+    n = asorti(source, dest)
+    for (i = 1; i &lt;= n; i++) {
+        <I>Work with sorted indices directly:</I>
+        <VAR>do something with</VAR> dest[i]
+        &#8230;
+        <I>Access original array via sorted indices:</I>
+        <VAR>do something with</VAR> source[dest[i]]
+    }
+}
+</PRE></DIV>
+<P>So far, so good. Now it starts to get interesting. Both <CODE>asort()</CODE> and <CODE>asorti()</CODE> accept a third string argument to control comparison of array elements. In <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>, we ignored this third argument; however, the time has now come to describe how this argument affects these two functions. </P>
+<P>Basically, the third argument specifies how the array is to be sorted. There are two possibilities. As with <CODE>PROCINFO["sorted_in"]</CODE>, this argument may be one of the predefined names that <CODE>gawk</CODE> provides (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Controlling-Scanning">Controlling Scanning</A>), or it may be the name of a user-defined function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Controlling-Array-Traversal">Controlling Array Traversal</A>). </P>
+<P>In the latter case, <EM>the function can compare elements in any way it chooses</EM>, taking into account just the indices, just the values, or both. This is extremely powerful. </P>
+<P>Once the array is sorted, <CODE>asort()</CODE> takes the <EM>values</EM> in their final order, and uses them to fill in the result array, whereas <CODE>asorti()</CODE> takes the <EM>indices</EM> in their final order, and uses them to fill in the result array. </P><A name=index-reference-counting_002c-sorting-arrays></A>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Copying array indices and elements isn&#8217;t expensive in terms of memory. Internally, <CODE>gawk</CODE> maintains <EM>reference counts</EM> to data. For example, when <CODE>asort()</CODE> copies the first array to the second one, there is only one copy of the original array elements&#8217; data, even though both arrays use the values. </P></BLOCKQUOTE><A name=index-gawk_002c-IGNORECASE-variable-in-4></A><A name=index-arrays_002c-sorting_002c-and-IGNORECASE-variable></A><A name=index-IGNORECASE-variable_002c-and-array-sorting-functions></A>
+<P>Because <CODE>IGNORECASE</CODE> affects string comparisons, the value of <CODE>IGNORECASE</CODE> also affects sorting for both <CODE>asort()</CODE> and <CODE>asorti()</CODE>. Note also that the locale&#8217;s sorting order does <EM>not</EM> come into play; comparisons are based on character values only.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT80" name=DOCF80><SUP>80</SUP></A> Caveat Emptor.

@@ -1,0 +1,50 @@
+<H5 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.57.22.2 PowerPC HTM High Level Inline Functions</H5>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The following high level HTM interface is made available by including<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>&lt;htmxlintrin.h&gt;</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and using<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-mhtm</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-mcpu=CPU</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>where CPU is `power8' or later. This interface is common between PowerPC and S/390, allowing users to write one HTM source implementation that can be compiled and executed on either system.</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     long __TM_simple_begin (void)
+     long __TM_begin (void* const TM_buff)
+     long __TM_end (void)
+     void __TM_abort (void)
+     void __TM_named_abort (unsigned char const code)
+     void __TM_resume (void)
+     void __TM_suspend (void)
+     
+     long __TM_is_user_abort (void* const TM_buff)
+     long __TM_is_named_user_abort (void* const TM_buff, unsigned char *code)
+     long __TM_is_illegal (void* const TM_buff)
+     long __TM_is_footprint_exceeded (void* const TM_buff)
+     long __TM_nesting_depth (void* const TM_buff)
+     long __TM_is_nested_too_deep(void* const TM_buff)
+     long __TM_is_conflict(void* const TM_buff)
+     long __TM_is_failure_persistent(void* const TM_buff)
+     long __TM_failure_address(void* const TM_buff)
+     long long __TM_failure_code(void* const TM_buff)
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Using these common set of HTM inline functions, we can create a more portable version of the HTM example in the previous section that will work on either PowerPC or S/390:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     #include &lt;htmxlintrin.h&gt;
+     
+     int num_retries = 10;
+     TM_buff_type TM_buff;
+     
+     while (1)
+       {
+         if (__TM_begin (TM_buff))
+           {
+             /* Transaction State Initiated.  */
+             if (is_locked (lock))
+               __TM_abort ();
+             ... transaction code...
+             __TM_end ();
+             break;
+           }
+         else
+           {
+             /* Transaction State Failed.  Use locks if the transaction
+                failure is "persistent" or we've tried too many times.  */
+             if (num_retries-- &lt;= 0
+                 || __TM_is_failure_persistent (TM_buff))
+               {
+                 acquire_lock (lock);
+                 ... non transactional fallback path...
+                 release_lock (lock);
+                 break;
+               }
+           }
+       }</PRE>

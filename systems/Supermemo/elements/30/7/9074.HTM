@@ -1,0 +1,68 @@
+<H4 class=subsection style="FONT-SIZE: medium; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">3.5.2 Symbol table format</H4>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">From mmixal.w (or really, the generated mmixal.tex) in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www-cs-faculty.stanford.edu/~knuth/programs/mmix.tar.gz">http://www-cs-faculty.stanford.edu/~knuth/programs/mmix.tar.gz</A>): &#8220;Symbols are stored and retrieved by means of a `<SAMP><SPAN class=samp>ternary search trie</SPAN></SAMP>', following ideas of Bentley and Sedgewick. (See ACM&#8211;SIAM Symp. on Discrete Algorithms `<SAMP><SPAN class=samp>8</SPAN></SAMP>' (1997), 360&#8211;369; R.Sedgewick, `<SAMP><SPAN class=samp>Algorithms in C</SPAN></SAMP>' (Reading, Mass. Addison&#8211;Wesley, 1998), `<SAMP><SPAN class=samp>15.4</SPAN></SAMP>'.) Each trie node stores a character, and there are branches to subtries for the cases where a given character is less than, equal to, or greater than the character in the trie. There also is a pointer to a symbol table entry if a symbol ends at the current node.&#8221;</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">So it's a tree encoded as a stream of bytes. The stream of bytes acts on a single virtual global symbol, adding and removing characters and signalling complete symbol points. Here, we read the stream and create symbols at the completion points.</P>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">First, there's a control byte<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>m</CODE>. If any of the listed bits in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>m</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is nonzero, we execute what stands at the right, in the listed order:</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">      (MMO3_LEFT)
+      0x40 - Traverse left trie.
+             (Read a new command byte and recurse.)
+     
+      (MMO3_SYMBITS)
+      0x2f - Read the next byte as a character and store it in the
+             current character position; increment character position.
+             Test the bits of <CODE>m</CODE>:
+     
+             (MMO3_WCHAR)
+             0x80 - The character is 16-bit (so read another byte,
+                    merge into current character.
+     
+             (MMO3_TYPEBITS)
+             0xf  - We have a complete symbol; parse the type, value
+                    and serial number and do what should be done
+                    with a symbol.  The type and length information
+                    is in j = (m &amp; 0xf).
+     
+                    (MMO3_REGQUAL_BITS)
+                    j == 0xf: A register variable.  The following
+                              byte tells which register.
+                    j &lt;= 8:   An absolute symbol.  Read j bytes as the
+                              big-endian number the symbol equals.
+                              A j = 2 with two zero bytes denotes an
+                              unknown symbol.
+                    j &gt; 8:    As with j &lt;= 8, but add (0x20 &lt;&lt; 56)
+                              to the value in the following j - 8
+                              bytes.
+     
+                    Then comes the serial number, as a variant of
+                    uleb128, but better named ubeb128:
+                    Read bytes and shift the previous value left 7
+                    (multiply by 128).  Add in the new byte, repeat
+                    until a byte has bit 7 set.  The serial number
+                    is the computed value minus 128.
+     
+             (MMO3_MIDDLE)
+             0x20 - Traverse middle trie.  (Read a new command byte
+                    and recurse.)  Decrement character position.
+     
+      (MMO3_RIGHT)
+      0x10 - Traverse right trie.  (Read a new command byte and
+             recurse.)
+</PRE>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">Let's look again at the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>lop_stab</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>for the trivial file (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://sourceware.org/binutils/docs-2.23.1/bfd/File-layout.html#File-layout">File layout</A>).</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">      0x980b0000 - lop_stab for ":Main" = 0, serial 1.
+      0x203a4040
+      0x10404020
+      0x4d206120
+      0x69016e00
+      0x81000000
+</PRE>
+<P style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">This forms the trivial trie (note that the path between &#8220;:&#8221; and &#8220;M&#8221; is redundant):</P><PRE class=example style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">      203a     ":"
+      40       /
+      40      /
+      10      \
+      40      /
+      40     /
+      204d  "M"
+      2061  "a"
+      2069  "i"
+      016e  "n" is the last character in a full symbol, and
+            with a value represented in one byte.
+      00    The value is 0.
+      81    The serial number is 1.</PRE>

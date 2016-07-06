@@ -1,0 +1,64 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.16.1 AVR Named Address Spaces</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">On the AVR target, there are several address spaces that can be used in order to put read-only data into the flash memory and access that data by means of the special instructions<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>LPM</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ELPM</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>needed to read from flash.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Per default, any data including read-only data is located in RAM (the generic address space) so that non-generic address spaces are needed to locate read-only data in flash memory<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>and</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>to generate the right instructions to access this data without using (inline) assembler code.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><CODE>__flash</CODE></DT>
+<DD><A name=index-g_t_0040code_007b_005f_005fflash_007d-AVR-Named-Address-Spaces-2749></A>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>__flash</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>qualifier locates data in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.progmem.data</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>section. Data is read using the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>LPM</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>instruction. Pointers to this address space are 16 bits wide.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></DD>
+<DT><CODE>__flash1</CODE></DT>
+<DT><CODE>__flash2</CODE></DT>
+<DT><CODE>__flash3</CODE></DT>
+<DT><CODE>__flash4</CODE></DT>
+<DT><CODE>__flash5</CODE></DT>
+<DD><A name=index-g_t_0040code_007b_005f_005fflash1_007d-AVR-Named-Address-Spaces-2750></A><A name=index-g_t_0040code_007b_005f_005fflash2_007d-AVR-Named-Address-Spaces-2751></A><A name=index-g_t_0040code_007b_005f_005fflash3_007d-AVR-Named-Address-Spaces-2752></A><A name=index-g_t_0040code_007b_005f_005fflash4_007d-AVR-Named-Address-Spaces-2753></A><A name=index-g_t_0040code_007b_005f_005fflash5_007d-AVR-Named-Address-Spaces-2754></A>These are 16-bit address spaces locating data in section<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.progmem</CODE><VAR>N</VAR><CODE>.data</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>where<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>N</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>refers to address space<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>__flash</CODE><VAR>N</VAR>. The compiler sets the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>RAMPZ</CODE>segment register appropriately before reading data by means of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ELPM</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>instruction.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></DD>
+<DT><CODE>__memx</CODE></DT>
+<DD><A name=index-g_t_0040code_007b_005f_005fmemx_007d-AVR-Named-Address-Spaces-2755></A>This is a 24-bit address space that linearizes flash and RAM: If the high bit of the address is set, data is read from RAM using the lower two bytes as RAM address. If the high bit of the address is clear, data is read from flash with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>RAMPZ</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>set according to the high byte of the address. See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://gcc.gnu.org/onlinedocs/gcc-4.9.1/gcc/AVR-Built-in-Functions.html#AVR-Built-in-Functions"><CODE>__builtin_avr_flash_segment</CODE></A>.
+<P>Objects in this address space are located in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.progmemx.data</CODE>.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><B>Example</B></P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     char my_read (const __flash char ** p)
+     {
+         /* p is a pointer to RAM that points to a pointer to flash.
+            The first indirection of p reads that flash pointer
+            from RAM and the second indirection reads a char from this
+            flash address.  */
+     
+         return **p;
+     }
+     
+     /* Locate array[] in flash memory */
+     const __flash int array[] = { 3, 5, 7, 11, 13, 17, 19 };
+     
+     int i = 1;
+     
+     int main (void)
+     {
+        /* Return 17 by reading from flash memory */
+        return array[array[i]];
+     }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=noindent>For each named address space supported by avr-gcc there is an equally named but uppercase built-in macro defined. The purpose is to facilitate testing if respective address space support is available or not:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     #ifdef __FLASH
+     const __flash int var = 1;
+     
+     int read_var (void)
+     {
+         return var;
+     }
+     #else
+     #include &lt;avr/pgmspace.h&gt; /* From AVR-LibC */
+     
+     const int var PROGMEM = 1;
+     
+     int read_var (void)
+     {
+         return (int) pgm_read_word (&amp;var);
+     }
+     #endif /* __FLASH */
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=noindent>Notice that attribute<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://gcc.gnu.org/onlinedocs/gcc-4.9.1/gcc/AVR-Variable-Attributes.html#AVR-Variable-Attributes"><CODE>progmem</CODE></A><SPAN class=Apple-converted-space>&nbsp;</SPAN>locates data in flash but accesses to these data read from generic address space, i.e. from RAM, so that you need special accessors like<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>pgm_read_byte</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>from<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://nongnu.org/avr-libc/user-manual/">AVR-LibC</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>together with attribute<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>progmem</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=noindent><B>Limitations and caveats</B></P>
+<UL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<LI>Reading across the 64&nbsp;KiB section boundary of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>__flash</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>__flash</CODE><VAR>N</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>address spaces shows undefined behavior. The only address space that supports reading across the 64&nbsp;KiB flash segment boundaries is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>__memx</CODE>.</LI>
+<LI>If you use one of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>__flash</CODE><VAR>N</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>address spaces you must arrange your linker script to locate the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>.progmem</CODE><VAR>N</VAR><CODE>.data</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>sections according to your needs.</LI>
+<LI>Any data or pointers to the non-generic address spaces must be qualified as<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>const</CODE>, i.e. as read-only data. This still applies if the data in one of these address spaces like software version number or calibration lookup table are intended to be changed after load time by, say, a boot loader. In this case the right qualification is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>const</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>volatile</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>so that the compiler must not optimize away known values or insert them as immediates into operands of instructions.</LI>
+<LI>The following code initializes a variable<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>pfoo</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>located in static storage with a 24-bit address:<PRE style="FONT-SIZE: smaller" class=smallexample>          extern const __memx char foo;
+          const __memx void *pfoo = &amp;foo;
+</PRE>
+<P class=noindent>Such code requires at least binutils 2.23, see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://sourceware.org/PR13503">PR13503</A>.</P></LI></UL>

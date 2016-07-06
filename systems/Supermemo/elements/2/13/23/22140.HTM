@@ -1,0 +1,64 @@
+<DIV class=navheader>
+<TABLE summary="Navigation header" width="100%">
+<TBODY>
+<TR>
+<TH colSpan=3 align=middle><SPAN class=phrase>device_rename</SPAN></TH></TR>
+<TR>
+<TD width="20%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-device-destroy.html">Prev</A>&nbsp;</TD>
+<TH width="60%" align=middle>Device Drivers Base</TH>
+<TD width="20%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-device-move.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=refentry><A name=API-device-rename></A>
+<DIV class=titlepage></DIV>
+<DIV class=refnamediv>
+<H2>Name</H2>
+<P>device_rename &#8212; renames a device </P></DIV>
+<DIV class=refsynopsisdiv>
+<H2>Synopsis</H2>
+<DIV class=funcsynopsis>
+<TABLE style="cellspacing: 0; cellpadding: 0" class=funcprototype-table border=0 summary="Function synopsis">
+<TBODY>
+<TR>
+<TD><CODE class=funcdef>int <B class=fsfunc>device_rename </B>(</CODE></TD>
+<TD>struct device * <VAR class=pdparam>dev</VAR>, </TD></TR>
+<TR>
+<TD>&nbsp;</TD>
+<TD>const char * <VAR class=pdparam>new_name</VAR><CODE>)</CODE>;</TD></TR></TBODY></TABLE>
+<DIV class=funcprototype-spacer>&nbsp;</DIV></DIV></DIV>
+<DIV class=refsect1><A name=idp44001308></A>
+<H2>Arguments</H2>
+<DIV class=variablelist>
+<DL class=variablelist>
+<DT><SPAN class=term><EM class=parameter><CODE>dev</CODE></EM></SPAN> 
+<DD>
+<P>the pointer to the struct device to be renamed </P>
+<DT><SPAN class=term><EM class=parameter><CODE>new_name</CODE></EM></SPAN> 
+<DD>
+<P>the new name of the device </P></DD></DL></DIV></DIV>
+<DIV class=refsect1><A name=idp44003964></A>
+<H2>Description</H2>
+<P>It is the responsibility of the caller to provide mutual exclusion between two different calls of device_rename on the same device to ensure that new_name is valid and won't conflict with other devices. </P></DIV>
+<DIV class=refsect1><A name=idp44004780></A>
+<H2>Note</H2>
+<P>Don't call this function. Currently, the networking layer calls this function, but that will change. The following text from Kay Sievers offers </P></DIV>
+<DIV class=refsect1><A name=idp44005532></A>
+<H2>some insight</H2>
+<P></P>
+<P>Renaming devices is racy at many levels, symlinks and other stuff are not replaced atomically, and you get a <SPAN class=quote>&#8220;<SPAN class=quote>move</SPAN>&#8221;</SPAN> uevent, but it's not easy to connect the event to the old and new device. Device nodes are not renamed at all, there isn't even support for that in the kernel now. </P>
+<P>In the meantime, during renaming, your target name might be taken by another driver, creating conflicts. Or the old name is taken directly after you renamed it -- then you get events for the same DEVPATH, before you even see the <SPAN class=quote>&#8220;<SPAN class=quote>move</SPAN>&#8221;</SPAN> event. It's just a mess, and nothing new should ever rely on kernel device renaming. Besides that, it's not even implemented now for other things than (driver-core wise very simple) network devices. </P>
+<P>We are currently about to change network renaming in udev to completely disallow renaming of devices in the same namespace as the kernel uses, because we can't solve the problems properly, that arise with swapping names of multiple interfaces without races. Means, renaming of eth[0-9]* will only be allowed to some other name than eth[0-9]*, for the aforementioned reasons. </P>
+<P>Make up a <SPAN class=quote>&#8220;<SPAN class=quote>real</SPAN>&#8221;</SPAN> name in the driver before you register anything, or add some other attributes for userspace to find the device, or use udev to add symlinks -- but never rename kernel devices later, it's a complete mess. We don't even want to get into that and try to implement the missing pieces in the core. We really have other pieces to fix in the driver core mess. :) </P></DIV></DIV>
+<DIV class=navfooter>
+<HR>
+
+<TABLE summary="Navigation footer" width="100%">
+<TBODY>
+<TR>
+<TD width="40%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-device-destroy.html">Prev</A>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=u href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/ch02s02.html">Up</A></TD>
+<TD width="40%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-device-move.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top width="40%" align=left><SPAN class=phrase>device_destroy</SPAN>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=h href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/index.html">Home</A></TD>
+<TD vAlign=top width="40%" align=right>&nbsp;<SPAN class=phrase>device_move</SPAN></TD></TR></TBODY></TABLE></DIV>

@@ -1,0 +1,66 @@
+<H4 class=subsection>11.3.4 Printing Mailing Labels</H4><A name=index-printing_002c-mailing-labels></A><A name=index-mailing-labels_002c-printing></A>
+<P>Here is a &#8220;real world&#8221;<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT76" name=DOCF76><SUP>76</SUP></A> program. This script reads lists of names and addresses and generates mailing labels. Each page of labels has 20 labels on it, two across and 10 down. The addresses are guaranteed to be no more than five lines of data. Each address is separated from the next by a blank line. </P>
+<P>The basic idea is to read 20 labels worth of data. Each line of each label is stored in the <CODE>line</CODE> array. The single rule takes care of filling the <CODE>line</CODE> array and printing the page when 20 labels have been read. </P>
+<P>The <CODE>BEGIN</CODE> rule simply sets <CODE>RS</CODE> to the empty string, so that <CODE>awk</CODE> splits records at blank lines (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Records">Records</A>). It sets <CODE>MAXLINES</CODE> to 100, since 100 is the maximum number of lines on the page (20 * 5 = 100). </P>
+<P>Most of the work is done in the <CODE>printpage()</CODE> function. The label lines are stored sequentially in the <CODE>line</CODE> array. But they have to print horizontally; <CODE>line[1]</CODE> next to <CODE>line[6]</CODE>, <CODE>line[2]</CODE> next to <CODE>line[7]</CODE>, and so on. Two loops are used to accomplish this. The outer loop, controlled by <CODE>i</CODE>, steps through every 10 lines of data; this is each row of labels. The inner loop, controlled by <CODE>j</CODE>, goes through the lines within the row. As <CODE>j</CODE> goes from 0 to 4, &#8216;<SAMP>i+j</SAMP>&#8217; is the <CODE>j</CODE>-th line in the row, and &#8216;<SAMP>i+j+5</SAMP>&#8217; is the entry next to it. The output ends up looking something like this: </P>
+<DIV class=example><PRE class=example>line 1          line 6
+line 2          line 7
+line 3          line 8
+line 4          line 9
+line 5          line 10
+&#8230;
+</PRE></DIV>
+<P>The <CODE>printf</CODE> format string &#8216;<SAMP>%-41s</SAMP>&#8217; left-aligns the data and prints it within a fixed-width field. </P>
+<P>As a final note, an extra blank line is printed at lines 21 and 61, to keep the output lined up on the labels. This is dependent on the particular brand of labels in use when the program was written. You will also note that there are two blank lines at the top and two blank lines at the bottom. </P>
+<P>The <CODE>END</CODE> rule arranges to flush the final page of labels; there may not have been an even multiple of 20 labels in the data: </P><A name=index-labels_002eawk-program></A>
+<DIV class=example><PRE class=example># labels.awk --- print mailing labels
+
+# Each label is 5 lines of data that may have blank lines.
+# The label sheets have 2 blank lines at the top and 2 at
+# the bottom.
+
+BEGIN    { RS = "" ; MAXLINES = 100 }
+
+function printpage(    i, j)
+{
+    if (Nlines &lt;= 0)
+        return
+
+    printf "\n\n"        # header
+
+    for (i = 1; i &lt;= Nlines; i += 10) {
+        if (i == 21 || i == 61)
+            print ""
+        for (j = 0; j &lt; 5; j++) {
+            if (i + j &gt; MAXLINES)
+                break
+            printf "   %-41s %s\n", line[i+j], line[i+j+5]
+        }
+        print ""
+    }
+
+    printf "\n\n"        # footer
+
+    delete line
+}
+
+# main rule
+{
+    if (Count &gt;= 20) {
+        printpage()
+        Count = 0
+        Nlines = 0
+    }
+    n = split($0, a, "\n")
+    for (i = 1; i &lt;= n; i++)
+        line[++Nlines] = a[i]
+    for (; i &lt;= 5; i++)
+        line[++Nlines] = ""
+    Count++
+}
+
+END    \
+{
+    printpage()
+}
+</PRE></DIV>

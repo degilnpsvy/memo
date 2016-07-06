@@ -1,0 +1,44 @@
+<H3 style="WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; FONT-FAMILY: helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><A name=procedures>5.2 "Procedures" and Jumping</A></H3>
+<P style="WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><B>NB:</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>NASM doesn't have procedure definitions like you may have used in TASM. That's because procedures don't really exist in assembly: everything is a label. So if you want to write a "procedure" in NASM, you don't use<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>proc</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>endp</TT>, but instead just put a label (eg.<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>fileWrite:</TT>) at the beginning of the "procedure's" code. If you want to, you can put comments at the start and end of the code just to make it look a bit more like a procedure. Here's an example in both Linux and DOS:
+<TABLE cellSpacing=10>
+<TBODY>
+<TR>
+<TD style="FONT-SIZE: 14pt; BACKGROUND-COLOR: rgb(0,208,255); TEXT-ALIGN: center">Linux</TD>
+<TD style="FONT-SIZE: 14pt; BACKGROUND-COLOR: rgb(0,255,192); TEXT-ALIGN: center">DOS</TD></TR>
+<TR>
+<TD style="BACKGROUND-COLOR: rgb(0,208,255)" vAlign=top><PRE>; proc fileWrite - write a string to a file
+fileWrite:
+   mov eax,4               ; write system call
+   mov ebx,[filedesc]      ; File descriptor
+   mov ecx,stuffToWrite
+   mov edx,[stuffLen]
+   int 80h
+   ret
+; endp fileWrite
+</PRE></TD>
+<TD style="BACKGROUND-COLOR: rgb(0,255,192)" vAlign=top><PRE>proc fileWrite
+   mov ah,40h              ; write DOS service
+   mov bx,[filehandle]     ; File handle
+   mov cl,[stuffLen]
+   mov dx,offset stuffToWrite
+   int 21h
+   ret
+endp fileWrite
+</PRE></TD></TR></TBODY></TABLE></P>
+<P style="WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><B>NB<SUP>2</SUP>:</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>I assume that you're familiar with labels and jumping to them with instructions like<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>JMP</TT>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>JE</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>JGE</TT>. Now that you've seen that "procedures" are actually labels, there is one very important thing to remember: If you are planning to return from a procedure (with the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>RET</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>instruction),<SPAN class=Apple-converted-space>&nbsp;</SPAN><B><I>don't jump to it!</I></B><SPAN class=Apple-converted-space>&nbsp;</SPAN>As in "never!" Doing that will cause a segmentation fault on Linux (which is OK &#8211; all your program does is terminate), but in DOS it may blow up in your face with various degrees of terribleness. The rule to remember is:</P>
+<P style="PADDING-LEFT: 30px; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">You may<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>jump</I><SPAN class=Apple-converted-space>&nbsp;</SPAN>to<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>labels</I>, but you must<SPAN class=Apple-converted-space>&nbsp;</SPAN><U>call</U><SPAN class=Apple-converted-space>&nbsp;</SPAN>a<SPAN class=Apple-converted-space>&nbsp;</SPAN><U>procedure</U>.</P>
+<P style="WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">Calling a procedure is of course done with the<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>CALL</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>instruction. This makes life a bit difficult when you want to do things like "if-then-else". If you have a situation such as "if this happens, call procedure 1, else call procedure 2" there's only one thing to do: Jump around like a kangaroo weaving a spaghetti code masterpiece. Lets look at an example. First, here is some normal, sane code:</P><PRE style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; BACKGROUND-COLOR: rgb(255,255,160); FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">	if (AX == 'w') {
+	   writeFile();
+	} else {
+	   doSomethingElse();
+	}
+</PRE><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">This is how you would do it in assembly:</SPAN><PRE style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; BACKGROUND-COLOR: rgb(0,208,255); FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">	cmp	AX,'w'		; Does AX contain 'w'?
+	jne	skipWrite	; If not, skip writing by jumping to another label, and doSomethingElse there...
+	call	writeFile	; ...else call the writeFile procedure...
+	jmp	outOfThisMess	; ...and jump past all of this spaghetti
+
+skipWrite:
+	call	doSomethingElse
+outOfThisMess:
+	...			; The rest of the program goes on here
+</PRE><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">Note that this is applicable to any assembly, not just Linux or NASM.</SPAN>

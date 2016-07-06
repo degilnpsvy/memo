@@ -1,0 +1,43 @@
+<TABLE summary="Navigation header" width="100%">
+<TBODY>
+<TR>
+<TH colSpan=3 align=middle><SPAN class=phrase>del_timer_sync</SPAN></TH></TR>
+<TR>
+<TD width="20%" align=left><A accessKey=p href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-try-to-del-timer-sync.html">Prev</A>&nbsp;</TD>
+<TH width="60%" align=middle>Delaying, scheduling, and timer routines</TH>
+<TD width="20%" align=right>&nbsp;<A accessKey=n href="file:///C:/Users/donpope_tang/Documents/docbook/device-drivers/API-schedule-timeout.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+
+<DIV class=refentry><A name=API-del-timer-sync></A>
+<DIV class=titlepage></DIV>
+<DIV class=refnamediv>
+<H2>Name</H2>
+<P>del_timer_sync &#8212; deactivate a timer and wait for the handler to finish. </P></DIV>
+<DIV class=refsynopsisdiv>
+<H2>Synopsis</H2>
+<DIV class=funcsynopsis>
+<TABLE style="cellspacing: 0; cellpadding: 0" class=funcprototype-table border=0 summary="Function synopsis">
+<TBODY>
+<TR>
+<TD><CODE class=funcdef>int <B class=fsfunc>del_timer_sync </B>(</CODE></TD>
+<TD>struct timer_list * <VAR class=pdparam>timer</VAR><CODE>)</CODE>;</TD></TR></TBODY></TABLE>
+<DIV class=funcprototype-spacer>&nbsp;</DIV></DIV></DIV>
+<DIV class=refsect1><A name=idp41642948></A>
+<H2>Arguments</H2>
+<DIV class=variablelist>
+<DL class=variablelist>
+<DT><SPAN class=term><EM class=parameter><CODE>timer</CODE></EM></SPAN> 
+<DD>
+<P>the timer to be deactivated </P></DD></DL></DIV></DIV>
+<DIV class=refsect1><A name=idp41644524></A>
+<H2>Description</H2>
+<P>This function only differs from <CODE class=function>del_timer</CODE> on SMP: besides deactivating the timer it also makes sure the handler has finished executing on other CPUs. </P></DIV>
+<DIV class=refsect1><A name=idp41645580></A>
+<H2>Synchronization rules</H2>
+<P>Callers must prevent restarting of the timer, otherwise this function is meaningless. It must not be called from interrupt contexts unless the timer is an irqsafe one. The caller must not hold locks which would prevent completion of the timer's handler. The timer's handler must not call <CODE class=function>add_timer_on</CODE>. Upon exit the timer is not queued and the handler is not running on any CPU. </P></DIV>
+<DIV class=refsect1><A name=idp41646868></A>
+<H2>Note</H2>
+<P>For !irqsafe timers, you must not hold locks that are held in interrupt context while calling this function. Even if the lock has nothing to do with the timer in question. Here's why: </P>
+<P>CPU0 CPU1 ---- ---- &lt;SOFTIRQ&gt; <CODE class=function>call_timer_fn</CODE>; base-&gt;running_timer = mytimer; spin_lock_irq(somelock); &lt;IRQ&gt; spin_lock(somelock); del_timer_sync(mytimer); while (base-&gt;running_timer == mytimer); </P>
+<P>Now <CODE class=function>del_timer_sync</CODE> will never return and never release somelock. The interrupt on the other CPU is waiting to grab somelock but it has interrupted the softirq that CPU0 is waiting to finish. </P>
+<P>The function returns whether it has deactivated a pending timer or not. </P></DIV></DIV>

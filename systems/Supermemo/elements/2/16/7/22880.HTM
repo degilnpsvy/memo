@@ -1,0 +1,224 @@
+# Documentation/sysctl/vm.txt&nbsp;
+<P></P>
+<P>Documentation for /proc/sys/vm/*&nbsp;kernel version 2.6.29<BR>&nbsp;(c) 1998, 1999,&nbsp; Rik van Riel &lt;<A href="mailto:riel@nl.linux.org">riel@nl.linux.org</A>&gt;<BR>&nbsp;(c) 2008&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Peter W. Morreale &lt;<A href="mailto:pmorreale@novell.com">pmorreale@novell.com</A>&gt;</P>
+<P></P>
+<P>For general info and legal blurb, please look in README.</P>
+<P>==============================================================</P>
+<P>This file contains the documentation for the sysctl files in<BR>/proc/sys/vm and is valid for Linux kernel version 2.6.29.</P>
+<P>The files in this directory can be used to tune the operation<BR>of the virtual memory (VM) subsystem of the Linux kernel and<BR>the writeout of dirty data to disk.</P>
+<P>Default values and initialization routines for most of these<BR>files can be found in mm/swap.c.</P>
+<P>Currently, these files are in /proc/sys/vm:</P>
+<P>- admin_reserve_kbytes<BR>- block_dump<BR>- compact_memory<BR>- dirty_background_bytes<BR>- dirty_background_ratio<BR>- dirty_bytes<BR>- dirty_expire_centisecs<BR>- dirty_ratio<BR>- dirty_writeback_centisecs<BR>- drop_caches<BR>- extfrag_threshold<BR>- hugepages_treat_as_movable<BR>- hugetlb_shm_group<BR>- laptop_mode<BR>- legacy_va_layout<BR>- lowmem_reserve_ratio<BR>- max_map_count<BR>- memory_failure_early_kill<BR>- memory_failure_recovery<BR>- min_free_kbytes<BR>- min_slab_ratio<BR>- min_unmapped_ratio<BR>- mmap_min_addr<BR>- nr_hugepages<BR>- nr_overcommit_hugepages<BR>- nr_trim_pages&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (only if CONFIG_MMU=n)<BR>- numa_zonelist_order<BR>- oom_dump_tasks<BR>- oom_kill_allocating_task<BR>- overcommit_memory<BR>- overcommit_ratio<BR>- page-cluster<BR>- panic_on_oom<BR>- percpu_pagelist_fraction<BR>- stat_interval<BR>- swappiness<BR>- user_reserve_kbytes<BR>- vfs_cache_pressure<BR>- zone_reclaim_mode</P>
+<P>==============================================================</P>
+<P>admin_reserve_kbytes</P>
+<P>The amount of free memory in the system that should be reserved for users<BR>with the capability cap_sys_admin.</P>
+<P>admin_reserve_kbytes defaults to min(3% of free pages, 8MB)</P>
+<P>That should provide enough for the admin to log in and kill a process,<BR>if necessary, under the default overcommit 'guess' mode.</P>
+<P>Systems running under overcommit 'never' should increase this to account<BR>for the full Virtual Memory Size of programs used to recover. Otherwise,<BR>root may not be able to log in to recover the system.</P>
+<P>How do you calculate a minimum useful reserve?</P>
+<P>sshd or login + bash (or some other shell) + top (or ps, kill, etc.)</P>
+<P>For overcommit 'guess', we can sum resident set sizes (RSS).<BR>On x86_64 this is about 8MB.</P>
+<P>For overcommit 'never', we can take the max of their virtual sizes (VSZ)<BR>and add the sum of their RSS.<BR>On x86_64 this is about 128MB.</P>
+<P>Changing this takes effect whenever an application requests memory.</P>
+<P>==============================================================</P>
+<P>block_dump</P>
+<P>block_dump enables block I/O debugging when set to a nonzero value. More<BR>information on block I/O debugging is in Documentation/laptops/laptop-mode.txt.</P>
+<P>==============================================================</P>
+<P>compact_memory</P>
+<P>Available only when CONFIG_COMPACTION is set. When 1 is written to the file,<BR>all zones are compacted such that free memory is available in contiguous<BR>blocks where possible. This can be important for example in the allocation of<BR>huge pages although processes will also directly compact memory as required.</P>
+<P>==============================================================</P>
+<P>dirty_background_bytes</P>
+<P>Contains the amount of dirty memory at which the background kernel<BR>flusher threads will start writeback.</P>
+<P>Note: dirty_background_bytes is the counterpart of dirty_background_ratio. Only<BR>one of them may be specified at a time. When one sysctl is written it is<BR>immediately taken into account to evaluate the dirty memory limits and the<BR>other appears as 0 when read.</P>
+<P>==============================================================</P>
+<P>dirty_background_ratio</P>
+<P>Contains, as a percentage of total system memory, the number of pages at which<BR>the background kernel flusher threads will start writing out dirty data.</P>
+<P>==============================================================</P>
+<P>dirty_bytes</P>
+<P>Contains the amount of dirty memory at which a process generating disk writes<BR>will itself start writeback.</P>
+<P>Note: dirty_bytes is the counterpart of dirty_ratio. Only one of them may be<BR>specified at a time. When one sysctl is written it is immediately taken into<BR>account to evaluate the dirty memory limits and the other appears as 0 when<BR>read.</P>
+<P>Note: the minimum value allowed for dirty_bytes is two pages (in bytes); any<BR>value lower than this limit will be ignored and the old configuration will be<BR>retained.</P>
+<P>==============================================================</P>
+<P>dirty_expire_centisecs</P>
+<P>This tunable is used to define when dirty data is old enough to be eligible<BR>for writeout by the kernel flusher threads.&nbsp; It is expressed in 100'ths<BR>of a second.&nbsp; Data which has been dirty in-memory for longer than this<BR>interval will be written out next time a flusher thread wakes up.</P>
+<P>==============================================================</P>
+<P>dirty_ratio</P>
+<P>Contains, as a percentage of total system memory, the number of pages at which<BR>a process which is generating disk writes will itself start writing out dirty<BR>data.</P>
+<P>==============================================================</P>
+<P>dirty_writeback_centisecs</P>
+<P>The kernel flusher threads will periodically wake up and write `old' data<BR>out to disk.&nbsp; This tunable expresses the interval between those wakeups, in<BR>100'ths of a second.</P>
+<P>Setting this to zero disables periodic writeback altogether.</P>
+<P>==============================================================</P>
+<P>drop_caches</P>
+<P>Writing to this will cause the kernel to drop clean caches, dentries and<BR>inodes from memory, causing that memory to become free.</P>
+<P>To free pagecache:<BR>&nbsp;echo 1 &gt; /proc/sys/vm/drop_caches<BR>To free dentries and inodes:<BR>&nbsp;echo 2 &gt; /proc/sys/vm/drop_caches<BR>To free pagecache, dentries and inodes:<BR>&nbsp;echo 3 &gt; /proc/sys/vm/drop_caches</P>
+<P>As this is a non-destructive operation and dirty objects are not freeable, the<BR>user should run `sync' first.</P>
+<P>==============================================================</P>
+<P>extfrag_threshold</P>
+<P>This parameter affects whether the kernel will compact memory or direct<BR>reclaim to satisfy a high-order allocation. /proc/extfrag_index shows what<BR>the fragmentation index for each order is in each zone in the system. Values<BR>tending towards 0 imply allocations would fail due to lack of memory,<BR>values towards 1000 imply failures are due to fragmentation and -1 implies<BR>that the allocation will succeed as long as watermarks are met.</P>
+<P>The kernel will not compact memory in a zone if the<BR>fragmentation index is &lt;= extfrag_threshold. The default value is 500.</P>
+<P>==============================================================</P>
+<P>hugepages_treat_as_movable</P>
+<P>This parameter is only useful when kernelcore= is specified at boot time to<BR>create ZONE_MOVABLE for pages that may be reclaimed or migrated. Huge pages<BR>are not movable so are not normally allocated from ZONE_MOVABLE. A non-zero<BR>value written to hugepages_treat_as_movable allows huge pages to be allocated<BR>from ZONE_MOVABLE.</P>
+<P>Once enabled, the ZONE_MOVABLE is treated as an area of memory the huge<BR>pages pool can easily grow or shrink within. Assuming that applications are<BR>not running that mlock() a lot of memory, it is likely the huge pages pool<BR>can grow to the size of ZONE_MOVABLE by repeatedly entering the desired value<BR>into nr_hugepages and triggering page reclaim.</P>
+<P>==============================================================</P>
+<P>hugetlb_shm_group</P>
+<P>hugetlb_shm_group contains group id that is allowed to create SysV<BR>shared memory segment using hugetlb page.</P>
+<P>==============================================================</P>
+<P>laptop_mode</P>
+<P>laptop_mode is a knob that controls "laptop mode". All the things that are<BR>controlled by this knob are discussed in Documentation/laptops/laptop-mode.txt.</P>
+<P>==============================================================</P>
+<P>legacy_va_layout</P>
+<P>If non-zero, this sysctl disables the new 32-bit mmap layout - the kernel<BR>will use the legacy (2.4) layout for all processes.</P>
+<P>==============================================================</P>
+<P>lowmem_reserve_ratio</P>
+<P>For some specialised workloads on highmem machines it is dangerous for<BR>the kernel to allow process memory to be allocated from the "lowmem"<BR>zone.&nbsp; This is because that memory could then be pinned via the mlock()<BR>system call, or by unavailability of swapspace.</P>
+<P>And on large highmem machines this lack of reclaimable lowmem memory<BR>can be fatal.</P>
+<P>So the Linux page allocator has a mechanism which prevents allocations<BR>which _could_ use highmem from using too much lowmem.&nbsp; This means that<BR>a certain amount of lowmem is defended from the possibility of being<BR>captured into pinned user memory.</P>
+<P>(The same argument applies to the old 16 megabyte ISA DMA region.&nbsp; This<BR>mechanism will also defend that region from allocations which could use<BR>highmem or lowmem).</P>
+<P>The `lowmem_reserve_ratio' tunable determines how aggressive the kernel is<BR>in defending these lower zones.</P>
+<P>If you have a machine which uses highmem or ISA DMA and your<BR>applications are using mlock(), or if you are running with no swap then<BR>you probably should change the lowmem_reserve_ratio setting.</P>
+<P>The lowmem_reserve_ratio is an array. You can see them by reading this file.<BR>-<BR>% cat /proc/sys/vm/lowmem_reserve_ratio<BR>256&nbsp;&nbsp;&nbsp;&nbsp; 256&nbsp;&nbsp;&nbsp;&nbsp; 32<BR>-<BR>Note: # of this elements is one fewer than number of zones. Because the highest<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; zone's value is not necessary for following calculation.</P>
+<P>But, these values are not used directly. The kernel calculates # of protection<BR>pages for each zones from them. These are shown as array of protection pages<BR>in /proc/zoneinfo like followings. (This is an example of x86-64 box).<BR>Each zone has an array of protection pages like this.</P>
+<P>-<BR>Node 0, zone&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; DMA<BR>&nbsp; pages free&nbsp;&nbsp;&nbsp;&nbsp; 1355<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; min&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; low&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; high&nbsp;&nbsp;&nbsp;&nbsp; 4<BR>&nbsp;:<BR>&nbsp;:<BR>&nbsp;&nbsp;&nbsp; numa_other&nbsp;&nbsp; 0<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; protection: (0, 2004, 2004, 2004)<BR>&nbsp;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^<BR>&nbsp; pagesets<BR>&nbsp;&nbsp;&nbsp; cpu: 0 pcp: 0<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; :<BR>-<BR>These protections are added to score to judge whether this zone should be used<BR>for page allocation or should be reclaimed.</P>
+<P>In this example, if normal pages (index=2) are required to this DMA zone and<BR>watermark[WMARK_HIGH] is used for watermark, the kernel judges this zone should<BR>not be used because pages_free(1355) is smaller than watermark + protection[2]<BR>(4 + 2004 = 2008). If this protection value is 0, this zone would be used for<BR>normal page requirement. If requirement is DMA zone(index=0), protection[0]<BR>(=0) is used.</P>
+<P>zone[i]'s protection[j] is calculated by following expression.</P>
+<P>(i &lt; j):<BR>&nbsp; zone[i]-&gt;protection[j]<BR>&nbsp; = (total sums of present_pages from zone[i+1] to zone[j] on the node)<BR>&nbsp;&nbsp;&nbsp; / lowmem_reserve_ratio[i];<BR>(i = j):<BR>&nbsp;&nbsp; (should not be protected. = 0;<BR>(i &gt; j):<BR>&nbsp;&nbsp; (not necessary, but looks 0)</P>
+<P>The default values of lowmem_reserve_ratio[i] are<BR>&nbsp;&nbsp;&nbsp; 256 (if zone[i] means DMA or DMA32 zone)<BR>&nbsp;&nbsp;&nbsp; 32&nbsp; (others).<BR>As above expression, they are reciprocal number of ratio.<BR>256 means 1/256. # of protection pages becomes about "0.39%" of total present<BR>pages of higher zones on the node.</P>
+<P>If you would like to protect more pages, smaller values are effective.<BR>The minimum value is 1 (1/1 -&gt; 100%).</P>
+<P>==============================================================</P>
+<P>max_map_count:</P>
+<P>This file contains the maximum number of memory map areas a process<BR>may have. Memory map areas are used as a side-effect of calling<BR>malloc, directly by mmap and mprotect, and also when loading shared<BR>libraries.</P>
+<P>While most applications need less than a thousand maps, certain<BR>programs, particularly malloc debuggers, may consume lots of them,<BR>e.g., up to one or two maps per allocation.</P>
+<P>The default value is 65536.</P>
+<P>=============================================================</P>
+<P>memory_failure_early_kill:</P>
+<P>Control how to kill processes when uncorrected memory error (typically<BR>a 2bit error in a memory module) is detected in the background by hardware<BR>that cannot be handled by the kernel. In some cases (like the page<BR>still having a valid copy on disk) the kernel will handle the failure<BR>transparently without affecting any applications. But if there is<BR>no other uptodate copy of the data it will kill to prevent any data<BR>corruptions from propagating.</P>
+<P>1: Kill all processes that have the corrupted and not reloadable page mapped<BR>as soon as the corruption is detected.&nbsp; Note this is not supported<BR>for a few types of pages, like kernel internally allocated data or<BR>the swap cache, but works for the majority of user pages.</P>
+<P>0: Only unmap the corrupted page from all processes and only kill a process<BR>who tries to access it.</P>
+<P>The kill is done using a catchable SIGBUS with BUS_MCEERR_AO, so processes can<BR>handle this if they want to.</P>
+<P>This is only active on architectures/platforms with advanced machine<BR>check handling and depends on the hardware capabilities.</P>
+<P>Applications can override this setting individually with the PR_MCE_KILL prctl</P>
+<P>==============================================================</P>
+<P>memory_failure_recovery</P>
+<P>Enable memory failure recovery (when supported by the platform)</P>
+<P>1: Attempt recovery.</P>
+<P>0: Always panic on a memory failure.</P>
+<P>==============================================================</P>
+<P>min_free_kbytes:</P>
+<P>This is used to force the Linux VM to keep a minimum number<BR>of kilobytes free.&nbsp; The VM uses this number to compute a<BR>watermark[WMARK_MIN] value for each lowmem zone in the system.<BR>Each lowmem zone gets a number of reserved free pages based<BR>proportionally on its size.</P>
+<P>Some minimal amount of memory is needed to satisfy PF_MEMALLOC<BR>allocations; if you set this to lower than 1024KB, your system will<BR>become subtly broken, and prone to deadlock under high loads.</P>
+<P>Setting this too high will OOM your machine instantly.</P>
+<P>=============================================================</P>
+<P>min_slab_ratio:</P>
+<P>This is available only on NUMA kernels.</P>
+<P>A percentage of the total pages in each zone.&nbsp; On Zone reclaim<BR>(fallback from the local zone occurs) slabs will be reclaimed if more<BR>than this percentage of pages in a zone are reclaimable slab pages.<BR>This insures that the slab growth stays under control even in NUMA<BR>systems that rarely perform global reclaim.</P>
+<P>The default is 5 percent.</P>
+<P>Note that slab reclaim is triggered in a per zone / node fashion.<BR>The process of reclaiming slab memory is currently not node specific<BR>and may not be fast.</P>
+<P>=============================================================</P>
+<P>min_unmapped_ratio:</P>
+<P>This is available only on NUMA kernels.</P>
+<P>This is a percentage of the total pages in each zone. Zone reclaim will<BR>only occur if more than this percentage of pages are in a state that<BR>zone_reclaim_mode allows to be reclaimed.</P>
+<P>If zone_reclaim_mode has the value 4 OR'd, then the percentage is compared<BR>against all file-backed unmapped pages including swapcache pages and tmpfs<BR>files. Otherwise, only unmapped pages backed by normal files but not tmpfs<BR>files and similar are considered.</P>
+<P>The default is 1 percent.</P>
+<P>==============================================================</P>
+<P>mmap_min_addr</P>
+<P>This file indicates the amount of address space&nbsp; which a user process will<BR>be restricted from mmapping.&nbsp; Since kernel null dereference bugs could<BR>accidentally operate based on the information in the first couple of pages<BR>of memory userspace processes should not be allowed to write to them.&nbsp; By<BR>default this value is set to 0 and no protections will be enforced by the<BR>security module.&nbsp; Setting this value to something like 64k will allow the<BR>vast majority of applications to work correctly and provide defense in depth<BR>against future potential kernel bugs.</P>
+<P>==============================================================</P>
+<P>nr_hugepages</P>
+<P>Change the minimum size of the hugepage pool.</P>
+<P>See Documentation/vm/hugetlbpage.txt</P>
+<P>==============================================================</P>
+<P>nr_overcommit_hugepages</P>
+<P>Change the maximum size of the hugepage pool. The maximum is<BR>nr_hugepages + nr_overcommit_hugepages.</P>
+<P>See Documentation/vm/hugetlbpage.txt</P>
+<P>==============================================================</P>
+<P>nr_trim_pages</P>
+<P>This is available only on NOMMU kernels.</P>
+<P>This value adjusts the excess page trimming behaviour of power-of-2 aligned<BR>NOMMU mmap allocations.</P>
+<P>A value of 0 disables trimming of allocations entirely, while a value of 1<BR>trims excess pages aggressively. Any value &gt;= 1 acts as the watermark where<BR>trimming of allocations is initiated.</P>
+<P>The default value is 1.</P>
+<P>See Documentation/nommu-mmap.txt for more information.</P>
+<P>==============================================================</P>
+<P>numa_zonelist_order</P>
+<P>This sysctl is only for NUMA.<BR>'where the memory is allocated from' is controlled by zonelists.<BR>(This documentation ignores ZONE_HIGHMEM/ZONE_DMA32 for simple explanation.<BR>&nbsp;you may be able to read ZONE_DMA as ZONE_DMA32...)</P>
+<P>In non-NUMA case, a zonelist for GFP_KERNEL is ordered as following.<BR>ZONE_NORMAL -&gt; ZONE_DMA<BR>This means that a memory allocation request for GFP_KERNEL will<BR>get memory from ZONE_DMA only when ZONE_NORMAL is not available.</P>
+<P>In NUMA case, you can think of following 2 types of order.<BR>Assume 2 node NUMA and below is zonelist of Node(0)'s GFP_KERNEL</P>
+<P>(A) Node(0) ZONE_NORMAL -&gt; Node(0) ZONE_DMA -&gt; Node(1) ZONE_NORMAL<BR>(B) Node(0) ZONE_NORMAL -&gt; Node(1) ZONE_NORMAL -&gt; Node(0) ZONE_DMA.</P>
+<P>Type(A) offers the best locality for processes on Node(0), but ZONE_DMA<BR>will be used before ZONE_NORMAL exhaustion. This increases possibility of<BR>out-of-memory(OOM) of ZONE_DMA because ZONE_DMA is tend to be small.</P>
+<P>Type(B) cannot offer the best locality but is more robust against OOM of<BR>the DMA zone.</P>
+<P>Type(A) is called as "Node" order. Type (B) is "Zone" order.</P>
+<P>"Node order" orders the zonelists by node, then by zone within each node.<BR>Specify "[Nn]ode" for node order</P>
+<P>"Zone Order" orders the zonelists by zone type, then by node within each<BR>zone.&nbsp; Specify "[Zz]one" for zone order.</P>
+<P>Specify "[Dd]efault" to request automatic configuration.&nbsp; Autoconfiguration<BR>will select "node" order in following case.<BR>(1) if the DMA zone does not exist or<BR>(2) if the DMA zone comprises greater than 50% of the available memory or<BR>(3) if any node's DMA zone comprises greater than 60% of its local memory and<BR>&nbsp;&nbsp;&nbsp; the amount of local memory is big enough.</P>
+<P>Otherwise, "zone" order will be selected. Default order is recommended unless<BR>this is causing problems for your system/application.</P>
+<P>==============================================================</P>
+<P>oom_dump_tasks</P>
+<P>Enables a system-wide task dump (excluding kernel threads) to be<BR>produced when the kernel performs an OOM-killing and includes such<BR>information as pid, uid, tgid, vm size, rss, nr_ptes, swapents,<BR>oom_score_adj score, and name.&nbsp; This is helpful to determine why the<BR>OOM killer was invoked, to identify the rogue task that caused it,<BR>and to determine why the OOM killer chose the task it did to kill.</P>
+<P>If this is set to zero, this information is suppressed.&nbsp; On very<BR>large systems with thousands of tasks it may not be feasible to dump<BR>the memory state information for each one.&nbsp; Such systems should not<BR>be forced to incur a performance penalty in OOM conditions when the<BR>information may not be desired.</P>
+<P>If this is set to non-zero, this information is shown whenever the<BR>OOM killer actually kills a memory-hogging task.</P>
+<P>The default value is 1 (enabled).</P>
+<P>==============================================================</P>
+<P>oom_kill_allocating_task</P>
+<P>This enables or disables killing the OOM-triggering task in<BR>out-of-memory situations.</P>
+<P>If this is set to zero, the OOM killer will scan through the entire<BR>tasklist and select a task based on heuristics to kill.&nbsp; This normally<BR>selects a rogue memory-hogging task that frees up a large amount of<BR>memory when killed.</P>
+<P>If this is set to non-zero, the OOM killer simply kills the task that<BR>triggered the out-of-memory condition.&nbsp; This avoids the expensive<BR>tasklist scan.</P>
+<P>If panic_on_oom is selected, it takes precedence over whatever value<BR>is used in oom_kill_allocating_task.</P>
+<P>The default value is 0.</P>
+<P>==============================================================</P>
+<P>overcommit_memory:</P>
+<P>This value contains a flag that enables memory overcommitment.</P>
+<P>When this flag is 0, the kernel attempts to estimate the amount<BR>of free memory left when userspace requests more memory.</P>
+<P>When this flag is 1, the kernel pretends there is always enough<BR>memory until it actually runs out.</P>
+<P>When this flag is 2, the kernel uses a "never overcommit"<BR>policy that attempts to prevent any overcommit of memory.<BR>Note that user_reserve_kbytes affects this policy.</P>
+<P>This feature can be very useful because there are a lot of<BR>programs that malloc() huge amounts of memory "just-in-case"<BR>and don't use much of it.</P>
+<P>The default value is 0.</P>
+<P>See Documentation/vm/overcommit-accounting and<BR>security/commoncap.c::cap_vm_enough_memory() for more information.</P>
+<P>==============================================================</P>
+<P>overcommit_ratio:</P>
+<P>When overcommit_memory is set to 2, the committed address<BR>space is not permitted to exceed swap plus this percentage<BR>of physical RAM.&nbsp; See above.</P>
+<P>==============================================================</P>
+<P>page-cluster</P>
+<P>page-cluster controls the number of pages up to which consecutive pages<BR>are read in from swap in a single attempt. This is the swap counterpart<BR>to page cache readahead.<BR>The mentioned consecutivity is not in terms of virtual/physical addresses,<BR>but consecutive on swap space - that means they were swapped out together.</P>
+<P>It is a logarithmic value - setting it to zero means "1 page", setting<BR>it to 1 means "2 pages", setting it to 2 means "4 pages", etc.<BR>Zero disables swap readahead completely.</P>
+<P>The default value is three (eight pages at a time).&nbsp; There may be some<BR>small benefits in tuning this to a different value if your workload is<BR>swap-intensive.</P>
+<P>Lower values mean lower latencies for initial faults, but at the same time<BR>extra faults and I/O delays for following faults if they would have been part of<BR>that consecutive pages readahead would have brought in.</P>
+<P>=============================================================</P>
+<P>panic_on_oom</P>
+<P>This enables or disables panic on out-of-memory feature.</P>
+<P>If this is set to 0, the kernel will kill some rogue process,<BR>called oom_killer.&nbsp; Usually, oom_killer can kill rogue processes and<BR>system will survive.</P>
+<P>If this is set to 1, the kernel panics when out-of-memory happens.<BR>However, if a process limits using nodes by mempolicy/cpusets,<BR>and those nodes become memory exhaustion status, one process<BR>may be killed by oom-killer. No panic occurs in this case.<BR>Because other nodes' memory may be free. This means system total status<BR>may be not fatal yet.</P>
+<P>If this is set to 2, the kernel panics compulsorily even on the<BR>above-mentioned. Even oom happens under memory cgroup, the whole<BR>system panics.</P>
+<P>The default value is 0.<BR>1 and 2 are for failover of clustering. Please select either<BR>according to your policy of failover.<BR>panic_on_oom=2+kdump gives you very strong tool to investigate<BR>why oom happens. You can get snapshot.</P>
+<P>=============================================================</P>
+<P>percpu_pagelist_fraction</P>
+<P>This is the fraction of pages at most (high mark pcp-&gt;high) in each zone that<BR>are allocated for each per cpu page list.&nbsp; The min value for this is 8.&nbsp; It<BR>means that we don't allow more than 1/8th of pages in each zone to be<BR>allocated in any single per_cpu_pagelist.&nbsp; This entry only changes the value<BR>of hot per cpu pagelists.&nbsp; User can specify a number like 100 to allocate<BR>1/100th of each zone to each per cpu page list.</P>
+<P>The batch value of each per cpu pagelist is also updated as a result.&nbsp; It is<BR>set to pcp-&gt;high/4.&nbsp; The upper limit of batch is (PAGE_SHIFT * 8)</P>
+<P>The initial value is zero.&nbsp; Kernel does not use this value at boot time to set<BR>the high water marks for each per cpu page list.</P>
+<P>==============================================================</P>
+<P>stat_interval</P>
+<P>The time interval between which vm statistics are updated.&nbsp; The default<BR>is 1 second.</P>
+<P>==============================================================</P>
+<P>swappiness</P>
+<P>This control is used to define how aggressive the kernel will swap<BR>memory pages.&nbsp; Higher values will increase agressiveness, lower values<BR>decrease the amount of swap.</P>
+<P>The default value is 60.</P>
+<P>==============================================================</P>
+<P>- user_reserve_kbytes</P>
+<P>When overcommit_memory is set to 2, "never overommit" mode, reserve<BR>min(3% of current process size, user_reserve_kbytes) of free memory.<BR>This is intended to prevent a user from starting a single memory hogging<BR>process, such that they cannot recover (kill the hog).</P>
+<P>user_reserve_kbytes defaults to min(3% of the current process size, 128MB).</P>
+<P>If this is reduced to zero, then the user will be allowed to allocate<BR>all free memory with a single process, minus admin_reserve_kbytes.<BR>Any subsequent attempts to execute a command will result in<BR>"fork: Cannot allocate memory".</P>
+<P>Changing this takes effect whenever an application requests memory.</P>
+<P>==============================================================</P>
+<P>vfs_cache_pressure<BR>------------------</P>
+<P>Controls the tendency of the kernel to reclaim the memory which is used for<BR>caching of directory and inode objects.</P>
+<P>At the default value of vfs_cache_pressure=100 the kernel will attempt to<BR>reclaim dentries and inodes at a "fair" rate with respect to pagecache and<BR>swapcache reclaim.&nbsp; Decreasing vfs_cache_pressure causes the kernel to prefer<BR>to retain dentry and inode caches. When vfs_cache_pressure=0, the kernel will<BR>never reclaim dentries and inodes due to memory pressure and this can easily<BR>lead to out-of-memory conditions. Increasing vfs_cache_pressure beyond 100<BR>causes the kernel to prefer to reclaim dentries and inodes.</P>
+<P>==============================================================</P>
+<P>zone_reclaim_mode:</P>
+<P>Zone_reclaim_mode allows someone to set more or less aggressive approaches to<BR>reclaim memory when a zone runs out of memory. If it is set to zero then no<BR>zone reclaim occurs. Allocations will be satisfied from other zones / nodes<BR>in the system.</P>
+<P>This is value ORed together of</P>
+<P>1&nbsp;= Zone reclaim on<BR>2&nbsp;= Zone reclaim writes dirty pages out<BR>4&nbsp;= Zone reclaim swaps pages</P>
+<P>zone_reclaim_mode is set during bootup to 1 if it is determined that pages<BR>from remote zones will cause a measurable performance reduction. The<BR>page allocator will then reclaim easily reusable pages (those page<BR>cache pages that are currently not used) before allocating off node pages.</P>
+<P>It may be beneficial to switch off zone reclaim if the system is<BR>used for a file server and all of memory should be used for caching files<BR>from disk. In that case the caching effect is more important than<BR>data locality.</P>
+<P>Allowing zone reclaim to write out pages stops processes that are<BR>writing large amounts of data from dirtying pages on other nodes. Zone<BR>reclaim will write out dirty pages if a zone fills up and so effectively<BR>throttle the process. This may decrease the performance of a single process<BR>since it cannot use all of system memory to buffer the outgoing writes<BR>anymore but it preserve the memory on other nodes so that the performance<BR>of other processes running on other nodes will not be affected.</P>
+<P>Allowing regular swap effectively restricts allocations to the local<BR>node unless explicitly overridden by memory policies or cpuset<BR>configurations.</P>
+<P>============ End of Document =================================

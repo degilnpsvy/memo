@@ -1,0 +1,88 @@
+<H3 id=700181-936 class=docSection1Title>5.5. The init Thread</H3>
+<P class=docText>The code found in <TT>.../init/main.c</TT> is responsible for bringing the kernel to life. After <TT>start_kernel()</TT> performs some basic kernel initialization, calling early initialization functions explicitly by name, the very first kernel thread is spawned. This thread eventually becomes the kernel thread called <TT>init()</TT>, with a <SPAN class=docEmphasis>process id</SPAN> (PID) of 1. As you will learn, <TT>init()</TT> becomes the parent of all Linux processes in user <A name=iddle1876></A>space. At this point in the boot sequence, two distinct threads are running: that represented by <TT>start_kernel()</TT> and now <TT>init()</TT>. The former goes on to become the idle process, having completed its work. The latter becomes the init process. This can be seen in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05list09">Listing 5-9</A>.</P><A name=ch05list09></A>
+<H5 id=title-IDAGBQWD class=docExampleTitle>Listing 5-9. Creation of Kernel <TT>init</TT> THRead</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>static void noinline rest_init(void)
+        __releases(kernel_lock)
+{
+        kernel_thread(init, NULL, CLONE_FS | CLONE_SIGHAND);
+        numa_default_policy();
+        unlock_kernel();
+        preempt_enable_no_resched();
+
+        /*
+         * The boot idle thread must execute schedule()
+         * at least one to get things moving:
+         */
+        schedule();
+
+        cpu_idle();
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The <TT>start_kernel()</TT> function calls <TT>rest_init()</TT>, reproduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05list09">Listing 5-9</A>. The kernel's <TT>init</TT> process is spawned by the call to <TT>kernel_thread().init</TT> goes on to complete the rest of the system initialization, while the thread of execution started by <TT>start_kernel()</TT> loops forever in the call to <TT>cpu_idle()</TT>.</P>
+<P class=docText>The reason for this structure is interesting. You might have noticed that <TT>start_kernel()</TT>, a relatively large function, was marked with the <TT>__init</TT> macro. This means that the memory it occupies will be reclaimed during the final stages of kernel initialization. It is necessary to exit this function and the address space that it occupies before reclaiming its memory. The answer to this was for <TT>start_kernel()</TT> to call <TT>rest_init()</TT>, shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05list09">Listing 5-9</A>, a much smaller piece of memory that becomes the idle process.</P><A name=ch05lev2sec10></A>
+<H4 id=title-IDAADQWD class=docSection2Title>5.5.1. Initialization via initcalls</H4>
+<P class=docText><A name=iddle1273></A><A name=iddle1619></A><A name=iddle1621></A><A name=iddle1627></A><A name=iddle1751></A><A name=iddle1932></A><A name=iddle2523></A>When <TT>init()</TT> is spawned, it eventually calls <TT>do_initcalls()</TT>, which is the function responsible for calling all the initialization functions registered with the <TT>*_initcall</TT> family of macros. The code is reproduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05list10">Listing 5-10</A> in simplified form.</P><A name=ch05list10></A>
+<H5 id=title-IDAGGQWD class=docExampleTitle>Listing 5-10. Initialization via initcalls</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>static void __init do_initcalls(void)
+{
+    initcall_t *call;
+
+    for( call = &amp;__initcall_start; call &lt; &amp;__initcall_end; call++) {
+
+        if (initcall_debug) {
+            printk(KERN_DEBUG "Calling initcall 0x%p", *call);
+            print_symbol(":%s()", (unsigned long) *call);
+            printk("\n");
+        }
+
+
+        (*call)();
+
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This code is self-explanatory, except for the two labels marking the loop boundaries: <TT>__initcall_start</TT> and <TT>__initcall_end</TT>. These labels are not found in any C source or header file. They are defined in the linker script file used during the link stage of <TT>vmlinux</TT>. These labels mark the beginning and end of the list of initialization functions populated using the <TT>*_initcall</TT> family of macros. You can see each of the labels by looking at the <TT>System.map</TT> file in the top-level kernel directory. They all begin with the string <TT>__initcall</TT>, as described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec4.html#ch05list08">Listing 5-8</A>.</P>
+<P class=docText>In case you were wondering about the debug print statements in <TT>do_initcalls()</TT>, you can watch these calls being executed during bootup by setting the kernel command line parameter <TT>initcall_debug</TT>. This command line parameter enables the printing of the debug information shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05list10">Listing 5-10</A>. Simply start your kernel with the kernel command line parameter <TT>initcall_debug</TT> to enable this diagnostic output.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05fn09">[9]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn09>[9]</A></SUP> You might have to lower the default loglevel on your system to see these debug messages. This is described in many references about Linux system administration. In any case, you should see them in the kernel log file.</P></BLOCKQUOTE>
+<P class=docText><A name=iddle1618></A><A name=iddle1626></A><A name=iddle1750></A><A name=iddle1906></A><A name=iddle2522></A>Here is an example of what you will see when you enable these debug statements:</P>
+<DIV class=docText><PRE>...
+Calling initcall 0xc00168f4: tty_class_init+0x0/0x3c()
+Calling initcall 0xc000c32c: customize_machine+0x0/0x2c()
+Calling initcall 0xc000c4f0: topology_init+0x0/0x24()
+Calling initcall 0xc000e8f4: coyote_pci_init+0x0/0x20()
+PCI: IXP4xx is host
+PCI: IXP4xx Using direct access for memory space
+...</PRE></DIV><BR>
+<P class=docText>Notice the call to <TT>customize_machine()</TT>, the example of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec4.html#ch05list07">Listing 5-7</A>. The debug output includes the virtual kernel address of the function (0xc000c32c, in this case) and the size of the function (0x2c here.) This is a useful way to see the details of kernel initialization, especially the order in which various subsystems and modules get called. Even on a modestly configured embedded system, dozens of these initialization functions are invoked in this manner. In this example taken from an ARM XScale embedded target, there are 92 such calls to various kernel-initialization routines.</P><A name=ch05lev2sec11></A>
+<H4 id=title-IDAVKQWD class=docSection2Title>5.5.2. Final Boot Steps</H4>
+<P class=docText>Having spawned the <TT>init()</TT> thread and all the various initialization calls have completed, the kernel performs its final steps in the boot sequence. These include freeing the memory used by the initialization functions and data, opening a system console device, and starting the first userspace process. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05list11">Listing 5-11</A> reproduces the last steps in the kernel's <TT>init()</TT> from <TT>main.c</TT>.</P><A name=ch05list11></A>
+<H5 id=title-IDAQLQWD class=docExampleTitle>Listing 5-11. Final Kernel Boot Steps from <TT>main.c</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>if (execute_command) {
+      run_init_process(execute_command);
+      printk(KERN_WARNING "Failed to execute %s.  Attempting "
+                          "defaults...\n", execute_command);
+}
+
+run_init_process("/sbin/init");
+run_init_process("/etc/init");
+run_init_process("/bin/init");
+run_init_process("/bin/sh");
+
+panic("No init found.  Try passing init= option to kernel.");</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice that if the code proceeds to the end of the <TT>init()</TT> function, a kernel <SPAN class=docEmphasis>panic</SPAN> results. If you've spent any time experimenting with embedded systems or custom root file systems, you've undoubtedly encountered this very common error message as the last line of output on your console. It is one of the most frequently asked questions (FAQs) on a variety of public forums related to Linux and embedded systems.</P>
+<P class=docText>One way or another, one of these <TT>run_init_process()</TT> commands must proceed without error. The <TT>run_init_process()</TT> function does not return on successful invocation. It overwrites the calling process with the new one, effectively replacing the current process with the new one. It uses the familiar <TT>execve()</TT> system call for this functionality. The most common system configurations spawn <TT>/sbin/init</TT> as the userland<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec5.html#ch05fn10">[10]</A></SUP> initialization process. We study this functionality in depth in the next chapter.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn10>[10]</A></SUP> Userland is an often-used term for any program, library, script, or anything else in user space.</P></BLOCKQUOTE>
+<P class=docText>One option available to the embedded system developer is to use a custom userland initialization program. That is the purpose of the conditional statement in the previous code snippet. If <TT>execute_command</TT> is non-null, it points to a string containing a custom user-supplied command to be executed in user space. The developer specifies this command on the kernel command line, and it is set via the <TT>__setup</TT> macro we examined earlier in this chapter. An example kernel command line incorporating several concepts discussed in this chapter might look like this:</P>
+<DIV class=docText><PRE>initcall_debug init=/sbin/myinit console=ttyS1,115200 root=/dev/hda1</PRE></DIV><BR>
+<P class=docText>This kernel command line instructs the kernel to display all the initialization routines as encountered, configures the initial console device as <TT>/dev/ttyS1</TT> at 115 kbps, and executes a custom user space initialization process called <TT>myinit</TT>, located in the <TT>/sbin</TT> directory on the root file system. It directs the kernel to mount its root file system from the device <TT>/dev/hda1</TT>, which is the first IDE hard drive. Note that, in general, the order of parameters given on the kernel command line is irrelevant. The next chapter covers the details of user space system initialization.

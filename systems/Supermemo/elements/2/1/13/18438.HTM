@@ -1,0 +1,40 @@
+<H3 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=section>6.2 Locally Declared Labels</H3>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><A name=index-local-labels-2649></A><A name=index-macros_002c-local-labels-2650></A>GCC allows you to declare<SPAN class=Apple-converted-space>&nbsp;</SPAN><DFN>local labels</DFN><SPAN class=Apple-converted-space>&nbsp;</SPAN>in any nested block scope. A local label is just like an ordinary label, but you can only reference it (with a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>goto</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>statement, or by taking its address) within the block in which it is declared.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A local label declaration looks like this:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     __label__ <VAR>label</VAR>;
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=noindent>or</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     __label__ <VAR>label1</VAR>, <VAR>label2</VAR>, /* <SPAN style="FONT-FAMILY: serif; FONT-WEIGHT: normal" class=roman>...</SPAN> */;
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Local label declarations must come at the beginning of the block, before any ordinary declarations or statements.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The label declaration defines the label<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>name</EM>, but does not define the label itself. You must do this in the usual way, with<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>label</VAR><CODE>:</CODE>, within the statements of the statement expression.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The local label feature is useful for complex macros. If a macro contains nested loops, a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>goto</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>can be useful for breaking out of them. However, an ordinary label whose scope is the whole function cannot be used: if the macro can be expanded several times in one function, the label is multiply defined in that function. A local label avoids this problem. For example:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     #define SEARCH(value, array, target)              \
+     do {                                              \
+       __label__ found;                                \
+       typeof (target) _SEARCH_target = (target);      \
+       typeof (*(array)) *_SEARCH_array = (array);     \
+       int i, j;                                       \
+       int value;                                      \
+       for (i = 0; i &lt; max; i++)                       \
+         for (j = 0; j &lt; max; j++)                     \
+           if (_SEARCH_array[i][j] == _SEARCH_target)  \
+             { (value) = i; goto found; }              \
+       (value) = -1;                                   \
+      found:;                                          \
+     } while (0)
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This could also be written using a statement expression:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     #define SEARCH(array, target)                     \
+     ({                                                \
+       __label__ found;                                \
+       typeof (target) _SEARCH_target = (target);      \
+       typeof (*(array)) *_SEARCH_array = (array);     \
+       int i, j;                                       \
+       int value;                                      \
+       for (i = 0; i &lt; max; i++)                       \
+         for (j = 0; j &lt; max; j++)                     \
+           if (_SEARCH_array[i][j] == _SEARCH_target)  \
+             { value = i; goto found; }                \
+       value = -1;                                     \
+      found:                                           \
+       value;                                          \
+     })
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Local label declarations also make the labels they declare visible to nested functions, if there are any. See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://gcc.gnu.org/onlinedocs/gcc-4.9.1/gcc/Nested-Functions.html#Nested-Functions">Nested Functions</A>, for details.

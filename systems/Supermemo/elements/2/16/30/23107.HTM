@@ -1,0 +1,97 @@
+<H3 id=-100000 class=docSection1Title>Block Driver Data Structures and Methods</H3>
+<P class=docText><A name="now shift"></A>Let's now shift focus to the main topic of this chapter, block device drivers. In this section, we take a look at the important data structures and driver methods that you are likely to encounter while implementing a block device driver. We use these structures and methods in the next section when we implement a block driver for a fictitious storage controller.</P>
+<P class=docText><A name="are the"></A>The following are the main block driver data structures:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="kernel represents"></A>The kernel represents a disk using the <TT>gendisk</TT> (short for generic disk) structure defined in <SPAN class=docEmphasis>include/linux/genhd.h</SPAN>:</P>
+<DIV class=docText><PRE>struct gendisk {
+  int major;                      /* Device major number */
+  int first_minor;                /* Starting minor number */
+  int minors;                     /* Maximum number of minors.
+                                     You have one minor number
+                                     per disk partition */
+  char disk_name[32];             /* Disk name */
+  /* ... */
+  struct block_device_operations *fops;
+                                  /* Block device operations.
+                                     Described soon. */
+  struct request_queue *queue;    /* The request queue associated
+                                     with this disk. Discussed
+                                     next. */
+  /* ... */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle2057></A><A name=iddle3806></A><A name=iddle3812></A><A name="described using"></A>The I/O request queue associated with each block driver is described using the <TT>request_queue</TT> structure defined in <SPAN class=docEmphasis>include/linux/blkdev.h</SPAN><A name="its only"></A>. This is a big structure, but its only constituent field that you might use is the <TT>request</TT> structure, which is described next.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Each request in a <TT>request_queue</TT> is represented using a <TT>request</TT> structure defined in <SPAN class=docEmphasis>include/linux/blkdev.h</SPAN>:</P>
+<DIV class=docText><PRE>struct request {
+  /* ... */
+  struct request_queue *q;  /* The container request queue */
+  /* ... */
+  sector_t sector;          /* Sector from which data access
+                               is requested */
+  /* ... */
+  unsigned long nr_sectors; /* Number of sectors left to
+                               submit */
+  /* ... */
+  struct bio *bio;          /* The associated bio. Discussed
+                               soon. */
+  /* ... */
+  char *buffer;             /* The buffer for data transfer */
+  /* ... */
+  struct request *next_rq;  /* Next request in the queue */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>block_device_operations</TT> is the block driver counterpart of the <TT>file_operations</TT><A name="points associated"></A> structure used by character drivers. It contains the following entry points associated with a block driver:</P>
+<UL>
+<LI>
+<P class=docList><A name=iddle1215></A><A name=iddle1217></A>Standard methods such as <TT>open()</TT>, <TT>release()</TT>, and <TT>ioctl()</TT></P></LI>
+<LI>
+<P class=docList>Specialized methods such as <TT>media_changed()</TT> and <TT>revalidate_disk()</TT> that support removable block devices</P>
+<P class=docList><TT>block_device_operations</TT> is defined as follows in <SPAN class=docEmphasis>include/linux/fs.h</SPAN>:</P>
+<DIV class=docText><PRE>  struct block_device_operations {
+    int (*open) (struct inode *, struct file *);   /* Open */
+    int (*release) (struct inode *, struct file *);/* Close */
+    int (*ioctl) (struct inode *, struct file *,
+                  unsigned, unsigned long);    /* I/O Control */
+    /* ... */
+    int (*media_changed) (struct gendisk *);   /* Check if media is
+                                                  available or
+                                                  ejected */
+    int (*revalidate_disk) (struct gendisk *); /* Gear up for newly
+                                                  inserted media */
+    /* ... */
+  };</PRE></DIV></LI></UL></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>When we looked at the <TT>request</TT><A name=a></A> structure, we saw that it was associated with a <TT>bio</TT>. A <TT>bio</TT> structure is a low-level description of block I/O operations at page-level granularity. It's defined in <SPAN class=docEmphasis>include/linux/bio.h</SPAN> as follows:</P>
+<DIV class=docText><PRE>struct bio {
+  sector_t        bi_sector;  /* Sector from which data
+                                 access is requested */
+  struct bio     *bi_next;    /* List of bio nodes */
+  /* .. */
+  unsigned long   bi_rw;      /* Bottom bits of bi_rw contain
+                                 the data-transfer direction */
+  /* ... */
+  struct bio_vec *bi_io_vec;  /* Pointer to an array of
+                                 bio_vec structures */
+  unsigned short  bi_vcnt;    /* Size of the bio_vec array */
+  unsigned short  bi_idx;     /* Index of the current bio_vec
+                                 in the array */
+  /* ... */
+};</PRE></DIV>
+<P class=docList><A name="array of"></A>Block data is internally represented as an I/O vector using an array of <TT>bio_vec</TT><A name=the></A> structures. Each element of the <TT>bio_vec</TT><A name="made up"></A> array is made up of a <TT>(page</TT>, <TT>page_offset</TT>, <TT>length)</TT><A name="tuple that"></A> tuple that describes a segment of the I/O block. Maintaining <A name=iddle1229></A><A name=iddle1246></A><A name=iddle1253></A><A name=iddle3149></A><A name="a vector"></A>I/O requests as a vector of pages brings several advantages, including a leaner implementation and efficient scatter/gather.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="ending this"></A>Before ending this section, let's briefly look at block driver entry points. Block drivers are broadly built using three types of methods:</P>
+<UL>
+<LI>
+<P class=docList>The usual initialization and exit methods.</P></LI>
+<LI>
+<P class=docList>Methods that are part of the <TT>block_device_operations</TT> described previously.</P></LI>
+<LI>
+<P class=docList>A request method. Block drivers, unlike char devices, do not support <TT>read()/write()</TT><A name="special routine"></A> methods for data transfer. Instead, they perform disk access using a special routine called the <SPAN class=docEmphasis>request method</SPAN>.</P></LI></UL>
+<P class=docText><A name="a set"></A>The block core layer offers a set of library routines that driver methods can leverage. The sample driver in the next section calls on the services of several of these library routines.

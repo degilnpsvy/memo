@@ -1,0 +1,37 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>16.4.11.1 Array Data Types</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The data types associated with arrays are listed below.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>typedef void *awk_array_t;</CODE></DT>
+<DD>
+<P>If you request the value of an array variable, you get back an<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_array_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>value. This value is opaque<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT103" name=DOCF103><SUP>103</SUP></A><SPAN class=Apple-converted-space>&nbsp;</SPAN>to the extension; it uniquely identifies the array but can only be used by passing it into API functions or receiving it from API functions. This is very similar to way &#8216;<SAMP>FILE *</SAMP>&#8217; values are used with the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>&lt;stdio.h&gt;</CODE>library routines.</P></DD>
+<DT><CODE>typedef struct awk_element {</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;/* convenience linked list pointer, not used by gawk */</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;struct awk_element *next;</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;enum {</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AWK_ELEMENT_DEFAULT = 0,&nbsp;&nbsp;/* set by gawk */</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AWK_ELEMENT_DELETE = 1&nbsp;&nbsp;&nbsp;&nbsp;/* set by extension if should be deleted */</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;} flags;</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;awk_value_t index;</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;awk_value_t value;</CODE></DT>
+<DT><CODE>} awk_element_t;</CODE></DT>
+<DD>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_element_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a &#8220;flattened&#8221; array element.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>produces an array of these inside the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_flat_array_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(see the next item). Individual elements may be marked for deletion. New elements must be added individually, one at a time, using the separate API for that purpose. The fields are as follows:</P>
+<DL compact>
+<DT><CODE>struct awk_element *next;</CODE></DT>
+<DD>
+<P>This pointer is for the convenience of extension writers. It allows an extension to create a linked list of new elements that can then be added to an array in a loop that traverses the list.</P></DD>
+<DT><CODE>enum { &#8230; } flags;</CODE></DT>
+<DD>
+<P>A set of flag values that convey information between<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and the extension. Currently there is only one:<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AWK_ELEMENT_DELETE</CODE>. Setting it causes<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>to delete the element from the original array upon release of the flattened array.</P></DD>
+<DT><CODE>index</CODE></DT>
+<DT><CODE>value</CODE></DT>
+<DD>
+<P>The index and value of the element, respectively.<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>All</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>memory pointed to by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>index</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>value</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>belongs to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>.</P></DD></DL></DD>
+<DT><CODE>typedef struct awk_flat_array {</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;awk_const void *awk_const opaque1;&nbsp;&nbsp;&nbsp;&nbsp;/* private data for use by gawk */</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;awk_const void *awk_const opaque2;&nbsp;&nbsp;&nbsp;&nbsp;/* private data for use by gawk */</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;awk_const size_t count;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* how many elements */</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;awk_element_t elements[1];&nbsp;&nbsp;/* will be extended */</CODE></DT>
+<DT><CODE>} awk_flat_array_t;</CODE></DT>
+<DD>
+<P>This is a flattened array. When an extension gets one of these from<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>elements</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>array is of actual size<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>count</CODE>. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>opaque1</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>opaque2</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>pointers are for use by<CODE>gawk</CODE>; therefore they are marked<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_const</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>so that the extension cannot modify them.</P></DD></DL>

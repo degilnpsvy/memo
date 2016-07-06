@@ -1,0 +1,140 @@
+<H1><A name=EXIT-STATUS></A>Chapter 6. Exit and Exit Status</H1>
+<TABLE class=EPIGRAPH border=0 cellSpacing=0 cellPadding=0 width="100%">
+<TBODY>
+<TR>
+<TD width="45%">&nbsp;</TD>
+<TD vAlign=top width="45%" align=left><I>
+<P><I>... there are dark corners in the Bourne shell, and people use all of them.</I></P>
+<P><I>--Chet Ramey</I></P></I></TD></TR></TBODY></TABLE>
+<P><A name=EXITCOMMANDREF></A>The <B class=COMMAND>exit </B>command terminates a script, just as in a <B class=COMMAND>C</B> program. It can also return a value, which is available to the script's parent process.</P>
+<P><A name=EXITSTATUSREF></A>Every command returns an <I class=FIRSTTERM>exit status </I>(sometimes referred to as a <I class=FIRSTTERM>return status </I>or <I class=FIRSTTERM>exit code</I>). <A name=EXITSUCCESS></A>A successful command returns a <SPAN class=RETURNVALUE>0</SPAN>, while an unsuccessful one returns a <SPAN class=RETURNVALUE>non-zero</SPAN> value that usually can be interpreted as an <I class=FIRSTTERM>error code</I>. Well-behaved UNIX commands, programs, and utilities return a <SPAN class=RETURNVALUE>0</SPAN> exit code upon successful completion, though there are some exceptions.</P>
+<P><A name=FUNCTXSTR></A></P>
+<P>Likewise, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FUNCTIONREF">functions</A> within a script and the script itself return an exit status. The last command executed in the function or script determines the exit status. Within a script, an <TT class=USERINPUT><B>exit <TT class=REPLACEABLE><I>nnn</I></TT></B></TT> command may be used to deliver an <SPAN class=RETURNVALUE><TT class=REPLACEABLE><I>nnn</I></TT></SPAN> exit status to the shell (<SPAN class=RETURNVALUE><TT class=REPLACEABLE><I>nnn</I></TT></SPAN> must be an integer in the <SPAN class=RETURNVALUE>0</SPAN> - <SPAN class=RETURNVALUE>255</SPAN> range).</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>When a script ends with an <B class=COMMAND>exit</B> that has no parameter, the exit status of the script is the exit status of the last command executed in the script (previous to the <B class=COMMAND>exit</B>).</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+COMMAND_1
+
+. . .
+
+COMMAND_LAST
+
+# Will exit with status of last command.
+
+exit</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>The equivalent of a bare <B class=COMMAND>exit</B> is <B class=COMMAND>exit $?</B> or even just omitting the <B class=COMMAND>exit</B>.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+COMMAND_1
+
+. . .
+
+COMMAND_LAST
+
+# Will exit with status of last command.
+
+exit $?</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+COMMAND1
+
+. . . 
+
+COMMAND_LAST
+
+# Will exit with status of last command.</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<P><A name=EXSREF></A></P>
+<P><TT class=VARNAME>$?</TT> reads the exit status of the last command executed. After a function returns, <TT class=VARNAME>$?</TT> gives the exit status of the last command executed in the function. This is Bash's way of giving functions a <SPAN class=QUOTE>"return value."</SPAN> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN2981" name=AEN2981><SPAN class=footnote>[32]</SPAN></A> </P>
+<P><A name=PIPEEX></A>Following the execution of a <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PIPEREF">pipe</A>, a <TT class=VARNAME>$?</TT> gives the exit status of the last command executed.</P>
+<P>After a script terminates, a <TT class=VARNAME>$?</TT> from the command-line gives the exit status of the script, that is, the last command executed in the script, which is, by convention, <TT class=USERINPUT><B>0</B></TT> on success or an integer in the range <SPAN class=RETURNVALUE>1 - 255</SPAN> on error.</P>
+<DIV class=EXAMPLE><A name=EX5></A>
+<P><B>Example 6-1. exit / exit status</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+echo hello
+echo $?    # Exit status 0 returned because command executed successfully.
+
+lskdf      # Unrecognized command.
+echo $?    # Non-zero exit status returned -- command failed to execute.
+
+echo
+
+exit 113   # Will return 113 to shell.
+           # To verify this, type "echo $?" after script terminates.
+
+#  By convention, an 'exit 0' indicates success,
+#+ while a non-zero exit value means an error or anomalous condition.
+#  See the "Exit Codes With Special Meanings" appendix.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#XSTATVARREF">$?</A> is especially useful for testing the result of a command in a script (see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FILECOMP">Example 16-35</A> and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#LOOKUP">Example 16-20</A>).</P>
+<DIV class=NOTE>
+<P></P>
+<TABLE class=NOTE border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Note src="http://tldp.org/LDP/abs/images/note.gif"></TD>
+<TD vAlign=top align=left>
+<P>The <A href="http://tldp.org/LDP/abs/html/abs-guide.html#NOTREF">!</A>, the <I class=FIRSTTERM>logical not</I> qualifier, reverses the outcome of a test or command, and this affects its <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITSTATUSREF">exit status</A>. 
+<DIV class=EXAMPLE><A name=NEGCOND></A>
+<P><B>Example 6-2. Negating a condition using <SPAN class=TOKEN>!</SPAN></B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>true    # The "true" builtin.
+echo "exit status of \"true\" = $?"     # 0
+
+! true
+echo "exit status of \"! true\" = $?"   # 1
+# Note that the "!" needs a space between it and the command.
+#    !true   leads to a "command not found" error
+#
+# The '!' operator prefixing a command invokes the Bash history mechanism.
+
+true
+!true
+# No error this time, but no negation either.
+# It just repeats the previous command (true).
+
+
+# =========================================================== #
+# Preceding a _pipe_ with ! inverts the exit status returned.
+ls | bogus_command     # bash: bogus_command: command not found
+echo $?                # 127
+
+! ls | bogus_command   # bash: bogus_command: command not found
+echo $?                # 0
+# Note that the ! does not change the execution of the pipe.
+# Only the exit status changes.
+# =========================================================== #
+
+# Thanks, St&#233;phane Chazelas and Kristopher Newsome.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P></P></TD></TR></TBODY></TABLE></DIV>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P>Certain exit status codes have <A href="http://tldp.org/LDP/abs/html/abs-guide.html#EXITCODESREF">reserved meanings</A> and should not be user-specified in a script. </P></TD></TR></TBODY></TABLE></DIV>

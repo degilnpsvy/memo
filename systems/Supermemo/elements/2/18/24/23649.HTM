@@ -1,0 +1,13 @@
+2. container_of()<BR>~~~~~~~~~~~~~~~~~</P>
+<P>Continuing on the above example we add an offloaded work:</P>
+<P>struct foo {<BR>&nbsp;&nbsp;&nbsp; spinlock_t lock;<BR>&nbsp;&nbsp;&nbsp; struct workqueue_struct *wq;<BR>&nbsp;&nbsp;&nbsp; struct work_struct offload;<BR>&nbsp;&nbsp;&nbsp; (...)<BR>};</P>
+<P>static void foo_work(struct work_struct *work)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo = container_of(work, struct foo, offload);</P>
+<P>&nbsp;&nbsp;&nbsp; (...)<BR>}</P>
+<P>static irqreturn_t foo_handler(int irq, void *arg)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo = arg;</P>
+<P>&nbsp;&nbsp;&nbsp; queue_work(foo-&gt;wq, &amp;foo-&gt;offload);<BR>&nbsp;&nbsp;&nbsp; (...)<BR>}</P>
+<P>static int foo_probe(...)<BR>{<BR>&nbsp;&nbsp;&nbsp; struct foo *foo;</P>
+<P>&nbsp;&nbsp;&nbsp; foo-&gt;wq = create_singlethread_workqueue("foo-wq");<BR>&nbsp;&nbsp;&nbsp; INIT_WORK(&amp;foo-&gt;offload, foo_work);<BR>&nbsp;&nbsp;&nbsp; (...)<BR>}</P>
+<P>The design pattern is the same for an hrtimer or something similar that will<BR>return a single argument which is a pointer to a struct member in the<BR>callback.</P>
+<P>container_of() is a macro defined in &lt;linux/kernel.h&gt;</P>
+<P>What container_of() does is to obtain a pointer to the containing struct from<BR>a pointer to a member by a simple subtraction using the offsetof() macro from<BR>standard C, which allows something similar to object oriented behaviours.<BR>Notice that the contained member must not be a pointer, but an actual member<BR>for this to work.</P>
+<P>We can see here that we avoid having global pointers to our struct foo *<BR>instance this way, while still keeping the number of parameters passed to the<BR>work function to a single pointer.

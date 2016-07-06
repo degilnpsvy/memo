@@ -1,0 +1,47 @@
+<H4 class=subsection>10.3.1 Noting Data File Boundaries</H4><A name=index-files_002c-managing_002c-data-file-boundaries></A><A name=index-files_002c-initialization-and-cleanup></A>
+<P>The <CODE>BEGIN</CODE> and <CODE>END</CODE> rules are each executed exactly once at the beginning and end of your <CODE>awk</CODE> program, respectively (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#BEGIN_002fEND">BEGIN/END</A>). We (the <CODE>gawk</CODE> authors) once had a user who mistakenly thought that the <CODE>BEGIN</CODE> rule is executed at the beginning of each data file and the <CODE>END</CODE> rule is executed at the end of each data file. </P>
+<P>When informed that this was not the case, the user requested that we add new special patterns to <CODE>gawk</CODE>, named <CODE>BEGIN_FILE</CODE> and <CODE>END_FILE</CODE>, that would have the desired behavior. He even supplied us the code to do so. </P>
+<P>Adding these special patterns to <CODE>gawk</CODE> wasn&#8217;t necessary; the job can be done cleanly in <CODE>awk</CODE> itself, as illustrated by the following library program. It arranges to call two user-supplied functions, <CODE>beginfile()</CODE> and <CODE>endfile()</CODE>, at the beginning and end of each data file. Besides solving the problem in only nine(!) lines of code, it does so <EM>portably</EM>; this works with any implementation of <CODE>awk</CODE>: </P>
+<DIV class=example><PRE class=example># transfile.awk
+#
+# Give the user a hook for filename transitions
+#
+# The user must supply functions beginfile() and endfile()
+# that each take the name of the file being started or
+# finished, respectively.
+
+FILENAME != _oldfilename \
+{
+    if (_oldfilename != "")
+        endfile(_oldfilename)
+    _oldfilename = FILENAME
+    beginfile(FILENAME)
+}
+
+END   { endfile(FILENAME) }
+</PRE></DIV>
+<P>This file must be loaded before the user&#8217;s &#8220;main&#8221; program, so that the rule it supplies is executed first. </P>
+<P>This rule relies on <CODE>awk</CODE>&#8217;s <CODE>FILENAME</CODE> variable that automatically changes for each new data file. The current file name is saved in a private variable, <CODE>_oldfilename</CODE>. If <CODE>FILENAME</CODE> does not equal <CODE>_oldfilename</CODE>, then a new data file is being processed and it is necessary to call <CODE>endfile()</CODE> for the old file. Because <CODE>endfile()</CODE> should only be called if a file has been processed, the program first checks to make sure that <CODE>_oldfilename</CODE> is not the null string. The program then assigns the current file name to <CODE>_oldfilename</CODE> and calls <CODE>beginfile()</CODE> for the file. Because, like all <CODE>awk</CODE> variables, <CODE>_oldfilename</CODE> is initialized to the null string, this rule executes correctly even for the first data file. </P>
+<P>The program also supplies an <CODE>END</CODE> rule to do the final processing for the last file. Because this <CODE>END</CODE> rule comes before any <CODE>END</CODE> rules supplied in the &#8220;main&#8221; program, <CODE>endfile()</CODE> is called first. Once again the value of multiple <CODE>BEGIN</CODE> and <CODE>END</CODE> rules should be clear. </P><A name=index-beginfile_0028_0029-user_002ddefined-function></A><A name=index-endfile_0028_0029-user_002ddefined-function></A>
+<P>If the same data file occurs twice in a row on the command line, then <CODE>endfile()</CODE> and <CODE>beginfile()</CODE> are not executed at the end of the first pass and at the beginning of the second pass. The following version solves the problem: </P>
+<DIV class=example><PRE class=example># ftrans.awk --- handle data file transitions
+#
+# user supplies beginfile() and endfile() functions
+
+FNR == 1 {
+    if (_filename_ != "")
+        endfile(_filename_)
+    _filename_ = FILENAME
+    beginfile(FILENAME)
+}
+
+END  { endfile(_filename_) }
+</PRE></DIV>
+<P><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Wc-Program">Wc Program</A>, shows how this library function can be used and how it simplifies writing the main program. </P><A name=index-sidebar_002c-So-Why-Does-gawk-have-BEGINFILE-and-ENDFILE_003f></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B>So Why Does <CODE>gawk</CODE> have <CODE>BEGINFILE</CODE> and <CODE>ENDFILE</CODE>?</B> </DIV>
+<P>You are probably wondering, if <CODE>beginfile()</CODE> and <CODE>endfile()</CODE> functions can do the job, why does <CODE>gawk</CODE> have <CODE>BEGINFILE</CODE> and <CODE>ENDFILE</CODE> patterns (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#BEGINFILE_002fENDFILE">BEGINFILE/ENDFILE</A>)? </P>
+<P>Good question. Normally, if <CODE>awk</CODE> cannot open a file, this causes an immediate fatal error. In this case, there is no way for a user-defined function to deal with the problem, since the mechanism for calling it relies on the file being open and at the first record. Thus, the main reason for <CODE>BEGINFILE</CODE> is to give you a &#8220;hook&#8221; to catch files that cannot be processed. <CODE>ENDFILE</CODE> exists for symmetry, and because it provides an easy way to do per-file cleanup processing. </P></TD></TR></TBODY></TABLE>

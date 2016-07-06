@@ -1,0 +1,48 @@
+<H4 class=subsubsection>9.2.3.3 Passing Function Arguments By Value Or By Reference</H4>
+<P>In <CODE>awk</CODE>, when you declare a function, there is no way to declare explicitly whether the arguments are passed <EM>by value</EM> or <EM>by reference</EM>. </P>
+<P>Instead the passing convention is determined at runtime when the function is called according to the following rule: </P>
+<UL>
+<LI>If the argument is an array variable, then it is passed by reference, </LI>
+<LI>Otherwise the argument is passed by value. </LI></UL><A name=index-call-by-value></A>
+<P>Passing an argument by value means that when a function is called, it is given a <EM>copy</EM> of the value of this argument. The caller may use a variable as the expression for the argument, but the called function does not know this&#8212;it only knows what value the argument had. For example, if you write the following code: </P>
+<DIV class=example><PRE class=example>foo = "bar"
+z = myfunc(foo)
+</PRE></DIV>
+<P>then you should not think of the argument to <CODE>myfunc()</CODE> as being &#8220;the variable <CODE>foo</CODE>.&#8221; Instead, think of the argument as the string value <CODE>"bar"</CODE>. If the function <CODE>myfunc()</CODE> alters the values of its local variables, this has no effect on any other variables. Thus, if <CODE>myfunc()</CODE> does this: </P>
+<DIV class=example><PRE class=example>function myfunc(str)
+{
+   print str
+   str = "zzz"
+   print str
+}
+</PRE></DIV>
+<P>to change its first argument variable <CODE>str</CODE>, it does <EM>not</EM> change the value of <CODE>foo</CODE> in the caller. The role of <CODE>foo</CODE> in calling <CODE>myfunc()</CODE> ended when its value (<CODE>"bar"</CODE>) was computed. If <CODE>str</CODE> also exists outside of <CODE>myfunc()</CODE>, the function body cannot alter this outer value, because it is shadowed during the execution of <CODE>myfunc()</CODE> and cannot be seen or changed from there. </P><A name=index-call-by-reference></A><A name=index-arrays_002c-as-parameters-to-functions></A><A name=index-functions_002c-arrays-as-parameters-to></A>
+<P>However, when arrays are the parameters to functions, they are <EM>not</EM> copied. Instead, the array itself is made available for direct manipulation by the function. This is usually termed <EM>call by reference</EM>. Changes made to an array parameter inside the body of a function <EM>are</EM> visible outside that function. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Changing an array parameter inside a function can be very dangerous if you do not watch what you are doing. For example: </P>
+<DIV class=example><PRE class=example>function changeit(array, ind, nvalue)
+{
+     array[ind] = nvalue
+}
+
+BEGIN {
+    a[1] = 1; a[2] = 2; a[3] = 3
+    changeit(a, 2, "two")
+    printf "a[1] = %s, a[2] = %s, a[3] = %s\n",
+            a[1], a[2], a[3]
+}
+</PRE></DIV>
+<P>prints &#8216;<SAMP>a[1] = 1, a[2] = two, a[3] = 3</SAMP>&#8217;, because <CODE>changeit</CODE> stores <CODE>"two"</CODE> in the second element of <CODE>a</CODE>. </P></BLOCKQUOTE><A name=index-undefined-functions></A><A name=index-functions_002c-undefined></A>
+<P>Some <CODE>awk</CODE> implementations allow you to call a function that has not been defined. They only report a problem at runtime when the program actually tries to call the function. For example: </P>
+<DIV class=example><PRE class=example>BEGIN {
+    if (0)
+        foo()
+    else
+        bar()
+}
+function bar() { &#8230; }
+# note that `foo' is not defined
+</PRE></DIV>
+<P>Because the &#8216;<SAMP>if</SAMP>&#8217; statement will never be true, it is not really a problem that <CODE>foo()</CODE> has not been defined. Usually, though, it is a problem if a program calls an undefined function. </P><A name=index-lint-checking_002c-undefined-functions></A>
+<P>If <SAMP>--lint</SAMP> is specified (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>), <CODE>gawk</CODE> reports calls to undefined functions. </P><A name=index-portability_002c-next-statement-in-user_002ddefined-functions></A>
+<P>Some <CODE>awk</CODE> implementations generate a runtime error if you use either the <CODE>next</CODE> statement or the <CODE>nextfile</CODE> statement (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Next-Statement">Next Statement</A>, also see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Nextfile-Statement">Nextfile Statement</A>) inside a user-defined function. <CODE>gawk</CODE> does not have this limitation.

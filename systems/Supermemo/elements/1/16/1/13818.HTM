@@ -1,0 +1,79 @@
+<H2 class=chapter>11 Using <CODE>make</CODE> to Update Archive Files</H2>
+<P><A name=index-archive-1027></A><DFN>Archive files</DFN> are files containing named sub-files called <DFN>members</DFN>; they are maintained with the program <CODE>ar</CODE> and their main use is as subroutine libraries for linking. 
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#Archive-Members">Archive Members</A>: Archive members as targets. 
+<LI><A accessKey=2 href="https://www.gnu.org/software/make/manual/make.html#Archive-Update">Archive Update</A>: The implicit rule for archive member targets. 
+<LI><A accessKey=3 href="https://www.gnu.org/software/make/manual/make.html#Archive-Pitfalls">Archive Pitfalls</A>: Dangers to watch out for when using archives. 
+<LI><A accessKey=4 href="https://www.gnu.org/software/make/manual/make.html#Archive-Suffix-Rules">Archive Suffix Rules</A>: You can write a special kind of suffix rule for updating archives. </LI></UL>
+<DIV class=node><A name=Archive-Members></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Archive-Update" rel=next>Archive Update</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Archives" rel=previous>Archives</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Archives" rel=up>Archives</A> </DIV>
+<H3 class=section>11.1 Archive Members as Targets</H3>
+<P><A name=index-archive-member-targets-1028></A>An individual member of an archive file can be used as a target or prerequisite in <CODE>make</CODE>. You specify the member named <VAR>member</VAR> in archive file <VAR>archive</VAR> as follows: <PRE class=example>     <VAR>archive</VAR>(<VAR>member</VAR>)
+</PRE>
+<P class=noindent>This construct is available only in targets and prerequisites, not in recipes! Most programs that you might use in recipes do not support this syntax and cannot act directly on archive members. Only <CODE>ar</CODE> and other programs specifically designed to operate on archives can do so. Therefore, valid recipes to update an archive member target probably must use <CODE>ar</CODE>. For example, this rule says to create a member <SAMP><SPAN class=file>hack.o</SPAN></SAMP> in archive <SAMP><SPAN class=file>foolib</SPAN></SAMP> by copying the file <SAMP><SPAN class=file>hack.o</SPAN></SAMP>: <PRE class=example>     foolib(hack.o) : hack.o
+             ar cr foolib hack.o
+</PRE>
+<P>In fact, nearly all archive member targets are updated in just this way and there is an implicit rule to do it for you. <STRONG>Please note:</STRONG> The &#8216;<SAMP><SPAN class=samp>c</SPAN></SAMP>&#8217; flag to <CODE>ar</CODE> is required if the archive file does not already exist. 
+<P>To specify several members in the same archive, you can write all the member names together between the parentheses. For example: <PRE class=example>     foolib(hack.o kludge.o)
+</PRE>
+<P class=noindent>is equivalent to: <PRE class=example>     foolib(hack.o) foolib(kludge.o)
+</PRE>
+<P><A name=index-wildcard_002c-in-archive-member-1029></A>You can also use shell-style wildcards in an archive member reference. See <A href="https://www.gnu.org/software/make/manual/make.html#Wildcards">Using Wildcard Characters in File Names</A>. For example, &#8216;<SAMP><SPAN class=samp>foolib(*.o)</SPAN></SAMP>&#8217;<!-- /@w --> expands to all existing members of the <SAMP><SPAN class=file>foolib</SPAN></SAMP> archive whose names end in &#8216;<SAMP><SPAN class=samp>.o</SPAN></SAMP>&#8217;; perhaps &#8216;<SAMP><SPAN class=samp>foolib(hack.o)<!-- /@w --> foolib(kludge.o)<!-- /@w --></SPAN></SAMP>&#8217;. 
+<DIV class=node><A name=Archive-Update></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Archive-Pitfalls" rel=next>Archive Pitfalls</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Archive-Members" rel=previous>Archive Members</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Archives" rel=up>Archives</A> </DIV>
+<H3 class=section>11.2 Implicit Rule for Archive Member Targets</H3>
+<P>Recall that a target that looks like <SAMP><VAR>a</VAR><SPAN class=file>(</SPAN><VAR>m</VAR><SPAN class=file>)</SPAN></SAMP> stands for the member named <VAR>m</VAR> in the archive file <VAR>a</VAR>. 
+<P>When <CODE>make</CODE> looks for an implicit rule for such a target, as a special feature it considers implicit rules that match <SAMP><SPAN class=file>(</SPAN><VAR>m</VAR><SPAN class=file>)</SPAN></SAMP>, as well as those that match the actual target <SAMP><VAR>a</VAR><SPAN class=file>(</SPAN><VAR>m</VAR><SPAN class=file>)</SPAN></SAMP>. 
+<P>This causes one special rule whose target is <SAMP><SPAN class=file>(%)</SPAN></SAMP> to match. This rule updates the target <SAMP><VAR>a</VAR><SPAN class=file>(</SPAN><VAR>m</VAR><SPAN class=file>)</SPAN></SAMP> by copying the file <VAR>m</VAR> into the archive. For example, it will update the archive member target <SAMP><SPAN class=file>foo.a(bar.o)</SPAN></SAMP> by copying the <EM>file</EM> <SAMP><SPAN class=file>bar.o</SPAN></SAMP> into the archive <SAMP><SPAN class=file>foo.a</SPAN></SAMP> as a <EM>member</EM> named <SAMP><SPAN class=file>bar.o</SPAN></SAMP>. 
+<P>When this rule is chained with others, the result is very powerful. Thus, &#8216;<SAMP><SPAN class=samp>make "foo.a(bar.o)"</SPAN></SAMP>&#8217; (the quotes are needed to protect the &#8216;<SAMP><SPAN class=samp>(</SPAN></SAMP>&#8217; and &#8216;<SAMP><SPAN class=samp>)</SPAN></SAMP>&#8217; from being interpreted specially by the shell) in the presence of a file <SAMP><SPAN class=file>bar.c</SPAN></SAMP> is enough to cause the following recipe to be run, even without a makefile: <PRE class=example>     cc -c bar.c -o bar.o
+     ar r foo.a bar.o
+     rm -f bar.o
+</PRE>
+<P class=noindent>Here <CODE>make</CODE> has envisioned the file <SAMP><SPAN class=file>bar.o</SPAN></SAMP> as an intermediate file. See <A href="https://www.gnu.org/software/make/manual/make.html#Chained-Rules">Chains of Implicit Rules</A>. 
+<P>Implicit rules such as this one are written using the automatic variable &#8216;<SAMP><SPAN class=samp>$%</SPAN></SAMP>&#8217;. See <A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables">Automatic Variables</A>. 
+<P>An archive member name in an archive cannot contain a directory name, but it may be useful in a makefile to pretend that it does. If you write an archive member target <SAMP><SPAN class=file>foo.a(dir/file.o)</SPAN></SAMP>, <CODE>make</CODE> will perform automatic updating with this recipe: <PRE class=example>     ar r foo.a dir/file.o
+</PRE>
+<P class=noindent>which has the effect of copying the file <SAMP><SPAN class=file>dir/file.o</SPAN></SAMP> into a member named <SAMP><SPAN class=file>file.o</SPAN></SAMP>. In connection with such usage, the automatic variables <CODE>%D</CODE> and <CODE>%F</CODE> may be useful. 
+<UL class=menu>
+<LI><A accessKey=1 href="https://www.gnu.org/software/make/manual/make.html#Archive-Symbols">Archive Symbols</A>: How to update archive symbol directories. </LI></UL>
+<DIV class=node><A name=Archive-Symbols></A>
+<P>
+<HR>
+Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Archive-Update" rel=previous>Archive Update</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Archive-Update" rel=up>Archive Update</A> </DIV>
+<H4 class=subsection>11.2.1 Updating Archive Symbol Directories</H4>
+<P><A name=index-g_t_0040code_007b_005f_005f_002eSYMDEF_007d-1030></A><A name=index-updating-archive-symbol-directories-1031></A><A name=index-archive-symbol-directory-updating-1032></A><A name=index-symbol-directories_002c-updating-archive-1033></A><A name=index-directories_002c-updating-archive-symbol-1034></A>An archive file that is used as a library usually contains a special member named <SAMP><SPAN class=file>__.SYMDEF</SPAN></SAMP> that contains a directory of the external symbol names defined by all the other members. After you update any other members, you need to update <SAMP><SPAN class=file>__.SYMDEF</SPAN></SAMP> so that it will summarize the other members properly. This is done by running the <CODE>ranlib</CODE> program: <PRE class=example>     ranlib <VAR>archivefile</VAR>
+</PRE>
+<P>Normally you would put this command in the rule for the archive file, and make all the members of the archive file prerequisites of that rule. For example, <PRE class=example>     libfoo.a: libfoo.a(x.o) libfoo.a(y.o) ...
+             ranlib libfoo.a
+</PRE>
+<P class=noindent>The effect of this is to update archive members <SAMP><SPAN class=file>x.o</SPAN></SAMP>, <SAMP><SPAN class=file>y.o</SPAN></SAMP>, etc., and then update the symbol directory member <SAMP><SPAN class=file>__.SYMDEF</SPAN></SAMP> by running <CODE>ranlib</CODE>. The rules for updating the members are not shown here; most likely you can omit them and use the implicit rule which copies files into the archive, as described in the preceding section. 
+<P>This is not necessary when using the GNU <CODE>ar</CODE> program, which updates the <SAMP><SPAN class=file>__.SYMDEF</SPAN></SAMP> member automatically. 
+<DIV class=node><A name=Archive-Pitfalls></A>
+<P>
+<HR>
+Next:&nbsp;<A accessKey=n href="https://www.gnu.org/software/make/manual/make.html#Archive-Suffix-Rules" rel=next>Archive Suffix Rules</A>, Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Archive-Update" rel=previous>Archive Update</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Archives" rel=up>Archives</A> </DIV>
+<H3 class=section>11.3 Dangers When Using Archives</H3>
+<P><A name=index-archive_002c-and-parallel-execution-1035></A><A name=index-parallel-execution_002c-and-archive-update-1036></A><A name=index-archive_002c-and-_0040code_007b_002dj_007d-1037></A><A name=index-g_t_0040code_007b_002dj_007d_002c-and-archive-update-1038></A>It is important to be careful when using parallel execution (the <CODE>-j</CODE> switch; see <A href="https://www.gnu.org/software/make/manual/make.html#Parallel">Parallel Execution</A>) and archives. If multiple <CODE>ar</CODE> commands run at the same time on the same archive file, they will not know about each other and can corrupt the file. 
+<P>Possibly a future version of <CODE>make</CODE> will provide a mechanism to circumvent this problem by serializing all recipes that operate on the same archive file. But for the time being, you must either write your makefiles to avoid this problem in some other way, or not use <CODE>-j</CODE>. 
+<DIV class=node><A name=Archive-Suffix-Rules></A>
+<P>
+<HR>
+Previous:&nbsp;<A accessKey=p href="https://www.gnu.org/software/make/manual/make.html#Archive-Pitfalls" rel=previous>Archive Pitfalls</A>, Up:&nbsp;<A accessKey=u href="https://www.gnu.org/software/make/manual/make.html#Archives" rel=up>Archives</A> </DIV>
+<H3 class=section>11.4 Suffix Rules for Archive Files</H3>
+<P><A name=index-suffix-rule_002c-for-archive-1039></A><A name=index-archive_002c-suffix-rule-for-1040></A><A name=index-library-archive_002c-suffix-rule-for-1041></A><A name=index-g_t_0040code_007b_002ea_007d-_0028archives_0029-1042></A>You can write a special kind of suffix rule for dealing with archive files. See <A href="https://www.gnu.org/software/make/manual/make.html#Suffix-Rules">Suffix Rules</A>, for a full explanation of suffix rules. Archive suffix rules are obsolete in GNU <CODE>make</CODE>, because pattern rules for archives are a more general mechanism (see <A href="https://www.gnu.org/software/make/manual/make.html#Archive-Update">Archive Update</A>). But they are retained for compatibility with other <CODE>make</CODE>s. 
+<P>To write a suffix rule for archives, you simply write a suffix rule using the target suffix &#8216;<SAMP><SPAN class=samp>.a</SPAN></SAMP>&#8217; (the usual suffix for archive files). For example, here is the old-fashioned suffix rule to update a library archive from C source files: <PRE class=example>     .c.a:
+             $(CC) $(CFLAGS) $(CPPFLAGS) -c $&lt; -o $*.o
+             $(AR) r $@ $*.o
+             $(RM) $*.o
+</PRE>
+<P class=noindent>This works just as if you had written the pattern rule: <PRE class=example>     (%.o): %.c
+             $(CC) $(CFLAGS) $(CPPFLAGS) -c $&lt; -o $*.o
+             $(AR) r $@ $*.o
+             $(RM) $*.o
+</PRE>
+<P>In fact, this is just what <CODE>make</CODE> does when it sees a suffix rule with &#8216;<SAMP><SPAN class=samp>.a</SPAN></SAMP>&#8217; as the target suffix. Any double-suffix rule &#8216;<SAMP><SPAN class=samp>.</SPAN><VAR>x</VAR><SPAN class=samp>.a</SPAN></SAMP>&#8217;<!-- /@w --> is converted to a pattern rule with the target pattern &#8216;<SAMP><SPAN class=samp>(%.o)</SPAN></SAMP>&#8217; and a prerequisite pattern of &#8216;<SAMP><SPAN class=samp>%.</SPAN><VAR>x</VAR></SAMP>&#8217;. 
+<P>Since you might want to use &#8216;<SAMP><SPAN class=samp>.a</SPAN></SAMP>&#8217; as the suffix for some other kind of file, <CODE>make</CODE> also converts archive suffix rules to pattern rules in the normal way (see <A href="https://www.gnu.org/software/make/manual/make.html#Suffix-Rules">Suffix Rules</A>). Thus a double-suffix rule &#8216;<SAMP><SPAN class=samp>.</SPAN><VAR>x</VAR><SPAN class=samp>.a</SPAN></SAMP>&#8217;<!-- /@w --> produces two pattern rules: &#8216;<SAMP><SPAN class=samp>(%.o):<!-- /@w --> %.</SPAN><VAR>x</VAR><SPAN class=samp><!-- /@w --></SPAN></SAMP>&#8217; and &#8216;<SAMP><SPAN class=samp>%.a<!-- /@w -->: %.</SPAN><VAR>x</VAR><SPAN class=samp><!-- /@w --></SPAN></SAMP>&#8217;.

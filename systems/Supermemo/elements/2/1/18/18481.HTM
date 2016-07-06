@@ -1,0 +1,58 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.36.5 i386 Variable Attributes</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Two attributes are currently defined for i386 configurations:<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ms_struct</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gcc_struct</CODE></P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><CODE>ms_struct</CODE></DT>
+<DT><CODE>gcc_struct</CODE></DT>
+<DD><A name=index-g_t_0040code_007bms_005fstruct_007d-attribute-3044></A><A name=index-g_t_0040code_007bgcc_005fstruct_007d-attribute-3045></A>If<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>packed</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is used on a structure, or if bit-fields are used, it may be that the Microsoft ABI lays out the structure differently than the way GCC normally does. Particularly when moving packed data between functions compiled with GCC and the native Microsoft compiler (either via function call or as data in a file), it may be necessary to access either format.
+<P>Currently<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-m[no-]ms-bitfields</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>is provided for the Microsoft Windows X86 compilers to match the native Microsoft compiler.</P>
+<P>The Microsoft structure layout algorithm is fairly simple with the exception of the bit-field packing. The padding and alignment of members of structures and whether a bit-field can straddle a storage-unit boundary are determine by these rules:</P>
+<OL type=1>
+<LI>Structure members are stored sequentially in the order in which they are declared: the first member has the lowest memory address and the last member the highest.</LI>
+<LI>Every data object has an alignment requirement. The alignment requirement for all data except structures, unions, and arrays is either the size of the object or the current packing size (specified with either the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>aligned</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>attribute or the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>pack</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>pragma), whichever is less. For structures, unions, and arrays, the alignment requirement is the largest alignment requirement of its members. Every object is allocated an offset so that:<PRE style="FONT-SIZE: smaller" class=smallexample>               offset % alignment_requirement == 0
+</PRE></LI>
+<LI>Adjacent bit-fields are packed into the same 1-, 2-, or 4-byte allocation unit if the integral types are the same size and if the next bit-field fits into the current allocation unit without crossing the boundary imposed by the common alignment requirements of the bit-fields.</LI></OL>
+<P>MSVC interprets zero-length bit-fields in the following ways:</P>
+<OL type=1>
+<LI>If a zero-length bit-field is inserted between two bit-fields that are normally coalesced, the bit-fields are not coalesced.
+<P>For example:</P><PRE style="FONT-SIZE: smaller" class=smallexample>               struct
+                {
+                  unsigned long bf_1 : 12;
+                  unsigned long : 0;
+                  unsigned long bf_2 : 12;
+                } t1;
+</PRE>
+<P class=noindent>The size of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t1</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is 8 bytes with the zero-length bit-field. If the zero-length bit-field were removed,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t1</CODE>'s size would be 4 bytes.</P></LI>
+<LI>If a zero-length bit-field is inserted after a bit-field,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>foo</CODE>, and the alignment of the zero-length bit-field is greater than the member that follows it,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>bar</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>bar</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is aligned as the type of the zero-length bit-field.
+<P>For example:</P><PRE style="FONT-SIZE: smaller" class=smallexample>               struct
+                {
+                  char foo : 4;
+                  short : 0;
+                  char bar;
+                } t2;
+               
+               struct
+                {
+                  char foo : 4;
+                  short : 0;
+                  double bar;
+                } t3;
+</PRE>
+<P class=noindent>For<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t2</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>bar</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is placed at offset 2, rather than offset 1. Accordingly, the size of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t2</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is 4. For<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t3</CODE>, the zero-length bit-field does not affect the alignment of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>bar</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or, as a result, the size of the structure.</P>
+<P>Taking this into account, it is important to note the following:</P>
+<OL type=1>
+<LI>If a zero-length bit-field follows a normal bit-field, the type of the zero-length bit-field may affect the alignment of the structure as whole. For example,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t2</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>has a size of 4 bytes, since the zero-length bit-field follows a normal bit-field, and is of type short.</LI>
+<LI>Even if a zero-length bit-field is not followed by a normal bit-field, it may still affect the alignment of the structure:<PRE style="FONT-SIZE: smaller" class=smallexample>                    struct
+                     {
+                       char foo : 6;
+                       long : 0;
+                     } t4;
+</PRE>
+<P class=noindent>Here,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t4</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>takes up 4 bytes.</P></LI></OL></LI>
+<LI>Zero-length bit-fields following non-bit-field members are ignored:<PRE style="FONT-SIZE: smaller" class=smallexample>               struct
+                {
+                  char foo;
+                  long : 0;
+                  char bar;
+                } t5;
+</PRE>
+<P class=noindent>Here,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t5</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>takes up 2 bytes.</P></LI></OL></DD></DL>

@@ -1,0 +1,24 @@
+# Documentation/leds/leds-class.txt
+<P></P>
+<P>LED handling under Linux<BR>========================</P>
+<P></P>
+<P>If you're reading this and thinking about keyboard leds, these are<BR>handled by the input subsystem and the led class is *not* needed.</P>
+<P>In its simplest form, the LED class just allows control of LEDs from<BR>userspace. LEDs appear in /sys/class/leds/. The maximum brightness of the<BR>LED is defined in max_brightness file. The brightness file will set the brightness<BR>of the LED (taking a value 0-max_brightness). Most LEDs don't have hardware<BR>brightness support so will just be turned on for non-zero brightness settings.</P>
+<P>The class also introduces the optional concept of an LED trigger. A trigger<BR>is a kernel based source of led events. Triggers can either be simple or<BR>complex. A simple trigger isn't configurable and is designed to slot into<BR>existing subsystems with minimal additional code. Examples are the ide-disk,<BR>nand-disk and sharpsl-charge triggers. With led triggers disabled, the code<BR>optimises away.</P>
+<P>Complex triggers whilst available to all LEDs have LED specific<BR>parameters and work on a per LED basis. The timer trigger is an example.<BR>The timer trigger will periodically change the LED brightness between<BR>LED_OFF and the current brightness setting. The "on" and "off" time can<BR>be specified via /sys/class/leds/&lt;device&gt;/delay_{on,off} in milliseconds.<BR>You can change the brightness value of a LED independently of the timer<BR>trigger. However, if you set the brightness value to LED_OFF it will<BR>also disable the timer trigger.</P>
+<P>You can change triggers in a similar manner to the way an IO scheduler<BR>is chosen (via /sys/class/leds/&lt;device&gt;/trigger). Trigger specific<BR>parameters can appear in /sys/class/leds/&lt;device&gt; once a given trigger is<BR>selected.</P>
+<P><BR>Design Philosophy<BR>=================</P>
+<P>The underlying design philosophy is simplicity. LEDs are simple devices<BR>and the aim is to keep a small amount of code giving as much functionality<BR>as possible.&nbsp; Please keep this in mind when suggesting enhancements.</P>
+<P><BR>LED Device Naming<BR>=================</P>
+<P>Is currently of the form:</P>
+<P>"devicename:colour:function"</P>
+<P>There have been calls for LED properties such as colour to be exported as<BR>individual led class attributes. As a solution which doesn't incur as much<BR>overhead, I suggest these become part of the device name. The naming scheme<BR>above leaves scope for further attributes should they be needed. If sections<BR>of the name don't apply, just leave that section blank.</P>
+<P><BR>Hardware accelerated blink of LEDs<BR>==================================</P>
+<P>Some LEDs can be programmed to blink without any CPU interaction. To<BR>support this feature, a LED driver can optionally implement the<BR>blink_set() function (see &lt;linux/leds.h&gt;). To set an LED to blinking,<BR>however, it is better to use the API function led_blink_set(), as it<BR>will check and implement software fallback if necessary.</P>
+<P>To turn off blinking again, use the API function led_brightness_set()<BR>as that will not just set the LED brightness but also stop any software<BR>timers that may have been required for blinking.</P>
+<P>The blink_set() function should choose a user friendly blinking value<BR>if it is called with *delay_on==0 &amp;&amp; *delay_off==0 parameters. In this<BR>case the driver should give back the chosen value through delay_on and<BR>delay_off parameters to the leds subsystem.</P>
+<P>Setting the brightness to zero with brightness_set() callback function<BR>should completely turn off the LED and cancel the previously programmed<BR>hardware blinking function, if any.</P>
+<P><BR>Known Issues<BR>============</P>
+<P>The LED Trigger core cannot be a module as the simple trigger functions<BR>would cause nightmare dependency issues. I see this as a minor issue<BR>compared to the benefits the simple trigger functionality brings. The<BR>rest of the LED subsystem can be modular.</P>
+<P><BR>Future Development<BR>==================</P>
+<P>At the moment, a trigger can't be created specifically for a single LED.<BR>There are a number of cases where a trigger might only be mappable to a<BR>particular LED (ACPI?). The addition of triggers provided by the LED driver<BR>should cover this option and be possible to add without breaking the<BR>current interface.

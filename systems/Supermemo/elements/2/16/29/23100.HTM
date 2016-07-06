@@ -1,0 +1,540 @@
+<H3 id=-100000 class=docSection1Title>Device Example: MP3 Player</H3>
+<P class=docText><A name=iddle1176></A><A name=iddle3057></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13fig04">Figure 13.4</A><A name="shows audio"></A> shows audio operation on an example Linux Bluetooth MP3 player built around an embedded SoC. You can program the Linux cell phone (that we used in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A>, "Serial Drivers," and <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12.html#ch12">Chapter 12</A><A name="songs from"></A>, "Video Drivers") to download songs from the Internet at night when phone rates are presumably cheaper and upload it to the MP3 player's <SPAN class=docEmphasis>Compact Flash</SPAN><A name="via Bluetooth"></A> (CF) disk via Bluetooth so that you can listen to the songs next day during office commute.</P><A name=ch13fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 13.4. Audio on a Linux MP3 player.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZy5wX2xjc2kwMXQvNDNoZmlnaWFm.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzRmM2hpZ2Y-.jpg" width=500 height=273>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="this device"></A>Our task is to develop the audio software for this device. An application on the player reads songs from the CF disk and decodes it into system memory. A kernel ALSA driver gathers the music data from system memory and dispatches it to transmit buffers <A name=iddle1192></A><A name=iddle2880></A><A name=iddle2881></A><A name=iddle3073></A><A name="audio controller"></A>that are part of the SoC's audio controller. This PCM data is forwarded to the codec, which plays the music through the device's speaker. As in the case of the navigation system discussed in the preceding chapter, we will assume that Linux supports this SoC, and that all architecture-dependent services such as DMA are supported by the kernel.</P>
+<P class=docText><A name="two parts"></A>The audio software for the MP3 player thus consists of two parts:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="from the"></A>A user program that decodes MP3 files reads from the CF disk and converts it into raw PCM. To write a native ALSA decoder application, you can leverage the helper routines offered by the <SPAN class=docEmphasis>alsa-lib</SPAN> library. The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13lev2sec2">ALSA Programming</A>" looks at how ALSA applications interact with ALSA drivers.</P>
+<P class=docList><A name="such as"></A>You also have the option of customizing public domain MP3 players such as <SPAN class=docEmphasis>madplay</SPAN> (<A class=docLink href="http://sourceforge.net/projects/mad/" target=_blank>http://sourceforge.net/projects/mad/</A>) to suit this device.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="audio driver"></A>A low-level kernel ALSA audio driver. The following section is devoted to writing this driver.</P></DIV></LI></OL></DIV><A name=ch13note02></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="hardware implementation"></A>One possible hardware implementation of the device shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13fig04">Figure 13.4</A><A name="is by"></A> is by using a PowerPC 405LP SoC and a Texas Instruments TLV320 audio codec. The CPU core in that case is the 405 processor and the on-chip audio controller is the Codec Serial Interface (CSI). SoCs commonly have a high-performance internal local bus that connects to controllers, such as DRAM and video, and a separate on-chip peripheral bus to interface with low-speed peripherals such as serial ports, I<SUP>2</SUP><A name="the case"></A>C, and GPIO. In the case of the 405LP, the former is called the Processor Local Bus (PLB) and the latter is known as the On-chip Peripheral Bus (OPB). The PCMCIA/CF controller hangs off the PLB, whereas the audio controller interface connects to the OPB.</P>
+<P></P></DIV><BR>
+<P class=docText><A name=iddle1177></A><A name=iddle1488></A><A name=iddle1600></A><A name=iddle1816></A><A name=iddle1831></A><A name=iddle3058></A><A name=iddle3782></A><A name=iddle3870></A><A name=iddle4149></A><A name=iddle4608></A><A name="audio driver"></A>An audio driver is built out of three main ingredients:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Routines that handle playback</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Routines that handle capture</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Mixer control functions</P></DIV></LI></OL></DIV>
+<P class=docText><A name="the MP"></A>Our driver implements playback, but does not support recording because the MP3 player in the example has no microphone. The driver also simplifies the mixer function. Rather than offering the full compliment of volume controls, such as speaker, earphone, and line-out, it allows only a single generic volume control.</P>
+<P class=docText><A name="audio hardware"></A>The register layout of the MP3 player's audio hardware shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13tab01">Table 13.1</A><A name="standards such"></A> mirrors these assumptions and simplifications, and does not conform to standards such as AC'97 alluded to earlier. So, the codec has a <TT>SAMPLING_RATE_REGISTER</TT><A name="no registers"></A> to configure the playback (digital-to-analog) sampling rate but no registers to set the capture (analog-to-digital) rate. The <TT>VOLUME_REGISTER</TT> configures a single global volume.</P><A name=ch13tab01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 13.1. Register Layout of the Audio Hardware in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13fig04">Figure 13.4</A></H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=200>
+<COL width=350></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Register Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>VOLUME_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Controls the codec's global volume.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>SAMPLING_RATE_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Sets the codec's sampling rate for digital-to-analog conversion.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CLOCK_INPUT_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Configures the codec's clock source, divisors, and so on.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>CONTROL_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="bus operation"></A>Enables interrupts, configures interrupt cause (such as completion of a buffer transfer), resets hardware, enables/disables bus operation, and so on.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>STATUS_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="audio events"></A>Status of codec audio events.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>DMA_ADDRESS_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="hardware supports"></A>The example hardware supports a single DMA buffer descriptor. Real-world cards may support multiple descriptors and may have additional registers to hold parameters such as the descriptor that is currently being processed, the position of the current sample inside the buffer, and so on. DMA is performed to the buffers in the audio controller, so this register resides in the controller's memory space.</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>DMA_SIZE_REGISTER</TT></TD>
+<TD class=docTableCell vAlign=top align=left><A name="Holds the"></A>Holds the size of the DMA transfer to/from the SoC. This register also resides inside the audio controller.</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A><A name="skeletal ALSA"></A> is a skeletal ALSA audio driver for the MP3 player and liberally employs pseudo code (within comments) to cut out extraneous detail. ALSA is a sophisticated framework, and conforming audio drivers are usually several thousand lines long. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A><A name="you started"></A> gets you started only on your audio driver explorations. Continue your learning by falling back to the mighty Linux-Sound sources inside the top-level <SPAN class=docEmphasis>sound/</SPAN> directory.</P><A name=ch13lev2sec1></A>
+<H4 id=title-ID0ELLAO class=docSection2Title>Driver Methods and Structures</H4>
+<P class=docText><A name=iddle1171></A><A name=iddle1172></A><A name=iddle1178></A><A name=iddle1179></A><A name=iddle3051></A><A name=iddle3052></A><A name=iddle3059></A><A name=iddle3060></A><A name=iddle3151></A><A name=iddle3152></A><A name=iddle4036></A><A name=iddle4038></A><A name="a look"></A>Our example driver is implemented as a platform driver. Let's take a look at the steps performed by the platform driver's <TT>probe()</TT> method, <TT>mycard_audio_probe()</TT><A name="under each"></A>. We will digress a bit under each step to explain related concepts and important data structures that we encounter, and this will take us to other parts of the driver and help tie things together.</P>
+<P class=docText><TT>mycard_audio_probe()</TT>does the following:</P><A name=ch13pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Creates an instance of a sound card by invoking <TT>snd_card_new()</TT>:<BR><BR>
+<DIV class=docText><PRE>struct snd_card *card = snd_card_new(-1, id[dev-&gt;id], THIS_MODULE, 0);</PRE></DIV><BR>The first argument to <TT>snd_card_new()</TT> is the card index (that identifies this card among multiple sound cards in the system), the second argument is the ID that'll be stored in the <TT>id</TT> field of the returned <TT>snd_card</TT> structure, the third argument is the <TT>owner</TT> module, and the last argument is the size of a private data field that'll be made available via the <TT>private_data</TT> field of the returned <TT>snd_card</TT> structure (usually to store chip-specific data such as interrupt levels and I/O addresses).<BR><BR><TT>snd_card</TT> represents the created sound card and is defined as follows in <SPAN class=docEmphasis>include/sound/core.h</SPAN>:<BR><BR>
+<DIV class=docText><PRE>struct snd_card {
+  int number;             /* Card index */
+  char id[16];            /* Card ID */
+  /* ... */
+  struct module *module;  /* Owner module */
+  void *private_data;     /* Private data */
+  /* ... */
+  struct list_head controls;
+                          /* All controls for this card */
+  struct device *dev;     /* Device assigned to this card*/
+  /* ... */
+};</PRE></DIV><BR>The <TT>remove()</TT> counterpart of the probe method, <TT>mycard_audio_remove()</TT>, releases the <TT>snd_card</TT> from the ALSA framework using <TT>snd_card_free()</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText><A name=iddle1184></A><A name=iddle1189></A><A name=iddle1190></A><A name=iddle1191></A><A name=iddle3065></A><A name=iddle3070></A><A name=iddle3071></A><A name=iddle3072></A><A name=iddle4054></A><A name=iddle4063></A><A name=iddle4065></A><A name=iddle4068></A>Creates a PCM playback instance and associates it with the card created in Step 1, using <TT>snd_pcm_new()</TT>:<BR><BR>
+<DIV class=docText><PRE>int snd_pcm_new(struct snd_card *card, char *id,
+                int device,
+                int playback_count, int capture_count,
+                struct snd_pcm **pcm);</PRE></DIV><BR>The arguments are, respectively, the sound card instance created in Step 1, an identifier string, the device index, the number of supported playback streams, the number of supported capture streams (0 in our example), and a pointer to store the allocated PCM instance. The allocated PCM instance is defined as follows in <SPAN class=docEmphasis>include/sound/pcm.h</SPAN>:<BR><BR>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>struct snd_pcm {
+  struct snd_card *card;         /* Associated snd_card */
+  /* ... */
+  struct snd_pcm_str streams[2]; /* Playback and capture streams of this PCM
+                                    component. Each stream may support
+                                    substreams if your h/w supports it
+                                  */
+  /* ... */
+  struct device *dev;            /* Associated hardware
+                                    device */
+};
+
+					  </PRE></DIV><BR>The <TT>snd_device_new()</TT> routine lies at the core of <TT>snd_pcm_new()</TT> and other similar component instantiation functions. <TT>snd_device_new()</TT> ties a component and a set of operations with the associated <TT>snd_card</TT> (see Step 3).<BR><BR></DIV></TD></TR>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Connects playback operations with the PCM instance created in Step 2, by calling <TT>snd_pcm_set_ops()</TT>. The <TT>snd_pcm_ops</TT> structure specifies these operations for transferring PCM audio to the codec. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A> accomplishes this as follows:<BR><BR>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Operators for the PCM playback stream */
+static struct snd_pcm_ops mycard_playback_ops = {
+  .open = mycard_pb_open,        /* Open */
+  .close = mycard_pb_close,      /* Close */
+  .ioctl = snd_pcm_lib_ioctl,    /* Use to handle special commands, else
+                                    specify the generic ioctl handler
+                                    snd_pcm_lib_ioctl()*/
+  .hw_params = mycard_hw_params, /* Called when higher layers set hardware
+                                    parameters such as audio format. DMA
+                                    buffer allocation is also done from here */
+  .hw_free = mycard_hw_free,     /* Free resources allocated in
+                                    mycard_hw_params() */
+  .prepare = mycard_pb_prepare,  /* Prepare to transfer the audio stream.
+                                    Set audio format such as S16_LE
+                                    (explained soon), enable interrupts,.. */
+  .trigger = mycard_pb_trigger,  /* Called when the PCM engine starts,
+                                    stops, or pauses. The second argument
+                                    specifies why it was called. This
+                                    function cannot go to sleep */
+};
+
+/* Connect the operations with the PCM instance */
+snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &amp;mycard_playback_ops);
+
+					  </PRE></DIV><BR><A name=iddle1174></A><A name=iddle1175></A><A name=iddle1186></A><A name=iddle1828></A><A name=iddle3054></A><A name=iddle3055></A><A name=iddle3056></A><A name=iddle3067></A><A name=iddle3157></A><A name=iddle3158></A><A name=iddle3160></A><A name=iddle4058></A>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A>, <TT>mycard_pb_prepare()</TT> configures the sampling rate into the <TT>SAMPLING_RATE_REGISTER</TT>, clock source into the <TT>CLOCKING_INPUT_REGISTER</TT>, and transmit complete interrupt enablement into the <TT>CONTROL_REGISTER</TT>. The <TT>trigger()</TT> method, <TT>mycard_pb_trigger()</TT>, maps an audio buffer populated by the ALSA framework on-the-fly using <TT>dma_map_single()</TT>. (We discussed streaming DMA in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>, "Peripheral Component Interconnect.") The mapped DMA buffer address is programmed into the <TT>DMA_ADDRESS_REGISTER</TT>. This register is part of the audio controller in the SoC, unlike the earlier registers that reside inside the codec. The audio controller forwards the DMA'ed data to the codec for playback.<BR><BR>Another related object is the <TT>snd_pcm_hardware</TT> structure, which announces the PCM component's hardware capabilities. For our example device, this is defined in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A> as follows:<BR><BR>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Hardware capabilities of the PCM playback stream */
+static struct snd_pcm_hardware mycard_playback_stereo = {
+  .info = (SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_PAUSE |
+           SNDRV_PCM_INFO_RESUME);   /* mmap() is supported. The stream has
+                                        pause/resume capabilities */
+  .formats = SNDRV_PCM_FMTBIT_S16_LE,/* Signed 16 bits per channel, little
+                                        endian */
+  .rates = SNDRV_PCM_RATE_8000_48000,/* DAC Sampling rate range */
+  .rate_min = 8000,                  /* Minimum sampling rate */
+  .rate_max = 48000,                 /* Maximum sampling rate */
+  .channels_min = 2,                 /* Supports a left and a right channel */
+  .channels_max = 2,                 /* Supports a left and a right channel */
+  .buffer_bytes_max = 32768,         /* Max buffer size */
+};
+
+					  </PRE></DIV><BR>This object is tied with the associated <TT>snd_pcm</TT> from the <TT>open()</TT> operator, <TT>mycard_playback_open()</TT>, using the PCM <SPAN class=docEmphasis>runtime</SPAN> instance. Each open PCM <A name=iddle1169></A><A name=iddle1173></A><A name=iddle1181></A><A name=iddle1182></A><A name=iddle1183></A><A name=iddle1185></A><A name=iddle1187></A><A name=iddle1188></A><A name=iddle1517></A><A name=iddle3049></A><A name=iddle3053></A><A name=iddle3062></A><A name=iddle3063></A><A name=iddle3064></A><A name=iddle3066></A><A name=iddle3068></A><A name=iddle3069></A><A name=iddle3156></A><A name=iddle4042></A><A name=iddle4045></A><A name=iddle4051></A><A name=iddle4057></A><A name=iddle4059></A><A name=iddle4061></A>stream has a runtime object called <TT>snd_pcm_runtime</TT> that contains all information needed to manage that stream. This is a gigantic structure of software and hardware configurations defined in <SPAN class=docEmphasis>include/sound/pcm.h</SPAN> and contains <TT>snd_pcm_hardware</TT> as one of its component fields.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>4. </B></DIV></TD>
+<TD>
+<DIV class=docText>Preallocates buffers using <TT>snd_pcm_lib_preallocate_pages_for_all()</TT>. DMA buffers are subsequently obtained from this preallocated area by <TT>mycard_hw_params()</TT> using <TT>snd_pcm_lib_malloc_pages()</TT> and stored in the PCM runtime instance alluded to in Step 3. <TT>mycard_pb_trigger()</TT> DMA-maps this buffer while starting a PCM operation and unmaps it while stopping the PCM operation.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>5. </B></DIV></TD>
+<TD>
+<DIV class=docText>Associates a mixer control element with the sound card using <TT>snd_ctl_add()</TT> for global volume control:<BR><BR>
+<DIV class=docText><PRE>snd_ctl_add(card, snd_ctl_new1(&amp;mycard_playback_vol, &amp;myctl_private));</PRE></DIV><BR><TT>snd_ctl_new1()</TT> takes an <TT>snd_kcontrol_new</TT> structure as its first argument and returns a pointer to an <TT>snd_kcontrol</TT> structure. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A> defines this as follows:<BR><BR>
+<DIV class=docText><PRE>static struct snd_kcontrol_new mycard_playback_vol = {
+  .iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+                               /* Ctrl element is of type MIXER */
+  .name  = "MP3 volume",       /* Name */
+  .index = 0,                  /* Codec No: 0 */
+  .info  = mycard_pb_vol_info, /* Volume info */
+  .get   = mycard_pb_vol_get,  /* Get volume */
+  .put   = mycard_pb_vol_put,  /* Set volume */
+};</PRE></DIV><BR>The <TT>snd_kcontrol</TT> structure describes a control element. Our driver uses it as a knob for general volume control. <TT>snd_ctl_add()</TT> registers an <TT>snd_kcontrol</TT> element with the ALSA framework. The constituent control methods are invoked when user applications such as <SPAN class=docEmphasis>alsamixer</SPAN> are executed. In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A>, the <TT>snd_kcontrol put()</TT> method, <TT>mycard_playback_volume_put()</TT>, writes requested volume settings to the codec's <TT>VOLUME_REGISTER</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>6. </B></DIV></TD>
+<TD>
+<DIV class=docText>And finally, registers the sound card with the ALSA framework:<BR><BR>
+<DIV class=docText><PRE>snd_card_register(card);</PRE></DIV><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><TT>codec_write_reg()</TT> (used, but left unimplemented in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A><A name="bus that"></A>) writes values to codec registers by communicating over the bus that connects the audio controller in the SoC to the external codec. If the underlying bus protocol is I<SUP>2</SUP>C or SPI, for <A name=iddle1096></A><A name=iddle1158></A><A name=iddle1167></A><A name=iddle1180></A><A name=iddle1198></A><A name=iddle3046></A><A name=iddle3047></A><A name=iddle3061></A><A name=iddle4040></A>example, <TT>codec_write_reg()</TT> uses the interface functions discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08.html#ch08">Chapter 8</A>, "The Inter-Integrated Circuit Protocol."</P>
+<P class=docText>If you want to create a <SPAN class=docEmphasis>/proc</SPAN><A name="during debug"></A> interface in your driver for dumping registers during debug or to export a parameter during normal operation, use the services of <TT>snd_card_proc_new()</TT> and friends. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A> does not use <SPAN class=docEmphasis>/proc</SPAN> interface files.</P>
+<P class=docText>If you build and load the driver module in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A>, you will see two new device nodes appearing on the MP3 player: <SPAN class=docEmphasis>/dev/snd/pcmC0D0p</SPAN> and <SPAN class=docEmphasis>/dev/snd/controlC0</SPAN><A name="is the"></A>. The former is the interface for audio playback, and the latter is the interface for mixer control. The MP3 decoder application, with the help of <SPAN class=docEmphasis>alsa-lib</SPAN><A name="operating over"></A>, streams music by operating over these device nodes.</P><A name=ch13ex01></A>
+<H5 id=title-ID0EWMBO class=docExampleTitle>Listing 13.1. ALSA Driver for the Linux MP3 Player</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>include <LINUX platform_device.h="">
+#include <LINUX soundcard.h="">
+#include <SOUND driver.h="">
+#include <SOUND core.h="">
+#include <SOUND pcm.h="">
+#include <SOUND initval.h="">
+#include <SOUND control.h="">
+
+/* Playback rates supported by the codec */
+static unsigned int mycard_rates[] = {
+  8000,
+  48000,
+};
+/* Hardware constraints for the playback channel */
+static struct snd_pcm_hw_constraint_list mycard_playback_rates = {
+  .count = ARRAY_SIZE(mycard_rates),
+  .list = mycard_rates,
+  .mask = 0,
+};
+
+static struct platform_device *mycard_device;
+static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;
+
+/* Hardware capabilities of the PCM stream */
+static struct snd_pcm_hardware mycard_playback_stereo = {
+  .info = (SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_BLOCK_TRANSFER),
+  .formats = SNDRV_PCM_FMTBIT_S16_LE, /* 16 bits per channel, little endian */
+  .rates = SNDRV_PCM_RATE_8000_48000, /* DAC Sampling rate range */
+  .rate_min = 8000,                   /* Minimum sampling rate */
+  .rate_max = 48000,                  /* Maximum sampling rate */
+  .channels_min = 2,                  /* Supports a left and a right channel */
+  .channels_max = 2,                  /* Supports a left and a right channel */
+  .buffer_bytes_max = 32768,          /* Maximum buffer size */
+};
+
+/* Open the device in playback mode */
+static int
+mycard_pb_open(struct snd_pcm_substream *substream)
+{
+  struct snd_pcm_runtime *runtime = substream-&gt;runtime;
+
+  /* Initialize driver structures */
+  /* ... */
+  /* Initialize codec registers */
+  /* ... */
+  /* Associate the hardware capabilities of this PCM component */
+  runtime-&gt;hw = mycard_playback_stereo;
+
+  /* Inform the ALSA framework about the constraints that
+     the codec has. For example, in this case, it supports
+     PCM sampling rates of 8000Hz and 48000Hz only */
+  snd_pcm_hw_constraint_list(runtime, 0,
+                             SNDRV_PCM_HW_PARAM_RATE,
+                             &amp;mycard_playback_rates);
+  return 0;
+}
+
+/* Close */
+static int
+mycard_pb_close(struct snd_pcm_substream *substream)
+{
+  /* Disable the codec, stop DMA, free data structures */
+  /* ... */
+  return 0;
+}
+
+/* Write to codec registers by communicating over
+   the bus that connects the SoC to the codec */
+void
+codec_write_reg(uint codec_register, uint value)
+{
+  /* ... */
+}
+/* Prepare to transfer an audio stream to the codec */
+static int
+mycard_pb_prepare(struct snd_pcm_substream *substream)
+{
+
+  /* Enable Transmit DMA complete interrupt by writing to
+     CONTROL_REGISTER using codec_write_reg() */
+
+  /* Set the sampling rate by writing to SAMPLING_RATE_REGISTER */
+
+  /* Configure clock source and enable clocking by writing
+     to CLOCK_INPUT_REGISTER */
+
+  /* Allocate DMA descriptors for audio transfer */
+
+  return 0;
+}
+
+/* Audio trigger/stop/.. */
+static int
+mycard_pb_trigger(struct snd_pcm_substream *substream, int cmd)
+{
+  switch (cmd) {
+  case SNDRV_PCM_TRIGGER_START:
+    /* Map the audio substream's runtime audio buffer (which is an
+       offset into runtime-&gt;dma_area) using dma_map_single(),
+       populate the resulting address to the audio controller's
+       DMA_ADDRESS_REGISTER, and perform DMA */
+    /* ... */
+    break;
+
+  case SNDRV_PCM_TRIGGER_STOP:
+    /* Shut the stream. Unmap DMA buffer using dma_unmap_single() */
+    /* ... */
+    break;
+
+  default:
+    return -EINVAL;
+    break;
+  }
+
+  return 0;
+}
+/* Allocate DMA buffers using memory preallocated for DMA from the
+   probe() method. dma_[map|unmap]_single() operate on this area
+   later on */
+static int
+mycard_hw_params(struct snd_pcm_substream *substream,
+                 struct snd_pcm_hw_params *hw_params)
+{
+  /* Use preallocated memory from mycard_audio_probe() to
+     satisfy this memory request */
+  return snd_pcm_lib_malloc_pages(substream,
+                                  params_buffer_bytes(hw_params));
+}
+
+/* Reverse of mycard_hw_params() */
+static int
+mycard_hw_free(struct snd_pcm_substream *substream)
+{
+  return snd_pcm_lib_free_pages(substream);
+}
+
+/* Volume info */
+static int
+mycard_pb_vol_info(struct snd_kcontrol *kcontrol,
+                   struct snd_ctl_elem_info *uinfo)
+{
+  uinfo-&gt;type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+                                  /* Integer type */
+  uinfo-&gt;count = 1;               /* Number of values */
+  uinfo-&gt;value.integer.min = 0;   /* Minimum volume gain */
+  uinfo-&gt;value.integer.max = 10;  /* Maximum volume gain */
+  uinfo-&gt;value.integer.step = 1;  /* In steps of 1 */
+  return 0;
+}
+
+/* Playback volume knob */
+static int
+mycard_pb_vol_put(struct snd_kcontrol *kcontrol,
+                  struct snd_ctl_elem_value *uvalue)
+{
+  int global_volume = uvalue-&gt;value.integer.value[0];
+
+  /* Write global_volume to VOLUME_REGISTER
+     using codec_write_reg() */
+  /* ... */
+  /* If the volume changed from the current value, return 1.
+     If there is an error, return negative code. Else return 0 */
+}
+
+/* Get playback volume */
+static int
+mycard_pb_vol_get(struct snd_kcontrol *kcontrol,
+                  struct snd_ctl_elem_value *uvalue)
+{
+  /* Read global_volume from VOLUME_REGISTER
+     and return it via uvalue-&gt;integer.value[0] */
+  /* ... */
+  return 0;
+}
+
+/* Entry points for the playback mixer */
+static struct snd_kcontrol_new mycard_playback_vol = {
+  .iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+                                /* Control is of type MIXER */
+  .name  = "MP3 Volume",        /* Name */
+  .index = 0,                   /* Codec No: 0 */
+  .info  = mycard_pb_vol_info,  /* Volume info */
+  .get   = mycard_pb_vol_get,   /* Get volume */
+  .put   = mycard_pb_vol_put,   /* Set volume */
+};
+
+/* Operators for the PCM playback stream */
+static struct snd_pcm_ops mycard_playback_ops = {
+  .open      = mycard_playback_open,    /* Open */
+  .close     = mycard_playback_close,   /* Close */
+  .ioctl     = snd_pcm_lib_ioctl,       /* Generic ioctl handler */
+  .hw_params = mycard_hw_params,        /* Hardware parameters */
+  .hw_free   = mycard_hw_free,          /* Free h/w params */
+  .prepare   = mycard_playback_prepare, /* Prepare to transfer audio stream */
+  .trigger   = mycard_playback_trigger, /* Called when the PCM engine
+                                           starts/stops/pauses */
+};
+
+/* Platform driver probe() method */
+static int __init
+mycard_audio_probe(struct platform_device *dev)
+{
+  struct snd_card *card;
+  struct snd_pcm *pcm;
+  int myctl_private;
+
+  /* Instantiate an snd_card structure */
+  card = snd_card_new(-1, id[dev-&gt;id], THIS_MODULE, 0);
+
+  /* Create a new PCM instance with 1 playback substream
+     and 0 capture streams */
+  snd_pcm_new(card, "mycard_pcm", 0, 1, 0, &amp;pcm);
+
+  /* Set up our initial DMA buffers */
+  snd_pcm_lib_preallocate_pages_for_all(pcm,
+                         SNDRV_DMA_TYPE_CONTINUOUS,
+                         snd_dma_continuous_data
+                         (GFP_KERNEL), 256*1024,
+                         256*1024);
+
+  /* Connect playback operations with the PCM instance */
+  snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+                  &amp;mycard_playback_ops);
+
+  /* Associate a mixer control element with this card */
+  snd_ctl_add(card, snd_ctl_new1(&amp;mycard_playback_vol,
+                                 &amp;myctl_private));
+
+  strcpy(card-&gt;driver, "mycard");
+
+  /* Register the sound card */
+  snd_card_register(card);
+
+  /* Store card for access from other methods */
+  platform_set_drvdata(dev, card);
+
+  return 0;
+}
+
+/* Platform driver remove() method */
+static int
+mycard_audio_remove(struct platform_device *dev)
+{
+  snd_card_free(platform_get_drvdata(dev));
+  platform_set_drvdata(dev, NULL);
+  return 0;
+}
+
+/* Platform driver definition */
+static struct platform_driver mycard_audio_driver = {
+  .probe = mycard_audio_probe,     /* Probe method */
+  .remove = mycard_audio_remove,   /* Remove method */
+  .driver = {
+    .name = "mycard_ALSA",
+  },
+};
+
+/* Driver Initialization */
+static int __init
+mycard_audio_init(void)
+{
+  /* Register the platform driver and device */
+  platform_driver_register(&amp;mycard_audio_driver);
+
+  mycard_device = platform_device_register_simple("mycard_ALSA",
+                                                  -1, NULL, 0);
+  return 0;
+}
+
+/* Driver Exit */
+static void __exit
+mycard_audio_exit(void)
+{
+  platform_device_unregister(mycard_device);
+  platform_driver_unregister(&amp;mycard_audio_driver);
+}
+
+module_init(mycard_audio_init);
+module_exit(mycard_audio_exit);
+MODULE_LICENSE("GPL");
+
+					  </SOUND></SOUND></SOUND></SOUND></SOUND></LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P><A name=ch13lev2sec2></A>
+<H4 id=title-ID0E3NBO class=docSection2Title>ALSA Programming</H4>
+<P class=docText><A name=iddle1097></A><A name=iddle1159></A><A name=iddle1168></A><A name=iddle3048></A><A name="how the"></A>To understand how the user space alsa-lib library interacts with kernel space ALSA drivers, let's write a simple application that sets the volume gain of the MP3 player. We will <A name=iddle4047></A><A name=iddle4048></A><A name=iddle4049></A><A name=iddle4053></A><A name="map the"></A>map the alsa-lib services used by the application to the mixer control methods defined in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A><A name="loading the"></A>. Let's begin by loading the driver and examining the mixer's capabilities:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; amixer contents</SPAN>
+...
+numid=3,iface=MIXER,name="MP3 Volume"
+     ; type=INTEGER,...
+...</PRE></DIV><BR>
+<P class=docText><A name="the volume"></A>In the volume-control application, first allocate space for the alsa-lib objects necessary to perform the volume-control operation:</P>
+<DIV class=docText><PRE>#include <ALSA asoundlib.h="">
+snd_ctl_elem_value_t *nav_control;
+snd_ctl_elem_id_t    *nav_id;
+snd_ctl_elem_info_t  *nav_info;
+
+snd_ctl_elem_value_alloca(&amp;nav_control);
+snd_ctl_elem_id_alloca(&amp;nav_id);
+snd_ctl_elem_info_alloca(&amp;nav_info);</ALSA></PRE></DIV><BR>
+<P class=docText>Next, set the interface type to <TT>SND_CTL_ELEM_IFACE_MIXER</TT> as specified in the <TT>mycard_playback_vol</TT> structure in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A>:</P>
+<DIV class=docText><PRE>snd_ctl_elem_id_set_interface(nav_id, SND_CTL_ELEM_IFACE_MIXER);</PRE></DIV><BR>
+<P class=docText>Now set the <TT>numid</TT> for the MP3 volume obtained from the amixer output above<TT>:</TT></P>
+<DIV class=docText><PRE>snd_ctl_elem_id_set_numid(nav_id, 3); /* num_id=3 */</PRE></DIV><BR>
+<P class=docText>Open the mixer node, <SPAN class=docEmphasis>/dev/snd/controlC0</SPAN>. The third argument to <TT>snd_ctl_open()</TT> specifies the card number in the node name:</P>
+<DIV class=docText><PRE>snd_ctl_open(&amp;nav_handle, card, 0);
+/* Connect data structures */
+snd_ctl_elem_info_set_id(nav_info, nav_id);
+snd_ctl_elem_info(nav_handle, nav_info);</PRE></DIV><BR>
+<P class=docText>Elicit the <TT>type</TT> field in the <TT>snd_ctl_elem_info</TT> structure defined in <TT>mycard_pb_vol_info()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A> as follows:</P>
+<DIV class=docText><PRE>if (snd_ctl_elem_info_get_type(nav_info) !=
+                      SND_CTL_ELEM_TYPE_INTEGER) {
+  printk("Mismatch in control type\n");
+}</PRE></DIV><BR>
+<P class=docText><A name=iddle1170></A><A name=iddle3050></A><A name=iddle3159></A><A name=iddle4050></A><A name=the></A>Get the supported codec volume range by communicating with the <TT>mycard_pb_vol_info()</TT> driver method:</P>
+<DIV class=docText><PRE>long desired_volume = 5;
+long min_volume = snd_ctl_elem_info_get_min(nav_info);
+long max_volume = snd_ctl_elem_info_get_max(nav_info);
+/* Ensure that the desired_volume is within min_volume and
+   max_volume */
+/* ... */</PRE></DIV><BR>
+<P class=docText>As per the definition of <TT>mycard_pb_vol_info()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13ex01">Listing 13.1</A><A name="returned by"></A>, the minimum and maximum values returned by the above alsa-lib helper routines are 0 and 10, respectively.</P>
+<P class=docText>Finally, set the desired volume and write it to the codec:</P>
+<DIV class=docText><PRE>snd_ctl_elem_value_set_integer(nav_control, 0, desired_volume);
+snd_ctl_elem_write(nav_handle, nav_control);</PRE></DIV><BR>
+<P class=docText>The call to <TT>snd_ctl_elem_write()</TT> results in the invocation of <TT>mycard_pb_vol_put()</TT>, which writes the desired volume gain to the codec's <TT>VOLUME_REGISTER</TT>.</P><A name=ch13sb02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>MP3 Decoding Complexity</H2>
+<P class=docText>The MP3 decoder application running on the player, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch13lev1sec3.html#ch13fig04">Figure 13.4</A><A name="disk that"></A>, requires a supply rate of MP3 frames from the CF disk that can sustain the common MP3 sampling rate of 128KBps. This is usually not a problem for most low-MIPs devices, but in case it is, consider buffering each song in memory before decoding it. (MP3 frames at 128KBps roughly consume 1MB per minute of music.)</P>
+<P class=docText><A name="accomplished on"></A>MP3 decoding is lightweight and can usually be accomplished on-the-fly, but MP3 encoding is heavy-duty and cannot be achieved in real time without hardware assist. Voice codecs such as G.711 and G.729 used in Voice over IP (VoIP) environments can, however, encode and decode audio data in real time.</P></TD></TR></TBODY></TABLE>

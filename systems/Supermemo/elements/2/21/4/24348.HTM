@@ -1,0 +1,91 @@
+<H4 id=title-ID0E4FAO class=docSection2Title><FONT class=extract>Completion Interface</FONT></H4>
+<P class=docText><A name="parts of"></A><FONT class=extract>Many parts of the kernel initiate certain activities as separate execution threads and then wait for them to complete. The <SPAN class=docEmphasis>completion</SPAN></FONT><A name="code patterns"></A><FONT class=extract> interface is an efficient and easy way to implement such code patterns.</FONT></P>
+<P class=docText><A name=iddle1040></A><A name=iddle1107></A><A name=iddle3786></A><A name=iddle4187></A><A name="Some example"></A><FONT class=extract>Some example usage scenarios include the following:</FONT></P>
+<UL>
+<LI>
+<P class=docList><A name="module is"></A><FONT class=extract>Your driver module is assisted by a kernel thread. If you rmmod the module, the <TT>release()</TT></FONT><A name="is invoked"></A><FONT class=extract> method is invoked before removing the module code from kernel space. The release routine asks the thread to kill itself and blocks until the thread completes its exit. </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex07"><FONT class=extract>Listing 3.7</FONT></A><FONT class=extract> implements this case.</FONT></P>
+<LI>
+<P class=docList><A name="driver "></A><FONT class=extract>You are writing a portion of a block device driver (discussed in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14.html#ch14"><FONT class=extract>Chapter 14</FONT></A><A name="to a"></A><FONT class=extract>, "Block Drivers") that queues a read request to a device. This triggers a state machine change implemented as a separate thread or work queue. The driver wants to wait until the operation completes before proceeding with another activity. Look at <SPAN class=docEmphasis>drivers/block/floppy.c</SPAN> for an example.</FONT></P>
+<LI>
+<P class=docList><FONT class=extract>An application requests an <SPAN class=docEmphasis>Analog-to-Digital Converter</SPAN></FONT><A name="request waits"></A><FONT class=extract> (ADC) driver for a data sample. The driver initiates a conversion request waits, until an interrupt signals completion of conversion, and returns the data.</FONT></P></LI></UL><A name=ch03ex07></A>
+<H5 id=title-ID0EXIAO class=docExampleTitle>Listing 3.7. Synchronizing Using Completion Functions</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>static DECLARE_COMPLETION(my_thread_exit);      /* Completion */
+static DECLARE_WAIT_QUEUE_HEAD(my_thread_wait); /* Wait Queue */
+int pink_slip = 0;                              /* Exit Flag */
+
+/* Helper thread */
+static int
+my_thread(void *unused)
+{
+  DECLARE_WAITQUEUE(wait, current);
+
+  daemonize("my_thread");
+  add_wait_queue(&amp;my_thread_wait, &amp;wait);
+
+  while (1) {
+    /* Relinquish processor until event occurs */
+    set_current_state(TASK_INTERRUPTIBLE);
+    schedule();
+    /* Control gets here when the thread is woken
+       up from the my_thread_wait wait queue */
+
+    /* Quit if let go */
+    if (pink_slip) {
+      break;
+    }
+    /* Do the real work */
+    /* ... */
+
+  }
+
+  /* Bail out of the wait queue */
+  __set_current_state(TASK_RUNNING);
+  remove_wait_queue(&amp;my_thread_wait, &amp;wait);
+
+  /* Atomically signal completion and exit */
+  complete_and_exit(&amp;my_thread_exit, 0);
+}
+
+/* Module Initialization */
+static int __init
+my_init(void)
+{
+  /* ... */
+
+  /* Kick start the thread */
+  kernel_thread(my_thread, NULL,
+                CLONE_FS | CLONE_FILES | CLONE_SIGHAND | SIGCHLD);
+
+  /* ... */
+}
+
+/* Module Release */
+static void __exit
+my_release(void)
+{
+  /* ... */
+  pink_slip = 1;                        /* my_thread must go */
+  wake_up(&amp;my_thread_wait);             /* Activate my_thread */
+  wait_for_completion(&amp;my_thread_exit); /* Wait until my_thread
+                                           quits */
+  /* ... */
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1535></A><A name=iddle1537></A><A name=iddle2348></A><A name=iddle4618></A><A name="statically using"></A>A completion object can be declared statically using <TT>DECLARE_COMPLETION()</TT> or created dynamically with <TT>init_completion()</TT><A name=of></A>. A thread can signal completion with the help of <TT>complete()</TT> or <TT>complete_all()</TT><A name="caller can"></A>. A caller can wait for completion via <TT>wait_for_completion()</TT>.</P>
+<P class=docText><A name=iddle1538></A><A name=iddle2196></A><A name=iddle2571></A><A name=iddle2601></A><A name=iddle2629></A><A name=iddle2700></A><A name=iddle2703></A><A name=iddle2707></A><A name=iddle3141></A><A name=iddle4188></A>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex07">Listing 3.7</A>, <TT>my_release()</TT> raises an exit request flag by setting <TT>pink_slip</TT> before waking up <TT>my_thread()</TT>. It then calls <TT>wait_for_completion()</TT> to wait until <TT>my_thread()</TT> completes its exit. <TT>my_thread()</TT>, on its part, wakes up to find <TT>pink_slip</TT> set, and does the following:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Signals completion to <TT>my_release()</TT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Kills itself</P></DIV></LI></OL></DIV>
+<P class=docText><TT>my_thread()</TT> accomplishes these two steps atomically using <TT>complete_and_exit()</TT>. Using <TT>complete_and_exit()</TT><A name="opens if"></A> shuts the window between module exit and thread exit that opens if you separately invoke <TT>complete()</TT><A name=and></A> and <TT>exit()</TT>.</P>
+<P class=docText><A name="use the"></A>We will use the completion API when we develop an example telemetry driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A>.

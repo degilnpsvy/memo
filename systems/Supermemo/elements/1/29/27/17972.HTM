@@ -1,0 +1,69 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>16.4.6.5 Customized Output Wrappers</H4><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-customized-output-wrapper></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-output-wrapper></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">An<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>output wrapper</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>is the mirror image of an input parser. It allows an extension to take over the output to a file opened with the &#8216;<SAMP>&gt;</SAMP>&#8217; or &#8216;<SAMP>&gt;&gt;</SAMP>&#8217; I/O redirection operators (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Redirection">Redirection</A>).</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The output wrapper is very similar to the input parser structure:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>typedef struct awk_output_wrapper {
+    const char *name;   /* name of the wrapper */
+    awk_bool_t (*can_take_file)(const awk_output_buf_t *outbuf);
+    awk_bool_t (*take_control_of)(awk_output_buf_t *outbuf);
+    awk_const struct awk_output_wrapper *awk_const next;  /* for gawk */
+} awk_output_wrapper_t;
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The members are as follows:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>const char *name;</CODE></DT>
+<DD>
+<P>This is the name of the output wrapper.</P></DD>
+<DT><CODE>awk_bool_t (*can_take_file)(const awk_output_buf_t *outbuf);</CODE></DT>
+<DD>
+<P>This points to a function that examines the information in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_output_buf_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>structure pointed to by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>outbuf</CODE>. It should return true if the output wrapper wants to take over the file, and false otherwise. It should not change any state (variable values, etc.) within<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>.</P></DD>
+<DT><CODE>awk_bool_t (*take_control_of)(awk_output_buf_t *outbuf);</CODE></DT>
+<DD>
+<P>The function pointed to by this field is called when<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>decides to let the output wrapper take control of the file. It should fill in appropriate members of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_output_buf_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>structure, as described below, and return true if successful, false otherwise.</P></DD>
+<DT><CODE>awk_const struct output_wrapper *awk_const next;</CODE></DT>
+<DD>
+<P>This is for use by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>; therefore they are marked<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_const</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>so that the extension cannot modify them.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_output_buf_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>structure looks like this:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>typedef struct awk_output_buf {
+    const char *name;   /* name of output file */
+    const char *mode;   /* mode argument to fopen */
+    FILE *fp;           /* stdio file pointer */
+    awk_bool_t redirected;  /* true if a wrapper is active */
+    void *opaque;       /* for use by output wrapper */
+    size_t (*gawk_fwrite)(const void *buf, size_t size, size_t count,
+                FILE *fp, void *opaque);
+    int (*gawk_fflush)(FILE *fp, void *opaque);
+    int (*gawk_ferror)(FILE *fp, void *opaque);
+    int (*gawk_fclose)(FILE *fp, void *opaque);
+} awk_output_buf_t;
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here too, your extension will define<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE><VAR>XXX</VAR>_can_take_file()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE><VAR>XXX</VAR>_take_control_of()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>functions that examine and update data members in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_output_buf_t</CODE>. The data members are as follows:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>const char *name;</CODE></DT>
+<DD>
+<P>The name of the output file.</P></DD>
+<DT><CODE>const char *mode;</CODE></DT>
+<DD>
+<P>The mode string (as would be used in the second argument to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fopen()</CODE>) with which the file was opened.</P></DD>
+<DT><CODE>FILE *fp;</CODE></DT>
+<DD>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>FILE</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>pointer from<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>&lt;stdio.h&gt;</CODE>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>opens the file before attempting to find an output wrapper.</P></DD>
+<DT><CODE>awk_bool_t redirected;</CODE></DT>
+<DD>
+<P>This field must be set to true by the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE><VAR>XXX</VAR>_take_control_of()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function.</P></DD>
+<DT><CODE>void *opaque;</CODE></DT>
+<DD>
+<P>This pointer is opaque to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>. The extension should use it to store a pointer to any private data associated with the file.</P></DD>
+<DT><CODE>size_t (*gawk_fwrite)(const void *buf, size_t size, size_t count,</CODE></DT>
+<DT><CODE>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FILE *fp, void *opaque);</CODE></DT>
+<DT><CODE>int (*gawk_fflush)(FILE *fp, void *opaque);</CODE></DT>
+<DT><CODE>int (*gawk_ferror)(FILE *fp, void *opaque);</CODE></DT>
+<DT><CODE>int (*gawk_fclose)(FILE *fp, void *opaque);</CODE></DT>
+<DD>
+<P>These pointers should be set to point to functions that perform the equivalent function as the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>&lt;stdio.h&gt;</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>functions do, if appropriate.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>uses these function pointers for all output.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>initializes the pointers to point to internal, &#8220;pass through&#8221; functions that just call the regular<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>&lt;stdio.h&gt;</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>functions, so an extension only needs to redefine those functions that are appropriate for what it does.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE><VAR>XXX</VAR>_can_take_file()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function should make a decision based upon the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>name</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>mode</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>fields, and any additional state (such as<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>variable values) that is appropriate.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>calls<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE><VAR>XXX</VAR>_take_control_of()</CODE>, it should fill in the other fields, as appropriate, except for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fp</CODE>, which it should just use normally.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">You register your output wrapper with the following function:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>void register_output_wrapper(awk_output_wrapper_t *output_wrapper);</CODE></DT>
+<DD>
+<P>Register the output wrapper pointed to by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>output_wrapper</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>.</P></DD></DL>

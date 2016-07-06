@@ -1,0 +1,15 @@
+<P class=docText><FONT class=extract>Here's the code region from </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01"><FONT class=extract>Listing 3.1</FONT></A><A name="waiting for"></A><FONT class=extract> that puts mykthread to sleep while waiting for events:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract><FONT class=clozed>add_wait_queue(&amp;myevent_waitqueue, &amp;wait)</FONT>;
+for (;;) {
+
+  /* ... */
+  </FONT><FONT class=extract><FONT class=clozed>set_current_state(TASK_INTERRUPTIBLE);
+  schedule();    </FONT>/* Relinquish the processor */
+  /* Point A */
+
+  /* ... */
+}
+set_current_state(TASK_RUNNING);
+remove_wait_queue(&amp;myevent_waitqueue, &amp;wait);</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle1676></A><A name=iddle2031></A><A name=iddle2032></A><A name=iddle2444></A><A name=iddle3794></A><A name=iddle3867></A><A name=iddle3985></A><A name=iddle4153></A><A name=iddle4212></A><A name=iddle4213></A><A name=iddle4214></A><A name=iddle4215></A><A name=iddle4216></A><A name=iddle4293></A><A name=iddle4389></A><A name=iddle4622></A><A name=iddle4677></A><A name="on two"></A>The operation of the preceding snippet is based on two concepts: <SPAN class=docEmphasis>wait queues</SPAN> and <SPAN class=docEmphasis>process states</SPAN>. 
+<P class=docText><A name="on a"></A>Let's now turn back to the preceding code snippet. mykthread sleeps on a wait queue (<TT>myevent_waitqueue</TT>) and changes its state to <TT>TASK_INTERRUPTIBLE</TT><A name="out of"></A>, signaling its desire to opt out of the scheduler run queue. The call to <TT>schedule()</TT><A name="task from"></A> asks the scheduler to choose and run a new task from its run queue. When code responsible for health monitoring wakes up mykthread using <TT>wake_up_interruptible(&amp;myevent_waitqueue)</TT><A name="the scheduler"></A>, the thread is put back into the scheduler run queue. The process state also gets simultaneously changed to <TT>TASK_RUNNING</TT>, so there is no race condition even <A name=iddle2608></A><A name=iddle2636></A><A name=iddle3865></A><A name=iddle4551></A><A name="the task"></A>if the wake up occurs between the time the task state is set to <TT>TASK_INTERRUPTIBLE</TT><A name="the time"></A> and the time <TT>schedule()</TT><A name="if a"></A> is called. The thread also gets back into the run queue if a <TT>SIGKILL</TT><A name="signal is"></A> signal is delivered to it. When the scheduler subsequently picks mykthread from the run queue, execution resumes from Point A.

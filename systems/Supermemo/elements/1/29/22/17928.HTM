@@ -1,0 +1,116 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>14.2.2 Finding the Bug</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Let&#8217;s say that we are having a problem using (a faulty version of)<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>uniq.awk</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>in the &#8220;field-skipping&#8221; mode, and it doesn&#8217;t seem to be catching lines which should be identical when skipping the first field, such as:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>awk is a wonderful program!
+gawk is a wonderful program!
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This could happen if we were thinking (C-like) of the fields in a record as being numbered in a zero-based fashion, so instead of the lines:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>clast = join(alast, fcount+1, n)
+cline = join(aline, fcount+1, m)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">we wrote:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>clast = join(alast, fcount, n)
+cline = join(aline, fcount, m)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The first thing we usually want to do when trying to investigate a problem like this is to put a breakpoint in the program so that we can watch it at work and catch what it is doing wrong. A reasonable spot for a breakpoint in<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>uniq.awk</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>is at the beginning of the function<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>are_equal()</CODE>, which compares the current line with the previous one. To set the breakpoint, use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>b</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(breakpoint) command:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">b are_equal</KBD>
+-| Breakpoint 1 set at file `awklib/eg/prog/uniq.awk', line 64
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The debugger tells us the file and line number where the breakpoint is. Now type &#8216;<SAMP>r</SAMP>&#8217; or &#8216;<SAMP>run</SAMP>&#8217; and the program runs until it hits the breakpoint for the first time:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">r</KBD>
+-| Starting program:
+-| Stopping in Rule ...
+-| Breakpoint 1, are_equal(n, m, clast, cline, alast, aline)
+         at `awklib/eg/prog/uniq.awk':64
+-| 64          if (fcount == 0 &amp;&amp; charcount == 0)
+gawk&gt;
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Now we can look at what&#8217;s going on inside our program. First of all, let&#8217;s see how we got to where we are. At the prompt, we type &#8216;<SAMP>bt</SAMP>&#8217; (short for &#8220;backtrace&#8221;), and the debugger responds with a listing of the current stack frames:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">bt</KBD>
+-| #0  are_equal(n, m, clast, cline, alast, aline)
+         at `awklib/eg/prog/uniq.awk':69
+-| #1  in main() at `awklib/eg/prog/uniq.awk':89
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This tells us that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>are_equal()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>was called by the main program at line 89 of<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>uniq.awk</SAMP>. (This is not a big surprise, since this is the only call to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>are_equal()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in the program, but in more complex programs, knowing who called a function and with what parameters can be the key to finding the source of the problem.)</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Now that we&#8217;re in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>are_equal()</CODE>, we can start looking at the values of some variables. Let&#8217;s say we type &#8216;<SAMP>p n</SAMP>&#8217; (<CODE>p</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is short for &#8220;print&#8221;). We would expect to see the value of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>n</CODE>, a parameter to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>are_equal()</CODE>. Actually, the debugger gives us:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p n</KBD>
+-| n = untyped variable
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">In this case,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>n</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is an uninitialized local variable, since the function was called without arguments (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Function-Calls">Function Calls</A>).</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A more useful variable to display might be the current record:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p $0</KBD>
+-| $0 = string ("gawk is a wonderful program!")
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This might be a bit puzzling at first since this is the second line of our test input above. Let&#8217;s look at<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>NR</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p NR</KBD>
+-| NR = number (2)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">So we can see that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>are_equal()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>was only called for the second record of the file. Of course, this is because our program contains a rule for &#8216;<SAMP>NR == 1</SAMP>&#8217;:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>NR == 1 {
+    last = $0
+    next
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">OK, let&#8217;s just check that that rule worked correctly:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p last</KBD>
+-| last = string ("awk is a wonderful program!")
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Everything we have done so far has verified that the program has worked as planned, up to and including the call to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>are_equal()</CODE>, so the problem must be inside this function. To investigate further, we must begin &#8220;stepping through&#8221; the lines of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>are_equal()</CODE>. We start by typing &#8216;<SAMP>n</SAMP>&#8217; (for &#8220;next&#8221;):</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">n</KBD>
+-| 67          if (fcount &gt; 0) {
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This tells us that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is now ready to execute line 67, which decides whether to give the lines the special &#8220;field skipping&#8221; treatment indicated by the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>-f</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>command-line option. (Notice that we skipped from where we were before at line 64 to here, since the condition in line 64</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>if (fcount == 0 &amp;&amp; charcount == 0)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">was false.)</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Continuing to step, we now get to the splitting of the current and last records:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">n</KBD>
+-| 68              n = split(last, alast)
+gawk&gt; <KBD style="FONT-STYLE: oblique">n</KBD>
+-| 69              m = split($0, aline)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">At this point, we should be curious to see what our records were split into, so we try to look:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p n m alast aline</KBD>
+-| n = number (5)
+-| m = number (5)
+-| alast = array, 5 elements
+-| aline = array, 5 elements
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">(The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>p</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>command can take more than one argument, similar to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE>&#8217;s<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>print</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>statement.)</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This is kind of disappointing, though. All we found out is that there are five elements in each of our arrays. Useful enough (we now know that none of the words were accidentally left out), but what if we want to see inside the array?</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The first choice would be to use subscripts:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p alast[0]</KBD>
+-| "0" not in array `alast'
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Oops!</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p alast[1]</KBD>
+-| alast["1"] = string ("awk")
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This would be kind of slow for a 100-member array, though, so<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>provides a shortcut (reminiscent of another language not to be mentioned):</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p @alast</KBD>
+-| alast["1"] = string ("awk")
+-| alast["2"] = string ("is")
+-| alast["3"] = string ("a")
+-| alast["4"] = string ("wonderful")
+-| alast["5"] = string ("program!")
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">It looks like we got this far OK. Let&#8217;s take another step or two:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">n</KBD>
+-| 70              clast = join(alast, fcount, n)
+gawk&gt; <KBD style="FONT-STYLE: oblique">n</KBD>
+-| 71              cline = join(aline, fcount, m)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Well, here we are at our error (sorry to spoil the suspense). What we had in mind was to join the fields starting from the second one to make the virtual record to compare, and if the first field was numbered zero, this would work. Let&#8217;s look at what we&#8217;ve got:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">p cline clast</KBD>
+-| cline = string ("gawk is a wonderful program!")
+-| clast = string ("awk is a wonderful program!")
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Hey, those look pretty familiar! They&#8217;re just our original, unaltered, input records. A little thinking (the human brain is still the best debugging tool), and we realize that we were off by one!</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">We get out of the debugger:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>gawk&gt; <KBD style="FONT-STYLE: oblique">q</KBD>
+-| The program is running. Exit anyway (y/n)? <KBD style="FONT-STYLE: oblique">y</KBD>
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Then we get into an editor:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>clast = join(alast, fcount+1, n)
+cline = join(aline, fcount+1, m)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">and problem solved!

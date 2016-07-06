@@ -1,0 +1,42 @@
+<FONT class=extract>=== 4 Host Program support </FONT>
+<P><FONT class=extract>Kbuild supports building executables on the host for use during the<BR>compilation stage.<BR>Two steps are required in order to use a host executable.</FONT></P>
+<P><FONT class=extract>The first step is to tell kbuild that a host program exists. This is<BR>done utilising the variable hostprogs-y.</FONT></P>
+<P><FONT class=extract>The second step is to add an explicit dependency to the executable.<BR>This can be done in two ways. Either add the dependency in a rule,<BR>or utilise the variable $(always).<BR>Both possibilities are described in the following.</FONT></P>
+<P><FONT class=extract>--- 4.1 Simple Host Program</FONT></P>
+<P><FONT class=extract>&nbsp;In some cases there is a need to compile and run a program on the<BR>&nbsp;computer where the build is running.<BR>&nbsp;The following line tells kbuild that the program bin2hex shall be<BR>&nbsp;built on the build host.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;hostprogs-y := bin2hex</FONT></P>
+<P><FONT class=extract>&nbsp;Kbuild assumes in the above example that bin2hex is made from a single<BR>&nbsp;c-source file named bin2hex.c located in the same directory as<BR>&nbsp;the Makefile.</FONT></P>
+<P><FONT class=extract>--- 4.2 Composite Host Programs</FONT></P>
+<P><FONT class=extract>&nbsp;Host programs can be made up based on composite objects.<BR>&nbsp;The syntax used to define composite objects for host programs is<BR>&nbsp;similar to the syntax used for kernel objects.<BR>&nbsp;$(&lt;executable&gt;-objs) lists all objects used to link the final<BR>&nbsp;executable.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#scripts/lxdialog/Makefile<BR>&nbsp;&nbsp;hostprogs-y&nbsp;&nbsp; := lxdialog<BR>&nbsp;&nbsp;lxdialog-objs := checklist.o lxdialog.o</FONT></P>
+<P><FONT class=extract>&nbsp;Objects with extension .o are compiled from the corresponding .c<BR>&nbsp;files. In the above example, checklist.c is compiled to checklist.o<BR>&nbsp;and lxdialog.c is compiled to lxdialog.o.<BR>&nbsp;Finally, the two .o files are linked to the executable, lxdialog.<BR>&nbsp;Note: The syntax &lt;executable&gt;-y is not permitted for host-programs.</FONT></P>
+<P><FONT class=extract>--- 4.3 Defining shared libraries</FONT></P>
+<P><FONT class=extract>&nbsp;Objects with extension .so are considered shared libraries, and<BR>&nbsp;will be compiled as position independent objects.<BR>&nbsp;Kbuild provides support for shared libraries, but the usage<BR>&nbsp;shall be restricted.<BR>&nbsp;In the following example the libkconfig.so shared library is used<BR>&nbsp;to link the executable conf.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#scripts/kconfig/Makefile<BR>&nbsp;&nbsp;hostprogs-y&nbsp;&nbsp;&nbsp;&nbsp; := conf<BR>&nbsp;&nbsp;conf-objs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; := conf.o libkconfig.so<BR>&nbsp;&nbsp;libkconfig-objs := expr.o type.o</FONT></P>
+<P><FONT class=extract>&nbsp;Shared libraries always require a corresponding -objs line, and<BR>&nbsp;in the example above the shared library libkconfig is composed by<BR>&nbsp;the two objects expr.o and type.o.<BR>&nbsp;expr.o and type.o will be built as position independent code and<BR>&nbsp;linked as a shared library libkconfig.so. C++ is not supported for<BR>&nbsp;shared libraries.</FONT></P>
+<P><FONT class=extract>--- 4.4 Using C++ for host programs</FONT></P>
+<P><FONT class=extract>&nbsp;kbuild offers support for host programs written in C++. This was<BR>&nbsp;introduced solely to support kconfig, and is not recommended<BR>&nbsp;for general use.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#scripts/kconfig/Makefile<BR>&nbsp;&nbsp;hostprogs-y&nbsp;&nbsp; := qconf<BR>&nbsp;&nbsp;qconf-cxxobjs := qconf.o</FONT></P>
+<P><FONT class=extract>&nbsp;In the example above the executable is composed of the C++ file<BR>&nbsp;qconf.cc - identified by $(qconf-cxxobjs).</FONT></P>
+<P><FONT class=extract>&nbsp;If qconf is composed by a mixture of .c and .cc files, then an<BR>&nbsp;additional line can be used to identify this.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#scripts/kconfig/Makefile<BR>&nbsp;&nbsp;hostprogs-y&nbsp;&nbsp; := qconf<BR>&nbsp;&nbsp;qconf-cxxobjs := qconf.o<BR>&nbsp;&nbsp;qconf-objs&nbsp;&nbsp;&nbsp; := check.o</FONT></P>
+<P><FONT class=extract>--- 4.5 Controlling compiler options for host programs</FONT></P>
+<P><FONT class=extract>&nbsp;When compiling host programs, it is possible to set specific flags.<BR>&nbsp;The programs will always be compiled utilising $(HOSTCC) passed<BR>&nbsp;the options specified in $(HOSTCFLAGS).<BR>&nbsp;To set flags that will take effect for all host programs created<BR>&nbsp;in that Makefile, use the variable HOST_EXTRACFLAGS.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#scripts/lxdialog/Makefile<BR>&nbsp;&nbsp;HOST_EXTRACFLAGS += -I/usr/include/ncurses</FONT></P>
+<P><FONT class=extract>&nbsp;To set specific flags for a single file the following construction<BR>&nbsp;is used:</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#arch/ppc64/boot/Makefile<BR>&nbsp;&nbsp;HOSTCFLAGS_piggyback.o := -DKERNELBASE=$(KERNELBASE)</FONT></P>
+<P><FONT class=extract>&nbsp;It is also possible to specify additional options to the linker.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#scripts/kconfig/Makefile<BR>&nbsp;&nbsp;HOSTLOADLIBES_qconf := -L$(QTDIR)/lib</FONT></P>
+<P><FONT class=extract>&nbsp;When linking qconf, it will be passed the extra option<BR>&nbsp;"-L$(QTDIR)/lib".</FONT></P>
+<P><FONT class=extract>--- 4.6 When host programs are actually built</FONT></P>
+<P><FONT class=extract>&nbsp;Kbuild will only build host-programs when they are referenced<BR>&nbsp;as a prerequisite.<BR>&nbsp;This is possible in two ways:</FONT></P>
+<P><FONT class=extract>&nbsp;(1) List the prerequisite explicitly in a special rule.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#drivers/pci/Makefile<BR>&nbsp;&nbsp;hostprogs-y := gen-devlist<BR>&nbsp;&nbsp;$(obj)/devlist.h: $(src)/pci.ids $(obj)/gen-devlist<BR>&nbsp;&nbsp;&nbsp;( cd $(obj); ./gen-devlist ) &lt; $&lt;</FONT></P>
+<P><FONT class=extract>&nbsp;The target $(obj)/devlist.h will not be built before<BR>&nbsp;$(obj)/gen-devlist is updated. Note that references to<BR>&nbsp;the host programs in special rules must be prefixed with $(obj).</FONT></P>
+<P><FONT class=extract>&nbsp;(2) Use $(always)<BR>&nbsp;When there is no suitable special rule, and the host program<BR>&nbsp;shall be built when a makefile is entered, the $(always)<BR>&nbsp;variable shall be used.</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#scripts/lxdialog/Makefile<BR>&nbsp;&nbsp;hostprogs-y&nbsp;&nbsp; := lxdialog<BR>&nbsp;&nbsp;always&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; := $(hostprogs-y)</FONT></P>
+<P><FONT class=extract>&nbsp;This will tell kbuild to build lxdialog even if not referenced in<BR>&nbsp;any rule.</FONT></P>
+<P><FONT class=extract>--- 4.7 Using hostprogs-$(CONFIG_FOO)</FONT></P>
+<P><FONT class=extract>&nbsp;A typical pattern in a Kbuild file looks like this:</FONT></P>
+<P><FONT class=extract>&nbsp;Example:<BR>&nbsp;&nbsp;#scripts/Makefile<BR>&nbsp;&nbsp;hostprogs-$(CONFIG_KALLSYMS) += kallsyms</FONT></P>
+<P><FONT class=extract>&nbsp;Kbuild knows about both 'y' for built-in and 'm' for module.<BR>&nbsp;So if a config symbol evaluate to 'm', kbuild will still build<BR>&nbsp;the binary. In other words, Kbuild handles hostprogs-m exactly<BR>&nbsp;like hostprogs-y. But only hostprogs-y is recommended to be used<BR>&nbsp;when no CONFIG symbols are involved.</FONT>

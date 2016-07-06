@@ -1,0 +1,43 @@
+<H3 id=-100000 class=docSection1Title>Layered Architecture</H3>
+<P class=docText><A name=iddle2720></A><A name=iddle3951></A><A name="you just"></A>As you just saw, the users of the serial subsystem are many and different. This has motivated kernel developers to structure a layered serial architecture using the following building blocks:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="or other"></A>Low-level drivers that worry about the internals of the UART or other underlying serial hardware.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="interfaces with"></A>A tty driver layer that interfaces with the low-level driver. A tty driver insulates higher layers from the intricacies of the hardware.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="disciplines shape"></A>Line disciplines that "cook" data exchanged with the tty driver. Line disciplines shape the behavior of the serial layer and help reuse lower layers to support different technologies.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="subsystem also"></A>To help custom driver implementations, the serial subsystem also provides core APIs that factor commonalities out of these layers.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06fig02">Figure 6.2</A> shows the connection between the layers. <TT>N_TTY</TT>, <TT>N_IRDA</TT>, and <TT>N_PPP</TT><A name="to respectively"></A> are drop-in line disciplines that mold the serial subsystem to respectively support terminals, Infrared, and dialup networking. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06fig03">Figure 6.3</A><A name="the serial"></A> maps the serial subsystem to kernel source files.</P><A name=ch06fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 6.2. Connection between the layers in the serial subsystem.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzJoaWc2c2M-.jpg" width=500 height=409></P></CENTER>
+<P></P><BR><A name=ch06fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 6.3. Serial layers mapped to kernel sources.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC8zaGlnNmNzZ2ku.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzNoaWc2c2M-.jpg" width=500 height=406>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="Assume that"></A>To illustrate the advantages of a layered serial architecture, let's use an example. Assume that you are using a USB-to-serial adapter to obtain serial capabilities on a laptop that does not have a serial port. One possible scenario is when you are debugging the kernel on a target embedded device from a host laptop using kgdb (kgdb is discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21">Chapter 21</A><A name="Device Drivers"></A>, "Debugging Device Drivers"), as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06fig04">Figure 6.4</A>.</P><A name=ch06fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="a USB"></A>Figure 6.4. Using a USB-to-serial converter.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzRoaWc2c2M-.jpg" width=400 height=111></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="shown in"></A>As shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06fig03">Figure 6.3</A><A name="USB counterpart"></A>, you first need a suitable USB physical layer driver (the USB counterpart of the UART driver) on your host laptop. This is present in the kernel USB subsystem, <SPAN class=docEmphasis>drivers/usb/.</SPAN><A name="to sit"></A> Next, you need a tty driver to sit on top of the USB physical layer. The <SPAN class=docEmphasis>usbserial</SPAN> driver (<SPAN class=docEmphasis>drivers/usb/serial/usb-serial.c</SPAN><A name="over USB"></A>) is the core layer that implements a generic tty over USB-serial converters. This driver, in tandem with device-specific tty methods registered by the converter driver (<SPAN class=docEmphasis>drivers/usb/serial/keyspan.c</SPAN><A name="for example"></A> if you are using a Keyspan adapter, for example), constitutes the tty layer. Last, but not the least, you need the <TT>N_TTY</TT> line discipline for terminal I/O processing.</P>
+<P class=docText><A name=iddle3968></A><A name=iddle4347></A><A name=iddle4361></A><A name="higher layers"></A>The tty driver insulates the line discipline and higher layers from the internals of USB. In fact, the line discipline still thinks it's running over a conventional UART. This is so because the tty driver pulls data from <SPAN class=docEmphasis><A name="Request Blocks"></A>USB Request Blocks</SPAN> or URBs (discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A>, "Universal Serial Bus") and encapsulates it in the format expected by the <TT>N_TTY</TT><A name="the line"></A> line discipline. The layered architecture thus renders the implementation simpler&#37413;&#25857;ll blocks from the line discipline upward can be reused unchanged.</P>
+<P class=docText><A name="The preceding"></A>The preceding example uses a technology-specific tty driver and a generic line discipline. The reverse usage is also common. The Infrared stack, discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16">Chapter 16</A><A name="a generic"></A>, "Linux Without Wires," uses a generic tty driver and a technology-specific line discipline called <TT>N_IRDA</TT>.</P>
+<P class=docText><A name="you might"></A>As you might have noticed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06fig02">Figure 6.2</A> and <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06fig03">Figure 6.3</A><A name="expose interfaces"></A>, although UART drivers are char drivers, they do not directly expose interfaces to kernel system calls like regular char drivers that we saw in the preceding chapter. Rather, UART drivers (like keyboard drivers discussed in the next chapter) service another kernel layer, the tty layer. I/O system calls start their journey above top-level line disciplines and finally ripple down to UART drivers through the tty layer.</P>
+<P class=docText><A name="take a"></A>In the rest of this chapter, let's take a closer look at the different driver components of the serial layer. We start at the bottom of the serial stack with low-level UART drivers, move on to middle-level tty drivers, and then proceed to top-level line discipline drivers.</P>
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TD align=right>
+<DIV style="MARGIN-LEFT: 0.15in"><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec9.html"></A></DIV></TD></TR></TBODY></TABLE>

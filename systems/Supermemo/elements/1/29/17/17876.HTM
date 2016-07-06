@@ -1,0 +1,23 @@
+<H4 class=subsection>10.3.5 Treating Assignments as File Names</H4><A name=index-assignments-as-filenames></A><A name=index-filenames_002c-assignments-as></A>
+<P>Occasionally, you might not want <CODE>awk</CODE> to process command-line variable assignments (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Assignment-Options">Assignment Options</A>). In particular, if you have a file name that contains an &#8216;<SAMP>=</SAMP>&#8217; character, <CODE>awk</CODE> treats the file name as an assignment, and does not process it. </P>
+<P>Some users have suggested an additional command-line option for <CODE>gawk</CODE> to disable command-line assignments. However, some simple programming with a library file does the trick: </P><A name=index-noassign_002eawk-program></A>
+<DIV class=example><PRE class=example># noassign.awk --- library file to avoid the need for a
+# special option that disables command-line assignments
+
+function disable_assigns(argc, argv,    i)
+{
+    for (i = 1; i &lt; argc; i++)
+        if (argv[i] ~ /^[[:alpha:]_][[:alnum:]_]*=.*/)
+            argv[i] = ("./" argv[i])
+}
+
+BEGIN {
+    if (No_command_assign)
+        disable_assigns(ARGC, ARGV)
+}
+</PRE></DIV>
+<P>You then run your program this way: </P>
+<DIV class=example><PRE class=example>awk -v No_command_assign=1 -f noassign.awk -f yourprog.awk *
+</PRE></DIV>
+<P>The function works by looping through the arguments. It prepends &#8216;<SAMP>./</SAMP>&#8217; to any argument that matches the form of a variable assignment, turning that argument into a file name. </P>
+<P>The use of <CODE>No_command_assign</CODE> allows you to disable command-line assignments at invocation time, by giving the variable a true value. When not set, it is initially zero (i.e., false), so the command-line arguments are left alone.

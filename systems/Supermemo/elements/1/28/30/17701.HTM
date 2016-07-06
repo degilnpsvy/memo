@@ -1,0 +1,44 @@
+<H3 class=section>1.6 <CODE>awk</CODE> Statements Versus Lines</H3><A name=index-line-breaks></A><A name=index-newlines></A>
+<P>Most often, each line in an <CODE>awk</CODE> program is a separate statement or separate rule, like this: </P>
+<DIV class=example><PRE class=example>awk '/12/  { print $0 }
+     /21/  { print $0 }' mail-list inventory-shipped
+</PRE></DIV><A name=index-gawk_002c-newlines-in></A>
+<P>However, <CODE>gawk</CODE> ignores newlines after any of the following symbols and keywords: </P>
+<DIV class=example><PRE class=example>,    {    ?    :    ||    &amp;&amp;    do    else
+</PRE></DIV>
+<P>A newline at any other point is considered the end of the statement.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT12" name=DOCF12><SUP>12</SUP></A> </P><A name=index-_005c-_0028backslash_0029_002c-continuing-lines-and></A><A name=index-backslash-_0028_005c_0029_002c-continuing-lines-and></A>
+<P>If you would like to split a single statement into two lines at a point where a newline would terminate it, you can <EM>continue</EM> it by ending the first line with a backslash character (&#8216;<SAMP>\</SAMP>&#8217;). The backslash must be the final character on the line in order to be recognized as a continuation character. A backslash is allowed anywhere in the statement, even in the middle of a string or regular expression. For example: </P>
+<DIV class=example><PRE class=example>awk '/This regular expression is too long, so continue it\
+ on the next line/ { print $1 }'
+</PRE></DIV><A name=index-portability_002c-backslash-continuation-and></A>
+<P>We have generally not used backslash continuation in our sample programs. <CODE>gawk</CODE> places no limit on the length of a line, so backslash continuation is never strictly necessary; it just makes programs more readable. For this same reason, as well as for clarity, we have kept most statements short in the sample programs presented throughout the Web page. Backslash continuation is most useful when your <CODE>awk</CODE> program is in a separate source file instead of entered from the command line. You should also note that many <CODE>awk</CODE> implementations are more particular about where you may use backslash continuation. For example, they may not allow you to split a string constant using backslash continuation. Thus, for maximum portability of your <CODE>awk</CODE> programs, it is best not to split your lines in the middle of a regular expression or a string. </P><A name=index-csh-utility></A><A name=index-backslash-_0028_005c_0029_002c-continuing-lines-and_002c-in-csh></A><A name=index-_005c-_0028backslash_0029_002c-continuing-lines-and_002c-in-csh></A>
+<BLOCKQUOTE>
+<P><B>CAUTION:</B> <EM>Backslash continuation does not work as described with the C shell.</EM> It works for <CODE>awk</CODE> programs in files and for one-shot programs, <EM>provided</EM> you are using a POSIX-compliant shell, such as the Unix Bourne shell or Bash. But the C shell behaves differently! There, you must use two backslashes in a row, followed by a newline. Note also that when using the C shell, <EM>every</EM> newline in your <CODE>awk</CODE> program must be escaped with a backslash. To illustrate: </P>
+<DIV class=example><PRE class=example>% <KBD><EM>awk 'BEGIN { \</EM></KBD>
+? <KBD><EM>  print \\</EM></KBD>
+? <KBD><EM>      "hello, world" \</EM></KBD>
+? <KBD><EM>}'</EM></KBD>
+-| hello, world
+</PRE></DIV>
+<P>Here, the &#8216;<SAMP>%</SAMP>&#8217; and &#8216;<SAMP>?</SAMP>&#8217; are the C shell&#8217;s primary and secondary prompts, analogous to the standard shell&#8217;s &#8216;<SAMP>$</SAMP>&#8217; and &#8216;<SAMP>&gt;</SAMP>&#8217;. </P>
+<P>Compare the previous example to how it is done with a POSIX-compliant shell: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk 'BEGIN {</EM></KBD>
+&gt;   <KBD><EM>print \</EM></KBD>
+&gt;       <KBD><EM>"hello, world"</EM></KBD>
+&gt; <KBD><EM>}'</EM></KBD>
+-| hello, world
+</PRE></DIV></BLOCKQUOTE>
+<P><CODE>awk</CODE> is a line-oriented language. Each rule&#8217;s action has to begin on the same line as the pattern. To have the pattern and action on separate lines, you <EM>must</EM> use backslash continuation; there is no other option. </P><A name=index-backslash-_0028_005c_0029_002c-continuing-lines-and_002c-comments-and></A><A name=index-_005c-_0028backslash_0029_002c-continuing-lines-and_002c-comments-and></A><A name=index-commenting_002c-backslash-continuation-and></A>
+<P>Another thing to keep in mind is that backslash continuation and comments do not mix. As soon as <CODE>awk</CODE> sees the &#8216;<SAMP>#</SAMP>&#8217; that starts a comment, it ignores <EM>everything</EM> on the rest of the line. For example: </P>
+<DIV class=example><PRE class=example>$ gawk 'BEGIN { print "dont panic" # a friendly \
+&gt;                                    BEGIN rule
+&gt; }'
+error&#8594; gawk: cmd. line:2:                BEGIN rule
+error&#8594; gawk: cmd. line:2:                ^ parse error
+</PRE></DIV>
+<P>In this case, it looks like the backslash would continue the comment onto the next line. However, the backslash-newline combination is never even noticed because it is &#8220;hidden&#8221; inside the comment. Thus, the <CODE>BEGIN</CODE> is noted as a syntax error. </P><A name=index-statements_002c-multiple></A><A name=index-_003b-_0028semicolon_0029_002c-separating-statements-in-actions></A><A name=index-semicolon-_0028_003b_0029_002c-separating-statements-in-actions></A>
+<P>When <CODE>awk</CODE> statements within one rule are short, you might want to put more than one of them on a line. This is accomplished by separating the statements with a semicolon (&#8216;<SAMP>;</SAMP>&#8217;). This also applies to the rules themselves. Thus, the program shown at the start of this section could also be written this way: </P>
+<DIV class=example><PRE class=example>/12/ { print $0 } ; /21/ { print $0 }
+</PRE></DIV>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> The requirement that states that rules on the same line must be separated with a semicolon was not in the original <CODE>awk</CODE> language; it was added for consistency with the treatment of statements within an action. </P></BLOCKQUOTE>

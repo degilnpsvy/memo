@@ -1,0 +1,33 @@
+<H3 id=-100000 class=docSection1Title>Debugging</H3>
+<P class=docText><A name="A USB"></A>A USB bus analyzer magnifies the goings-on in the bus and is useful for debugging low-level problems. If you can't get hold of an analyzer, you might be able to make do <A name=iddle1677></A><A name=iddle2059></A><A name=iddle4530></A><A name="soft USB"></A>with the kernel's soft USB tracer, <SPAN class=docEmphasis>usbmon.</SPAN><A name="tool captures"></A> This tool captures traffic between USB host controllers and devices. To collect a trace, read from the <SPAN class=docEmphasis>debugfs</SPAN><SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec8.html#ch11fn03">[3]</A></SUP> file <SPAN class=docEmphasis>/sys/kernel/debug/usbmon/Xt</SPAN>, where <SPAN class=docEmphasis>X</SPAN> is the bus number to which your device is connected.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch11fn03>[3]</A></SUP> An in-memory filesystem to export kernel debug data to user space.</P></BLOCKQUOTE>
+<P class=docText><A name="the associated"></A>For example, consider a USB disk connected to a PC. From the associated "T:" line in <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN><A name="drive is"></A>, you can see that the drive is attached to bus 1:</P>
+<DIV class=docText><PRE>T: <SPAN class=docEmphStrong>Bus=01</SPAN> Lev=01 Prnt=01 Port=03 Cnt=01 Dev#= 2 Spd=480 MxCh= 0</PRE></DIV><BR>
+<P class=docText>Ensure that you have enabled <SPAN class=docEmphasis>debugfs</SPAN> (<TT>CONFIG_DEBUG_FS</TT>) and usbmon (<TT>CONFIG_USB_MON</TT><A name="output while"></A>) support in your kernel. This is a snapshot of usbmon output while copying a file from the disk:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; mount -t debugfs none_debugs /sys/kernel/debug/</SPAN>
+<SPAN class=docEmphStrong>bash&gt; cat /sys/kernel/debug/usbmon/1u</SPAN>
+...
+ee6a5c40 3718782540 S Bi:1:002:1 -115 20480 &lt;
+ee6a5cc0 3718782567 S Bi:1:002:1 -115 65536 &lt;
+ee6a5d40 3718782595 S Bi:1:002:1 -115 36864 &lt;
+ee6a5c40 3718788189 C Bi:1:002:1 0 20480 = 0f846801 118498f\ 15c60500 01680106
+5e846801 608498fe 6f280087 68000000
+ee6a5cc0 3718800994 C Bi:1:002:1 0 65536 = 118498fe 15c60500\ 01680106 5e846801
+608498fe 6f280087 68000000 00884800
+ee6a5d40 3718801001 C Bi:1:002:1 0 36864 = 13608498 fe4f4a01\ 00514a01 006f2800
+87680000 00008848 00000100 b7f00100
+...
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="followed by"></A>Each output line starts with the URB address, followed by an event timestamp. An <SPAN class=docEmphasis>S</SPAN> in the next column indicates URB submission, and a <SPAN class=docEmphasis>C</SPAN> announces a callback. The following field has the format <TT>URBType:Bus#:DeviceAddress:Endpoint#</TT>. In the preceding output, a <TT>URBType</TT> of <TT>Bi</TT> stands for a bulk URB in the <TT>IN</TT> direction. After this, usbmon dumps the URB status, data length, a data tag (<TT>=</TT> or <TT>&lt;</TT> in the preceding output), and the data words (if the tag is <TT>=</TT><A name="associated with"></A>). The last three lines in the preceding output are callbacks associated with bulk URBs submitted in earlier lines. You can match the callbacks with the related submissions using the URB addresses. <SPAN class=docEmphasis>Documentation/usb/usbmon.txt</SPAN><A name="and contains"></A> details usbmon syntax and contains example code to parse the output into human readable form.</P>
+<P class=docText><A name=iddle2802></A><A name=iddle4102></A><A name=iddle4437></A><A name="turn on"></A>If you turn on <SPAN class=docEmphasis><A name="Device Drivers"></A>Device Drivers</SPAN> <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphasis>USB Support</SPAN> <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> <SPAN class=docEmphasis><A name="Debug Messages"></A>USB Verbose Debug Messages</SPAN><A name="kernel configuration"></A> during kernel configuration, the kernel will emit the contents of all <TT>dev_dbg()</TT> statements present in the USB subsystem.</P>
+<P class=docText><A name="the USB"></A>You can glean device and bus specific information from the USB filesystem (<SPAN class=docEmphasis>usbfs</SPAN>) node, <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN>. And as we discuss in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A><A name="you implement"></A>, "Drivers in User Space," usbfs also lets you implement USB device drivers in user space. Even when the final destination of your USB driver is inside the kernel, starting with a user-space driver can ease debugging and testing.</P>
+<P class=docText><A name="related to"></A>The linux-usb-devel mailing list is the forum to discuss questions related to USB device drivers. Visit <A class=docLink href="https://lists.sourceforge.net/lists/listinfo/linux-usb-devel" target=_blank>https://lists.sourceforge.net/lists/listinfo/linux-usb-devel</A> for subscription and archive retrieval information. Read <A class=docLink href="http://www.linux-usb.org/usbtest" target=_blank>www.linux-usb.org/usbtest</A> for ideas on USB testing.</P>
+<P class=docText>The home page of the Linux-USB project is <A class=docLink href="http://www.linux-usb.org/" target=_blank>www.linux-usb.org</A><A name="other related"></A>. You may download the USB 2.0 specification, OTG supplement, and other related standards from <A class=docLink href="http://www.usb.org/developers/docs" target=_blank>www.usb.org/developers/docs</A>.</P>
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TD align=right>
+<DIV style="MARGIN-LEFT: 0.15in"><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec7.html"></A></DIV></TD></TR></TBODY></TABLE>

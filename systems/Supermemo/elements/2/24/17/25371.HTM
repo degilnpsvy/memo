@@ -1,0 +1,23 @@
+Reading/Writing Attribute Data<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+<P></P>
+<P><FONT class=extract>To read or write attributes, show() or store() methods must be<BR>specified when declaring the attribute. The method types should be as<BR>simple as those defined for device attributes:</FONT></P>
+<P><FONT class=extract>ssize_t (*show)(struct device *dev, struct device_attribute *attr, char *buf);<BR>ssize_t (*store)(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; const char *buf, size_t count);</FONT></P>
+<P><FONT class=extract><FONT class=extract>IOW</FONT>, they should take only an object, an attribute, and a buffer as parameters.</FONT></P>
+<P><BR><FONT class=extract>sysfs allocates a buffer of size (PAGE_SIZE) and passes it to the<BR>method. Sysfs will call the method exactly once for each read or<BR>write. This forces the following behavior on the method<BR>implementations: </FONT></P>
+<P><FONT class=extract>- On read(2), the show() method should fill the entire buffer. <BR>&nbsp; Recall that an attribute should only be exporting one value, or an<BR>&nbsp; array of similar values, so this shouldn't be that expensive. </FONT></P>
+<P><FONT class=extract>&nbsp; This allows userspace to do partial reads and forward seeks<BR>&nbsp; arbitrarily over the entire file at will. If userspace seeks back to<BR>&nbsp; zero or does a pread(2) with an offset of '0' the show() method will<BR>&nbsp; be called again, rearmed, to fill the buffer.</FONT></P>
+<P><FONT class=extract>- On write(2), sysfs expects the entire buffer to be passed during the<BR>&nbsp; first write. Sysfs then passes the entire buffer to the store()<BR>&nbsp; method. <BR>&nbsp; <BR>&nbsp; When writing sysfs files, userspace processes should first read the<BR>&nbsp; entire file, modify the values it wishes to change, then write the<BR>&nbsp; entire buffer back. </FONT></P>
+<P><FONT class=extract>&nbsp; Attribute method implementations should operate on an identical<BR>&nbsp; buffer when reading and writing values. </FONT></P>
+<P><FONT class=extract>Other notes:</FONT></P>
+<P><FONT class=extract>- Writing causes the show() method to be rearmed regardless of current<BR>&nbsp; file position.</FONT></P>
+<P><FONT class=extract>- The buffer will always be PAGE_SIZE bytes in length. On i386, this<BR>&nbsp; is 4096. </FONT></P>
+<P><FONT class=extract>- show() methods should return the number of bytes printed into the<BR>&nbsp; buffer. This is the return value of scnprintf().</FONT></P>
+<P><FONT class=extract>- show() should always use scnprintf().</FONT></P>
+<P><FONT class=extract>- store() should return the number of bytes used from the buffer. If the<BR>&nbsp; entire buffer has been used, just return the count argument.</FONT></P>
+<P><FONT class=extract>- show() or store() can always return errors. If a bad value comes<BR>&nbsp; through, be sure to return an error.</FONT></P>
+<P><FONT class=extract>- The object passed to the methods will be pinned in memory via sysfs<BR>&nbsp; referencing counting its embedded object. However, the physical <BR>&nbsp; entity (e.g. device) the object represents may not be present. Be <BR>&nbsp; sure to have a way to check this, if necessary. </FONT></P>
+<P><BR><FONT class=extract>A very simple (and naive) implementation of a device attribute is:</FONT></P>
+<P><FONT class=extract>static ssize_t show_name(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; char *buf)<BR>{<BR>&nbsp;return scnprintf(buf, PAGE_SIZE, "%s\n", dev-&gt;name);<BR>}</FONT></P>
+<P><FONT class=extract>static ssize_t store_name(struct device *dev, struct device_attribute *attr,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; const char *buf, size_t count)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; snprintf(dev-&gt;name, sizeof(dev-&gt;name), "%.*s",<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (int)min(count, sizeof(dev-&gt;name) - 1), buf);<BR>&nbsp;return count;<BR>}</FONT></P>
+<P><FONT class=extract>static DEVICE_ATTR(name, S_IRUGO, show_name, store_name);</FONT></P>
+<P><BR><FONT class=extract>(Note that the real implementation doesn't allow userspace to set the <BR>name for a device.)</FONT>

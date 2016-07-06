@@ -1,0 +1,777 @@
+<H3 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=section>6.10 Macros</H3>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">At its best, programming in Lisp is an iterative process of building up a language appropriate to the problem at hand, and then solving the problem in that language. Defining new procedures is part of that, but Lisp also allows the user to extend its syntax, with its famous<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>macros</EM>.</P><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-macros></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-transformation></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Macros are syntactic extensions which cause the expression that they appear in to be transformed in some way<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>before</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>being evaluated. In expressions that are intended for macro transformation, the identifier that names the relevant macro must appear as the first element, like this:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=lisp><PRE class=lisp>(<VAR>macro-name</VAR> <VAR>macro-args</VAR> &#8230;)
+</PRE></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-macro-expansion></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-domain_002dspecific-language></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-embedded-domain_002dspecific-language></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-DSL></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-EDSL></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Macro expansion is a separate phase of evaluation, run before code is interpreted or compiled. A macro is a program that runs on programs, translating an embedded language into core Scheme<A href="https://www.gnu.org/software/guile/manual/guile.html#FOOT10" name=DOCF10><SUP>10</SUP></A>.</P>
+<TABLE style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=menu border=0 cellSpacing=0>
+<TBODY>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=1 href="https://www.gnu.org/software/guile/manual/guile.html#Defining-Macros">Defining Macros</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Binding macros, globally and locally.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=2 href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Rules">Syntax Rules</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Pattern-driven macros.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=3 href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Case">Syntax Case</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Procedural, hygienic macros.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=4 href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Transformer-Helpers">Syntax Transformer Helpers</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Helpers for use in procedural macros.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=5 href="https://www.gnu.org/software/guile/manual/guile.html#Defmacros">Defmacros</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Lisp-style macros.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=6 href="https://www.gnu.org/software/guile/manual/guile.html#Identifier-Macros">Identifier Macros</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Identifier macros.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=7 href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Parameters">Syntax Parameters</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Syntax Parameters.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=8 href="https://www.gnu.org/software/guile/manual/guile.html#Eval-When">Eval When</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Affecting the expand-time environment.</TD></TR>
+<TR>
+<TD vAlign=top align=left>&#8226;<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=9 href="https://www.gnu.org/software/guile/manual/guile.html#Internal-Macros">Internal Macros</A>:</TD>
+<TD>&nbsp;&nbsp;</TD>
+<TD vAlign=top align=left>Macros as first-class values.</TD></TR></TBODY></TABLE>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Defining-Macros></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Next:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=n href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Rules" rel=next>Syntax Rules</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Defining-Macros-1></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.1 Defining Macros</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A macro is a binding between a keyword and a syntax transformer. Since it&#8217;s difficult to discuss<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>without discussing the format of transformers, consider the following example macro definition:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax when
+  (syntax-rules ()
+    ((when condition exp ...)
+     (if condition
+         (begin exp ...)))))
+
+(when #t
+  (display "hey ho\n") 
+  (display "let's go\n"))
+-| hey ho
+-| let's go
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">In this example, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>when</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>binding is bound with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-syntax</CODE>. Syntax transformers are discussed in more depth in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Rules">Syntax Rules</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Case">Syntax Case</A>.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-define_002dsyntax></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>define-syntax</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>keyword transformer</EM></DT>
+<DD>
+<P>Bind<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>to the syntax transformer obtained by evaluating<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR>.</P>
+<P>After a macro has been defined, further instances of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>in Scheme source code will invoke the syntax transformer defined by<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR>.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">One can also establish local syntactic bindings with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>let-syntax</CODE>.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-let_002dsyntax></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>let-syntax</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>((keyword transformer) &#8230;) exp1 exp2 &#8230;</EM></DT>
+<DD>
+<P>Bind each<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>to its corresponding<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>while expanding<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp1</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp2</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN><SMALL class=enddots>...</SMALL>.</P>
+<P>A<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>let-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>binding only exists at expansion-time.</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(let-syntax ((unless
+              (syntax-rules ()
+                ((unless condition exp ...)
+                 (if (not condition)
+                     (begin exp ...))))))
+  (unless #t
+    (primitive-exit 1))
+  "rock rock rock")
+&#8658; "rock rock rock"
+</PRE></DIV></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>form is valid anywhere a definition may appear: at the top-level, or locally. Just as a local<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expands out to an instance of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>letrec</CODE>, a local<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expands out to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>letrec-syntax</CODE>.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-letrec_002dsyntax></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>letrec-syntax</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>((keyword transformer) &#8230;) exp1 exp2 &#8230;</EM></DT>
+<DD>
+<P>Bind each<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>to its corresponding<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>while expanding<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp1</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp2</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN><SMALL class=enddots>...</SMALL>.</P>
+<P>In the spirit of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>letrec</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>versus<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>let</CODE>, an expansion produced by<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>may reference a<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>bound by the same<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>letrec-syntax</VAR>.</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(letrec-syntax ((my-or
+                 (syntax-rules ()
+                   ((my-or)
+                    #t)
+                   ((my-or exp)
+                    exp)
+                   ((my-or exp rest ...)
+                    (let ((t exp))
+                      (if t
+                          t
+                          (my-or rest ...)))))))
+  (my-or #f "rockaway beach"))
+&#8658; "rockaway beach"
+</PRE></DIV></DD></DL>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Syntax-Rules></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Next:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=n href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Case" rel=next>Syntax Case</A>, Previous:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=p href="https://www.gnu.org/software/guile/manual/guile.html#Defining-Macros" rel=prev>Defining Macros</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Syntax_002drules-Macros></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.2 Syntax-rules Macros</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros are simple, pattern-driven syntax transformers, with a beauty worthy of Scheme.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002drules></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-rules</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>literals (pattern template) &#8230;</EM></DT>
+<DD>
+<P>Create a syntax transformer that will rewrite an expression using the rules embodied in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>pattern</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>template</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>clauses.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro consists of three parts: the literals (if any), the patterns, and as many templates as there are patterns.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When the syntax expander sees the invocation of a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro, it matches the expression against the patterns, in order, and rewrites the expression using the template from the first matching pattern. If no pattern matches, a syntax error is signalled.</P><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Patterns></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.10.2.1 Patterns</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">We have already seen some examples of patterns in the previous section:<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(unless condition exp ...)</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(my-or exp)</CODE>, and so on. A pattern is structured like the expression that it is to match. It can have nested structure as well, like<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(let ((var val) ...) exp exp* ...)</CODE>. Broadly speaking, patterns are made of lists, improper lists, vectors, identifiers, and datums. Users can match a sequence of patterns using the ellipsis (<CODE>...</CODE>).</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Identifiers in a pattern are called<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>literals</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>if they are present in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>literals list, and<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>pattern variables</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>otherwise. When building up the macro output, the expander replaces instances of a pattern variable in the template with the matched subexpression.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax kwote
+  (syntax-rules ()
+    ((kwote exp)
+     (quote exp))))
+(kwote (foo . bar))
+&#8658; (foo . bar)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">An improper list of patterns matches as rest arguments do:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax let1
+  (syntax-rules ()
+    ((_ (var val) . exps)
+     (let ((var val)) . exps))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">However this definition of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>let1</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>probably isn&#8217;t what you want, as the tail pattern<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exps</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>will match non-lists, like<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(let1 (foo 'bar) . baz)</CODE>. So often instead of using improper lists as patterns, ellipsized patterns are better. Instances of a pattern variable in the template must be followed by an ellipsis.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax let1
+  (syntax-rules ()
+    ((_ (var val) exp ...)
+     (let ((var val)) exp ...))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>let1</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>probably still doesn&#8217;t do what we want, because the body matches sequences of zero expressions, like<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(let1 (foo 'bar))</CODE>. In this case we need to assert we have at least one body expression. A common idiom for this is to name the ellipsized pattern variable with an asterisk:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax let1
+  (syntax-rules ()
+    ((_ (var val) exp exp* ...)
+     (let ((var val)) exp exp* ...))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A vector of patterns matches a vector whose contents match the patterns, including ellipsizing and tail patterns.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax letv
+  (syntax-rules ()
+    ((_ #((var val) ...) exp exp* ...)
+     (let ((var val) ...) exp exp* ...))))
+(letv #((foo 'bar)) foo)
+&#8658; bar
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Literals are used to match specific datums in an expression, like the use of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>=&gt;</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>else</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>cond</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expressions.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax cond1
+  (syntax-rules (=&gt; else)
+    ((cond1 test =&gt; fun)
+     (let ((exp test))
+       (if exp (fun exp) #f)))
+    ((cond1 test exp exp* ...)
+     (if test (begin exp exp* ...)))
+    ((cond1 else exp exp* ...)
+     (begin exp exp* ...))))
+
+(define (square x) (* x x))
+(cond1 10 =&gt; square)
+&#8658; 100
+(let ((=&gt; #t))
+  (cond1 10 =&gt; square))
+&#8658; #&lt;procedure square (x)&gt;
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A literal matches an input expression if the input expression is an identifier with the same name as the literal, and both are unbound<A href="https://www.gnu.org/software/guile/manual/guile.html#FOOT11" name=DOCF11><SUP>11</SUP></A>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">If a pattern is not a list, vector, or an identifier, it matches as a literal, with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>equal?</CODE>.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax define-matcher-macro
+  (syntax-rules ()
+    ((_ name lit)
+     (define-syntax name
+       (syntax-rules ()
+        ((_ lit) #t)
+        ((_ else) #f))))))
+
+(define-matcher-macro is-literal-foo? "foo")
+
+(is-literal-foo? "foo")
+&#8658; #t
+(is-literal-foo? "bar")
+&#8658; #f
+(let ((foo "foo"))
+  (is-literal-foo? foo))
+&#8658; #f
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The last example indicates that matching happens at expansion-time, not at run-time.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Syntax-rules macros are always used as<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(<VAR>macro</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>args</VAR>)</CODE>, and the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>macro</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>will always be a symbol. Correspondingly, a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>pattern must be a list (proper or improper), and the first pattern in that list must be an identifier. Incidentally it can be any identifier &#8211; it doesn&#8217;t have to actually be the name of the macro. Thus the following three are equivalent:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax when
+  (syntax-rules ()
+    ((when c e ...)
+     (if c (begin e ...)))))
+
+(define-syntax when
+  (syntax-rules ()
+    ((_ c e ...)
+     (if c (begin e ...)))))
+
+(define-syntax when
+  (syntax-rules ()
+    ((something-else-entirely c e ...)
+     (if c (begin e ...)))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For clarity, use one of the first two variants. Also note that since the pattern variable will always match the macro itself (e.g.,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>cond1</CODE>), it is actually left unbound in the template.</P><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Hygiene></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.10.2.2 Hygiene</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros have a magical property: they preserve referential transparency. When you read a macro definition, any free bindings in that macro are resolved relative to the macro definition; and when you read a macro instantiation, all free bindings in that expression are resolved relative to the expression.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This property is sometimes known as<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>hygiene</EM>, and it does aid in code cleanliness. In your macro definitions, you can feel free to introduce temporary variables, without worrying about inadvertently introducing bindings into the macro expansion.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Consider the definition of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>my-or</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>from the previous section:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax my-or
+  (syntax-rules ()
+    ((my-or)
+     #t)
+    ((my-or exp)
+     exp)
+    ((my-or exp rest ...)
+     (let ((t exp))
+       (if t
+           t
+           (my-or rest ...))))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A naive expansion of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(let ((t #t)) (my-or #f t))</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>would yield:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(let ((t #t))
+  (let ((t #f))
+    (if t t t)))
+&#8658; #f
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Which clearly is not what we want. Somehow the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in the definition is distinct from the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>at the site of use; and it is indeed this distinction that is maintained by the syntax expander, when expanding hygienic macros.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This discussion is mostly relevant in the context of traditional Lisp macros (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Defmacros">Defmacros</A>), which do not preserve referential transparency. Hygiene adds to the expressive power of Scheme.</P><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Shorthands></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.10.2.3 Shorthands</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">One often ends up writing simple one-clause<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros. There is a convenient shorthand for this idiom, in the form of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-syntax-rule</CODE>.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-define_002dsyntax_002drule></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>define-syntax-rule</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>(keyword . pattern) [docstring] template</EM></DT>
+<DD>
+<P>Define<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>as a new<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro with one clause.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Cast into this form, our<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>when</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>example is significantly shorter:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax-rule (when c e ...)
+  (if c (begin e ...)))
+</PRE></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Reporting-Syntax-Errors-in-Macros></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.10.2.4 Reporting Syntax Errors in Macros</H4>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002derror></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-error</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>message [arg ...]</EM></DT>
+<DD>
+<P>Report an error at macro-expansion time.<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>message</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>must be a string literal, and the optional<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>arg</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>operands can be arbitrary expressions providing additional information.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><CODE>syntax-error</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is intended to be used within<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>templates. For example:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax simple-let
+  (syntax-rules ()
+    ((_ (head ... ((x . y) val) . tail)
+        body1 body2 ...)
+     (syntax-error
+      "expected an identifier but got"
+      (x . y)))
+    ((_ ((name val) ...) body1 body2 ...)
+     ((lambda (name ...) body1 body2 ...)
+      val ...))))
+</PRE></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Specifying-a-Custom-Ellipsis-Identifier></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.10.2.5 Specifying a Custom Ellipsis Identifier</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When writing macros that generate macro definitions, it is convenient to use a different ellipsis identifier at each level. Guile allows the desired ellipsis identifier to be specified as the first operand to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE>, as specified by SRFI-46 and R7RS. For example:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax define-quotation-macros
+  (syntax-rules ()
+    ((_ (macro-name head-symbol) ...)
+     (begin (define-syntax macro-name
+              (syntax-rules ::: ()
+                ((_ x :::)
+                 (quote (head-symbol x :::)))))
+            ...))))
+(define-quotation-macros (quote-a a) (quote-b b) (quote-c c))
+(quote-a 1 2 3) &#8658; (a 1 2 3)
+</PRE></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Further-Information></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.10.2.6 Further Information</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For a formal definition of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and its pattern language, see See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/r5rs.html#Macros">Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CITE>Revised(5) Report on the Algorithmic Language Scheme</CITE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros are simple and clean, but do they have limitations. They do not lend themselves to expressive error messages: patterns either match or they don&#8217;t. Their ability to generate code is limited to template-driven expansion; often one needs to define a number of helper macros to get real work done. Sometimes one wants to introduce a binding into the lexical context of the generated code; this is impossible with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE>. Relatedly, they cannot programmatically generate identifiers.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The solution to all of these problems is to use<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>if you need its features. But if for some reason you&#8217;re stuck with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE>, you might enjoy Joe Marshall&#8217;s<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://sites.google.com/site/evalapply/eccentric.txt"><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>Primer for the Merely Eccentric</A>.</P>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Syntax-Case></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Next:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=n href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Transformer-Helpers" rel=next>Syntax Transformer Helpers</A>, Previous:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=p href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Rules" rel=prev>Syntax Rules</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Support-for-the-syntax_002dcase-System></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.3 Support for the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>System</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros are procedural syntax transformers, with a power worthy of Scheme.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002dcase></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-case</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>syntax literals (pattern [guard] exp) &#8230;</EM></DT>
+<DD>
+<P>Match the syntax object<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>syntax</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>against the given patterns, in order. If a<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>pattern</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>matches, return the result of evaluating the associated<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp</VAR>.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Compare the following definitions of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>when</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax when
+  (syntax-rules ()
+    ((_ test e e* ...)
+     (if test (begin e e* ...)))))
+
+(define-syntax when
+  (lambda (x)
+    (syntax-case x ()
+      ((_ test e e* ...)
+       #'(if test (begin e e* ...))))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Clearly, the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>definition is similar to its<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>counterpart, and equally clearly there are some differences. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>definition is wrapped in a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>lambda</CODE>, a function of one argument; that argument is passed to the<CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>invocation; and the &#8220;return value&#8221; of the macro has a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#'</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>prefix.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">All of these differences stem from the fact that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>does not define a syntax transformer itself &#8211; instead,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expressions provide a way to destructure a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>syntax object</EM>, and to rebuild syntax objects as output.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">So the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>lambda</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>wrapper is simply a leaky implementation detail, that syntax transformers are just functions that transform syntax to syntax. This should not be surprising, given that we have already described macros as &#8220;programs that write programs&#8221;.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is simply a way to take apart and put together program text, and to be a valid syntax transformer it needs to be wrapped in a procedure.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Unlike traditional Lisp macros (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Defmacros">Defmacros</A>),<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros transform syntax objects, not raw Scheme forms. Recall the naive expansion of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>my-or</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>given in the previous section:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(let ((t #t))
+  (my-or #f t))
+;; naive expansion:
+(let ((t #t))
+  (let ((t #f))
+    (if t t t)))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Raw Scheme forms simply don&#8217;t have enough information to distinguish the first two<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>instances in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(if t t t)</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>from the third<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>t</CODE>. So instead of representing identifiers as symbols, the syntax expander represents identifiers as annotated syntax objects, attaching such information to those syntax objects as is needed to maintain referential transparency.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>form</EM></DT>
+<DD>
+<P>Create a syntax object wrapping<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>form</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>within the current lexical context.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Syntax objects are typically created internally to the process of expansion, but it is possible to create them outside of syntax expansion:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(syntax (foo bar baz))
+&#8658; #&lt;some representation of that syntax&gt;
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">However it is more common, and useful, to create syntax objects when building output from a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expression.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax add1
+  (lambda (x)
+    (syntax-case x ()
+      ((_ exp)
+       (syntax (+ exp 1))))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">It is not strictly necessary for a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expression to return a syntax object, because<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expressions can be used in helper functions, or otherwise used outside of syntax expansion itself. However a syntax transformer procedure must return a syntax object, so most uses of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>do end up returning syntax objects.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here in this case, the form that built the return value was<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(syntax (+ exp 1))</CODE>. The interesting thing about this is that within a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expression, any appearance of a pattern variable is substituted into the resulting syntax object, carrying with it all relevant metadata from the source expression, such as lexical identity and source location.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Indeed, a pattern variable may only be referenced from inside a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>form. The syntax expander would raise an error when defining<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>add1</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>if it found<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>referenced outside a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>form.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Since<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>appears frequently in macro-heavy code, it has a special reader macro:<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#'</CODE>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#'foo</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is transformed by the reader into<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(syntax foo)</CODE>, just as<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>'foo</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is transformed into<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(quote foo)</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The pattern language used by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is conveniently the same language used by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE>. Given this, Guile actually defines<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in terms of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax syntax-rules
+  (lambda (x)
+    (syntax-case x ()
+      ((_ (k ...) ((keyword . pattern) template) ...)
+       #'(lambda (x)
+           (syntax-case x (k ...)
+             ((dummy . pattern) #'template)
+             ...))))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">And that&#8217;s that.</P><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Why-syntax_002dcase_003f></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.10.3.1 Why<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>?</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The examples we have shown thus far could just as well have been expressed with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE>, and have just shown that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is more verbose, which is true. But there is a difference:<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>creates<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>procedural</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros, giving the full power of Scheme to the macro expander. This has many practical applications.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A common desire is to be able to match a form only if it is an identifier. This is impossible with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE>, given the datum matching forms. But with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>it is easy:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-identifier_003f></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>identifier?</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>syntax-object</EM></DT>
+<DD>
+<P>Returns<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>if<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>syntax-object</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is an identifier, or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>otherwise.</P></DD></DL>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>;; relying on previous add1 definition
+(define-syntax add1!
+  (lambda (x)
+    (syntax-case x ()
+      ((_ var) (identifier? #'var)
+       #'(set! var (add1 var))))))
+
+(define foo 0)
+(add1! foo)
+foo &#8658; 1
+(add1! "not-an-identifier") &#8658; error
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">With<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE>, the error for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(add1! "not-an-identifier")</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>would be something like &#8220;invalid<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>set!</CODE>&#8221;. With<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>, it will say something like &#8220;invalid<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>add1!</CODE>&#8221;, because we attach the<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>guard clause</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>to the pattern:<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(identifier? #'var)</CODE>. This becomes more important with more complicated macros. It is necessary to use<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>identifier?</CODE>, because to the expander, an identifier is more than a bare symbol.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Note that even in the guard clause, we reference the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>var</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>pattern variable within a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>form, via<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#'var</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Another common desire is to introduce bindings into the lexical context of the output expression. One example would be in the so-called &#8220;anaphoric macros&#8221;, like<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>aif</CODE>. Anaphoric macros bind some expression to a well-known identifier, often<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>it</CODE>, within their bodies. For example, in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(aif (foo) (bar it))</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>it</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>would be bound to the result of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(foo)</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">To begin with, we should mention a solution that doesn&#8217;t work:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>;; doesn't work
+(define-syntax aif
+  (lambda (x)
+    (syntax-case x ()
+      ((_ test then else)
+       #'(let ((it test))
+           (if it then else))))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The reason that this doesn&#8217;t work is that, by default, the expander will preserve referential transparency; the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>then</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>else</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>expressions won&#8217;t have access to the binding of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>it</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">But they can, if we explicitly introduce a binding via<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>datum-&gt;syntax</CODE>.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-datum_002d_003esyntax></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>datum-&gt;syntax</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>for-syntax datum</EM></DT>
+<DD>
+<P>Create a syntax object that wraps<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>datum</VAR>, within the lexical context corresponding to the syntax object<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>for-syntax</VAR>.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For completeness, we should mention that it is possible to strip the metadata from a syntax object, returning a raw Scheme datum:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002d_003edatum></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-&gt;datum</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>syntax-object</EM></DT>
+<DD>
+<P>Strip the metadata from<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>syntax-object</VAR>, returning its contents as a raw Scheme datum.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">In this case we want to introduce<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>it</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in the context of the whole expression, so we can create a syntax object as<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(datum-&gt;syntax x 'it)</CODE>, where<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>x</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is the whole expression, as passed to the transformer procedure.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here&#8217;s another solution that doesn&#8217;t work:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>;; doesn't work either
+(define-syntax aif
+  (lambda (x)
+    (syntax-case x ()
+      ((_ test then else)
+       (let ((it (datum-&gt;syntax x 'it)))
+         #'(let ((it test))
+             (if it then else)))))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The reason that this one doesn&#8217;t work is that there are really two environments at work here &#8211; the environment of pattern variables, as bound by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>, and the environment of lexical variables, as bound by normal Scheme. The outer let form establishes a binding in the environment of lexical variables, but the inner let form is inside a syntax form, where only pattern variables will be substituted. Here we need to introduce a piece of the lexical environment into the pattern variable environment, and we can do so using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>itself:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>;; works, but is obtuse
+(define-syntax aif
+  (lambda (x)
+    (syntax-case x ()
+      ((_ test then else)
+       ;; invoking syntax-case on the generated
+       ;; syntax object to expose it to `syntax'
+       (syntax-case (datum-&gt;syntax x 'it) ()
+         (it
+           #'(let ((it test))
+               (if it then else))))))))
+
+(aif (getuid) (display it) (display "none")) (newline)
+-| 500
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">However there are easier ways to write this.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>with-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is often convenient:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-with_002dsyntax></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>with-syntax</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>((pat val) &#8230;) exp &#8230;</EM></DT>
+<DD>
+<P>Bind patterns<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>pat</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>from their corresponding values<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>val</VAR>, within the lexical context of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN><SMALL class=enddots>...</SMALL>.</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>;; better
+(define-syntax aif
+  (lambda (x)
+    (syntax-case x ()
+      ((_ test then else)
+       (with-syntax ((it (datum-&gt;syntax x 'it)))
+         #'(let ((it test))
+             (if it then else)))))))
+</PRE></DIV></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">As you might imagine,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>with-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is defined in terms of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>. But even that might be off-putting to you if you are an old Lisp macro hacker, used to building macro output with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>quasiquote</CODE>. The issue is that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>with-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>creates a separation between the point of definition of a value and its point of substitution.</P><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-quasisyntax-1></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-unsyntax-1></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-unsyntax_002dsplicing-1></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">So for cases in which a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>quasiquote</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>style makes more sense,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>also defines<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>quasisyntax</CODE>, and the related<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>unsyntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>unsyntax-splicing</CODE>, abbreviated by the reader as<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#`</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#,</CODE>, and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#,@</CODE>, respectively.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For example, to define a macro that inserts a compile-time timestamp into a source file, one may write:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax display-compile-timestamp
+  (lambda (x)
+    (syntax-case x ()
+      ((_)
+       #`(begin
+          (display "The compile timestamp was: ")
+          (display #,(current-time))
+          (newline))))))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Readers interested in further information on<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros should see R. Kent Dybvig&#8217;s excellent<SPAN class=Apple-converted-space>&nbsp;</SPAN><CITE>The Scheme Programming Language</CITE>, either edition 3 or 4, in the chapter on syntax. Dybvig was the primary author of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>system. The book itself is available online at<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://scheme.com/tspl4/">http://scheme.com/tspl4/</A>.</P><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Custom-Ellipsis-Identifiers-for-syntax_002dcase-Macros></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>6.10.3.2 Custom Ellipsis Identifiers for syntax-case Macros</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When writing procedural macros that generate macro definitions, it is convenient to use a different ellipsis identifier at each level. Guile supports this for procedural macros using the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>with-ellipsis</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>special form:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-with_002dellipsis></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>with-ellipsis</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>ellipsis body &#8230;</EM></DT>
+<DD>
+<P><VAR>ellipsis</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>must be an identifier. Evaluate<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>body</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>in a special lexical environment such that all macro patterns and templates within<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>body</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>will use<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>ellipsis</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>as the ellipsis identifier instead of the usual three dots (<CODE>...</CODE>).</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For example:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax define-quotation-macros
+  (lambda (x)
+    (syntax-case x ()
+      ((_ (macro-name head-symbol) ...)
+       #'(begin (define-syntax macro-name
+                  (lambda (x)
+                    (with-ellipsis :::
+                      (syntax-case x ()
+                        ((_ x :::)
+                         #'(quote (head-symbol x :::)))))))
+                ...)))))
+(define-quotation-macros (quote-a a) (quote-b b) (quote-c c))
+(quote-a 1 2 3) &#8658; (a 1 2 3)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Note that<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>with-ellipsis</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>does not affect the ellipsis identifier of the generated code, unless<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>with-ellipsis</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is included around the generated code.</P>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Syntax-Transformer-Helpers></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Next:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=n href="https://www.gnu.org/software/guile/manual/guile.html#Defmacros" rel=next>Defmacros</A>, Previous:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=p href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Case" rel=prev>Syntax Case</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Syntax-Transformer-Helpers-1></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.4 Syntax Transformer Helpers</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">As noted in the previous section, Guile&#8217;s syntax expander operates on syntax objects. Procedural macros consume and produce syntax objects. This section describes some of the auxiliary helpers that procedural macros can use to compare, generate, and query objects of this data type.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-bound_002didentifier_003d_003f></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>bound-identifier=?</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>a b</EM></DT>
+<DD>
+<P>Return<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>if the syntax objects<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>a</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>b</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>refer to the same lexically-bound identifier, or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>otherwise.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-free_002didentifier_003d_003f></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>free-identifier=?</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>a b</EM></DT>
+<DD>
+<P>Return<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>if the syntax objects<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>a</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>b</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>refer to the same free identifier, or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>otherwise.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-generate_002dtemporaries></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>generate-temporaries</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>ls</EM></DT>
+<DD>
+<P>Return a list of temporary identifiers as long as<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>ls</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is long.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002dsource></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-source</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>x</EM></DT>
+<DD>
+<P>Return the source properties that correspond to the syntax object<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>x</VAR>. See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Source-Properties">Source Properties</A>, for more information.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Guile also offers some more experimental interfaces in a separate module. As was the case with the Large Hadron Collider, it is unclear to our senior macrologists whether adding these interfaces will result in awesomeness or in the destruction of Guile via the creation of a singularity. We will preserve their functionality through the 2.0 series, but we reserve the right to modify them in a future stable series, to a more than usual degree.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(use-modules (system syntax))
+</PRE></DIV>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002dmodule></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-module</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>id</EM></DT>
+<DD>
+<P>Return the name of the module whose source contains the identifier<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>id</VAR>.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002dlocal_002dbinding></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-local-binding</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>id</EM></DT>
+<DD>
+<P>Resolve the identifer<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>id</VAR>, a syntax object, within the current lexical environment, and return two values, the binding type and a binding value. The binding type is a symbol, which may be one of the following:</P>
+<DL compact>
+<DT><CODE>lexical</CODE></DT>
+<DD>
+<P>A lexically-bound variable. The value is a unique token (in the sense of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>eq?</CODE>) identifying this binding.</P></DD>
+<DT><CODE>macro</CODE></DT>
+<DD>
+<P>A syntax transformer, either local or global. The value is the transformer procedure.</P></DD>
+<DT><CODE>pattern-variable</CODE></DT>
+<DD>
+<P>A pattern variable, bound via<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>. The value is an opaque object, internal to the expander.</P></DD>
+<DT><CODE>ellipsis</CODE></DT>
+<DD>
+<P>An internal binding, bound via<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>with-ellipsis</CODE>. The value is the (anti-marked) local ellipsis identifier.</P></DD>
+<DT><CODE>displaced-lexical</CODE></DT>
+<DD>
+<P>A lexical variable that has gone out of scope. This can happen if a badly-written procedural macro saves a syntax object, then attempts to introduce it in a context in which it is unbound. The value is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE>.</P></DD>
+<DT><CODE>global</CODE></DT>
+<DD>
+<P>A global binding. The value is a pair, whose head is the symbol, and whose tail is the name of the module in which to resolve the symbol.</P></DD>
+<DT><CODE>other</CODE></DT>
+<DD>
+<P>Some other binding, like<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>lambda</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or other core bindings. The value is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE>.</P></DD></DL>
+<P>This is a very low-level procedure, with limited uses. One case in which it is useful is to build abstractions that associate auxiliary information with macros:</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(define aux-property (make-object-property))
+(define-syntax-rule (with-aux aux value)
+  (let ((trans value))
+    (set! (aux-property trans) aux)
+    trans))
+(define-syntax retrieve-aux
+  (lambda (x)
+    (syntax-case x ()
+      ((x id)
+       (call-with-values (lambda () (syntax-local-binding #'id))
+         (lambda (type val)
+           (with-syntax ((aux (datum-&gt;syntax #'here
+                                             (and (eq? type 'macro)
+                                                  (aux-property val)))))
+             #''aux)))))))
+(define-syntax foo
+  (with-aux 'bar
+    (syntax-rules () ((_) 'foo))))
+(foo)
+&#8658; foo
+(retrieve-aux foo)
+&#8658; bar
+</PRE></DIV>
+<P><CODE>syntax-local-binding</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>must be called within the dynamic extent of a syntax transformer; to call it otherwise will signal an error.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002dlocally_002dbound_002didentifiers></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-locally-bound-identifiers</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>id</EM></DT>
+<DD>
+<P>Return a list of identifiers that were visible lexically when the identifier<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>id</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>was created, in order from outermost to innermost.</P>
+<P>This procedure is intended to be used in specialized procedural macros, to provide a macro with the set of bound identifiers that the macro can reference.</P>
+<P>As a technical implementation detail, the identifiers returned by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-locally-bound-identifiers</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>will be anti-marked, like the syntax object that is given as input to a macro. This is to signal to the macro expander that these bindings were present in the original source, and do not need to be hygienically renamed, as would be the case with other introduced identifiers. See the discussion of hygiene in section 12.1 of the R6RS, for more information on marks.</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(define (local-lexicals id)
+  (filter (lambda (x)
+            (eq? (syntax-local-binding x) 'lexical))
+          (syntax-locally-bound-identifiers id)))
+(define-syntax lexicals
+  (lambda (x)
+    (syntax-case x ()
+      ((lexicals) #'(lexicals lexicals))
+      ((lexicals scope)
+       (with-syntax (((id ...) (local-lexicals #'scope)))
+         #'(list (cons 'id id) ...))))))
+
+(let* ((x 10) (x 20)) (lexicals))
+&#8658; ((x . 10) (x . 20))
+</PRE></DIV></DD></DL>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Defmacros></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Next:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=n href="https://www.gnu.org/software/guile/manual/guile.html#Identifier-Macros" rel=next>Identifier Macros</A>, Previous:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=p href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Transformer-Helpers" rel=prev>Syntax Transformer Helpers</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Lisp_002dstyle-Macro-Definitions></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.5 Lisp-style Macro Definitions</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The traditional way to define macros in Lisp is very similar to procedure definitions. The key differences are that the macro definition body should return a list that describes the transformed expression, and that the definition is marked as a macro definition (rather than a procedure definition) by the use of a different definition keyword: in Lisp,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>defmacro</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>rather than<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>defun</CODE>, and in Scheme,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-macro</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>rather than<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define</CODE>.</P><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-defmacro></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-define_002dmacro></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Guile supports this style of macro definition using both<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>defmacro</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-macro</CODE>. The only difference between them is how the macro name and arguments are grouped together in the definition:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=lisp><PRE class=lisp>(defmacro <VAR>name</VAR> (<VAR>args</VAR> &#8230;) <VAR>body</VAR> &#8230;)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">is the same as</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=lisp><PRE class=lisp>(define-macro (<VAR>name</VAR> <VAR>args</VAR> &#8230;) <VAR>body</VAR> &#8230;)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The difference is analogous to the corresponding difference between Lisp&#8217;s<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>defun</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and Scheme&#8217;s<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Having read the previous section on<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>, it&#8217;s probably clear that Guile actually implements defmacros in terms of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>, applying the transformer on the expression between invocations of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-&gt;datum</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>datum-&gt;syntax</CODE>. This realization leads us to the problem with defmacros, that they do not preserve referential transparency. One can be careful to not introduce bindings into expanded code, via liberal use of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gensym</CODE>, but there is no getting around the lack of referential transparency for free bindings in the macro itself.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Even a macro as simple as our<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>when</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>from before is difficult to get right:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-macro (when cond exp . rest)
+  `(if ,cond
+       (begin ,exp . ,rest)))
+
+(when #f (display "Launching missiles!\n"))
+&#8658; #f
+
+(let ((if list))
+  (when #f (display "Launching missiles!\n")))
+-| Launching missiles!
+&#8658; (#f #&lt;unspecified&gt;)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Guile&#8217;s perspective is that defmacros have had a good run, but that modern macros should be written with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE>. There are still many uses of defmacros within Guile itself, but we will be phasing them out over time. Of course we won&#8217;t take away<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>defmacro</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-macro</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>themselves, as there is lots of code out there that uses them.</P>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Identifier-Macros></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Next:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=n href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Parameters" rel=next>Syntax Parameters</A>, Previous:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=p href="https://www.gnu.org/software/guile/manual/guile.html#Defmacros" rel=prev>Defmacros</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Identifier-Macros-1></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.6 Identifier Macros</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When the syntax expander sees a form in which the first element is a macro, the whole form gets passed to the macro&#8217;s syntax transformer. One may visualize this as:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax foo foo-transformer)
+(foo <VAR>arg</VAR>...)
+;; expands via
+(foo-transformer #'(foo <VAR>arg</VAR>...))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">If, on the other hand, a macro is referenced in some other part of a form, the syntax transformer is invoked with only the macro reference, not the whole form.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax foo foo-transformer)
+foo
+;; expands via
+(foo-transformer #'foo)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This allows bare identifier references to be replaced programmatically via a macro.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-rules</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>provides some syntax to effect this transformation more easily.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-identifier_002dsyntax></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>identifier-syntax</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>exp</EM></DT>
+<DD>
+<P>Returns a macro transformer that will replace occurrences of the macro with<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp</VAR>.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For example, if you are importing external code written in terms of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fx+</CODE>, the fixnum addition operator, but Guile doesn&#8217;t have<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fx+</CODE>, you may use the following to replace<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fx+</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>+</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax fx+ (identifier-syntax +))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">There is also special support for recognizing identifiers on the left-hand side of a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>set!</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expression, as in the following:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>(define-syntax foo foo-transformer)
+(set! foo <VAR>val</VAR>)
+;; expands via
+(foo-transformer #'(set! foo <VAR>val</VAR>))
+;; if foo-transformer is a "variable transformer"
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">As the example notes, the transformer procedure must be explicitly marked as being a &#8220;variable transformer&#8221;, as most macros aren&#8217;t written to discriminate on the form in the operator position.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-make_002dvariable_002dtransformer></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>make-variable-transformer</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>transformer</EM></DT>
+<DD>
+<P>Mark the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>procedure as being a &#8220;variable transformer&#8221;. In practice this means that, when bound to a syntactic keyword, it may detect references to that keyword on the left-hand-side of a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>set!</CODE>.</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(define bar 10)
+(define-syntax bar-alias
+  (make-variable-transformer
+   (lambda (x)
+     (syntax-case x (set!)
+       ((set! var val) #'(set! bar val))
+       ((var arg ...) #'(bar arg ...))
+       (var (identifier? #'var) #'bar)))))
+
+bar-alias &#8658; 10
+(set! bar-alias 20)
+bar &#8658; 20
+(set! bar 30)
+bar-alias &#8658; 30
+</PRE></DIV></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">There is an extension to identifier-syntax which allows it to handle the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>set!</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>case as well:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-identifier_002dsyntax-1></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>identifier-syntax</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>(var exp1) ((set! var val) exp2)</EM></DT>
+<DD>
+<P>Create a variable transformer. The first clause is used for references to the variable in operator or operand position, and the second for appearances of the variable on the left-hand-side of an assignment.</P>
+<P>For example, the previous<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>bar-alias</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>example could be expressed more succinctly like this:</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(define-syntax bar-alias
+  (identifier-syntax
+    (var bar)
+    ((set! var val) (set! bar val))))
+</PRE></DIV>
+<P>As before, the templates in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>identifier-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>forms do not need wrapping in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#'</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>syntax forms.</P></DD></DL>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Syntax-Parameters></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Next:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=n href="https://www.gnu.org/software/guile/manual/guile.html#Eval-When" rel=next>Eval When</A>, Previous:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=p href="https://www.gnu.org/software/guile/manual/guile.html#Identifier-Macros" rel=prev>Identifier Macros</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Syntax-Parameters-1></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.7 Syntax Parameters</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Syntax parameters<A href="https://www.gnu.org/software/guile/manual/guile.html#FOOT12" name=DOCF12><SUP>12</SUP></A><SPAN class=Apple-converted-space>&nbsp;</SPAN>are a mechanism for rebinding a macro definition within the dynamic extent of a macro expansion. This provides a convenient solution to one of the most common types of unhygienic macro: those that introduce a unhygienic binding each time the macro is used. Examples include a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>lambda</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>form with a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>return</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>keyword, or class macros that introduce a special<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>self</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>binding.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">With syntax parameters, instead of introducing the binding unhygienically each time, we instead create one binding for the keyword, which we can then adjust later when we want the keyword to have a different meaning. As no new bindings are introduced, hygiene is preserved. This is similar to the dynamic binding mechanisms we have at run-time (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#SRFI_002d39">parameters</A>), except that the dynamic binding only occurs during macro expansion. The code after macro expansion remains lexically scoped.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-define_002dsyntax_002dparameter></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>define-syntax-parameter</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>keyword transformer</EM></DT>
+<DD>
+<P>Binds<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>to the value obtained by evaluating<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR>. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>provides the default expansion for the syntax parameter, and in the absence of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-parameterize</CODE>, is functionally equivalent to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-syntax</CODE>. Usually, you will just want to have the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>throw a syntax error indicating that the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is supposed to be used in conjunction with another macro, for example:</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(define-syntax-parameter return
+  (lambda (stx)
+    (syntax-violation 'return "return used outside of a lambda^" stx)))
+</PRE></DIV></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-syntax_002dparameterize></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>syntax-parameterize</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>((keyword transformer) &#8230;) exp &#8230;</EM></DT>
+<DD>
+<P>Adjusts<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8230; to use the values obtained by evaluating their<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>transformer</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8230;, in the expansion of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8230; forms. Each<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>keyword</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>must be bound to a syntax-parameter.<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-parameterize</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>differs from<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>let-syntax</CODE>, in that the binding is not shadowed, but adjusted, and so uses of the keyword in the expansion of<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>&#8230; use the new transformers. This is somewhat similar to how<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>parameterize</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>adjusts the values of regular parameters, rather than creating new bindings.</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(define-syntax lambda^
+  (syntax-rules ()
+    [(lambda^ argument-list body body* ...)
+     (lambda argument-list
+       (call-with-current-continuation
+        (lambda (escape)
+          ;; In the body we adjust the 'return' keyword so that calls
+          ;; to 'return' are replaced with calls to the escape
+          ;; continuation.
+          (syntax-parameterize ([return (syntax-rules ()
+                                          [(return vals (... ...))
+                                           (escape vals (... ...))])])
+            body body* ...))))]))
+
+;; Now we can write functions that return early.  Here, 'product' will
+;; return immediately if it sees any 0 element.
+(define product
+  (lambda^ (list)
+           (fold (lambda (n o)
+                   (if (zero? n)
+                       (return 0)
+                       (* n o)))
+                 1
+                 list)))
+</PRE></DIV></DD></DL>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Eval-When></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Next:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=n href="https://www.gnu.org/software/guile/manual/guile.html#Internal-Macros" rel=next>Internal Macros</A>, Previous:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=p href="https://www.gnu.org/software/guile/manual/guile.html#Syntax-Parameters" rel=prev>Syntax Parameters</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Eval_002dwhen></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.8 Eval-when</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">As<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>syntax-case</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macros have the whole power of Scheme available to them, they present a problem regarding time: when a macro runs, what parts of the program are available for the macro to use?</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The default answer to this question is that when you import a module (via<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-module</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>use-modules</CODE>), that module will be loaded up at expansion-time, as well as at run-time. Additionally, top-level syntactic definitions within one compilation unit made by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>define-syntax</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>are also evaluated at expansion time, in the order that they appear in the compilation unit (file).</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">But if a syntactic definition needs to call out to a normal procedure at expansion-time, it might well need need special declarations to indicate that the procedure should be made available at expansion-time.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">For example, the following code will work at a REPL, but not in a file:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>;; incorrect
+(use-modules (srfi srfi-19))
+(define (date) (date-&gt;string (current-date)))
+(define-syntax %date (identifier-syntax (date)))
+(define *compilation-date* %date)
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">It works at a REPL because the expressions are evaluated one-by-one, in order, but if placed in a file, the expressions are expanded one-by-one, but not evaluated until the compiled file is loaded.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The fix is to use<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>eval-when</CODE>.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>;; correct: using eval-when
+(use-modules (srfi srfi-19))
+(eval-when (expand load eval)
+  (define (date) (date-&gt;string (current-date))))
+(define-syntax %date (identifier-syntax (date)))
+(define *compilation-date* %date)
+</PRE></DIV>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-eval_002dwhen></A>Syntax:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>eval-when</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>conditions exp...</EM></DT>
+<DD>
+<P>Evaluate<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>exp...</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>under the given<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>conditions</VAR>. Valid conditions include:</P>
+<DL compact>
+<DT><CODE>expand</CODE></DT>
+<DD>
+<P>Evaluate during macro expansion, whether compiling or not.</P></DD>
+<DT><CODE>load</CODE></DT>
+<DD>
+<P>Evaluate during the evaluation phase of compiled code, e.g. when loading a compiled module or running compiled code at the REPL.</P></DD>
+<DT><CODE>eval</CODE></DT>
+<DD>
+<P>Evaluate during the evaluation phase of non-compiled code.</P></DD>
+<DT><CODE>compile</CODE></DT>
+<DD>
+<P>Evaluate during macro expansion, but only when compiling.</P></DD></DL>
+<P>In other words, when using the primitive evaluator,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>eval-when</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expressions with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expand</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>are run during macro expansion, and those with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>eval</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>are run during the evaluation phase.</P>
+<P>When using the compiler,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>eval-when</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>expressions with either<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expand</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>compile</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>are run during macro expansion, and those with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>load</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>are run during the evaluation phase.</P>
+<P>When in doubt, use the three conditions<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>(expand load eval)</CODE>, as in the example above. Other uses of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>eval-when</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>may void your warranty or poison your cat.</P></DD></DL>
+<HR style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Internal-Macros></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=header>
+<P>Previous:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=p href="https://www.gnu.org/software/guile/manual/guile.html#Eval-When" rel=prev>Eval When</A>, Up:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A accessKey=u href="https://www.gnu.org/software/guile/manual/guile.html#Macros" rel=up>Macros</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>&nbsp; [<A title="Table of contents" href="https://www.gnu.org/software/guile/manual/guile.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="https://www.gnu.org/software/guile/manual/guile.html#Concept-Index" rel=index>Index</A>]</P></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=Internal-Macros-1></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.10.9 Internal Macros</H4>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-make_002dsyntax_002dtransformer></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>make-syntax-transformer</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>name type binding</EM></DT>
+<DD>
+<P>Construct a syntax transformer object. This is part of Guile&#8217;s low-level support for syntax-case.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-macro_003f></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>macro?</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>obj</EM></DT>
+<DT><A name=index-scm_005fmacro_005fp></A>C Function:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>scm_macro_p</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>(obj)</EM></DT>
+<DD>
+<P>Return<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>if<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>obj</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a syntax transformer, or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>otherwise.</P>
+<P>Note that it&#8217;s a bit difficult to actually get a macro as a first-class object; simply naming it (like<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>case</CODE>) will produce a syntax error. But it is possible to get these objects using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>module-ref</CODE>:</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=example><PRE class=example>(macro? (module-ref (current-module) 'case))
+&#8658; #t
+</PRE></DIV></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-macro_002dtype></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>macro-type</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>m</EM></DT>
+<DT><A name=index-scm_005fmacro_005ftype></A>C Function:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>scm_macro_type</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>(m)</EM></DT>
+<DD>
+<P>Return the<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>type</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>that was given when<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>m</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>was constructed, via<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>make-syntax-transformer</CODE>.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-macro_002dname></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>macro-name</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>m</EM></DT>
+<DT><A name=index-scm_005fmacro_005fname></A>C Function:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>scm_macro_name</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>(m)</EM></DT>
+<DD>
+<P>Return the name of the macro<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>m</VAR>.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-macro_002dbinding></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>macro-binding</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>m</EM></DT>
+<DT><A name=index-scm_005fmacro_005fbinding></A>C Function:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>scm_macro_binding</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>(m)</EM></DT>
+<DD>
+<P>Return the binding of the macro<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>m</VAR>.</P></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-macro_002dtransformer></A>Scheme Procedure:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>macro-transformer</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>m</EM></DT>
+<DT><A name=index-scm_005fmacro_005ftransformer></A>C Function:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>scm_macro_transformer</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>(m)</EM></DT>
+<DD>
+<P>Return the transformer of the macro<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>m</VAR>. This will return a procedure, for which one may ask the docstring. That&#8217;s the whole reason this section is documented. Actually a part of the result of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>macro-binding</CODE>.</P></DD></DL>

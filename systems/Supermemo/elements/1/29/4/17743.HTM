@@ -1,0 +1,29 @@
+<H4 class=subsection>4.9.1 Using <CODE>getline</CODE> with No Arguments</H4>
+<P>The <CODE>getline</CODE> command can be used without arguments to read input from the current input file. All it does in this case is read the next input record and split it up into fields. This is useful if you&#8217;ve finished processing the current record, but want to do some special processing on the next record <EM>right now</EM>. For example: </P>
+<DIV class=example><PRE class=example>{
+     if ((t = index($0, "/*")) != 0) {
+          # value of `tmp' will be "" if t is 1
+          tmp = substr($0, 1, t - 1)
+          u = index(substr($0, t + 2), "*/")
+          offset = t + 2
+          while (u == 0) {
+               if (getline &lt;= 0) {
+                    m = "unexpected EOF or error"
+                    m = (m ": " ERRNO)
+                    print m &gt; "/dev/stderr"
+                    exit
+               }
+               u = index($0, "*/")
+               offset = 0
+          }
+          # substr() expression will be "" if */
+          # occurred at end of line
+          $0 = tmp substr($0, offset + u + 2)
+     }
+     print $0
+}
+</PRE></DIV>
+<P>This <CODE>awk</CODE> program deletes C-style comments (&#8216;<SAMP>/* &#8230; */</SAMP>&#8217;) from the input. By replacing the &#8216;<SAMP>print $0</SAMP>&#8217; with other statements, you could perform more complicated processing on the decommented input, such as searching for matches of a regular expression. (This program has a subtle problem&#8212;it does not work if one comment ends and another begins on the same line.) </P>
+<P>This form of the <CODE>getline</CODE> command sets <CODE>NF</CODE>, <CODE>NR</CODE>, <CODE>FNR</CODE>, <CODE>RT</CODE>, and the value of <CODE>$0</CODE>. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> The new value of <CODE>$0</CODE> is used to test the patterns of any subsequent rules. The original value of <CODE>$0</CODE> that triggered the rule that executed <CODE>getline</CODE> is lost. By contrast, the <CODE>next</CODE> statement reads a new record but immediately begins processing it normally, starting with the first rule in the program. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Next-Statement">Next Statement</A>. </P></BLOCKQUOTE>

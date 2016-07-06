@@ -1,0 +1,63 @@
+<H3 id=title-IDAVOXKH class=docSection1Title>8.4. Bringing It All Together</H3>
+<P class=docText>Now that we have a skeletal device driver, we can load it and exercise it. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec4.html#ch08list11">Listing 8-11</A> is a simple user space application that exercises our device driver. We've already seen how to load the driver. Simply compile it and issue the <TT>make modules_install</TT> command to place it on your file system, as previously described.</P><A name=ch08list11></A>
+<H5 id=title-IDAPPXKH class=docExampleTitle>Listing 8-11. Exercising Our Device Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/stat.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;unistd.h&gt;
+
+
+int main(int argc, char **argv)
+{
+    /* Our file descriptor */
+    int fd;
+    int rc = 0;
+    char *rd_buf[16];
+
+
+    printf("%s: entered\n", argv[0]);
+
+
+    /* Open the device */
+    fd = open("/dev/hello1", O_RDWR);
+    if ( fd == -1 ) {
+        perror("open failed");
+        rc = fd;
+        exit(-1);
+    }
+    printf("%s: open: successful\n", argv[0]);
+    /* Issue a read */
+    rc = read(fd, rd_buf, 0);
+    if ( rc == -1 ) {
+        perror("read failed");
+        close(fd);
+        exit(-1);
+    }
+    printf("%s: read: returning %d bytes!\n", argv[0], rc);
+
+    close(fd);
+    return 0;
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1897></A>This simple file, compiled on an ARM XScale system, demonstrates the binding of application to device driver, through the device node. Like the device driver, it doesn't do any useful work, but it does demonstrate the concepts as it exercises some of the methods we introduced in the device driver of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec3.html#ch08list10">Listing 8-10</A>.</P>
+<P class=docText>First we issue an <TT>open()</TT> system call <SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec4.html#ch08fn07">[7]</A></SUP> on our device node created earlier. If the <TT>open</TT> succeeds, we indicate that with a message to the console. Next we issue a <TT>read()</TT> command and again print a message to the console on success. Notice that a read of 0 bytes is perfectly acceptable as far as the kernel is concerned and, in actual practice, indicates an end-of-file or out-of-data condition. Your device driver defines that special condition. When complete, we simply close the file and exit. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec4.html#ch08list12">Listing 8-12</A> captures the output of running this example application on an ARM XScale target:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch08fn07>[7]</A></SUP> Actually, the <TT>open()</TT> call is a C library wrapper function around the Linux <TT>sys_open()</TT> system call.</P></BLOCKQUOTE><A name=ch08list12></A>
+<H5 id=title-IDATRXKH class=docExampleTitle>Listing 8-12. Using the Example Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>modprobe hello1</SPAN>
+Hello Example Init - debug mode is disabled
+Hello: registered module successfully!
+$ <SPAN class=docEmphStrong>./use-hello</SPAN>
+./use-hello: entered
+./use-hello: open: successful
+./use-hello: read: returning zero bytes!
+$</PRE></TD></TR></TBODY></TABLE>

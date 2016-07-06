@@ -1,0 +1,106 @@
+#/Documentation/serial/driver.txt 
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;Low Level Serial API<BR>&nbsp;&nbsp;&nbsp;--------------------</P>
+<P></P>
+<P><BR>This document is meant as a brief overview of some aspects of the new serial<BR>driver.&nbsp; It is not complete, any questions you have should be directed to<BR>&lt;<A href="mailto:rmk@arm.linux.org.uk">rmk@arm.linux.org.uk</A>&gt;</P>
+<P>The reference implementation is contained within amba_pl011.c.</P>
+<P>&nbsp;</P>
+<P>Low Level Serial Hardware Driver<BR>--------------------------------</P>
+<P>The low level serial hardware driver is responsible for supplying port<BR>information (defined by uart_port) and a set of control methods (defined<BR>by uart_ops) to the core serial driver.&nbsp; The low level driver is also<BR>responsible for handling interrupts for the port, and providing any<BR>console support.</P>
+<P><BR>Console Support<BR>---------------</P>
+<P>The serial core provides a few helper functions.&nbsp; This includes identifing<BR>the correct port structure (via uart_get_console) and decoding command line<BR>arguments (uart_parse_options).</P>
+<P>There is also a helper function (uart_write_console) which performs a<BR>character by character write, translating newlines to CRLF sequences.<BR>Driver writers are recommended to use this function rather than implementing<BR>their own version.</P>
+<P><BR>Locking<BR>-------</P>
+<P>It is the responsibility of the low level hardware driver to perform the<BR>necessary locking using port-&gt;lock.&nbsp; There are some exceptions (which<BR>are described in the uart_ops listing below.)</P>
+<P>There are three locks.&nbsp; A per-port spinlock, a per-port tmpbuf semaphore,<BR>and an overall semaphore.</P>
+<P>From the core driver perspective, the port-&gt;lock locks the following<BR>data:</P>
+<P>&nbsp;port-&gt;mctrl<BR>&nbsp;port-&gt;icount<BR>&nbsp;info-&gt;xmit.head (circ-&gt;head)<BR>&nbsp;info-&gt;xmit.tail (circ-&gt;tail)</P>
+<P>The low level driver is free to use this lock to provide any additional<BR>locking.</P>
+<P>The core driver uses the info-&gt;tmpbuf_sem lock to prevent multi-threaded<BR>access to the info-&gt;tmpbuf bouncebuffer used for port writes.</P>
+<P>The port_sem semaphore is used to protect against ports being added/<BR>removed or reconfigured at inappropriate times.</P>
+<P><BR>uart_ops<BR>--------</P>
+<P>The uart_ops structure is the main interface between serial_core and the<BR>hardware specific driver.&nbsp; It contains all the methods to control the<BR>hardware.</P>
+<P>&nbsp; tx_empty(port)<BR>&nbsp;This function tests whether the transmitter fifo and shifter<BR>&nbsp;for the port described by 'port' is empty.&nbsp; If it is empty,<BR>&nbsp;this function should return TIOCSER_TEMT, otherwise return 0.<BR>&nbsp;If the port does not support this operation, then it should<BR>&nbsp;return TIOCSER_TEMT.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; set_mctrl(port, mctrl)<BR>&nbsp;This function sets the modem control lines for port described<BR>&nbsp;by 'port' to the state described by mctrl.&nbsp; The relevant bits<BR>&nbsp;of mctrl are:<BR>&nbsp;&nbsp;- TIOCM_RTS&nbsp;RTS signal.<BR>&nbsp;&nbsp;- TIOCM_DTR&nbsp;DTR signal.<BR>&nbsp;&nbsp;- TIOCM_OUT1&nbsp;OUT1 signal.<BR>&nbsp;&nbsp;- TIOCM_OUT2&nbsp;OUT2 signal.<BR>&nbsp;&nbsp;- TIOCM_LOOP&nbsp;Set the port into loopback mode.<BR>&nbsp;If the appropriate bit is set, the signal should be driven<BR>&nbsp;active.&nbsp; If the bit is clear, the signal should be driven<BR>&nbsp;inactive.</P>
+<P>&nbsp;Locking: port-&gt;lock taken.<BR>&nbsp;Interrupts: locally disabled.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; get_mctrl(port)<BR>&nbsp;Returns the current state of modem control inputs.&nbsp; The state<BR>&nbsp;of the outputs should not be returned, since the core keeps<BR>&nbsp;track of their state.&nbsp; The state information should include:<BR>&nbsp;&nbsp;- TIOCM_CAR&nbsp;state of DCD signal<BR>&nbsp;&nbsp;- TIOCM_CTS&nbsp;state of CTS signal<BR>&nbsp;&nbsp;- TIOCM_DSR&nbsp;state of DSR signal<BR>&nbsp;&nbsp;- TIOCM_RI&nbsp;state of RI signal<BR>&nbsp;The bit is set if the signal is currently driven active.&nbsp; If<BR>&nbsp;the port does not support CTS, DCD or DSR, the driver should<BR>&nbsp;indicate that the signal is permanently active.&nbsp; If RI is<BR>&nbsp;not available, the signal should not be indicated as active.</P>
+<P>&nbsp;Locking: port-&gt;lock taken.<BR>&nbsp;Interrupts: locally disabled.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; stop_tx(port)<BR>&nbsp;Stop transmitting characters.&nbsp; This might be due to the CTS<BR>&nbsp;line becoming inactive or the tty layer indicating we want<BR>&nbsp;to stop transmission due to an XOFF character.</P>
+<P>&nbsp;The driver should stop transmitting characters as soon as<BR>&nbsp;possible.</P>
+<P>&nbsp;Locking: port-&gt;lock taken.<BR>&nbsp;Interrupts: locally disabled.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; start_tx(port)<BR>&nbsp;Start transmitting characters.</P>
+<P>&nbsp;Locking: port-&gt;lock taken.<BR>&nbsp;Interrupts: locally disabled.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; send_xchar(port,ch)<BR>&nbsp;Transmit a high priority character, even if the port is stopped.<BR>&nbsp;This is used to implement XON/XOFF flow control and tcflow().&nbsp; If<BR>&nbsp;the serial driver does not implement this function, the tty core<BR>&nbsp;will append the character to the circular buffer and then call<BR>&nbsp;start_tx() / stop_tx() to flush the data out.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; stop_rx(port)<BR>&nbsp;Stop receiving characters; the port is in the process of<BR>&nbsp;being closed.</P>
+<P>&nbsp;Locking: port-&gt;lock taken.<BR>&nbsp;Interrupts: locally disabled.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; enable_ms(port)<BR>&nbsp;Enable the modem status interrupts.</P>
+<P>&nbsp;This method may be called multiple times.&nbsp; Modem status<BR>&nbsp;interrupts should be disabled when the shutdown method is<BR>&nbsp;called.</P>
+<P>&nbsp;Locking: port-&gt;lock taken.<BR>&nbsp;Interrupts: locally disabled.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; break_ctl(port,ctl)<BR>&nbsp;Control the transmission of a break signal.&nbsp; If ctl is<BR>&nbsp;nonzero, the break signal should be transmitted.&nbsp; The signal<BR>&nbsp;should be terminated when another call is made with a zero<BR>&nbsp;ctl.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; startup(port)<BR>&nbsp;Grab any interrupt resources and initialise any low level driver<BR>&nbsp;state.&nbsp; Enable the port for reception.&nbsp; It should not activate<BR>&nbsp;RTS nor DTR; this will be done via a separate call to set_mctrl.</P>
+<P>&nbsp;This method will only be called when the port is initially opened.</P>
+<P>&nbsp;Locking: port_sem taken.<BR>&nbsp;Interrupts: globally disabled.</P>
+<P>&nbsp; shutdown(port)<BR>&nbsp;Disable the port, disable any break condition that may be in<BR>&nbsp;effect, and free any interrupt resources.&nbsp; It should not disable<BR>&nbsp;RTS nor DTR; this will have already been done via a separate<BR>&nbsp;call to set_mctrl.</P>
+<P>&nbsp;Drivers must not access port-&gt;info once this call has completed.</P>
+<P>&nbsp;This method will only be called when there are no more users of<BR>&nbsp;this port.</P>
+<P>&nbsp;Locking: port_sem taken.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; flush_buffer(port)<BR>&nbsp;Flush any write buffers, reset any DMA state and stop any<BR>&nbsp;ongoing DMA transfers.</P>
+<P>&nbsp;This will be called whenever the port-&gt;info-&gt;xmit circular<BR>&nbsp;buffer is cleared.</P>
+<P>&nbsp;Locking: port-&gt;lock taken.<BR>&nbsp;Interrupts: locally disabled.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; set_termios(port,termios,oldtermios)<BR>&nbsp;Change the port parameters, including word length, parity, stop<BR>&nbsp;bits.&nbsp; Update read_status_mask and ignore_status_mask to indicate<BR>&nbsp;the types of events we are interested in receiving.&nbsp; Relevant<BR>&nbsp;termios-&gt;c_cflag bits are:<BR>&nbsp;&nbsp;CSIZE&nbsp;- word size<BR>&nbsp;&nbsp;CSTOPB&nbsp;- 2 stop bits<BR>&nbsp;&nbsp;PARENB&nbsp;- parity enable<BR>&nbsp;&nbsp;PARODD&nbsp;- odd parity (when PARENB is in force)<BR>&nbsp;&nbsp;CREAD&nbsp;- enable reception of characters (if not set,<BR>&nbsp;&nbsp;&nbsp;&nbsp; still receive characters from the port, but<BR>&nbsp;&nbsp;&nbsp;&nbsp; throw them away.<BR>&nbsp;&nbsp;CRTSCTS&nbsp;- if set, enable CTS status change reporting<BR>&nbsp;&nbsp;CLOCAL&nbsp;- if not set, enable modem status change<BR>&nbsp;&nbsp;&nbsp;&nbsp; reporting.<BR>&nbsp;Relevant termios-&gt;c_iflag bits are:<BR>&nbsp;&nbsp;INPCK&nbsp;- enable frame and parity error events to be<BR>&nbsp;&nbsp;&nbsp;&nbsp; passed to the TTY layer.<BR>&nbsp;&nbsp;BRKINT<BR>&nbsp;&nbsp;PARMRK&nbsp;- both of these enable break events to be<BR>&nbsp;&nbsp;&nbsp;&nbsp; passed to the TTY layer.</P>
+<P>&nbsp;&nbsp;IGNPAR&nbsp;- ignore parity and framing errors<BR>&nbsp;&nbsp;IGNBRK&nbsp;- ignore break errors,&nbsp; If IGNPAR is also<BR>&nbsp;&nbsp;&nbsp;&nbsp; set, ignore overrun errors as well.<BR>&nbsp;The interaction of the iflag bits is as follows (parity error<BR>&nbsp;given as an example):<BR>&nbsp;Parity error&nbsp;INPCK&nbsp;IGNPAR<BR>&nbsp;n/a&nbsp;&nbsp;0&nbsp;n/a&nbsp;character received, marked as<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TTY_NORMAL<BR>&nbsp;None&nbsp;&nbsp;1&nbsp;n/a&nbsp;character received, marked as<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TTY_NORMAL<BR>&nbsp;Yes&nbsp;&nbsp;1&nbsp;0&nbsp;character received, marked as<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TTY_PARITY<BR>&nbsp;Yes&nbsp;&nbsp;1&nbsp;1&nbsp;character discarded</P>
+<P>&nbsp;Other flags may be used (eg, xon/xoff characters) if your<BR>&nbsp;hardware supports hardware "soft" flow control.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; pm(port,state,oldstate)<BR>&nbsp;Perform any power management related activities on the specified<BR>&nbsp;port.&nbsp; State indicates the new state (defined by<BR>&nbsp;enum uart_pm_state), oldstate indicates the previous state.</P>
+<P>&nbsp;This function should not be used to grab any resources.</P>
+<P>&nbsp;This will be called when the port is initially opened and finally<BR>&nbsp;closed, except when the port is also the system console.&nbsp; This<BR>&nbsp;will occur even if CONFIG_PM is not set.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; set_wake(port,state)<BR>&nbsp;Enable/disable power management wakeup on serial activity.&nbsp; Not<BR>&nbsp;currently implemented.</P>
+<P>&nbsp; type(port)<BR>&nbsp;Return a pointer to a string constant describing the specified<BR>&nbsp;port, or return NULL, in which case the string 'unknown' is<BR>&nbsp;substituted.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; release_port(port)<BR>&nbsp;Release any memory and IO region resources currently in use by<BR>&nbsp;the port.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; request_port(port)<BR>&nbsp;Request any memory and IO region resources required by the port.<BR>&nbsp;If any fail, no resources should be registered when this function<BR>&nbsp;returns, and it should return -EBUSY on failure.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; config_port(port,type)<BR>&nbsp;Perform any autoconfiguration steps required for the port.&nbsp; `type`<BR>&nbsp;contains a bit mask of the required configuration.&nbsp; UART_CONFIG_TYPE<BR>&nbsp;indicates that the port requires detection and identification.<BR>&nbsp;port-&gt;type should be set to the type found, or PORT_UNKNOWN if<BR>&nbsp;no port was detected.</P>
+<P>&nbsp;UART_CONFIG_IRQ indicates autoconfiguration of the interrupt signal,<BR>&nbsp;which should be probed using standard kernel autoprobing techniques.<BR>&nbsp;This is not necessary on platforms where ports have interrupts<BR>&nbsp;internally hard wired (eg, system on a chip implementations).</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; verify_port(port,serinfo)<BR>&nbsp;Verify the new serial port information contained within serinfo is<BR>&nbsp;suitable for this port type.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; ioctl(port,cmd,arg)<BR>&nbsp;Perform any port specific IOCTLs.&nbsp; IOCTL commands must be defined<BR>&nbsp;using the standard numbering system found in &lt;asm/ioctl.h&gt;</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.</P>
+<P>&nbsp; poll_init(port)<BR>&nbsp;Called by kgdb to perform the minimal hardware initialization needed<BR>&nbsp;to support poll_put_char() and poll_get_char().&nbsp; Unlike -&gt;startup()<BR>&nbsp;this should not request interrupts.</P>
+<P>&nbsp;Locking: tty_mutex and tty_port-&gt;mutex taken.<BR>&nbsp;Interrupts: n/a.</P>
+<P>&nbsp; poll_put_char(port,ch)<BR>&nbsp;Called by kgdb to write a single character directly to the serial<BR>&nbsp;port.&nbsp; It can and should block until there is space in the TX FIFO.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.<BR>&nbsp;This call must not sleep</P>
+<P>&nbsp; poll_get_char(port)<BR>&nbsp;Called by kgdb to read a single character directly from the serial<BR>&nbsp;port.&nbsp; If data is available, it should be returned; otherwise<BR>&nbsp;the function should return NO_POLL_CHAR immediately.</P>
+<P>&nbsp;Locking: none.<BR>&nbsp;Interrupts: caller dependent.<BR>&nbsp;This call must not sleep</P>
+<P>Other functions<BR>---------------</P>
+<P>uart_update_timeout(port,cflag,baud)<BR>&nbsp;Update the FIFO drain timeout, port-&gt;timeout, according to the<BR>&nbsp;number of bits, parity, stop bits and baud rate.</P>
+<P>&nbsp;Locking: caller is expected to take port-&gt;lock<BR>&nbsp;Interrupts: n/a</P>
+<P>uart_get_baud_rate(port,termios,old,min,max)<BR>&nbsp;Return the numeric baud rate for the specified termios, taking<BR>&nbsp;account of the special 38400 baud "kludge".&nbsp; The B0 baud rate<BR>&nbsp;is mapped to 9600 baud.</P>
+<P>&nbsp;If the baud rate is not within min..max, then if old is non-NULL,<BR>&nbsp;the original baud rate will be tried.&nbsp; If that exceeds the<BR>&nbsp;min..max constraint, 9600 baud will be returned.&nbsp; termios will<BR>&nbsp;be updated to the baud rate in use.</P>
+<P>&nbsp;Note: min..max must always allow 9600 baud to be selected.</P>
+<P>&nbsp;Locking: caller dependent.<BR>&nbsp;Interrupts: n/a</P>
+<P>uart_get_divisor(port,baud)<BR>&nbsp;Return the divsor (baud_base / baud) for the specified baud<BR>&nbsp;rate, appropriately rounded.</P>
+<P>&nbsp;If 38400 baud and custom divisor is selected, return the<BR>&nbsp;custom divisor instead.</P>
+<P>&nbsp;Locking: caller dependent.<BR>&nbsp;Interrupts: n/a</P>
+<P>uart_match_port(port1,port2)<BR>&nbsp;This utility function can be used to determine whether two<BR>&nbsp;uart_port structures describe the same port.</P>
+<P>&nbsp;Locking: n/a<BR>&nbsp;Interrupts: n/a</P>
+<P>uart_write_wakeup(port)<BR>&nbsp;A driver is expected to call this function when the number of<BR>&nbsp;characters in the transmit buffer have dropped below a threshold.</P>
+<P>&nbsp;Locking: port-&gt;lock should be held.<BR>&nbsp;Interrupts: n/a</P>
+<P>uart_register_driver(drv)<BR>&nbsp;Register a uart driver with the core driver.&nbsp; We in turn register<BR>&nbsp;with the tty layer, and initialise the core driver per-port state.</P>
+<P>&nbsp;drv-&gt;port should be NULL, and the per-port structures should be<BR>&nbsp;registered using uart_add_one_port after this call has succeeded.</P>
+<P>&nbsp;Locking: none<BR>&nbsp;Interrupts: enabled</P>
+<P>uart_unregister_driver()<BR>&nbsp;Remove all references to a driver from the core driver.&nbsp; The low<BR>&nbsp;level driver must have removed all its ports via the<BR>&nbsp;uart_remove_one_port() if it registered them with uart_add_one_port().</P>
+<P>&nbsp;Locking: none<BR>&nbsp;Interrupts: enabled</P>
+<P>uart_suspend_port()</P>
+<P>uart_resume_port()</P>
+<P>uart_add_one_port()</P>
+<P>uart_remove_one_port()</P>
+<P>Other notes<BR>-----------</P>
+<P>It is intended some day to drop the 'unused' entries from uart_port, and<BR>allow low level drivers to register their own individual uart_port's with<BR>the core.&nbsp; This will allow drivers to use uart_port as a pointer to a<BR>structure containing both the uart_port entry with their own extensions,<BR>thus:</P>
+<P>&nbsp;struct my_port {<BR>&nbsp;&nbsp;struct uart_port&nbsp;port;<BR>&nbsp;&nbsp;int&nbsp;&nbsp;&nbsp;my_stuff;<BR>&nbsp;};

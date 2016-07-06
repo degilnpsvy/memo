@@ -1,0 +1,280 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>16.6.2 C Code for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>chdir()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE></H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here is the C code for these extensions.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT104" name=DOCF104><SUP>104</SUP></A></P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The file includes a number of standard header files, and then includes the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP>gawkapi.h</SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>header file which provides the API definitions. Those are followed by the necessary variable declarations to make use of the API macros and boilerplate code (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Extension-API-Boilerplate">Extension API Boilerplate</A>).</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>#ifdef HAVE_CONFIG_H
+#include &lt;config.h&gt;
+#endif
+
+#include &lt;stdio.h&gt;
+#include &lt;assert.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;unistd.h&gt;
+
+#include &lt;sys/types.h&gt;
+#include &lt;sys/stat.h&gt;
+
+#include "gawkapi.h"
+
+#include "gettext.h"
+#define _(msgid)  gettext(msgid)
+#define N_(msgid) msgid
+
+#include "gawkfts.h"
+#include "stack.h"
+
+static const gawk_api_t *api;    /* for convenience macros to work */
+static awk_ext_id_t *ext_id;
+static awk_bool_t init_filefuncs(void);
+static awk_bool_t (*init_func)(void) = init_filefuncs;
+static const char *ext_version = "filefuncs extension: version 1.0";
+
+int plugin_is_GPL_compatible;
+</PRE></DIV><A style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" name=index-programming-conventions_002c-gawk-extensions></A><SPAN style="TEXT-TRANSFORM: none; BACKGROUND-COLOR: rgb(255,255,255); TEXT-INDENT: 0px; DISPLAY: inline !important; FONT: medium Simsun; WHITE-SPACE: normal; FLOAT: none; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"></SPAN>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">By convention, for an<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>foo()</CODE>, the C function that implements it is called<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>do_foo()</CODE>. The function should have two arguments: the first is an<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>int</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>usually called<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>nargs</CODE>, that represents the number of actual arguments for the function. The second is a pointer to an<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_value_t</CODE>, usually named<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>result</CODE>.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/*  do_chdir --- provide dynamically loaded chdir() builtin for gawk */
+
+static awk_value_t *
+do_chdir(int nargs, awk_value_t *result)
+{
+    awk_value_t newdir;
+    int ret = -1;
+
+    assert(result != NULL);
+
+    if (do_lint &amp;&amp; nargs != 1)
+        lintwarn(ext_id,
+                 _("chdir: called with incorrect number of arguments, "
+                   "expecting 1"));
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>newdir</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>variable represents the new directory to change to, retrieved with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>get_argument()</CODE>. Note that the first argument is numbered zero.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">If the argument is retrieved successfully, the function calls the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>chdir()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>system call. If the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>chdir()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>fails,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ERRNO</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is updated.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    if (get_argument(0, AWK_STRING, &amp; newdir)) {
+        ret = chdir(newdir.str_value.str);
+        if (ret &lt; 0)
+            update_ERRNO_int(errno);
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Finally, the function returns the return value to the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>level:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    return make_number(ret, result);
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>extension is more involved. First comes a function that turns a numeric mode into a printable representation (e.g., 644 becomes &#8216;<SAMP>-rw-r--r--</SAMP>&#8217;). This is omitted here for brevity:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/* format_mode --- turn a stat mode field into something readable */
+
+static char *
+format_mode(unsigned long fmode)
+{
+    &#8230;
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Next comes a function for reading symbolic links, which is also omitted here for brevity:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/* read_symlink --- read a symbolic link into an allocated buffer.
+   &#8230; */
+
+static char *
+read_symlink(const char *fname, size_t bufsize, ssize_t *linksize)
+{
+    &#8230;
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Two helper functions simplify entering values in the array that will contain the result of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/* array_set --- set an array element */
+
+static void
+array_set(awk_array_t array, const char *sub, awk_value_t *value)
+{
+    awk_value_t index;
+
+    set_array_element(array,
+                      make_const_string(sub, strlen(sub), &amp; index),
+                      value);
+
+}
+
+/* array_set_numeric --- set an array element with a number */
+
+static void
+array_set_numeric(awk_array_t array, const char *sub, double num)
+{
+    awk_value_t tmp;
+
+    array_set(array, sub, make_number(num, &amp; tmp));
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The following function does most of the work to fill in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_array_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>result array with values obtained from a valid<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>struct stat</CODE>. It is done in a separate function to support the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and also to support the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fts()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>extension which is included in the same file but whose code is not shown here (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Extension-Sample-File-Functions">Extension Sample File Functions</A>).</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The first part of the function is variable declarations, including a table to map file types to strings:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/* fill_stat_array --- do the work to fill an array with stat info */
+
+static int
+fill_stat_array(const char *name, awk_array_t array, struct stat *sbuf)
+{
+    char *pmode;    /* printable mode */
+    const char *type = "unknown";
+    awk_value_t tmp;
+    static struct ftype_map {
+        unsigned int mask;
+        const char *type;
+    } ftype_map[] = {
+        { S_IFREG, "file" },
+        { S_IFBLK, "blockdev" },
+        { S_IFCHR, "chardev" },
+        { S_IFDIR, "directory" },
+#ifdef S_IFSOCK
+        { S_IFSOCK, "socket" },
+#endif
+#ifdef S_IFIFO
+        { S_IFIFO, "fifo" },
+#endif
+#ifdef S_IFLNK
+        { S_IFLNK, "symlink" },
+#endif
+#ifdef S_IFDOOR /* Solaris weirdness */
+        { S_IFDOOR, "door" },
+#endif /* S_IFDOOR */
+    };
+    int j, k;
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The destination array is cleared, and then code fills in various elements based on values in the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>struct stat</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    /* empty out the array */
+    clear_array(array);
+
+    /* fill in the array */
+    array_set(array, "name", make_const_string(name, strlen(name),
+                                               &amp; tmp));
+    array_set_numeric(array, "dev", sbuf-&gt;st_dev);
+    array_set_numeric(array, "ino", sbuf-&gt;st_ino);
+    array_set_numeric(array, "mode", sbuf-&gt;st_mode);
+    array_set_numeric(array, "nlink", sbuf-&gt;st_nlink);
+    array_set_numeric(array, "uid", sbuf-&gt;st_uid);
+    array_set_numeric(array, "gid", sbuf-&gt;st_gid);
+    array_set_numeric(array, "size", sbuf-&gt;st_size);
+    array_set_numeric(array, "blocks", sbuf-&gt;st_blocks);
+    array_set_numeric(array, "atime", sbuf-&gt;st_atime);
+    array_set_numeric(array, "mtime", sbuf-&gt;st_mtime);
+    array_set_numeric(array, "ctime", sbuf-&gt;st_ctime);
+
+    /* for block and character devices, add rdev,
+       major and minor numbers */
+    if (S_ISBLK(sbuf-&gt;st_mode) || S_ISCHR(sbuf-&gt;st_mode)) {
+        array_set_numeric(array, "rdev", sbuf-&gt;st_rdev);
+        array_set_numeric(array, "major", major(sbuf-&gt;st_rdev));
+        array_set_numeric(array, "minor", minor(sbuf-&gt;st_rdev));
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The latter part of the function makes selective additions to the destination array, depending upon the availability of certain members and/or the type of the file. It then returns zero, for success:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
+    array_set_numeric(array, "blksize", sbuf-&gt;st_blksize);
+#endif /* HAVE_STRUCT_STAT_ST_BLKSIZE */
+
+    pmode = format_mode(sbuf-&gt;st_mode);
+    array_set(array, "pmode", make_const_string(pmode, strlen(pmode),
+                                                &amp; tmp));
+
+    /* for symbolic links, add a linkval field */
+    if (S_ISLNK(sbuf-&gt;st_mode)) {
+        char *buf;
+        ssize_t linksize;
+
+        if ((buf = read_symlink(name, sbuf-&gt;st_size,
+                    &amp; linksize)) != NULL)
+            array_set(array, "linkval",
+                      make_malloced_string(buf, linksize, &amp; tmp));
+        else
+            warning(ext_id, _("stat: unable to read symbolic link `%s'"),
+                    name);
+    }
+
+    /* add a type field */
+    type = "unknown";   /* shouldn't happen */
+    for (j = 0, k = sizeof(ftype_map)/sizeof(ftype_map[0]); j &lt; k; j++) {
+        if ((sbuf-&gt;st_mode &amp; S_IFMT) == ftype_map[j].mask) {
+            type = ftype_map[j].type;
+            break;
+        }
+    }
+
+    array_set(array, "type", make_const_string(type, strlen(type), &amp;tmp));
+
+    return 0;
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Finally, here is the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>do_stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function. It starts with variable declarations and argument checking:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/* do_stat --- provide a stat() function for gawk */
+
+static awk_value_t *
+do_stat(int nargs, awk_value_t *result)
+{
+    awk_value_t file_param, array_param;
+    char *name;
+    awk_array_t array;
+    int ret;
+    struct stat sbuf;
+    /* default is lstat() */
+    int (*statfunc)(const char *path, struct stat *sbuf) = lstat;
+
+    assert(result != NULL);
+
+    if (nargs != 2 &amp;&amp; nargs != 3) {
+        if (do_lint)
+            lintwarn(ext_id,
+               _("stat: called with wrong number of arguments"));
+        return make_number(-1, result);
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The third argument to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>was not discussed previously. This argument is optional. If present, it causes<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>to use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>system call instead of the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>lstat()</CODE>system call.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Then comes the actual work. First, the function gets the arguments. Next, it gets the information for the file. The code use<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>lstat()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(instead of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>stat()</CODE>) to get the file information, in case the file is a symbolic link. If there&#8217;s an error, it sets<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>ERRNO</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and returns:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    /* file is first arg, array to hold results is second */
+    if (   ! get_argument(0, AWK_STRING, &amp; file_param)
+        || ! get_argument(1, AWK_ARRAY, &amp; array_param)) {
+        warning(ext_id, _("stat: bad parameters"));
+        return make_number(-1, result);
+    }
+
+    if (nargs == 3) {
+        statfunc = stat;
+    }
+
+    name = file_param.str_value.str;
+    array = array_param.array_cookie;
+
+    /* always empty out the array */
+    clear_array(array);
+
+    /* stat the file, if error, set ERRNO and return */
+    ret = statfunc(name, &amp; sbuf);
+    if (ret &lt; 0) {
+        update_ERRNO_int(errno);
+        return make_number(ret, result);
+    }
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The tedious work is done by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fill_stat_array()</CODE>, shown earlier. When done, return the result from<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fill_stat_array()</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>    ret = fill_stat_array(name, array, &amp; sbuf);
+
+    return make_number(ret, result);
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Finally, it&#8217;s necessary to provide the &#8220;glue&#8221; that loads the new function(s) into<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>filefuncs</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>extension also provides an<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>fts()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function, which we omit here. For its sake there is an initialization function:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/* init_filefuncs --- initialization routine */
+
+static awk_bool_t
+init_filefuncs(void)
+{
+    &#8230;
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">We are almost done. We need an array of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk_ext_func_t</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>structures for loading each function into<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>static awk_ext_func_t func_table[] = {
+    { "chdir", do_chdir, 1 },
+    { "stat",  do_stat, 2 },
+    { "fts",   do_fts, 3 },
+};
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Each extension must have a routine named<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dl_load()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>to load everything that needs to be loaded. It is simplest to use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>dl_load_func()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro in<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawkapi.h</CODE>:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>/* define the dl_load() function using the boilerplate macro */
+
+dl_load_func(func_table, filefuncs, "")
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">And that&#8217;s it! As an exercise, consider adding functions to implement system calls such as<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>chown()</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>chmod()</CODE>, and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>umask()</CODE>.

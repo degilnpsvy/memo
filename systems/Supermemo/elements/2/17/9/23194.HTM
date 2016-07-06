@@ -1,0 +1,111 @@
+<H3 id=-100000 class=docSection1Title>Real Mode Calls</H3>
+<P class=docText><A name="kernel glean"></A>Many parts of the kernel glean information from the BIOS in real mode and use the collected information during normal operation in protected mode.</P>
+<P class=docText><A name="as follows"></A>The steps needed to accomplish this are as follows:</P><A name=app02pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Real mode kernel code invokes BIOS services and populates returned information in the first physical memory page, called the <SPAN class=docEmphasis>zero page.</SPAN> This is done by the source files in the <SPAN class=docEmphasis>arch/x86/boot/</SPAN> directory. The full layout of the zero page can be found in <SPAN class=docEmphasis>Documentation/i386/zero-page.txt</SPAN>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>After the kernel switches to protected mode, but before it clears the zero page, the obtained data is saved in kernel data structures. This is done in <SPAN class=docEmphasis>arch/x86/kernel/setup_32.c</SPAN>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>The protected mode kernel makes suitable use of the saved information during normal operation.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name="the kernel"></A>As an example, let's find out how the kernel assembles the system memory map from the BIOS. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app02.html#app02ex01">Listing B.1</A> is a snippet from <SPAN class=docEmphasis>arch/x86/boot/memory.c</SPAN> in the 2.6.23.1 source tree that invokes the BIOS <TT>int 0x15</TT> service to obtain the system memory map.</P>
+<P class=docText></P><A name=app02ex01></A>
+<H5 id=title-ID0ETEBO class=docExampleTitle>Listing B.1. Obtaining the System Memory Map (<SPAN class=docEmphasis>arch/x86/boot/memory.c</SPAN>)</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD><PRE>static int detect_memory_e820(void)
+{
+  int count = 0;
+  u32 next = 0;
+  u32 size, id;
+  u8 err;
+  /* The boot_params structure contains the zero page */
+      struct e820entry *desc = boot_params.e820_map;
+
+  do {
+    size = sizeof(struct e820entry);
+    asm("int $0x15; setc %0"
+          : "=d" (err), "+b" (next), "=a" (id), "+c" (size),
+            "=m" (*desc)
+          : "D" (desc), "d" (SMAP), "a" (0xe820));
+
+    /* ... */
+
+    count++;
+    desc++;
+  } while (next &amp;&amp; count &lt; E820MAX);
+
+  return boot_params.e820_entries = count;
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1756></A><A name=iddle2412></A><A name=iddle2903></A><A name=iddle2965></A><A name=iddle3314></A><A name=iddle4208></A>In the listing, <TT>0xe820</TT> is the function number specified in the <TT>AX</TT> register before invoking <TT>int 0x15</TT><A name="the BIOS"></A> to procure the memory map. If you look at the BIOS call definition for <TT>int 0x15</TT>, function <TT>0xe820</TT> (the full list is available at <A class=docLink href="http://lrs.fmi.uni-passau.de/support/doc/interrupt-57/INT.HTM" target=_blank>http://lrs.fmi.uni-passau.de/support/doc/interrupt-57/INT.HTM</A><A name="the current"></A>), you will see that the BIOS writes the current element of the memory map in a buffer pointed to by the <TT>DI</TT><A name=In></A> register. In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app02.html#app02ex01">Listing B.1</A>, <TT>DI</TT><A name="the offset"></A> points to the offset in the zero page where the memory map is to be stored (<TT>boot_params.e820_map</TT><A name="until all"></A>). The code then loops until all elements in the memory map are collected. The number of elements is computed and stored at offset <TT>boot_params.e820_entries</TT><A name="When execution"></A> in the zero page. When execution successfully <A name=iddle1044></A><A name=iddle1123></A><A name=iddle1613></A><A name=iddle1617></A><A name=iddle1864></A><A name=iddle1865></A><A name=iddle2326></A><A name=iddle2902></A><A name=iddle2964></A><A name=iddle4169></A><A name=iddle4207></A><A name="page in"></A>exits the loop, the memory map is available in the zero page in the form of <TT>struct e820map</TT>, defined in <SPAN class=docEmphasis>include/asm-x86/e820.h</SPAN>:</P>
+<DIV class=docText><PRE>struct e820entry {
+  _u64 addr;  /* start of memory segment */
+  _u64 size;  /* size of memory segment */
+  _u32 type;  /* type of memory segment */
+} _attribute_((packed));
+
+struct e820map {
+  _u32 nr_map;
+  struct e820entry map[E820MAX];
+};</PRE></DIV><BR>
+<P class=docText><A name="protected mode"></A>The kernel switches to protected mode later in <SPAN class=docEmphasis>arch/x86/boot/pm.c.</SPAN><A name="collected memory"></A> When in protected mode, the kernel saves the collected memory map via <TT>copy_e820_map()</TT>, defined in <SPAN class=docEmphasis>arch/x86/kernel/e820_32.c.</SPAN> This is shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app02.html#app02ex02">Listing B.2</A><A name="error checks"></A>. For simplicity, the listing scissors out error checks and folds the <TT>add_memory_region()</TT> routine.</P><A name=app02ex02></A>
+<H5 id=title-ID0E6LBO class=docExampleTitle>Listing B.2. Copying the Memory Map (<SPAN class=docEmphasis>arch/x86/kernel/e820_32.c</SPAN>)</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>struct e820map e820;
+
+static int __init
+copy_e820_map(struct e820entry *biosmap, int nr_map)
+{
+  int x;
+  /* ... */
+
+  do {
+    /* Copy memory map information collected from
+       the BIOS into local variables */
+    unsigned long long start = biosmap-&gt;addr;
+    unsigned long long size = biosmap-&gt;size;
+    unsigned long long end = start + size;
+    unsigned long type = biosmap-&gt;type;
+
+    /* Sanitize start and size */
+    /* ... */
+
+    /* Populate the kernel data structure, e820 */
+    x = e820.nr_map;
+    e820.map[x].addr = start;
+    e820.map[x].size = size;
+    e820.map[x].type = type;
+    e820.nr_map++;
+  } while (biosmap++,--nr_map); /*Do for all elements in map*/
+
+  /* ... */
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1132></A><A name=iddle1221></A><A name=iddle2313></A><A name=iddle2767></A><A name=iddle3674></A>Look at <SPAN class=docEmphasis>arch/x86/mm/init_32.c</SPAN> to see how the <TT>e820</TT> structure populated in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app02.html#app02ex02">Listing B.2</A> is used later on in the boot process.</P><A name=app02sb02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>The Old i386 Boot Code</H2>
+<P class=docText><A name="been largely"></A>Starting with the 2.6.23 kernel, the i386 boot assembly code has been largely rewritten in C. Prior to 2.6.23, the code in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app02.html#app02ex01">Listing B.1</A> lived in <SPAN class=docEmphasis>arch/i386/boot/setup.S</SPAN> rather than in <SPAN class=docEmphasis>arch/x86/boot/memory.c.</SPAN><A name=in></A> Also, the switch to protected mode now occurs in <SPAN class=docEmphasis>arch/x86/boot/pm.c</SPAN><A name="rather than"></A> rather than <SPAN class=docEmphasis>setup.S</SPAN>.</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="another example"></A>To take another example, the kernel makes use of the BIOS <TT>int 0x10</TT><A name="mode parameters"></A> service to obtain video mode parameters while it's in real mode (<SPAN class=docEmphasis>arch/x86/boot/video*.c</SPAN><A name="buffer driver"></A>). The VESA frame buffer driver (<SPAN class=docEmphasis>drivers/video/vesafb.c</SPAN><A name="boot time"></A>) relies on these parameters to turn on graphics mode at boot time.</P>
+<P class=docText><A name="similar approach"></A>As an exercise, use a similar approach to obtain BIOS <SPAN class=docEmphasis>Power-On Self Test</SPAN> (POST) error codes from the real mode kernel (via <TT>int 0x15</TT>, function <TT>0x2100</TT><A name=the></A>) and display them during normal operation via the <SPAN class=docEmphasis>/proc</SPAN> filesystem.</P>
+<P class=docText><A name="BIOS services"></A>Bootloaders also make use of BIOS services in real mode. If you browse through the sources of LILO, GRUB, or SYSLINUX, you will see a liberal sprinkling of <TT>int 0x13</TT><A name="boot device"></A> calls to read the kernel image from the boot device.

@@ -1,0 +1,32 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>11.7.4 Implicit Copy-Assignment for Virtual Bases</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When a base class is virtual, only one subobject of the base class belongs to each full object. Also, the constructors and destructors are invoked only once, and called from the most-derived class. However, such objects behave unspecified when being assigned. For example:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     struct Base{
+       char *name;
+       Base(char *n) : name(strdup(n)){}
+       Base&amp; operator= (const Base&amp; other){
+        free (name);
+        name = strdup (other.name);
+       }
+     };
+     
+     struct A:virtual Base{
+       int val;
+       A():Base("A"){}
+     };
+     
+     struct B:virtual Base{
+       int bval;
+       B():Base("B"){}
+     };
+     
+     struct Derived:public A, public B{
+       Derived():Base("Derived"){}
+     };
+     
+     void func(Derived &amp;d1, Derived &amp;d2)
+     {
+       d1 = d2;
+     }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The C++ standard specifies that &#8216;<SAMP><SPAN class=samp>Base::Base</SPAN></SAMP>&#8217; is only called once when constructing or copy-constructing a Derived object. It is unspecified whether &#8216;<SAMP><SPAN class=samp>Base::operator=</SPAN></SAMP>&#8217; is called more than once when the implicit copy-assignment for Derived objects is invoked (as it is inside &#8216;<SAMP><SPAN class=samp>func</SPAN></SAMP>&#8217; in the example).</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">G++ implements the &#8220;intuitive&#8221; algorithm for copy-assignment: assign all direct bases, then assign all members. In that algorithm, the virtual base subobject can be encountered more than once. In the example, copying proceeds in the following order: &#8216;<SAMP><SPAN class=samp>val</SPAN></SAMP>&#8217;, &#8216;<SAMP><SPAN class=samp>name</SPAN></SAMP>&#8217; (via<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>strdup</CODE>), &#8216;<SAMP><SPAN class=samp>bval</SPAN></SAMP>&#8217;, and &#8216;<SAMP><SPAN class=samp>name</SPAN></SAMP>&#8217; again.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">If application code relies on copy-assignment, a user-defined copy-assignment operator removes any uncertainties. With such an operator, the application can define whether and how the virtual base subobject is assigned.

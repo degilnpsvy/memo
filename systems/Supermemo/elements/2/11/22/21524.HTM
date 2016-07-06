@@ -1,0 +1,178 @@
+<H1><A name=SHA-BANG></A>Chapter 2. Starting Off With a Sha-Bang</H1>
+<TABLE class=EPIGRAPH border=0 cellSpacing=0 cellPadding=0 width="100%">
+<TBODY>
+<TR>
+<TD width="45%">&nbsp;</TD>
+<TD vAlign=top width="45%" align=left><I>
+<P><I>Shell programming is a 1950s juke box . . .</I></P>
+<P><I>--Larry Wall</I></P></I></TD></TR></TBODY></TABLE>
+<P>In the simplest case, a script is nothing more than a list of system commands stored in a file. At the very least, this saves the effort of retyping that particular sequence of commands each time it is invoked.</P>
+<DIV class=EXAMPLE><A name=EX1></A>
+<P><B>Example 2-1. <I class=FIRSTTERM>cleanup</I>: A script to clean up log files in /var/log </B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># Cleanup
+# Run as root, of course.
+
+cd /var/log
+cat /dev/null &gt; messages
+cat /dev/null &gt; wtmp
+echo "Log files cleaned up."</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>There is nothing unusual here, only a set of commands that could just as easily have been invoked one by one from the command-line on the console or in a terminal window. The advantages of placing the commands in a script go far beyond not having to retype them time and again. The script becomes a <I class=FIRSTTERM>program</I> -- a <EM>tool</EM> -- and it can easily be modified or customized for a particular application.</P>
+<DIV class=EXAMPLE><A name=EX1A></A>
+<P><B>Example 2-2. <I class=FIRSTTERM>cleanup</I>: An improved clean-up script</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# Proper header for a Bash script.
+
+# Cleanup, version 2
+
+# Run as root, of course.
+# Insert code here to print error message and exit if not root.
+
+LOG_DIR=/var/log
+# Variables are better than hard-coded values.
+cd $LOG_DIR
+
+cat /dev/null &gt; messages
+cat /dev/null &gt; wtmp
+
+
+echo "Logs cleaned up."
+
+exit #  The right and proper method of "exiting" from a script.
+     #  A bare "exit" (no parameter) returns the exit status
+     #+ of the preceding command. </PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Now <EM>that's</EM> beginning to look like a real script. But we can go even farther . . .</P>
+<DIV class=EXAMPLE><A name=EX2></A>
+<P><B>Example 2-3. <I class=FIRSTTERM>cleanup</I>: An enhanced and generalized version of above scripts.</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# Cleanup, version 3
+
+#  Warning:
+#  -------
+#  This script uses quite a number of features that will be explained
+#+ later on.
+#  By the time you've finished the first half of the book,
+#+ there should be nothing mysterious about it.
+
+
+
+LOG_DIR=/var/log
+ROOT_UID=0     # Only users with $UID 0 have root privileges.
+LINES=50       # Default number of lines saved.
+E_XCD=86       # Can't change directory?
+E_NOTROOT=87   # Non-root exit error.
+
+
+# Run as root, of course.
+if [ "$UID" -ne "$ROOT_UID" ]
+then
+  echo "Must be root to run this script."
+  exit $E_NOTROOT
+fi  
+
+if [ -n "$1" ]
+# Test whether command-line argument is present (non-empty).
+then
+  lines=$1
+else  
+  lines=$LINES # Default, if not specified on command-line.
+fi  
+
+
+#  Stephane Chazelas suggests the following,
+#+ as a better way of checking command-line arguments,
+#+ but this is still a bit advanced for this stage of the tutorial.
+#
+#    E_WRONGARGS=85  # Non-numerical argument (bad argument format).
+#
+#    case "$1" in
+#    ""      ) lines=50;;
+#    *[!0-9]*) echo "Usage: `basename $0` lines-to-cleanup";
+#     exit $E_WRONGARGS;;
+#    *       ) lines=$1;;
+#    esac
+#
+#* Skip ahead to "Loops" chapter to decipher all this.
+
+
+cd $LOG_DIR
+
+if [ `pwd` != "$LOG_DIR" ]  # or   if [ "$PWD" != "$LOG_DIR" ]
+                            # Not in /var/log?
+then
+  echo "Can't change to $LOG_DIR."
+  exit $E_XCD
+fi  # Doublecheck if in right directory before messing with log file.
+
+# Far more efficient is:
+#
+# cd /var/log || {
+#   echo "Cannot change to necessary directory." &gt;&amp;2
+#   exit $E_XCD;
+# }
+
+
+
+
+tail -n $lines messages &gt; mesg.temp # Save last section of message log file.
+mv mesg.temp messages               # Rename it as system log file.
+
+
+#  cat /dev/null &gt; messages
+#* No longer needed, as the above method is safer.
+
+cat /dev/null &gt; wtmp  #  ': &gt; wtmp' and '&gt; wtmp'  have the same effect.
+echo "Log files cleaned up."
+#  Note that there are other log files in /var/log not affected
+#+ by this script.
+
+exit 0
+#  A zero return value from the script upon exit indicates success
+#+ to the shell.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Since you may not wish to wipe out the entire system log, this version of the script keeps the last section of the message log intact. You will constantly discover ways of fine-tuning previously written scripts for increased effectiveness.</P>
+<P><A name=SHABANGREF></A>* * *</P>
+<P><A name=MAGNUMREF></A>The <I class=FIRSTTERM>sha-bang</I> (<SPAN class=TOKEN> #!</SPAN>) <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN205" name=AEN205><SPAN class=footnote>[6]</SPAN></A> at the head of a script tells your system that this file is a set of commands to be fed to the command interpreter indicated. The <SPAN class=TOKEN>#!</SPAN> is actually a two-byte <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN214" name=AEN214><SPAN class=footnote>[7]</SPAN></A> <I class=FIRSTTERM>magic number</I>, a special marker that designates a file type, or in this case an executable shell script (type <TT class=USERINPUT><B>man magic</B></TT> for more details on this fascinating topic). Immediately following the <I class=FIRSTTERM>sha-bang</I> is a <I class=FIRSTTERM>path name</I>. This is the path to the program that interprets the commands in the script, whether it be a shell, a programming language, or a utility. This command interpreter then executes the commands in the script, starting at the top (the line following the <I class=FIRSTTERM>sha-bang</I> line), and ignoring comments. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN226" name=AEN226><SPAN class=footnote>[8]</SPAN></A> </P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/sh
+#!/bin/bash
+#!/usr/bin/perl
+#!/usr/bin/tcl
+#!/bin/sed -f
+#!/bin/awk -f</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Each of the above script header lines calls a different command interpreter, be it <TT class=FILENAME>/bin/sh</TT>, the default shell (<B class=COMMAND>bash</B> in a Linux system) or otherwise. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN242" name=AEN242><SPAN class=footnote>[9]</SPAN></A> Using <TT class=USERINPUT><B>#!/bin/sh</B></TT>, the default Bourne shell in most commercial variants of UNIX, makes the script <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PORTABILITYISSUES">portable</A> to non-Linux machines, though you <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BINSH">sacrifice Bash-specific features</A>. The script will, however, conform to the <SPAN class=ACRONYM>POSIX</SPAN> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN256" name=AEN256><SPAN class=footnote>[10]</SPAN></A> <B class=COMMAND>sh</B> standard.</P>
+<P>Note that the path given at the <SPAN class=QUOTE>"sha-bang"</SPAN> must be correct, otherwise an error message -- usually <SPAN class=QUOTE>"Command not found."</SPAN> -- will be the only result of running the script. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN269" name=AEN269><SPAN class=footnote>[11]</SPAN></A> </P>
+<P><SPAN class=TOKEN>#!</SPAN> can be omitted if the script consists only of a set of generic system commands, using no internal shell directives. The second example, above, requires the initial <SPAN class=TOKEN>#!</SPAN>, since the variable assignment line, <TT class=USERINPUT><B>lines=50</B></TT>, uses a shell-specific construct. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN279" name=AEN279><SPAN class=footnote>[12]</SPAN></A> Note again that <TT class=USERINPUT><B>#!/bin/sh</B></TT> invokes the default shell interpreter, which defaults to <TT class=FILENAME>/bin/bash</TT> on a Linux machine.</P>
+<DIV class=TIP>
+<P></P>
+<TABLE class=TIP border=0 width="100%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Tip src="http://tldp.org/LDP/abs/images/tip.gif"></TD>
+<TD vAlign=top align=left>
+<P>This tutorial encourages a modular approach to constructing a script. Make note of and collect <SPAN class=QUOTE>"boilerplate"</SPAN> code snippets that might be useful in future scripts. Eventually you will build quite an extensive library of nifty routines. As an example, the following script prolog tests whether the script has been invoked with the correct number of parameters.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>E_WRONG_ARGS=85
+script_parameters="-a -h -m -z"
+#                  -a = all, -h = help, etc.
+
+if [ $# -ne $Number_of_expected_args ]
+then
+  echo "Usage: `basename $0` $script_parameters"
+  # `basename $0` is the script's filename.
+  exit $E_WRONG_ARGS
+fi</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Many times, you will write a script that carries out one particular task. The first script in this chapter is an example. Later, it might occur to you to generalize the script to do other, similar tasks. Replacing the literal (<SPAN class=QUOTE>"hard-wired"</SPAN>) constants by variables is a step in that direction, as is replacing repetitive code blocks by <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FUNCTIONREF">functions</A>.</P></TD></TR></TBODY></TABLE></DIV>

@@ -1,0 +1,61 @@
+<H3 id=-100000 class=docSection1Title>User Mode I<SUP>2</SUP>C</H3>
+<P class=docText><A name=iddle2276></A><A name=iddle4548></A><A name=In></A>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08.html#ch08">Chapter 8</A><A name="learned to"></A>, "The Inter-Integrated Circuit Protocol," you learned to develop kernel mode drivers for I<SUP>2</SUP><A name="need to"></A>C devices; but sometimes, when you need to enable support for <A name=iddle1355></A><A name=iddle2278></A><A name="of slow"></A>a large number of slow I<SUP>2</SUP>C devices, it makes sense to drive them from user space. The <SPAN class=docEmphasis>i2c-dev</SPAN> module enables the development of user mode I<SUP>2</SUP>C/SMBus device drivers. User-space code can access I<SUP>2</SUP>C host adapters via device nodes. To operate on the <SPAN class=docEmphasis>n</SPAN><SUP>th</SUP> adapter, open <SPAN class=docEmphasis>/dev/i2c-n.</SPAN><A name="adapter device"></A> After you have a file descriptor tied to a host adapter device node, you can command it through ioctls to connect to specific slave devices attached to it. You can then use the services of a family of data access routines to exchange data with the slaves.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec6.html#ch19ex07">Listing 19.7</A><A name="mode driver"></A> is a simple user mode driver that performs common operations on an I<SUP>2</SUP><A name="the same"></A>C EEPROM from user space. The EEPROM is the same as the one discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08.html#ch08">Chapter 8</A><A name="and a"></A> and has two memory banks and a slave address corresponding to each bank. The listing uses inline functions from <SPAN class=docEmphasis>i2c-dev.h</SPAN><A name="Get this"></A> to operate on device nodes associated with the banks. Get this header file from the lm-sensors package (also discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08.html#ch08">Chapter 8</A>) downloadable from <A class=docLink href="http://www.lm-sensors.org/" target=_blank>www.lm-sensors.org</A><A name="all kernel"></A>. This file contains user space equivalents for all kernel space I<SUP>2</SUP><A name="C access"></A>C access functions listed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec2.html#ch08tab01">Table 8.1</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08.html#ch08">Chapter 8</A>.</P><A name=ch19ex07></A>
+<H5 id=title-ID0ECRAO class=docExampleTitle>Listing 19.7. A User Space I<SUP>2</SUP>C/SMBus Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX i2c.h="">
+#include <LINUX i2c-dev.h="">
+
+/* Bus addresses of the memory banks */
+#define SLAVE_ADDR1  0x60
+#define SLAVE_ADDR2  0x61
+
+int main(int argc, char *argv[])
+{
+
+  /* Open the host adapter */
+  if ((smbus_fp = open("/dev/i2c-0", O_RDWR)) &lt; 0) {
+    exit(1);
+  }
+
+  /* Connect to the first bank */
+  if (ioctl(smbus_fp, I2C_SLAVE, EEPROM_SLAVE_ADDR1) &lt; 0) {
+    exit(1);
+  }
+
+  /* ... */
+  /* Dump data from the device */
+  for (reg=0; reg &lt; length; reg++) {
+    /* See <SPAN class=docEmphasis>i2c-dev.h</SPAN> from the lm-sensors package for the
+       implementation of the following inline function */
+    res = i2c_smbus_read_byte_data(smbus_fp, (unsigned char) reg);
+    if (res &lt; 0) {
+      exit(1);
+    }
+
+    /* Dump data */
+    /* ... */
+  }
+
+  /* ... */
+
+  /* Switch to bank 2 */
+  if (ioctl(smbus_fp, I2C_SLAVE, SLAVE_ADDR2) &lt; 0) {
+    exit(1);
+  }
+
+  /* Clear bank 2 */
+  for (reg=0; reg &lt; length; reg+=2){
+    i2c_smbus_write_word_data(smbus_fp, (unsigned char) reg, 0x0);
+  }
+
+  /* ... */
+
+  close(smbus_fp);
+}
+
+					  </LINUX></LINUX></PRE></TD></TR></TBODY></TABLE>

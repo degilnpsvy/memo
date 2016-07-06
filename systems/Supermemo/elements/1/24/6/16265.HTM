@@ -1,0 +1,61 @@
+<H4 class=subsection>12.2.4 Example Loaded Object</H4>
+<P><A name=index-loaded-object-example-1076></A><A name=index-example-of-loaded-objects-1077></A>Let's suppose we wanted to write a new GNU <CODE>make</CODE> function that would create a temporary file and return its name. We would like our function to take a prefix as an argument. First we can write the function in a file <SAMP><SPAN class=file>mk_temp.c</SPAN></SAMP>: <PRE class=example>     #include &lt;stdlib.h&gt;
+     #include &lt;stdlib.h&gt;
+     #include &lt;stdio.h&gt;
+     #include &lt;string.h&gt;
+     #include &lt;unistd.h&gt;
+     #include &lt;errno.h&gt;
+     
+     #include &lt;gnumake.h&gt;
+     
+     int plugin_is_GPL_compatible;
+     
+     char *
+     gen_tmpfile(const char *nm, int argc, char **argv)
+     {
+       int fd;
+     
+       /* Compute the size of the filename and allocate space for it.  */
+       int len = strlen (argv[0]) + 6 + 1;
+       char *buf = gmk_alloc (len);
+     
+       strcpy (buf, argv[0]);
+       strcat (buf, "XXXXXX");
+     
+       fd = mkstemp(buf);
+       if (fd &gt;= 0)
+         {
+           /* Don't leak the file descriptor.  */
+           close (fd);
+           return buf;
+         }
+     
+       /* Failure.  */
+       fprintf (stderr, "mkstemp(%s) failed: %s\n", buf, strerror (errno));
+       gmk_free (buf);
+       return NULL;
+     }
+     
+     int
+     mk_temp_gmk_setup ()
+     {
+       /* Register the function with make name "mk-temp".  */
+       gmk_add_function ("mk-temp", gen_tmpfile, 1, 1, 1);
+       return 1;
+     }
+</PRE>
+<P>Next, we will write a makefile that can build this shared object, load it, and use it: <PRE class=example>     all:
+             @echo Temporary file: $(mk-temp tmpfile.)
+     
+     load mk_temp.so
+     
+     mk_temp.so: mk_temp.c
+             $(CC) -shared -fPIC -o $ $&lt;
+</PRE>
+<P>On MS-Windows, due to peculiarities of how shared objects are produced, the compiler needs to scan the <DFN>import library</DFN> produced when building <CODE>make</CODE>, typically called <SAMP><SPAN class=file>libgnumake-</SPAN><VAR>version</VAR><SPAN class=file>.dll.a</SPAN></SAMP>, where <VAR>version</VAR> is the version of the load object API. So the recipe to produce a shared object will look on Windows like this (assuming the API version is 1): <PRE class=example>     mk_temp.dll: mk_temp.c
+             $(CC) -shared -o $ $&lt; -lgnumake-1
+</PRE>
+<P>Now when you run <CODE>make</CODE> you'll see something like: <PRE class=example>     $ make
+     cc -shared -fPIC -o mk_temp.so mk_temp.c
+     Temporary filename: tmpfile.A7JEwd
+</PRE>

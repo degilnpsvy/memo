@@ -1,0 +1,53 @@
+<H5 id=title-ID0EMCPM class=docSection3Title>PC Keyboards</H5>
+<P class=docText><A name="the processor"></A>The PC keyboard (also called PS/2 keyboard or AT keyboard) interfaces with the processor via an i8042-compatible keyboard controller. Desktops usually have a dedicated keyboard controller, but on laptops, keyboard interfacing is one of the responsibilities of a general-purpose embedded controller (see the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch20lev1sec3.html#ch20lev1sec3">Embedded Controllers</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch20.html#ch20">Chapter 20</A><A name="key on"></A>, "More Devices and Drivers"). When you press a key on a PC keyboard, this is the road it takes:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the keyboard"></A>The keyboard controller (or the embedded controller) scans and decodes the keyboard matrix and takes care of nuances such as key debouncing.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="keyboard device"></A>The keyboard device driver, with the help of serio, reads raw <SPAN class=docEmphasis>scancodes</SPAN><A name="difference between"></A> from the keyboard controller for each key press and release. The difference between a press and a release is in the most significant bit, which is set for the latter. A push on the "a" key, for example, yields a pair of scancodes, <TT>0x1e</TT><A name=and></A> and <TT>0x9e</TT>. Special keys <A name=iddle2655></A><A name=iddle2835></A><A name=iddle3996></A><A name=using></A>are escaped using <TT>0xE0</TT><A name="a jab"></A>, so a jab on the right-arrow key produces the sequence, (<TT>0xE0 0x4D 0xE0 0xCD</TT>). You may use the <SPAN class=docEmphasis>showkey</SPAN> utility to observe scancodes emanating from the controller (the <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF">symbol attaches explanations):</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; showkey -s</SPAN>
+kb mode was UNICODE
+[ if you are trying this under X, it might not work since
+ the X server is also reading /dev/console ]
+
+ press any key (program terminates 10s after last
+ keypress)...
+ ...
+ 0x1e 0x9e <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> A push of the "a" key</PRE></DIV></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The keyboard device driver converts received scancodes to <SPAN class=docEmphasis>keycodes</SPAN><A name="to the"></A>, based on the input mode. To see the keycode corresponding to the "a" key:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; showkey</SPAN>
+...
+keycode 30 press   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> A push of the "a" key
+keycode 30 release <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Release of the "a" key</PRE></DIV>
+<P class=docList><A name="driver generates"></A>To report the keycode upstream, the driver generates an input event, which passes control to the keyboard event driver.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the loaded"></A>The keyboard event driver undertakes keycode translation depending on the loaded key map. (See man pages of <SPAN class=docEmphasis>loadkeys</SPAN> and the map files present in <SPAN class=docEmphasis>/lib/kbd/keymaps.</SPAN><A name="is tied"></A>) It checks whether the translated keycode is tied to actions such as switching the virtual console or rebooting the system. To glow the <TT>CAPSLOCK</TT> and <TT>NUMLOCK</TT><A name="to a"></A> LEDs instead of rebooting the system in response to a Ctrl+Alt+Del push, add the following to the Ctrl+Alt+Del handler of the keyboard event driver, <SPAN class=docEmphasis>drivers/char/keyboard.c</SPAN>:</P>
+<DIV class=docText><PRE>static void fn_boot_it(struct vc_data *vc,
+
+                       struct pt_regs *regs)
+{
+<SPAN class=docEmphStrong>+  set_vc_kbd_led(kbd, VC_CAPSLOCK);</SPAN>
+<SPAN class=docEmphStrong>+  set_vc_kbd_led(kbd, VC_NUMLOCK);</SPAN>
+-  ctrl_alt_del();
+}</PRE></DIV></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle1284></A><A name=iddle2206></A><A name=iddle2234></A><A name=iddle2389></A><A name=iddle2399></A><A name=iddle2651></A><A name=iddle2654></A><A name=iddle4528></A><A name=iddle4529></A><A name="regular keys"></A>For regular keys, the translated keycode is sent to the associated virtual terminal and the <TT>N_TTY</TT> line discipline. (We discussed virtual terminals and line disciplines in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A>, "Serial Drivers.") This is done as follows by <SPAN class=docEmphasis>drivers/char/keyboard.c</SPAN>:</P>
+<DIV class=docText><PRE>/* Add the keycode to flip buffer */
+tty_insert_flip_char(tty, keycode, 0);
+/* Schedule */
+con_schedule_flip(tty);</PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText>The <TT>N_TTY</TT><A name="it to"></A> line discipline processes the input thus received from the keyboard, echoes it to the virtual console, and lets user-space applications read characters from the <SPAN class=docEmphasis>/dev/ttyX</SPAN><A name="node connected"></A> node connected to the virtual terminal.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07fig03">Figure 7.3</A><A name="data flow"></A> shows the data flow from the time you push a key on your keyboard until the time it's echoed on your virtual console. The left half of the figure is hardware-specific, and the right half is generic. As per the design goal of the input subsystem, the underlying hardware interface is transparent to the keyboard event driver and the tty layer. The input core and the clearly defined event interfaces thus insulate input users from the intricacies of the hardware.</P><A name=ch07fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="Data flow"></A>Figure 7.3. Data flow from a PS/2-compatible keyboard.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC8zaGlnN2NzZ2ku.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzNoaWc3c2M-.jpg" width=500 height=670> 
+<P></P></CENTER>

@@ -1,0 +1,79 @@
+# Documentation/sysctl/fs.txt
+<P></P>
+<P>Documentation for /proc/sys/fs/*&nbsp;kernel version 2.2.10<BR>&nbsp;(c) 1998, 1999,&nbsp; Rik van Riel &lt;<A href="mailto:riel@nl.linux.org">riel@nl.linux.org</A>&gt;<BR>&nbsp;(c) 2009,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Shen Feng&lt;<A href="mailto:shen@cn.fujitsu.com">shen@cn.fujitsu.com</A>&gt;</P>
+<P></P>
+<P>For general info and legal blurb, please look in README.</P>
+<P>==============================================================</P>
+<P>This file contains documentation for the sysctl files in<BR>/proc/sys/fs/ and is valid for Linux kernel version 2.2.</P>
+<P>The files in this directory can be used to tune and monitor<BR>miscellaneous and general things in the operation of the Linux<BR>kernel. Since some of the files _can_ be used to screw up your<BR>system, it is advisable to read both documentation and source<BR>before actually making adjustments.</P>
+<P>1. /proc/sys/fs<BR>----------------------------------------------------------</P>
+<P>Currently, these files are in /proc/sys/fs:<BR>- aio-max-nr<BR>- aio-nr<BR>- dentry-state<BR>- dquot-max<BR>- dquot-nr<BR>- file-max<BR>- file-nr<BR>- inode-max<BR>- inode-nr<BR>- inode-state<BR>- nr_open<BR>- overflowuid<BR>- overflowgid<BR>- protected_hardlinks<BR>- protected_symlinks<BR>- suid_dumpable<BR>- super-max<BR>- super-nr</P>
+<P>==============================================================</P>
+<P>aio-nr &amp; aio-max-nr:</P>
+<P>aio-nr is the running total of the number of events specified on the<BR>io_setup system call for all currently active aio contexts.&nbsp; If aio-nr<BR>reaches aio-max-nr then io_setup will fail with EAGAIN.&nbsp; Note that<BR>raising aio-max-nr does not result in the pre-allocation or re-sizing<BR>of any kernel data structures.</P>
+<P>==============================================================</P>
+<P>dentry-state:</P>
+<P>From linux/fs/dentry.c:<BR>--------------------------------------------------------------<BR>struct {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int nr_dentry;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int nr_unused;<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int age_limit;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* age in seconds */<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int want_pages;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /* pages requested by system */<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int dummy[2];<BR>} dentry_stat = {0, 0, 45, 0,};<BR>-------------------------------------------------------------- </P>
+<P>Dentries are dynamically allocated and deallocated, and<BR>nr_dentry seems to be 0 all the time. Hence it's safe to<BR>assume that only nr_unused, age_limit and want_pages are<BR>used. Nr_unused seems to be exactly what its name says.<BR>Age_limit is the age in seconds after which dcache entries<BR>can be reclaimed when memory is short and want_pages is<BR>nonzero when shrink_dcache_pages() has been called and the<BR>dcache isn't pruned yet.</P>
+<P>==============================================================</P>
+<P>dquot-max &amp; dquot-nr:</P>
+<P>The file dquot-max shows the maximum number of cached disk<BR>quota entries.</P>
+<P>The file dquot-nr shows the number of allocated disk quota<BR>entries and the number of free disk quota entries.</P>
+<P>If the number of free cached disk quotas is very low and<BR>you have some awesome number of simultaneous system users,<BR>you might want to raise the limit.</P>
+<P>==============================================================</P>
+<P>file-max &amp; file-nr:</P>
+<P>The value in file-max denotes the maximum number of file-<BR>handles that the Linux kernel will allocate. When you get lots<BR>of error messages about running out of file handles, you might<BR>want to increase this limit.</P>
+<P>Historically,the kernel was able to allocate file handles<BR>dynamically, but not to free them again. The three values in<BR>file-nr denote the number of allocated file handles, the number<BR>of allocated but unused file handles, and the maximum number of<BR>file handles. Linux 2.6 always reports 0 as the number of free<BR>file handles -- this is not an error, it just means that the<BR>number of allocated file handles exactly matches the number of<BR>used file handles.</P>
+<P>Attempts to allocate more file descriptors than file-max are<BR>reported with printk, look for "VFS: file-max limit &lt;number&gt;<BR>reached".<BR>==============================================================</P>
+<P>nr_open:</P>
+<P>This denotes the maximum number of file-handles a process can<BR>allocate. Default value is 1024*1024 (1048576) which should be<BR>enough for most machines. Actual limit depends on RLIMIT_NOFILE<BR>resource limit.</P>
+<P>==============================================================</P>
+<P>inode-max, inode-nr &amp; inode-state:</P>
+<P>As with file handles, the kernel allocates the inode structures<BR>dynamically, but can't free them yet.</P>
+<P>The value in inode-max denotes the maximum number of inode<BR>handlers. This value should be 3-4 times larger than the value<BR>in file-max, since stdin, stdout and network sockets also<BR>need an inode struct to handle them. When you regularly run<BR>out of inodes, you need to increase this value.</P>
+<P>The file inode-nr contains the first two items from<BR>inode-state, so we'll skip to that file...</P>
+<P>Inode-state contains three actual numbers and four dummies.<BR>The actual numbers are, in order of appearance, nr_inodes,<BR>nr_free_inodes and preshrink.</P>
+<P>Nr_inodes stands for the number of inodes the system has<BR>allocated, this can be slightly more than inode-max because<BR>Linux allocates them one pageful at a time.</P>
+<P>Nr_free_inodes represents the number of free inodes (?) and<BR>preshrink is nonzero when the nr_inodes &gt; inode-max and the<BR>system needs to prune the inode list instead of allocating<BR>more.</P>
+<P>==============================================================</P>
+<P>overflowgid &amp; overflowuid:</P>
+<P>Some filesystems only support 16-bit UIDs and GIDs, although in Linux<BR>UIDs and GIDs are 32 bits. When one of these filesystems is mounted<BR>with writes enabled, any UID or GID that would exceed 65535 is translated<BR>to a fixed value before being written to disk.</P>
+<P>These sysctls allow you to change the value of the fixed UID and GID.<BR>The default is 65534.</P>
+<P>==============================================================</P>
+<P>protected_hardlinks:</P>
+<P>A long-standing class of security issues is the hardlink-based<BR>time-of-check-time-of-use race, most commonly seen in world-writable<BR>directories like /tmp. The common method of exploitation of this flaw<BR>is to cross privilege boundaries when following a given hardlink (i.e. a<BR>root process follows a hardlink created by another user). Additionally,<BR>on systems without separated partitions, this stops unauthorized users<BR>from "pinning" vulnerable setuid/setgid files against being upgraded by<BR>the administrator, or linking to special files.</P>
+<P>When set to "0", hardlink creation behavior is unrestricted.</P>
+<P>When set to "1" hardlinks cannot be created by users if they do not<BR>already own the source file, or do not have read/write access to it.</P>
+<P>This protection is based on the restrictions in Openwall and grsecurity.</P>
+<P>==============================================================</P>
+<P>protected_symlinks:</P>
+<P>A long-standing class of security issues is the symlink-based<BR>time-of-check-time-of-use race, most commonly seen in world-writable<BR>directories like /tmp. The common method of exploitation of this flaw<BR>is to cross privilege boundaries when following a given symlink (i.e. a<BR>root process follows a symlink belonging to another user). For a likely<BR>incomplete list of hundreds of examples across the years, please see:<BR><A href="http://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=/tmp">http://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=/tmp</A></P>
+<P>When set to "0", symlink following behavior is unrestricted.</P>
+<P>When set to "1" symlinks are permitted to be followed only when outside<BR>a sticky world-writable directory, or when the uid of the symlink and<BR>follower match, or when the directory owner matches the symlink's owner.</P>
+<P>This protection is based on the restrictions in Openwall and grsecurity.</P>
+<P>==============================================================</P>
+<P>suid_dumpable:</P>
+<P>This value can be used to query and set the core dump mode for setuid<BR>or otherwise protected/tainted binaries. The modes are</P>
+<P>0 - (default) - traditional behaviour. Any process which has changed<BR>&nbsp;privilege levels or is execute only will not be dumped.<BR>1 - (debug) - all processes dump core when possible. The core dump is<BR>&nbsp;owned by the current user and no security is applied. This is<BR>&nbsp;intended for system debugging situations only. Ptrace is unchecked.<BR>&nbsp;This is insecure as it allows regular users to examine the memory<BR>&nbsp;contents of privileged processes.<BR>2 - (suidsafe) - any binary which normally would not be dumped is dumped<BR>&nbsp;anyway, but only if the "core_pattern" kernel sysctl is set to<BR>&nbsp;either a pipe handler or a fully qualified path. (For more details<BR>&nbsp;on this limitation, see CVE-2006-2451.) This mode is appropriate<BR>&nbsp;when administrators are attempting to debug problems in a normal<BR>&nbsp;environment, and either have a core dump pipe handler that knows<BR>&nbsp;to treat privileged core dumps with care, or specific directory<BR>&nbsp;defined for catching core dumps. If a core dump happens without<BR>&nbsp;a pipe handler or fully qualifid path, a message will be emitted<BR>&nbsp;to syslog warning about the lack of a correct setting.</P>
+<P>==============================================================</P>
+<P>super-max &amp; super-nr:</P>
+<P>These numbers control the maximum number of superblocks, and<BR>thus the maximum number of mounted filesystems the kernel<BR>can have. You only need to increase super-max if you need to<BR>mount more filesystems than the current value in super-max<BR>allows you to.</P>
+<P>==============================================================</P>
+<P>aio-nr &amp; aio-max-nr:</P>
+<P>aio-nr shows the current system-wide number of asynchronous io<BR>requests.&nbsp; aio-max-nr allows you to change the maximum value<BR>aio-nr can grow to.</P>
+<P>==============================================================</P>
+<P><BR>2. /proc/sys/fs/binfmt_misc<BR>----------------------------------------------------------</P>
+<P>Documentation for the files in /proc/sys/fs/binfmt_misc is<BR>in Documentation/binfmt_misc.txt.</P>
+<P><BR>3. /proc/sys/fs/mqueue - POSIX message queues filesystem<BR>----------------------------------------------------------</P>
+<P>The "mqueue"&nbsp; filesystem provides&nbsp; the necessary kernel features to enable the<BR>creation of a&nbsp; user space&nbsp; library that&nbsp; implements&nbsp; the&nbsp; POSIX message queues<BR>API (as noted by the&nbsp; MSG tag in the&nbsp; POSIX 1003.1-2001 version&nbsp; of the System<BR>Interfaces specification.)</P>
+<P>The "mqueue" filesystem contains values for determining/setting&nbsp; the amount of<BR>resources used by the file system.</P>
+<P>/proc/sys/fs/mqueue/queues_max is a read/write&nbsp; file for&nbsp; setting/getting&nbsp; the<BR>maximum number of message queues allowed on the system.</P>
+<P>/proc/sys/fs/mqueue/msg_max&nbsp; is&nbsp; a&nbsp; read/write file&nbsp; for&nbsp; setting/getting&nbsp; the<BR>maximum number of messages in a queue value.&nbsp; In fact it is the limiting value<BR>for another (user) limit which is set in mq_open invocation. This attribute of<BR>a queue must be less or equal then msg_max.</P>
+<P>/proc/sys/fs/mqueue/msgsize_max is&nbsp; a read/write&nbsp; file for setting/getting the<BR>maximum&nbsp; message size value (it is every&nbsp; message queue's attribute set during<BR>its creation).</P>
+<P>/proc/sys/fs/mqueue/msg_default is&nbsp; a read/write&nbsp; file for setting/getting the<BR>default number of messages in a queue value if attr parameter of mq_open(2) is<BR>NULL. If it exceed msg_max, the default value is initialized msg_max.</P>
+<P>/proc/sys/fs/mqueue/msgsize_default is a read/write file for setting/getting<BR>the default message size value if attr parameter of mq_open(2) is NULL. If it<BR>exceed msgsize_max, the default value is initialized msgsize_max.</P>
+<P>4. /proc/sys/fs/epoll - Configuration options for the epoll interface<BR>--------------------------------------------------------</P>
+<P>This directory contains configuration options for the epoll(7) interface.</P>
+<P>max_user_watches<BR>----------------</P>
+<P>Every epoll file descriptor can store a number of files to be monitored<BR>for event readiness. Each one of these monitored files constitutes a "watch".<BR>This configuration option sets the maximum number of "watches" that are<BR>allowed for each user.<BR>Each "watch" costs roughly 90 bytes on a 32bit kernel, and roughly 160 bytes<BR>on a 64bit one.<BR>The current default value for&nbsp; max_user_watches&nbsp; is the 1/32 of the available<BR>low memory, divided for the "watch" cost in bytes.</P>
+<P>&nbsp;

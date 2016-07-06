@@ -1,0 +1,25 @@
+=== 7 Kbuild syntax for exported headers 
+<P><FONT class=extract>The kernel include a set of headers that is exported to userspace.<BR>Many headers can be exported as-is but other headers require a<BR>minimal pre-processing before they are ready for user-space.<BR>The pre-processing does:<BR>- drop kernel specific annotations<BR>- drop include of compiler.h<BR>- drop all sections that are kernel internal (guarded by ifdef __KERNEL__)</FONT></P>
+<P><FONT class=extract>Each relevant directory contains a file name "Kbuild" which specifies the<BR>headers to be exported.<BR>See subsequent chapter for the syntax of the Kbuild file.</FONT></P>
+<P><FONT class=extract>&nbsp;--- 7.1 header-y</FONT></P>
+<P><FONT class=extract>&nbsp;header-y specify header files to be exported.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;Example:<BR>&nbsp;&nbsp;&nbsp;#include/linux/Kbuild<BR>&nbsp;&nbsp;&nbsp;header-y += usb/<BR>&nbsp;&nbsp;&nbsp;header-y += aio_abi.h</FONT></P>
+<P><FONT class=extract>&nbsp;The convention is to list one file per line and<BR>&nbsp;preferably in alphabetic order.</FONT></P>
+<P><FONT class=extract>&nbsp;header-y also specify which subdirectories to visit.<BR>&nbsp;A subdirectory is identified by a trailing '/' which<BR>&nbsp;can be seen in the example above for the usb subdirectory.</FONT></P>
+<P><FONT class=extract>&nbsp;Subdirectories are visited before their parent directories.</FONT></P>
+<P><FONT class=extract>&nbsp;--- 7.2 genhdr-y</FONT></P>
+<P><FONT class=extract>&nbsp;genhdr-y specifies generated files to be exported.<BR>&nbsp;Generated files are special as they need to be looked<BR>&nbsp;up in another directory when doing 'make O=...' builds.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;Example:<BR>&nbsp;&nbsp;&nbsp;#include/linux/Kbuild<BR>&nbsp;&nbsp;&nbsp;genhdr-y += version.h</FONT></P>
+<P>&nbsp;<FONT class=extract>--- 7.3 destination-y</FONT></P>
+<P><FONT class=extract>&nbsp;When an architecture have a set of exported headers that needs to be<BR>&nbsp;exported to a different directory destination-y is used.<BR>&nbsp;destination-y specify the destination directory for all exported<BR>&nbsp;headers in the file where it is present.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;Example:<BR>&nbsp;&nbsp;&nbsp;#arch/xtensa/platforms/s6105/include/platform/Kbuild<BR>&nbsp;&nbsp;&nbsp;destination-y := include/linux</FONT></P>
+<P><FONT class=extract>&nbsp;In the example above all exported headers in the Kbuild file<BR>&nbsp;will be located in the directory "include/linux" when exported.</FONT></P>
+<P>&nbsp;<FONT class=extract>--- 7.4 generic-y</FONT></P>
+<P><FONT class=extract>&nbsp;If an architecture uses a verbatim copy of a header from<BR>&nbsp;include/asm-generic then this is listed in the file<BR>&nbsp;arch/$(ARCH)/include/asm/Kbuild like this:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;Example:<BR>&nbsp;&nbsp;&nbsp;#arch/x86/include/asm/Kbuild<BR>&nbsp;&nbsp;&nbsp;generic-y += termios.h<BR>&nbsp;&nbsp;&nbsp;generic-y += rtc.h</FONT></P>
+<P><FONT class=extract>&nbsp;During the prepare phase of the build a wrapper include<BR>&nbsp;file is generated in the directory:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;arch/$(ARCH)/include/generated/asm</FONT></P>
+<P><FONT class=extract>&nbsp;When a header is exported where the architecture uses<BR>&nbsp;the generic header a similar wrapper is generated as part<BR>&nbsp;of the set of exported headers in the directory:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;usr/include/asm</FONT></P>
+<P><FONT class=extract>&nbsp;The generated wrapper will in both cases look like the following:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;Example: termios.h<BR>&nbsp;&nbsp;&nbsp;#include &lt;asm-generic/termios.h&gt;</FONT>

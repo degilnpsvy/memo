@@ -1,0 +1,73 @@
+# Documentation/circular_buffers.txt</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ================<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CIRCULAR BUFFERS<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ================</P>
+<P></P>
+<P>By: David Howells &lt;<A href="mailto:dhowells@redhat.com">dhowells@redhat.com</A>&gt;<BR>&nbsp;&nbsp;&nbsp; Paul E. McKenney &lt;<A href="mailto:paulmck@linux.vnet.ibm.com">paulmck@linux.vnet.ibm.com</A>&gt;</P>
+<P><BR>Linux provides a number of features that can be used to implement circular<BR>buffering.&nbsp; There are two sets of such features:</P>
+<P>&nbsp;(1) Convenience functions for determining information about power-of-2 sized<BR>&nbsp;&nbsp;&nbsp;&nbsp; buffers.</P>
+<P>&nbsp;(2) Memory barriers for when the producer and the consumer of objects in the<BR>&nbsp;&nbsp;&nbsp;&nbsp; buffer don't want to share a lock.</P>
+<P>To use these facilities, as discussed below, there needs to be just one<BR>producer and just one consumer.&nbsp; It is possible to handle multiple producers by<BR>serialising them, and to handle multiple consumers by serialising them.</P>
+<P><BR>Contents:</P>
+<P>&nbsp;(*) What is a circular buffer?</P>
+<P>&nbsp;(*) Measuring power-of-2 buffers.</P>
+<P>&nbsp;(*) Using memory barriers with circular buffers.<BR>&nbsp;&nbsp;&nbsp;&nbsp; - The producer.<BR>&nbsp;&nbsp;&nbsp;&nbsp; - The consumer.</P>
+<P><BR>==========================<BR>WHAT IS A CIRCULAR BUFFER?<BR>==========================</P>
+<P>First of all, what is a circular buffer?&nbsp; A circular buffer is a buffer of<BR>fixed, finite size into which there are two indices:</P>
+<P>&nbsp;(1) A 'head' index - the point at which the producer inserts items into the<BR>&nbsp;&nbsp;&nbsp;&nbsp; buffer.</P>
+<P>&nbsp;(2) A 'tail' index - the point at which the consumer finds the next item in<BR>&nbsp;&nbsp;&nbsp;&nbsp; the buffer.</P>
+<P>Typically when the tail pointer is equal to the head pointer, the buffer is<BR>empty; and the buffer is full when the head pointer is one less than the tail<BR>pointer.</P>
+<P>The head index is incremented when items are added, and the tail index when<BR>items are removed.&nbsp; The tail index should never jump the head index, and both<BR>indices should be wrapped to 0 when they reach the end of the buffer, thus<BR>allowing an infinite amount of data to flow through the buffer.</P>
+<P>Typically, items will all be of the same unit size, but this isn't strictly<BR>required to use the techniques below.&nbsp; The indices can be increased by more<BR>than 1 if multiple items or variable-sized items are to be included in the<BR>buffer, provided that neither index overtakes the other.&nbsp; The implementer must<BR>be careful, however, as a region more than one unit in size may wrap the end of<BR>the buffer and be broken into two segments.</P>
+<P><BR>============================<BR>MEASURING POWER-OF-2 BUFFERS<BR>============================</P>
+<P>Calculation of the occupancy or the remaining capacity of an arbitrarily sized<BR>circular buffer would normally be a slow operation, requiring the use of a<BR>modulus (divide) instruction.&nbsp; However, if the buffer is of a power-of-2 size,<BR>then a much quicker bitwise-AND instruction can be used instead.</P>
+<P>Linux provides a set of macros for handling power-of-2 circular buffers.&nbsp; These<BR>can be made use of by:</P>
+<P>&nbsp;#include &lt;linux/circ_buf.h&gt;</P>
+<P>The macros are:</P>
+<P>&nbsp;(*) Measure the remaining capacity of a buffer:</P>
+<P>&nbsp;CIRC_SPACE(head_index, tail_index, buffer_size);</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; This returns the amount of space left in the buffer[1] into which items<BR>&nbsp;&nbsp;&nbsp;&nbsp; can be inserted.</P>
+<P><BR>&nbsp;(*) Measure the maximum consecutive immediate space in a buffer:</P>
+<P>&nbsp;CIRC_SPACE_TO_END(head_index, tail_index, buffer_size);</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; This returns the amount of consecutive space left in the buffer[1] into<BR>&nbsp;&nbsp;&nbsp;&nbsp; which items can be immediately inserted without having to wrap back to the<BR>&nbsp;&nbsp;&nbsp;&nbsp; beginning of the buffer.</P>
+<P><BR>&nbsp;(*) Measure the occupancy of a buffer:</P>
+<P>&nbsp;CIRC_CNT(head_index, tail_index, buffer_size);</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; This returns the number of items currently occupying a buffer[2].</P>
+<P><BR>&nbsp;(*) Measure the non-wrapping occupancy of a buffer:</P>
+<P>&nbsp;CIRC_CNT_TO_END(head_index, tail_index, buffer_size);</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; This returns the number of consecutive items[2] that can be extracted from<BR>&nbsp;&nbsp;&nbsp;&nbsp; the buffer without having to wrap back to the beginning of the buffer.</P>
+<P><BR>Each of these macros will nominally return a value between 0 and buffer_size-1,<BR>however:</P>
+<P>&nbsp;[1] CIRC_SPACE*() are intended to be used in the producer.&nbsp; To the producer<BR>&nbsp;&nbsp;&nbsp;&nbsp; they will return a lower bound as the producer controls the head index,<BR>&nbsp;&nbsp;&nbsp;&nbsp; but the consumer may still be depleting the buffer on another CPU and<BR>&nbsp;&nbsp;&nbsp;&nbsp; moving the tail index.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; To the consumer it will show an upper bound as the producer may be busy<BR>&nbsp;&nbsp;&nbsp;&nbsp; depleting the space.</P>
+<P>&nbsp;[2] CIRC_CNT*() are intended to be used in the consumer.&nbsp; To the consumer they<BR>&nbsp;&nbsp;&nbsp;&nbsp; will return a lower bound as the consumer controls the tail index, but the<BR>&nbsp;&nbsp;&nbsp;&nbsp; producer may still be filling the buffer on another CPU and moving the<BR>&nbsp;&nbsp;&nbsp;&nbsp; head index.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; To the producer it will show an upper bound as the consumer may be busy<BR>&nbsp;&nbsp;&nbsp;&nbsp; emptying the buffer.</P>
+<P>&nbsp;[3] To a third party, the order in which the writes to the indices by the<BR>&nbsp;&nbsp;&nbsp;&nbsp; producer and consumer become visible cannot be guaranteed as they are<BR>&nbsp;&nbsp;&nbsp;&nbsp; independent and may be made on different CPUs - so the result in such a<BR>&nbsp;&nbsp;&nbsp;&nbsp; situation will merely be a guess, and may even be negative.</P>
+<P><BR>===========================================<BR>USING MEMORY BARRIERS WITH CIRCULAR BUFFERS<BR>===========================================</P>
+<P>By using memory barriers in conjunction with circular buffers, you can avoid<BR>the need to:</P>
+<P>&nbsp;(1) use a single lock to govern access to both ends of the buffer, thus<BR>&nbsp;&nbsp;&nbsp;&nbsp; allowing the buffer to be filled and emptied at the same time; and</P>
+<P>&nbsp;(2) use atomic counter operations.</P>
+<P>There are two sides to this: the producer that fills the buffer, and the<BR>consumer that empties it.&nbsp; Only one thing should be filling a buffer at any one<BR>time, and only one thing should be emptying a buffer at any one time, but the<BR>two sides can operate simultaneously.</P>
+<P><BR>THE PRODUCER<BR>------------</P>
+<P>The producer will look something like this:</P>
+<P>&nbsp;spin_lock(&amp;producer_lock);</P>
+<P>&nbsp;unsigned long head = buffer-&gt;head;<BR>&nbsp;unsigned long tail = ACCESS_ONCE(buffer-&gt;tail);</P>
+<P>&nbsp;if (CIRC_SPACE(head, tail, buffer-&gt;size) &gt;= 1) {<BR>&nbsp;&nbsp;/* insert one item into the buffer */<BR>&nbsp;&nbsp;struct item *item = buffer[head];</P>
+<P>&nbsp;&nbsp;produce_item(item);</P>
+<P>&nbsp;&nbsp;smp_wmb(); /* commit the item before incrementing the head */</P>
+<P>&nbsp;&nbsp;buffer-&gt;head = (head + 1) &amp; (buffer-&gt;size - 1);</P>
+<P>&nbsp;&nbsp;/* wake_up() will make sure that the head is committed before<BR>&nbsp;&nbsp; * waking anyone up */<BR>&nbsp;&nbsp;wake_up(consumer);<BR>&nbsp;}</P>
+<P>&nbsp;spin_unlock(&amp;producer_lock);</P>
+<P>This will instruct the CPU that the contents of the new item must be written<BR>before the head index makes it available to the consumer and then instructs the<BR>CPU that the revised head index must be written before the consumer is woken.</P>
+<P>Note that wake_up() doesn't have to be the exact mechanism used, but whatever<BR>is used must guarantee a (write) memory barrier between the update of the head<BR>index and the change of state of the consumer, if a change of state occurs.</P>
+<P><BR>THE CONSUMER<BR>------------</P>
+<P>The consumer will look something like this:</P>
+<P>&nbsp;spin_lock(&amp;consumer_lock);</P>
+<P>&nbsp;unsigned long head = ACCESS_ONCE(buffer-&gt;head);<BR>&nbsp;unsigned long tail = buffer-&gt;tail;</P>
+<P>&nbsp;if (CIRC_CNT(head, tail, buffer-&gt;size) &gt;= 1) {<BR>&nbsp;&nbsp;/* read index before reading contents at that index */<BR>&nbsp;&nbsp;smp_read_barrier_depends();</P>
+<P>&nbsp;&nbsp;/* extract one item from the buffer */<BR>&nbsp;&nbsp;struct item *item = buffer[tail];</P>
+<P>&nbsp;&nbsp;consume_item(item);</P>
+<P>&nbsp;&nbsp;smp_mb(); /* finish reading descriptor before incrementing tail */</P>
+<P>&nbsp;&nbsp;buffer-&gt;tail = (tail + 1) &amp; (buffer-&gt;size - 1);<BR>&nbsp;}</P>
+<P>&nbsp;spin_unlock(&amp;consumer_lock);</P>
+<P>This will instruct the CPU to make sure the index is up to date before reading<BR>the new item, and then it shall make sure the CPU has finished reading the item<BR>before it writes the new tail pointer, which will erase the item.</P>
+<P><BR>Note the use of ACCESS_ONCE() in both algorithms to read the opposition index.<BR>This prevents the compiler from discarding and reloading its cached value -<BR>which some compilers will do across smp_read_barrier_depends().&nbsp; This isn't<BR>strictly needed if you can be sure that the opposition index will _only_ be<BR>used the once.</P>
+<P><BR>===============<BR>FURTHER READING<BR>===============</P>
+<P>See also Documentation/memory-barriers.txt for a description of Linux's memory<BR>barrier facilities.

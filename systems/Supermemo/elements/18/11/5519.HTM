@@ -1,0 +1,100 @@
+Using git bisect 
+<P></P>
+<P>The git bisect command is a powerful tool for isolating a particular, faulty commit based on essentially arbitrary search criteria. It is well-suited to those times when you discover that something &#8220;wrong&#8221; or &#8220;bad&#8221; is affecting your repository and you know the code had been fine. For example, let&#8217;s say you are working on the Linux kernel and a test boot fails, but you&#8217;re positive the boot worked sometime earlier, perhaps last week or at a previous release tag. In this case, your repository has transitioned from a known &#8220;good&#8221; state to a known &#8220;bad&#8221; state. </P>
+<P>But when? Which commit caused it to break? That is precisely the question git bisect is designed to help you answer. </P>
+<P>The only real search requirement is that, given a checked-out state of your repository, you are able to determine if it does or does not meet your search requirement. In this case, you have to be able to answer the question: &#8220;Does the version of the kernel checked out build and boot?&#8221; You also have to know a good and a bad version or commit before starting so that the search will be bounded. </P>
+<P>The git bisect command is often used to isolate a particular commit that introduced some regression or bug into the repository. For example, if you were working on the Linux kernel, git bisect could help you find issues and bugs such as fails to compile, fails to boot, boots but can&#8217;t perform some task, or no longer has a desired performance characteristic. In all of these cases, git bisect can help you isolate and determine the exact commit that caused the problem. </P>
+<P>The git bisect command systematically chooses a new commit in an ever decreasing range bounded by good behavior at one end and by bad behavior at the other. Eventually, the narrowing range will pinpoint the one commit that introduced the faulty behavior. </P>
+<P>There is no need for you to do anything more than provide an initial good and bad commit and then repeatedly answer the question &#8220;Does this version work?&#8221; </P>
+<P>To start, you first need to identify a good commit and a bad commit. In practice, the bad version is often your current HEAD, because that&#8217;s where you are working when you suddenly noticed something wrong or were assigned a bug to fix. </P>
+<P>Finding an initial good version can be a bit difficult, because it&#8217;s usually buried in your history somewhere. You can probably name or guess some version back in the history of the repository that you know works correctly. This may be a tagged release like v2.6.25 or some commit 100 revisions ago, master~100, on your master branch. Ideally, it is close to your bad commit (master~25 is better than master~100) and not buried too far in the past. In any event, you need to know or be able to verify that it is, in fact, a good commit. </P>
+<P>It is essential that you start the git bisect process from a clean working directory. The process necessarily adjusts your working directory to contain various different versions of your repository. Starting with a dirty work space is asking for trouble; your working directory could easily belost. </P>
+<P><FONT class=extract>Using a clone of the Linux kernel in our example, let&#8217;s tell Git to begin a search: </FONT></P>
+<P><FONT class=extract>$ cd linux-2.6 </FONT></P>
+<P><FONT class=extract>$ git bisect start </FONT></P>
+<P>After initiating a bisection search, Git enters a bisect mode, setting up some state information for itself. Git employs a detached HEAD to manage the current checkedout version of the repository. This detached HEAD is essentially an anonymous branch that can be used to bounce around within the repository and point to different revisionsas needed. </P>
+<P>Once started, tell Git which commit is bad. Again, because this is typically your current version, you can simply default the revision to your current HEAD.( 4. For the curious reader who would like to duplicate this example, HEAD is commit 49fdf6785fd660e18a1eb4588928f47e9fa29a9a here. ) </P>
+<P><FONT class=extract># Tell git the HEAD version is broken </FONT></P>
+<P><FONT class=extract>$ git bisect bad </FONT></P>
+<P><FONT class=extract>Similarly, tell Git which version works: </FONT></P>
+<P><FONT class=extract>$ git bisect good v2.6.27 </FONT></P>
+<P><FONT class=extract>Bisecting: 3857 revisions left to test after this </FONT></P>
+<P><FONT class=extract>[cf2fa66055d718ae13e62451bb546505f63906a2] Merge branch 'for_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/mchehab/linux-2.6 </FONT></P>
+<P>Identifying a good and bad version delineates a range of commits over which a good to bad transition occurs. At each step along the way, Git will tell you how many revisions are in that range. Git also modifies your working directory by checking out a revision that is roughly midway between the good and bad end points. It is now up to you to answer the question: &#8220;Is this version good or bad?&#8221; Each time you answer this question, Git narrows the search space in half, identifies a new revision, checks it out, and repeats the &#8220;good or bad?&#8221; question. </P>
+<P>Suppose this version is good: </P>
+<P>$ git bisect good </P>
+<P>Bisecting: 1939 revisions left to test after this </P>
+<P>[2be508d847392e431759e370d21cea9412848758] Merge git://git.infradead.org/mtd-2.6 </P>
+<P>Notice that 3,857 revisions have been narrowed down to 1,939. Let&#8217;s do a few more: </P>
+<P>$ git bisectgood </P>
+<P>Bisecting: 939 revisions left to test after this </P>
+<P>[b80de369aa5c7c8ce7ff7a691e86e1dcc89accc6] 8250: Add more OxSemi devices </P>
+<P>$ git bisect bad </P>
+<P>Bisecting: 508 revisions left to test after this </P>
+<P>[9301975ec251bab1ad7cfcb84a688b26187e4e4a] Merge branch 'genirq-v28-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/linux-2.6-tip </P>
+<P>In a perfect bisection run, it takes log2 of the original number of revision steps to narrow down to just one commit. </P>
+<P>After another good and bad answer: </P>
+<P>$ git bisect good </P>
+<P>Bisecting: 220 revisions left to test after this </P>
+<P>[7cf5244ce4a0ab3f043f2e9593e07516b0df5715] mfd: check for platform_get_irq() return value in sm501 </P>
+<P>$ git bisect bad </P>
+<P>Bisecting: 104 revisions left to test after this [e4c2ce82ca2710e17cb4df8eb2b249fa2eb5af30] ring_buffer: allocate buffer page pointer </P>
+<P>Throughout the bisection process, Git maintains a log of your answers along with their commit IDs. </P>
+<P>$ git bisect log </P>
+<P>git bisect start </P>
+<P># bad: [49fdf6785fd660e18a1eb4588928f47e9fa29a9a] Merge branch 'for-linus' of git://git.kernel.dk/linux-2.6-block </P>
+<P>git bisect bad 49fdf6785fd660e18a1eb4588928f47e9fa29a9a </P>
+<P># good: [3fa8749e584b55f1180411ab1b51117190bac1e5] Linux 2.6.27 </P>
+<P>git bisect good 3fa8749e584b55f1180411ab1b51117190bac1e5 </P>
+<P># good: [cf2fa66055d718ae13e62451bb546505f63906a2] Merge branch 'for_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/mchehab/linux-2.6 </P>
+<P>git bisect good cf2fa66055d718ae13e62451bb546505f63906a2 </P>
+<P># good: [2be508d847392e431759e370d21cea9412848758] Merge git://git.infradead.org/mtd-2.6 </P>
+<P>git bisect good 2be508d847392e431759e370d21cea9412848758 </P>
+<P># bad: [b80de369aa5c7c8ce7ff7a691e86e1dcc89accc6] 8250: Add more OxSemi devices </P>
+<P>git bisect bad b80de369aa5c7c8ce7ff7a691e86e1dcc89accc6 </P>
+<P># good: [9301975ec251bab1ad7cfcb84a688b26187e4e4a] Merge branch 'genirq-v28-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/linux-2.6-tip </P>
+<P>git bisect good 9301975ec251bab1ad7cfcb84a688b26187e4e4a </P>
+<P># bad: [7cf5244ce4a0ab3f043f2e9593e07516b0df5715] mfd: check for platform_get_irq() return value in sm501 </P>
+<P>git bisect bad 7cf5244ce4a0ab3f043f2e9593e07516b0df5715 </P>
+<P>If you get lost during the process, or if you just want to start over for any reason, type the git bisect replay command using the log file as input. If needed, this is an excellent mechanism to back up one step in the process and explore a different path. </P>
+<P>Let&#8217;s narrow down the defect with five more &#8220;bad&#8221; answers: </P>
+<P>$ git bisect bad </P>
+<P>Bisecting: 51 revisions left to test after this [d3ee6d992821f471193a7ee7a00af9ebb4bf5d01] ftrace: make it depend on DEBUG_KERNEL </P>
+<P>$ git bisect bad </P>
+<P>Bisecting: 25 revisions left to test after this [3f5a54e371ca20b119b73704f6c01b71295c1714] ftrace: dump out ftrace buffers to console on panic </P>
+<P>$ git bisect bad </P>
+<P>Bisecting: 12 revisions left to test after this [8da3821ba5634497da63d58a69e24a97697c4a2b] ftrace: create _mcount_loc section </P>
+<P>$ git bisect bad </P>
+<P>Bisecting: 6 revisions left to test after this [fa340d9c050e78fb21a142b617304214ae5e0c2d] tracing: disable tracepointsby default </P>
+<P>$ git bisect bad </P>
+<P>Bisecting: 2 revisions left to test after this [4a0897526bbc5c6ac0df80b16b8c60339e717ae2] tracing: tracepoints, samples </P>
+<P><FONT class=extract>You may use the git bisect visualize to visually inspect the set of commits still within the range of consideration. Git uses the graphical tool gitk if the DISPLAY environment variable is set. If not, then Git will use git log instead. In that case, --pretty=oneline might be useful, too. </FONT></P>
+<P><FONT class=extract>$ git bisect visualize --pretty=oneline </FONT></P>
+<P><FONT class=extract>fa340d9c050e78fb21a142b617304214ae5e0c2d tracing: disable tracepoints by default </FONT></P>
+<P><FONT class=extract>b07c3f193a8074aa4afe43cfa8ae38ec4c7ccfa9 ftrace: port to tracepoints </FONT></P>
+<P><FONT class=extract>0a16b6075843325dc402edf80c1662838b929aff tracing, sched: LTTng instrumentation - scheduler </FONT></P>
+<P><FONT class=extract>4a0897526bbc5c6ac0df80b16b8c60339e717ae2 tracing: tracepoints, samples </FONT></P>
+<P><FONT class=extract>24b8d831d56aac7907752d22d2aba5d8127db6f6 tracing: tracepoints, documentation </FONT></P>
+<P><FONT class=extract>97e1c18e8d17bd87e1e383b2e9d9fc740332c8e2 tracing: Kernel Tracepoints </FONT></P>
+<P><FONT class=extract>The current revision under consideration is roughly in the middle of the range. </FONT></P>
+<P>$ git bisect good </P>
+<P>Bisecting: 1 revisions left to test after this [b07c3f193a8074aa4afe43cfa8ae38ec4c7ccfa9] ftrace: port to tracepoints </P>
+<P>When you finally test the last revision and Git has isolated the one revision that introduced the problem,( 5. No, this commit did not necessarily introduce a problem. The &#8220;good&#8221; and &#8220;bad&#8221; answers were fabricated and landed here. ) it&#8217;s displayed: </P>
+<P>$ git bisect good </P>
+<P>fa340d9c050e78fb21a142b617304214ae5e0c2d is first bad commit </P>
+<P>commit fa340d9c050e78fb21a142b617304214ae5e0c2d </P>
+<P>Author: Ingo Molnar </P>
+<P><MINGO@ELTE.HU>Date: Wed Jul 23 13:38:00 2008 +0200 </P>
+<P>tracing: disable tracepoints by default </P>
+<P>while it's arguably low overhead, we dont enable new features by default. </P>
+<P>Signed-off-by: Ingo Molnar </P>
+<P><MINGO@ELTE.HU>:040000 040000 4bf5c05869a67e184670315c181d76605c973931 fd15e1c4adbd37b819299a9f0d4a6ff589721f6c M init </P>
+<P>Finally, when your bisection run is complete and you are finished with the bisection log and the saved state, it is vital that you tell Git that you have finished. As you may recall, the whole bisection process is performed on a detached HEAD: </P>
+<P>$ git branch </P>
+<P>* (no branch) </P>
+<P>master </P>
+<P>$ git bisect reset </P>
+<P>Switched to branch "master" </P>
+<P>$ git branch </P>
+<P>* master </P>
+<P>Running git bisect reset places you back on your original branch.

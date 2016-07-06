@@ -1,0 +1,58 @@
+<H3 class=section>4.6 Phony Targets</H3>
+<P><A name=index-phony-targets-206></A><A name=index-targets_002c-phony-207></A><A name=index-targets-without-a-file-208></A>A phony target is one that is not really the name of a file; rather it is just a name for a recipe to be executed when you make an explicit request. <FONT class=extract>There are two reasons to use a phony target: to avoid a conflict with a file of the same name, and to improve performance.</FONT> 
+<P>If you write a rule whose recipe will not create the target file, the recipe will be executed every time the target comes up for remaking. Here is an example: <PRE class=example>     clean:
+             rm *.o temp
+</PRE>
+<P class=noindent>Because the <CODE>rm</CODE> command does not create a file named <SAMP><SPAN class=file>clean</SPAN></SAMP>, probably no such file will ever exist. Therefore, the <CODE>rm</CODE> command will be executed every time you say &#8216;<SAMP><SPAN class=samp>make clean</SPAN></SAMP>&#8217;. <A name=index-g_t_0040code_007brm_007d-_0028shell-command_0029-209></A><A name=index-g_t_002ePHONY-210></A>The phony target will cease to work if anything ever does create a file named <SAMP><SPAN class=file>clean</SPAN></SAMP> in this directory. Since it has no prerequisites, the file <SAMP><SPAN class=file>clean</SPAN></SAMP> would inevitably be considered up to date, and its recipe would not be executed. To avoid this problem, you can explicitly declare the target to be phony, using the special target <CODE>.PHONY</CODE> (see <A href="https://www.gnu.org/software/make/manual/make.html#Special-Targets">Special Built-in Target Names</A>) as follows: <PRE class=example>     .PHONY : clean
+</PRE>
+<P class=noindent>Once this is done, &#8216;<SAMP><SPAN class=samp>make clean</SPAN></SAMP>&#8217; will run the recipe regardless of whether there is a file named <SAMP><SPAN class=file>clean</SPAN></SAMP>. 
+<P><FONT class=extract>Since it knows that phony targets do not name actual files that could be remade from other files, <CODE>make</CODE> skips the implicit rule search for phony targets (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Implicit-Rules"><FONT class=extract>Implicit Rules</FONT></A><FONT class=extract>). This is why declaring a target phony is good for performance, even if you are not worried about the actual file existing.</FONT> 
+<P>Thus, you first write the line that states that <CODE>clean</CODE> is a phony target, then you write the rule, like this: <PRE class=example>     .PHONY: clean
+     clean:
+             rm *.o temp
+</PRE>
+<P><FONT class=extract>Another example of the usefulness of phony targets is in conjunction with recursive invocations of <CODE>make</CODE> (for more information, see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Recursion"><FONT class=extract>Recursive Use of <CODE>make</CODE></FONT></A><FONT class=extract>). In this case the makefile will often contain a variable which lists a number of sub-directories to be built. One way to handle this is with one rule whose recipe is a shell loop over the sub-directories, like this: </FONT><PRE class=example><FONT class=extract>     SUBDIRS = foo bar baz
+     
+     subdirs:
+             for dir in $(SUBDIRS); do \
+               $(MAKE) -C $$dir; \
+             done
+</FONT></PRE>
+<P><FONT class=extract>There are problems with this method, however. First, any error detected in a sub-make is ignored by this rule, so it will continue to build the rest of the directories even when one fails. This can be overcome by adding shell commands to note the error and exit, but then it will do so even if <CODE>make</CODE> is invoked with the <CODE>-k</CODE> option, which is unfortunate. Second, and perhaps more importantly, you cannot take advantage of <CODE>make</CODE>'s ability to build targets in parallel (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Parallel"><FONT class=extract>Parallel Execution</FONT></A><FONT class=extract>), since there is only one rule. </FONT>
+<P><FONT class=extract>By declaring the sub-directories as phony targets (you must do this as the sub-directory obviously always exists; otherwise it won't be built) you can remove these problems: </FONT><PRE class=example><FONT class=extract>     SUBDIRS = foo bar baz
+     
+     .PHONY: subdirs $(SUBDIRS)
+     
+     subdirs: $(SUBDIRS)
+     
+     $(SUBDIRS):
+             $(MAKE) -C $@
+     
+     foo: baz
+</FONT></PRE>
+<P><FONT class=extract>Here we've also declared that the <SAMP><SPAN class=file>foo</SPAN></SAMP> sub-directory cannot be built until after the <SAMP><SPAN class=file>baz</SPAN></SAMP> sub-directory is complete; this kind of relationship declaration is particularly important when attempting parallel builds. </FONT>
+<P><FONT class=extract>A phony target should not be a prerequisite of a real target file; if it is, its recipe will be run every time <CODE>make</CODE> goes to update that file. As long as a phony target is never a prerequisite of a real target, the phony target recipe will be executed only when the phony target is a specified goal (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Goals"><FONT class=extract>Arguments to Specify the Goals</FONT></A><FONT class=extract>). </FONT>
+<P>Phony targets can have prerequisites. When one directory contains multiple programs, it is most convenient to describe all of the programs in one makefile <SAMP><SPAN class=file>./Makefile</SPAN></SAMP>. Since the target remade by default will be the first one in the makefile, it is common to make this a phony target named &#8216;<SAMP><SPAN class=samp>all</SPAN></SAMP>&#8217; and give it, as prerequisites, all the individual programs. For example: <PRE class=example>     all : prog1 prog2 prog3
+     .PHONY : all
+     
+     prog1 : prog1.o utils.o
+             cc -o prog1 prog1.o utils.o
+     
+     prog2 : prog2.o
+             cc -o prog2 prog2.o
+     
+     prog3 : prog3.o sort.o utils.o
+             cc -o prog3 prog3.o sort.o utils.o
+</PRE>
+<P class=noindent>Now you can say just &#8216;<SAMP><SPAN class=samp>make</SPAN></SAMP>&#8217; to remake all three programs, or specify as arguments the ones to remake (as in &#8216;<SAMP><SPAN class=samp>make prog1 prog3</SPAN></SAMP>&#8217;). Phoniness is not inherited: the prerequisites of a phony target are not themselves phony, unless explicitly declared to be so. 
+<P>When one phony target is a prerequisite of another, it serves as a subroutine of the other. For example, here &#8216;<SAMP><SPAN class=samp>make cleanall</SPAN></SAMP>&#8217; will delete the object files, the difference files, and the file <SAMP><SPAN class=file>program</SPAN></SAMP>: <PRE class=example>     .PHONY: cleanall cleanobj cleandiff
+     
+     cleanall : cleanobj cleandiff
+             rm program
+     
+     cleanobj :
+             rm *.o
+     
+     cleandiff :
+             rm *.diff
+</PRE>

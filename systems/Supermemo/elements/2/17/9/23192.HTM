@@ -1,0 +1,129 @@
+<H2 id=title-ID0ER2AO class=docAppendixTitle>Appendix A. Linux Assembly</H2>
+<P class=docText></P><A name=app01sb01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<P class=docText><A name=iddle1129></A><A name=iddle1131></A><A name=iddle1133></A><A name=iddle1134></A><A name=iddle1135></A><A name=iddle1316></A><A name=iddle2124></A><A name=iddle2151></A><A name=iddle2367></A><A name=iddle2764></A><A name=iddle2766></A><A name=iddle2768></A><A name=iddle2769></A><A name=iddle2770></A><A name=iddle2905></A><A name=iddle2991></A><A name=iddle3197></A><A name=iddle3244></A><A name="Device drivers"></A>Device drivers sometimes need to implement some code snippets in assembly, so let's take a look at the different facets of assembly programming on Linux.</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app01.html#app01fig01">Figure A.1</A><A name="Linux boot"></A> shows the Linux boot sequence on a PC-compatible system and is a simpler version of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec1.html#ch02fig01">Figure 2.1</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02.html#ch02">Chapter 2</A><A name="firmware components"></A>, "A Peek Inside the Kernel." The firmware components in the figure are implemented using different assembly syntaxes:</P>
+<UL>
+<LI>
+<P class=docList><A name="typically written"></A>The BIOS is typically written wholly in assembly. Some of the popular PC BIOSes are coded using assemblers such as the <SPAN class=docEmphasis>Microsoft Macro Assembler</SPAN> (MASM).</P></LI>
+<LI>
+<P class=docList><A name="a mix"></A>Linux bootloaders such as LILO and GRUB are implemented using a mix of C and assembly. The SYSLINUX bootloader is entirely written in assembly using the <SPAN class=docEmphasis>Netwide Assembler</SPAN> (NASM).</P></LI>
+<LI>
+<P class=docList><A name="code uses"></A>Real mode Linux startup code uses the <SPAN class=docEmphasis>GNU Assembler</SPAN> (GAS).</P></LI>
+<LI>
+<P class=docList>Protected mode BIOS invocations are done in <SPAN class=docEmphasis>inline assembly</SPAN><A name="to insert"></A>, which is a construct supported by GCC to insert assembly in between C statements.</P></LI></UL><A name=app01fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure A.1. Firmware components and assembly syntaxes.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/MjltNHJhaS9kNy8zY3JncDA4dHMvOTMxZTZhZzU1LjFpYWYvcGdoaWZjaXMwMWc-.jpg" width=325 height=307></P></CENTER>
+<P></P><BR>
+<P class=docText>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/app01.html#app01fig01">Figure A.1</A><A name="follow Intel"></A>, the top two components generally follow Intel-based assembly syntax, whereas the bottom two are coded in AT&amp;T (or GAS) syntax. There are exceptions; the assembly parts of GRUB use GAS.</P>
+<P class=docText><A name=iddle1001></A><A name=iddle1002></A><A name=iddle1843></A><A name=iddle3554></A><A name="code that"></A>To illustrate the differences between these two syntaxes, consider code that outputs a byte to the parallel port. In Intel format used by the BIOS or the bootloader, you would write the following:</P>
+<DIV class=docText><PRE>mov dx, 03BCh   ;0x3BC is the I/O address of the parallel port
+mov al, 0ABh    ;0xAB is the data to be output
+out dx, al      ;Send data to the parallel port</PRE></DIV><BR>
+<P class=docText><A name="task from"></A>However, if you want to perform the same task from Linux real mode startup code, you need to do this:</P>
+<DIV class=docText><PRE>movw $0x3BC, %dx
+movb $0xAB,  %al
+outb %al,    %dx</PRE></DIV><BR>
+<P class=docText><A name="You can"></A>You can see that unlike in Intel format, in AT&amp;T syntax, the source operand comes first, and the destination operand comes second. Register names in AT&amp;T format are preceded by <TT>%</TT><A name="operands are"></A>, and immediate operands are preceded by <TT>$</TT><A name=as></A>. AT&amp;T opcodes have suffixes such as <TT>b</TT> (for byte) and <TT>w</TT><A name="size of"></A> (for word) to specify the size of memory operands, whereas Intel syntax accomplishes this by looking at the operands rather than the opcodes. To move pointer references in Intel syntax, you have to specify operand prefixes such as <TT>byte ptr</TT>.</P><A name=app01note01></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="and inline"></A>The advantage of learning AT&amp;T syntax is that it's understood by GAS and inline GCC, which work not only on Intel-based systems, but also on a variety of processor architectures.</P>
+<P></P></DIV><BR>
+<P class=docText><A name="using GCC"></A>Next, let's rewrite the preceding snippet using GCC inline assembly, which is what you would use from the protected mode kernel:</P>
+<DIV class=docText><PRE>unsigned short port = 0x3BC;
+unsigned char data  = 0xAB;
+
+asm("outb %%al,    %%dx\n\t"
+      :
+      : "a" (data), "d" (port)
+   );</PRE></DIV><BR>
+<P class=docText><A name=iddle1127></A><A name=iddle2127></A><A name=iddle3639></A><A name=iddle4202></A>The general format of the <TT>asm</TT> construct supported by GCC is as follows:</P>
+<DIV class=docText><PRE>asm(assembly
+      : output operand constraints
+      : input operand constraints
+      : clobbered operand specifier
+   );</PRE></DIV><BR>
+<P class=docText>In the operand sections, <TT>a</TT>, <TT>b</TT>, <TT>c</TT>, <TT>d</TT>, <TT>S</TT>, and <TT>D</TT> stand for <TT>EAX</TT>, <TT>EBX</TT>, <TT>ECX</TT>, <TT>EDX</TT>, <TT>ESI</TT>, and <TT>EDI</TT><A name="supplied variables"></A> registers, respectively. Input operand constraints copy data from the supplied variables to the specified registers before executing the assembly instructions, whereas output operand constraints (written as <TT>=a</TT>, <TT>=b</TT><A name="the specified"></A>, and so on) copy data from the specified registers to the supplied variables after executing the assembly instructions. The clobbered operand constraints ask GCC to assume that the listed registers are not available for use. Look at the GCC Inline Assembly HOWTO (<A class=docLink href="http://www.ibiblio.org/gferg/ldp/GCC-Inline-Assembly-HOWTO.html" target=_blank>www.ibiblio.org/gferg/ldp/GCC-Inline-Assembly-HOWTO.html</A>) for more details on the GCC inline assembly syntax.</P>
+<P class=docText><A name="specific to"></A>The only constraint used in our example is specific to input operands. This effectively copies the value of <TT>data</TT> to the <TT>AL</TT> register and the value of <TT>port</TT> to the <TT>DX</TT> register. Register names are preceded by <TT>%%</TT> in inline assembly, because <TT>%</TT> is used to refer to the supplied operands. <TT>%i</TT> stands for the <SPAN class=docEmphasis>i</SPAN><SUP>th</SUP> operand; so, if you want to refer to <TT>data</TT> and <TT>port</TT><A name="respectively use"></A> inside the example inline assembly snippet, you may respectively use <TT>%0</TT><A name=and></A> and <TT>%1</TT>.</P>
+<P class=docText><A name="a clearer"></A>To obtain a clearer picture of inline assembly translation, let's look at the assembly code generated by the compiler corresponding to the preceding inline assembly snippet by supplying the <TT>-s</TT><A name="the comment"></A> command-line argument to GCC. Look at the comment against each generated code line for explanations:</P>
+<DIV class=docText><PRE>    movw $956, -2(%ebp)  # Value of <SPAN class=docEmphasis>data</SPAN> in stack set to 0x3BC
+    movb $-85, -3(%ebp)  # Value of <SPAN class=docEmphasis>port</SPAN> in stack set to 0xAB
+    movb -3(%ebp), %al   # movb 0xAB,  %al
+    movw -2(%ebp), %dx   # movw 0x3BC, %dx
+#APP                     # Marker to note start of inline assembly
+    outb %al, %dx        # Write to parallel port
+#NO_APP                  # Marker to note end of inline assembly</PRE></DIV><BR>
+<P class=docText><A name="inline assembly"></A>You may use inline assembly from user mode programs, too. Here is an application written using inline assembly that invokes the <TT>syslog()</TT> system call to read the last 128 bytes from the kernel <TT>printk()</TT> ring buffer:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#define READ_COMMAND   3    /* First argument to
+                               syslog() system call */
+#define MSG_LENGTH     128  /* Third argument to syslog() */
+
+int
+main(int argc, char *argv[])
+{
+  int syslog_command = READ_COMMAND;
+  int bytes_to_read  = MSG_LENGTH;
+  int retval;
+  char buffer[MSG_LENGTH]; /* Second argument to syslog() */
+
+  asm volatile(
+              "movl %1, %%ebx\n"     /* READ_COMMAND */
+              "movl %2, %%ecx\n"     /* buffer */
+              "movl %3, %%edx\n"     /* bytes_to_read */
+              "movl $103, %%eax\n"   /* __NR_syslog */
+              "int $128\n"           /* Generate System Call */
+              "movl %%eax, %0"       /* retval */
+              :"=r" (retval)
+              :"m"(syslog_command),"r"(buffer),"m"(bytes_to_read)
+              :"%eax","%ebx","%ecx","%edx");
+
+  if (retval &gt; 0) printf("%s\n", buffer);
+}
+
+					  </PRE></DIV><BR>
+<P class=docText>As you learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A>, "Laying the Groundwork," the <TT>int $128</TT> (or <TT>int 0x80</TT><A name="system calls"></A>) instruction generates a software interrupt that traps into system calls. Because system calls result in transition from user mode to kernel mode, the function arguments are not passed in user or kernel stacks, but in CPU registers. The system call number (<SPAN class=docEmphasis>include/asm-your-arch/unistd.h</SPAN><A name="stored in"></A> has the full list) is stored in the <TT>EAX</TT> register. For the <TT>syslog()</TT><A name="at the"></A> system call, this number is 103. If you look at the man page for <TT>syslog()</TT><A name="takes three"></A>, you will see that it takes three arguments: a command, the address of a buffer to hold returned data, and the length of the buffer. These are passed in registers <TT>EBX</TT>, <TT>ECX</TT> and <TT>EDX</TT>, respectively. The return value is transferred from <TT>EAX</TT> to <TT>retval</TT>. The inline assembly invocation effectively translates to this:</P>
+<DIV class=docText><PRE>retval = syslog(syslog_command, buffer, bytes_to_read);</PRE></DIV><BR>
+<P class=docText><A name=iddle1128></A><A name=iddle1201></A><A name=iddle1209></A><A name=iddle1645></A><A name=iddle1659></A><A name=iddle2241></A><A name=iddle2410></A><A name="see output"></A>If you compile and run the code, you will see output like this, fetched from the kernel ring buffer:</P>
+<DIV class=docText><PRE>0:0:0:0: Attached scsi removable disk sda
+&lt;5&gt;sd 0:0:0:0: Attached scsi generic sg0 type 0
+&lt;7&gt;usb-storage: device scan complete
+...</PRE></DIV><BR>
+<P class=docText>The kernel system call trap in <SPAN class=docEmphasis>arch/x86/kernel/entry_32.S</SPAN><A name="real system"></A> saves all register contents to stack, so the real system calls see their arguments on stack, even though user-space code passes them in CPU registers. To ensure that system call routines expect arguments on stack, they are all tagged with the GCC attribute, <TT>asmlinkage</TT><A name="Note that"></A>. Note that <TT>asmlinkage</TT><A name="to do"></A> has nothing to do with the <TT>asm</TT> (or <TT>__asm__</TT><A name="declare inline"></A>) that is used to declare inline assembly.</P>
+<P class=docText><A name="by illustrating"></A>Let's end this section by illustrating an example of inline assembly modification to a Linux bootloader for a PowerPC-based board. Assume that the flash memory on the board does not support <SPAN class=docEmphasis>BackGround Operation</SPAN><A name="while executing"></A> (BGO). This means that the bootloader code cannot write to flash while executing from flash, which is needed, for example, if the bootloader needs to update a kernel image that is residing in another part of the flash. One solution is to modify the bootloader so that the boot code used to write and erase the flash gets executed entirely from <SPAN class=docEmphasis>Instruction Cache</SPAN><A name="residing in"></A> (I-cache) with the data segment residing in <SPAN class=docEmphasis>Data Cache</SPAN><A name="inline assembly"></A> (D-cache). The sample macro written here in GCC inline assembly does the job of pretouching the necessary bootloader instructions onto I-cache. You need a working knowledge of PowerPC assembly to understand this code snippet:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* instr_length is the number of instructions to touch
+   into I-cache. _load_i$_copy and _end_i$_copy are
+   program labels */
+#define load_into_icache_copy(instr_length)        \
+asm volatile("lis     %%r3, 0x1@h\n                \
+              ori     %%r3, %%r3, 0x1@l\n          \
+              mticcr  %%r3\n                       \
+              isync\n                              \
+              \n                                   \
+              lis     %%r6, _end_i$_copy@h\n       \
+              ori     %%r6, %%r6, _end_i$_copy@l\n \
+              icbt    %%r0, %%r6\n                 \
+              lis     %%r4, %0@h\n                 \
+              ori     %%r4, %%r4, %0@l\n           \
+              mtctr   %%r4\n                       \
+      _load_i$_copy:                               \
+              addis   %%r6, %%r6, 32@ha\n          \
+              addi    %%r6, %%r6, 32@l\n           \
+              icbt    %%r0, %%r6\n                 \
+              bdnz    _load_i$_copy\n              \
+      _end_i$_copy:                                \
+              nop\n"                               \
+      :                                            \
+      : "i"(instr_length)                          \
+      :"%r6","%r4","%r0","r8","r9");
+
+					  </PRE></DIV><BR><A name=app01lev1sec1></A>
+<H3 id=-100000 class=docSection1Title>Debugging</H3>
+<P class=docText><A name=iddle1130></A><A name=iddle1691></A><A name=iddle1719></A><A name=iddle1736></A><A name=iddle1848></A><A name=iddle2511></A><A name=iddle2765></A><A name="you cannot"></A>To debug the real mode kernel, you cannot use debuggers such as the <SPAN class=docEmphasis>Kernel Debugger</SPAN> (kdb) or the <SPAN class=docEmphasis>Kernel GNU Debugger</SPAN> (kgdb), which we discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21">Chapter 21</A><A name="snippets is"></A>, "Debugging Device Drivers." A quick way to debug kernel assembly snippets is by using the DOS <SPAN class=docEmphasis>debug</SPAN> tool after converting your code to Intel-style syntax. But <SPAN class=docEmphasis>debug</SPAN><A name="step through"></A> was created in the 16-bit era, so you can't, for instance, step through code that initializes the <TT>EAX</TT><A name="You can"></A> register. You can find 32-bit <SPAN class=docEmphasis>debug</SPAN><A name="available for"></A>-type freeware tools available for download on the Internet. JTAG debuggers, also discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21">Chapter 21</A><A name="panacea because"></A>, are a kind of panacea because a single tool can be used to debug the BIOS, bootloader, Linux real mode code, and kernel-BIOS interactions.

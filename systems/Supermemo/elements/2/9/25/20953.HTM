@@ -1,0 +1,16 @@
+--- 3.2 Separate Kbuild File and Makefile 
+<P></P>
+<P>&nbsp;In newer versions of the kernel, kbuild will first look for a<BR>&nbsp;file named "Kbuild," and only if that is not found, will it<BR>&nbsp;then look for a makefile. Utilizing a "Kbuild" file allows us<BR>&nbsp;to split up the makefile from example 1 into two files:</P>
+<P>&nbsp;Example 2:<BR>&nbsp;&nbsp;--&gt; filename: Kbuild<BR>&nbsp;&nbsp;obj-m&nbsp; := 8123.o<BR>&nbsp;&nbsp;8123-y := 8123_if.o 8123_pci.o 8123_bin.o</P>
+<P>&nbsp;&nbsp;--&gt; filename: Makefile<BR>&nbsp;&nbsp;KDIR ?= /lib/modules/`uname -r`/build</P>
+<P>&nbsp;&nbsp;default:<BR>&nbsp;&nbsp;&nbsp;$(MAKE) -C $(KDIR) M=$$PWD</P>
+<P>&nbsp;&nbsp;# Module specific targets<BR>&nbsp;&nbsp;genbin:<BR>&nbsp;&nbsp;&nbsp;echo "X" &gt; 8123_bin.o_shipped</P>
+<P>&nbsp;The split in example 2 is questionable due to the simplicity of<BR>&nbsp;each file; however, some external modules use makefiles<BR>&nbsp;consisting of several hundred lines, and here it really pays<BR>&nbsp;off to separate the kbuild part from the rest.</P>
+<P>&nbsp;The next example shows a backward compatible version.</P>
+<P>&nbsp;Example 3:<BR>&nbsp;&nbsp;--&gt; filename: Kbuild<BR>&nbsp;&nbsp;obj-m&nbsp; := 8123.o<BR>&nbsp;&nbsp;8123-y := 8123_if.o 8123_pci.o 8123_bin.o</P>
+<P>&nbsp;&nbsp;--&gt; filename: Makefile<BR>&nbsp;&nbsp;ifneq ($(KERNELRELEASE),)<BR>&nbsp;&nbsp;# kbuild part of makefile<BR>&nbsp;&nbsp;include Kbuild</P>
+<P>&nbsp;&nbsp;else<BR>&nbsp;&nbsp;# normal makefile<BR>&nbsp;&nbsp;KDIR ?= /lib/modules/`uname -r`/build</P>
+<P>&nbsp;&nbsp;default:<BR>&nbsp;&nbsp;&nbsp;$(MAKE) -C $(KDIR) M=$$PWD</P>
+<P>&nbsp;&nbsp;# Module specific targets<BR>&nbsp;&nbsp;genbin:<BR>&nbsp;&nbsp;&nbsp;echo "X" &gt; 8123_bin.o_shipped</P>
+<P>&nbsp;&nbsp;endif</P>
+<P>&nbsp;Here the "Kbuild" file is included from the makefile. This<BR>&nbsp;allows an older version of kbuild, which only knows of<BR>&nbsp;makefiles, to be used when the "make" and kbuild parts are<BR>&nbsp;split into separate files.

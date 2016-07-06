@@ -1,0 +1,255 @@
+<H3 id=700181-978 class=docSection1Title>5.1. Composite Kernel Image: Piggy and Friends</H3>
+<P class=docText>At power-on, the bootloader in an embedded system is first to get processor control. After the bootloader has performed some low-level hardware initialization, control is passed to the Linux kernel. This can be a manual sequence of events to facilitate the development process (for example, the user types interactive load/boot commands at the bootloader prompt), or an automated startup sequence typical of a production environment. We have dedicated <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>, "Bootloaders," to this subject, so we defer any detailed bootloader discussion to that chapter.</P>
+<P class=docText>In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04.html#ch04">Chapter 4</A>, "The Linux Kernel: A Different Perspective," we examined the components that make up the Linux kernel image. Recall that one of the common files built for every architecture is the ELF binary named <TT>vmlinux</TT>. This binary file is the monolithic kernel itself, or what we have been calling the <SPAN class=docEmphasis>kernel proper</SPAN>. In fact, when we looked at its construction in the link stage of <TT>vmlinux</TT>, we pointed out where we might look to see where the first line of code might be found. In most architectures, it is found in an assembly language source file called <TT>head.S</TT> or similar. In the PowerPC (<TT>ppc</TT>) branch of the kernel, several versions of <TT>head.S</TT> are present, depending on the processor. For example, the AMCC 440 series processors are initialized from a file called <TT>head_44x.S</TT>.</P>
+<P class=docText>Some architectures and bootloaders are capable of directly booting the <TT>vmlinux</TT> kernel image. For example, platforms based on PowerPC architecture and the <A name=iddle1907></A>U-Boot bootloader can usually boot the <TT>vmlinux</TT> image directly<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch051">[1]</A></SUP>(after conversion from ELF to binary, as you will shortly see). In other combinations of architecture and bootloader, additional functionality might be needed to set up the proper context and provide the necessary utilities for loading and booting the kernel.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch051>[1]</A></SUP> The kernel image is nearly always stored in compressed format, unless boot time is a critical issue. In this case, the image might be called uImage, a compressed vmlinux file with a U-Boot header. See <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>,"Bootloaders."</P></BLOCKQUOTE>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list01">Listing 5-1</A> details the final sequence of steps in the kernel build process for a hardware platform based on the ADI Engineering Coyote Reference Platform, which contains an Intel IXP425 network processor. This listing uses the quiet form of output from the kernel build system, which is the default. As pointed out in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04.html#ch04">Chapter 4</A>, it is a useful shorthand notation, allowing more focus on errors and warnings during the build.</P><A name=ch05list01></A>
+<H5 id=title-IDAPFC3D class=docExampleTitle>Listing 5-1. Final Kernel Build Sequence: ARM/IXP425 (Coyote)</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ make ARCH=arm CROSS_COMPILE=xscale_be- zImage
+...   <SPAN class=docEmphasis>&lt; many build steps omitted for clarity&gt;</SPAN>
+  LD          vmlinux
+  SYSMAP      System.map
+  OBJCOPY     arch/arm/boot/Image
+  Kernel:     arch/arm/boot/Image is ready
+  AS          arch/arm/boot/compressed/head.o
+  GZIP        arch/arm/boot/compressed/piggy.gz
+  AS          arch/arm/boot/compressed/piggy.o
+  CC          arch/arm/boot/compressed/misc.o
+  AS          arch/arm/boot/compressed/head-xscale.o
+  AS          arch/arm/boot/compressed/big-endian.o
+  LD          arch/arm/boot/compressed/vmlinux
+  OBJCOPY     arch/arm/boot/zImage
+  Kernel:     arch/arm/boot/zImage is ready
+  Building modules, stage 2.
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>In the third line of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list01">Listing 5-1</A>, the <TT>vmlinux</TT> image (the kernel proper) is linked. Following that, a number of additional object modules are processed. These include <TT>head.o</TT>, <TT>piggy.o</TT>,<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05fn02">[2]</A></SUP> and the architecture-specific <TT>head-xscale.o</TT>, among others. (The tags identify what is happening on each line. For example, AS indicates that the assembler is invoked, GZIP indicates compression, and so on.) In general, these object modules are specific to a given architecture (ARM/XScale, in this example) and contain low-level utility routines needed to boot the kernel on this particular architecture. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05table01">Table 5-1</A> details the components from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list01">Listing 5-1</A>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn02>[2]</A></SUP> The term <SPAN class=docEmphasis>piggy</SPAN> was originally used to describe a "piggy-back" concept. In this case, the binary kernel image is piggy-backed onto the bootstrap loader to produce the composite kernel image.</P></BLOCKQUOTE><A name=ch05table01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 5-1. ARM/XScale Low-Level Architecture Objects</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=150>
+<COL width=350></COLGROUP>
+<THEAD>
+<TR>
+<TH class="bottomBorder thead" vAlign=top scope=col align=left>
+<P class=docText>Component</P></TH>
+<TH class="bottomBorder thead" vAlign=top scope=col align=left>
+<P class=docText>Function/Description</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>vmlinux</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Kernel proper, in ELF format, including symbols, comments, debug info (if compiled with <TT>-g</TT>) and architecture-generic components.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>System.map</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Text-based kernel symbol table for <TT>vmlinux module</TT>.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>Image</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Binary kernel module, stripped of symbols, notes, and comments.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>head.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>ARM-specific startup code generic to ARM processors. It is this object that is passed control by the bootloader.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>piggy.gz</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>The file <TT>Image</TT> compressed with gzip.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>piggy.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>The file <TT>piggy.gz</TT> in assembly language format so it can be linked with a subsequent object, <TT>misc.o</TT> (see the text).</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>misc.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Routines used for decompressing the kernel image (<TT>piggy.gz</TT>), and the source of the familiar boot message: "Uncompressing Linux &#8230; Done" on some architectures.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>head-xscale.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Processor initialization specific to the XScale processor family.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>big-endian.o</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Tiny assembly language routine to switch the XScale processor into big-endian mode.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>vmlinux</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Composite kernel image. Note this is an unfortunate choice of names, because it duplicates the name for the kernel proper; the two are not the same. This binary image is the result when the kernel proper is linked with the objects in this table. See the text for an explanation.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>zImage</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Final composite kernel image loaded by bootloader. See the following text.</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>An illustration will help you understand this structure and the following discussion. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05fig01">Figure 5-1</A> shows the image components and their metamorphosis during the build process leading up to a bootable kernel image. The following sections describe the components and process in detail.</P>
+<P class=docText></P><A name=ch05fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 5-1. Composite kernel image construction</H5>
+<P class=docText><IMG id=195131084202 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/05elp01.jpg" width=492 height=308></P></CENTER>
+<P></P><BR><A name=ch05lev2sec1></A>
+<H4 id=title-IDASOC3D class=docSection2Title>5.1.1. The Image Object</H4>
+<P class=docText><A name=iddle1147></A><A name=iddle1212></A><A name=iddle1604></A><A name=iddle1801></A><A name=iddle2623></A>After the <TT>vmlinux</TT> kernel ELF file has been built, the kernel build system continues to process the targets described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05table01">Table 5-1</A>. The <TT>Image</TT> object is created from the <TT>vmlinux</TT> object. <TT>Image</TT> is basically the <TT>vmlinux</TT> ELF file stripped of redundant sections (notes and comments) and also stripped of any debugging symbols that might have been present. The following command is used for this:</P>
+<DIV class=docText><PRE>xscale_be-objcopy -O binary -R .note -R .comment -S  \
+vmlinux arch/arm/boot/Image</PRE></DIV><BR>
+<P class=docText>In the previous <TT>objcopy</TT> command, the <TT>-O</TT> option tells <TT>objcopy</TT> to generate a binary file, the <TT>-R</TT> option removes the ELF sections named <TT>.note</TT> and <TT>.comment</TT>, and the <TT>-S</TT> option is the flag to strip debugging symbols. Notice that <TT>objcopy</TT> takes the <TT>vmlinux</TT> ELF image as input and generates the target binary file called <TT>Image</TT>. In summary, <TT>Image</TT> is nothing more than the kernel proper in binary form stripped of debug symbols and the <TT>.note</TT> and <TT>.comment</TT> ELF sections.</P><A name=ch05lev2sec2></A>
+<H4 id=title-IDATSC3D class=docSection2Title>5.1.2. Architecture Objects</H4>
+<P class=docText><A name=iddle1044></A><A name=iddle1144></A><A name=iddle1209></A><A name=iddle1798></A><A name=iddle1845></A><A name=iddle2620></A>Following the build sequence further, a number of small modules are compiled. These include several assembly language files (<TT>head.o</TT>, <TT>head-xscale.o</TT>, and so on) that perform low-level architecture and processor-specific tasks. Each of these objects is summarized in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05table01">Table 5-1</A>. Of particular note is the sequence creating the object called <TT>piggy.o</TT>. First, the <TT>Image</TT> file (binary kernel image) is compressed using this gzip command:</P>
+<DIV class=docText><PRE>gzip -f -9 &lt; Image &gt; piggy.gz</PRE></DIV><BR>
+<P class=docText>This creates a new file called <TT>piggy.gz</TT>, which is simply a compressed version of the binary kernel <TT>Image</TT>. You can see this graphically in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05fig01">Figure 5-1</A>. What follows next is rather interesting. An assembly language file called <TT>piggy.S</TT> is assembled, which contains a reference to the compressed <TT>piggy.gz</TT>. In essence, the binary kernel image is being piggybacked into a low-level assembly language <SPAN class=docEmphasis>bootstrap loader</SPAN>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05fn03">[3]</A></SUP> This bootstrap loader initializes the processor and required memory regions, decompresses the binary kernel image, and loads it into the proper place in system memory before passing control to it. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list02">Listing 5-2</A> reproduces <TT>.../arch/arm/boot/compressed/piggy.S</TT> in its entirety.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch05fn03>[3]</A></SUP> Not to be confused with the bootloader, a bootstrap loader can be considered a second-stage loader, where the bootloader itself can be thought of as a first-stage loader.</P></BLOCKQUOTE><A name=ch05list02></A>
+<H5 id=title-IDA1WC3D class=docExampleTitle>Listing 5-2. Assembly File <TT>Piggy.S</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>  .section .piggydata,#alloc
+  .globl    input_data
+input_data:
+  .incbin  "arch/arm/boot/compressed/piggy.gz"
+  .globl   input_data_end
+input_data_end:</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This small assembly language file is simple yet produces a complexity that is not immediately obvious. The purpose of this file is to cause the compressed, binary kernel image to be emitted by the assembler as an ELF section called <TT>.piggydata</TT>. It is triggered by the <TT>.incbin</TT> assembler preprocessor directive, which can be viewed as the assembler's version of a <TT>#include</TT> file. In summary, the net result of this assembly language file is to contain the compressed binary kernel image as a <A name=iddle1095></A><A name=iddle1131></A><A name=iddle1146></A><A name=iddle1211></A><A name=iddle1800></A><A name=iddle2622></A>payload within another imagethe bootstrap loader. Notice the labels <TT>input_data</TT> and <TT>input_data_end</TT>. The bootstrap loader uses these to identify the boundaries of the binary payload, the kernel image.</P><A name=ch05lev2sec3></A>
+<H4 id=title-IDAB0C3D class=docSection2Title>5.1.3. Bootstrap Loader</H4>
+<P class=docText>Not to be confused with a bootloader, many architectures use a <SPAN class=docEmphasis>bootstrap loader</SPAN> (or second-stage loader) to load the Linux kernel image into memory. Some bootstrap loaders perform checksum verification of the kernel image, and most perform decompression and relocation of the kernel image. The difference between a bootloader and a bootstrap loader in this context is simple: The bootloader controls the board upon power-up and does not rely on the Linux kernel in any way. In contrast, the bootstrap loader's primary purpose in life is to act as the <SPAN class=docEmphasis>glue</SPAN> between a board-level bootloader and the Linux kernel. It is the bootstrap loader's responsibility to provide a proper context for the kernel to run in, as well as perform the necessary steps to decompress and relocate the kernel binary image. It is similar to the concept of a primary and secondary loader found in the PC architecture.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05fig02">Figure 5-2</A> makes this concept clear. The bootstrap loader is concatenated to the kernel image for loading.</P><A name=ch05fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 5-2. Composite kernel image for ARM XScale</H5>
+<P class=docText><IMG id=195131084202 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/05elp02.jpg" width=162 height=253></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1083></A><A name=iddle1145></A><A name=iddle1210></A><A name=iddle1799></A><A name=iddle1959></A><A name=iddle2082></A><A name=iddle2621></A>In the example we have been studying, the bootstrap loader consists of the binary images shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05fig02">Figure 5-2</A>. The functions performed by this bootstrap loader include the following:</P>
+<UL>
+<LI>
+<P class=docList>Low-level assembly processor initialization, which includes support for enabling the processor's internal instruction and data caches, disabling interrupts, and setting up a C runtime environment. These include <TT>head.o</TT> and <TT>head-xscale.o</TT>.</P></LI>
+<LI>
+<P class=docList>Decompression and relocation code, embodied in <TT>misc.o</TT>.</P></LI>
+<LI>
+<P class=docList>Other processor-specific initialization, such as <TT>big-endian.o</TT>, which enables the big endian mode for this particular processor.</P></LI></UL>
+<P class=docText>It is worth noting that the details we have been examining in the preceding sections are specific to the ARM/XScale kernel implementation. Each architecture has different details, although the concepts are similar. Using a similar analysis to that presented here, you can learn the requirements of your own architecture.</P><A name=ch05lev2sec4></A>
+<H4 id=title-IDAC5C3D class=docSection2Title>5.1.4. Boot Messages</H4>
+<P class=docText>Perhaps you've seen a PC workstation booting a desktop Linux distribution such as Red Hat or SUSE Linux. After the PC's own BIOS messages, you see a flurry of console messages being displayed by Linux as it initializes the various kernel subsystems. Significant portions of the output are common across disparate architectures and machines. Two of the more interesting early boot messages are the kernel version string and the <SPAN class=docEmphasis>kernel command line</SPAN>, which is detailed shortly. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A> reproduces the kernel boot messages for the ADI Engineering Coyote Reference Platform booting Linux on the Intel XScale IXP425 processor. The listing has been formatted with line numbers for easy reference.</P><A name=ch05list03></A>
+<H5 id=title-IDA25C3D class=docExampleTitle>Listing 5-3. Linux Boot Messages on IPX425</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><A name=PLID4></A>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#PLID4">[View full width]</A></DIV><PRE>1 Uncompressing Linux... done, booting the kernel.
+2 Linux version 2.6.14-clh (chris@pluto) (gcc version 3.4.3 (MontaVista 3.4.3-25.0.30
+<IMG  src="" border=0 alt="" width=14 align=left height=9>.0501131 2005-07-23)) #11 Sat Mar 25 11:16:33 EST 2006
+3 CPU: XScale-IXP42x Family [690541c1] revision 1 (ARMv5TE)
+4 Machine: ADI Engineering Coyote
+5 Memory policy: ECC disabled, Data cache writeback
+6 CPU0: D VIVT undefined 5 cache
+7 CPU0: I cache: 32768 bytes, associativity 32, 32 byte lines, 32 sets
+8 CPU0: D cache: 32768 bytes, associativity 32, 32 byte lines, 32 sets
+9 Built 1 zonelists
+10 Kernel command line: console=ttyS0,115200 ip=bootp root=/dev/nfs
+11 PID hash table entries: 512 (order: 9, 8192 bytes)
+12 Console: colour dummy device 80x30
+13 Dentry cache hash table entries: 16384 (order: 4, 65536 bytes)
+14 Inode-cache hash table entries: 8192 (order: 3, 32768 bytes)
+15 Memory: 64MB = 64MB total
+16 Memory: 62592KB available (1727K code, 339K data, 112K init)
+17 Mount-cache hash table entries: 512
+18 CPU: Testing write buffer coherency: ok
+19 softlockup thread 0 started up.
+20 NET: Registered protocol family 16
+21 PCI: IXP4xx is host
+22 PCI: IXP4xx Using direct access for memory space
+23 PCI: bus0: Fast back to back transfers enabled
+24 dmabounce: registered device 0000:00:0f.0 on pci bus
+25 NetWinder Floating Point Emulator V0.97 (double precision)
+26 JFFS2 version 2.2. (NAND) (C) 2001-2003 Red Hat, Inc.
+27 Serial: 8250/16550 driver $Revision: 1.90 $ 2 ports, IRQ sharing disabled
+28 ttyS0 at MMIO 0xc8001000 (irq = 13) is a XScale
+29 io scheduler noop registered
+30 io scheduler anticipatory registered
+31 io scheduler deadline registered
+32 io scheduler cfq registered
+33 RAMDISK driver initialized: 16 RAM disks of 8192K size 1024 blocksize
+34 loop: loaded (max 8 devices)
+35 eepro100.c:v1.09j-t 9/29/99 Donald Becker http://www.scyld.com/network/eepro100.html
+36 eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by Andrey V. Savochkin &lt;saw@saw.sw
+<IMG  src="" border=0 alt="" width=14 align=left height=9>.com.sg&gt; and others
+37 eth0: 0000:00:0f.0, 00:0E:0C:00:82:F8, IRQ 28.
+38   Board assembly 741462-016, Physical connectors present: RJ45
+39   Primary interface chip i82555 PHY #1.
+40   General self-test: passed.
+41   Serial sub-system self-test: passed.
+42   Internal registers self-test: passed.
+43   ROM checksum self-test: passed (0x8b51f404).
+44 IXP4XX-Flash.0: Found 1 x16 devices at 0x0 in 16-bit bank
+45 Intel/Sharp Extended Query Table at 0x0031
+46 Using buffer write method
+47 cfi_cmdset_0001: Erase suspend on write enabled
+48 Searching for RedBoot partition table in IXP4XX-Flash.0 at offset 0xfe0000
+49 5 RedBoot partitions found on MTD device IXP4XX-Flash.0
+50 Creating 5 MTD partitions on "IXP4XX-Flash.0":
+51 0x00000000-0x00060000 : "RedBoot"
+52 0x00100000-0x00260000 : "MyKernel"
+53 0x00300000-0x00900000 : "RootFS"
+54 0x00fc0000-0x00fc1000 : "RedBoot config"
+55 mtd: partition "RedBoot config" doesn't end on an erase block -- force 
+<IMG  src="" border=0 alt="" width=14 align=left height=9>read-only0x00fe0000-0x01000000 : "FIS directory"
+56 NET: Registered protocol family 2
+57 IP route cache hash table entries: 1024 (order: 0, 4096 bytes)
+58 TCP established hash table entries: 4096 (order: 2, 16384 bytes)
+59 TCP bind hash table entries: 4096 (order: 2, 16384 bytes)
+60 TCP: Hash tables configured (established 4096 bind 4096)
+61 TCP reno registered
+62 TCP bic registered
+63 NET: Registered protocol family 1
+64 Sending BOOTP requests . OK
+65 IP-Config: Got BOOTP answer from 192.168.1.10, my address is 192.168.1.141
+66 IP-Config: Complete:
+67        device=eth0, addr=192.168.1.141, mask=255.255.255.0, gw=255.255.25
+5.255,
+68        host=192.168.1.141, domain=, nis-domain=(none),
+69        bootserver=192.168.1.10, rootserver=192.168.1.10,
+ rootpath=/home/chris/sandbox/coyote-target
+70 Looking up port of RPC 100003/2 on 192.168.1.10
+71 Looking up port of RPC 100005/1 on 192.168.1.10
+72 VFS: Mounted root (nfs filesystem).
+73 Freeing init memory: 112K
+74 Mounting proc
+75 Starting system loggers
+76 Configuring lo
+77 Starting inetd
+78 / #</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The kernel produces much useful information during startup, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A>. We study this output in some detail in the next few sections. Line 1 is produced by the bootstrap loader we presented earlier in this chapter. This message was produced by the decompression loader found in <TT>&#8230;/arch/arm/boot/compressed/misc.c</TT>.</P>
+<P class=docText>Line 2 of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A> is the kernel version string. It is the first line of output from the kernel itself. One of the first lines of C code executed by the kernel (in <TT>.../init/main.c</TT>) upon entering start_kernel() is as follows:</P>
+<DIV class=docText><PRE>printk(linux_banner);</PRE></DIV><BR>
+<P class=docText>This line produces the output just describedthe kernel version string, Line 2 of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A>. This version string contains a number of pertinent data points related to the kernel image:</P>
+<UL>
+<LI>
+<P class=docList>Kernel version: Linux version 2.6.10-clh</P></LI>
+<LI>
+<P class=docList>Username/machine name where kernel was compiled</P></LI>
+<LI>
+<P class=docList><A name=iddle1101></A><A name=iddle1140></A><A name=iddle1513></A><A name=iddle1636></A><A name=iddle1754></A>Toolchain info: gcc version 3.4.3, supplied by MontaVista Software</P></LI>
+<LI>
+<P class=docList>Build number</P></LI>
+<LI>
+<P class=docList>Date and time compiled</P></LI></UL>
+<P class=docText>This is useful information both during development and later in production. All but one of the entries are self-explanatory. The <SPAN class=docEmphasis>build number</SPAN> is simply a tool that the developers added to the version string to indicate that something more substantial than the date and time changed from one build to the next. It is a way for developers to keep track of the build in a generic and automatic fashion. You will notice in this example that this was the eleventh build in this series, as indicated by the <TT>#11</TT> on line 2 of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05lev1sec1.html#ch05list03">Listing 5-3</A>. The version string is stored in a hidden file in the top-level Linux directory and is called <TT>.version</TT>. It is automatically incremented by a build script found in <TT>.../scripts/mkversion</TT> and by the top-level makefile. In short, it is a version string that is automatically incremented whenever anything substantial in the kernel is rebuilt.

@@ -1,0 +1,32 @@
+# Documentation/RCU/NMI-RCU.txt
+<P></P>
+<P>Using RCU to Protect Dynamic NMI Handlers</P>
+<P></P>
+<P><BR>Although RCU is usually used to protect read-mostly data structures,<BR>it is possible to use RCU to provide dynamic non-maskable interrupt<BR>handlers, as well as dynamic irq handlers.&nbsp; This document describes<BR>how to do this, drawing loosely from Zwane Mwaikambo's NMI-timer<BR>work in "arch/x86/oprofile/nmi_timer_int.c" and in<BR>"arch/x86/kernel/traps.c".</P>
+<P>The relevant pieces of code are listed below, each followed by a<BR>brief explanation.</P>
+<P>&nbsp;static int dummy_nmi_callback(struct pt_regs *regs, int cpu)<BR>&nbsp;{<BR>&nbsp;&nbsp;return 0;<BR>&nbsp;}</P>
+<P>The dummy_nmi_callback() function is a "dummy" NMI handler that does<BR>nothing, but returns zero, thus saying that it did nothing, allowing<BR>the NMI handler to take the default machine-specific action.</P>
+<P>&nbsp;static nmi_callback_t nmi_callback = dummy_nmi_callback;</P>
+<P>This nmi_callback variable is a global function pointer to the current<BR>NMI handler.</P>
+<P>&nbsp;void do_nmi(struct pt_regs * regs, long error_code)<BR>&nbsp;{<BR>&nbsp;&nbsp;int cpu;</P>
+<P>&nbsp;&nbsp;nmi_enter();</P>
+<P>&nbsp;&nbsp;cpu = smp_processor_id();<BR>&nbsp;&nbsp;++nmi_count(cpu);</P>
+<P>&nbsp;&nbsp;if (!rcu_dereference_sched(nmi_callback)(regs, cpu))<BR>&nbsp;&nbsp;&nbsp;default_do_nmi(regs);</P>
+<P>&nbsp;&nbsp;nmi_exit();<BR>&nbsp;}</P>
+<P>The do_nmi() function processes each NMI.&nbsp; It first disables preemption<BR>in the same way that a hardware irq would, then increments the per-CPU<BR>count of NMIs.&nbsp; It then invokes the NMI handler stored in the nmi_callback<BR>function pointer.&nbsp; If this handler returns zero, do_nmi() invokes the<BR>default_do_nmi() function to handle a machine-specific NMI.&nbsp; Finally,<BR>preemption is restored.</P>
+<P>In theory, rcu_dereference_sched() is not needed, since this code runs<BR>only on i386, which in theory does not need rcu_dereference_sched()<BR>anyway.&nbsp; However, in practice it is a good documentation aid, particularly<BR>for anyone attempting to do something similar on Alpha or on systems<BR>with aggressive optimizing compilers.</P>
+<P>Quick Quiz:&nbsp; Why might the rcu_dereference_sched() be necessary on Alpha,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; given that the code referenced by the pointer is read-only?</P>
+<P><BR>Back to the discussion of NMI and RCU...</P>
+<P>&nbsp;void set_nmi_callback(nmi_callback_t callback)<BR>&nbsp;{<BR>&nbsp;&nbsp;rcu_assign_pointer(nmi_callback, callback);<BR>&nbsp;}</P>
+<P>The set_nmi_callback() function registers an NMI handler.&nbsp; Note that any<BR>data that is to be used by the callback must be initialized up -before-<BR>the call to set_nmi_callback().&nbsp; On architectures that do not order<BR>writes, the rcu_assign_pointer() ensures that the NMI handler sees the<BR>initialized values.</P>
+<P>&nbsp;void unset_nmi_callback(void)<BR>&nbsp;{<BR>&nbsp;&nbsp;rcu_assign_pointer(nmi_callback, dummy_nmi_callback);<BR>&nbsp;}</P>
+<P>This function unregisters an NMI handler, restoring the original<BR>dummy_nmi_handler().&nbsp; However, there may well be an NMI handler<BR>currently executing on some other CPU.&nbsp; We therefore cannot free<BR>up any data structures used by the old NMI handler until execution<BR>of it completes on all other CPUs.</P>
+<P>One way to accomplish this is via synchronize_sched(), perhaps as<BR>follows:</P>
+<P>&nbsp;unset_nmi_callback();<BR>&nbsp;synchronize_sched();<BR>&nbsp;kfree(my_nmi_data);</P>
+<P>This works because synchronize_sched() blocks until all CPUs complete<BR>any preemption-disabled segments of code that they were executing.<BR>Since NMI handlers disable preemption, synchronize_sched() is guaranteed<BR>not to return until all ongoing NMI handlers exit.&nbsp; It is therefore safe<BR>to free up the handler's data as soon as synchronize_sched() returns.</P>
+<P>Important note: for this to work, the architecture in question must<BR>invoke nmi_enter() and nmi_exit() on NMI entry and exit, respectively.</P>
+<P><BR>Answer to Quick Quiz</P>
+<P>&nbsp;Why might the rcu_dereference_sched() be necessary on Alpha, given<BR>&nbsp;that the code referenced by the pointer is read-only?</P>
+<P>&nbsp;Answer: The caller to set_nmi_callback() might well have<BR>&nbsp;&nbsp;initialized some data that is to be used by the new NMI<BR>&nbsp;&nbsp;handler.&nbsp; In this case, the rcu_dereference_sched() would<BR>&nbsp;&nbsp;be needed, because otherwise a CPU that received an NMI<BR>&nbsp;&nbsp;just after the new handler was set might see the pointer<BR>&nbsp;&nbsp;to the new NMI handler, but the old pre-initialized<BR>&nbsp;&nbsp;version of the handler's data.</P>
+<P>&nbsp;&nbsp;This same sad story can happen on other CPUs when using<BR>&nbsp;&nbsp;a compiler with aggressive pointer-value speculation<BR>&nbsp;&nbsp;optimizations.</P>
+<P>&nbsp;&nbsp;More important, the rcu_dereference_sched() makes it<BR>&nbsp;&nbsp;clear to someone reading the code that the pointer is<BR>&nbsp;&nbsp;being protected by RCU-sched.

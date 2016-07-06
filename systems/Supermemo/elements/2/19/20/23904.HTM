@@ -1,0 +1,61 @@
+<H4 id=title-ID0EUTPM class=docSection2Title>User Mode Helpers</H4>
+<P class=docText>Mykthread invokes <TT>run_umode_handler()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03.html#ch03ex01">Listing 3.1</A><A name="user space"></A> to notify user space about detected events:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* Called from Listing 3.1 */
+static void
+run_umode_handler(int event_id)
+{
+  int i = 0;
+  char *argv[2], *envp[4], *buffer = NULL;
+  int value;
+
+  argv[i++] = myevent_handler; /* Defined in
+                                  <SPAN class=docEmphasis>kernel/sysctl.c</SPAN> */
+
+  /* Fill in the id corresponding to the data structure
+     in trouble */
+  if (!(buffer = kmalloc(32, GFP_KERNEL))) return;
+  sprintf(buffer, "TROUBLED_DS=%d", event_id);
+
+  /* If no user mode handlers are found, return */
+  if (!argv[0]) return; argv[i] = 0;
+
+  /* Prepare the environment for <SPAN class=docEmphasis>/path/to/helper</SPAN> */
+  i = 0;
+  envp[i++] = "HOME=/";
+  envp[i++] = "PATH=/sbin:/usr/sbin:/bin:/usr/bin";
+  envp[i++] = buffer; envp[i]   = 0;
+
+  /* Execute the user mode program, <SPAN class=docEmphasis>/path/to/helper</SPAN> */
+  value = call_usermodehelper(argv[0], argv, envp, 0);
+
+  /* Check return values */
+  kfree(buffer);
+}
+
+					  </PRE></DIV><BR>
+<P class=docText><A name=iddle1362></A><A name=iddle1576></A><A name=iddle3781></A><A name=iddle4309></A><A name="kernel supports"></A>The kernel supports a mechanism for requesting user mode programs to help perform certain functions. <TT>run_umode_handler()</TT> uses this facility by invoking <TT>call_usermodehelper()</TT>.</P>
+<P class=docText><A name=by></A>You have to register the user mode program invoked by <TT>run_umode_handler()</TT> via a node in the <SPAN class=docEmphasis>/proc/sys/</SPAN> directory. To do so, make sure that <TT>CONFIG_SYSCTL</TT> (files that are part of the <SPAN class=docEmphasis>/proc/sys/</SPAN><A name=the></A> directory are collectively known as the <SPAN class=docEmphasis>sysctl</SPAN><A name="entry to"></A> interface) is enabled in your kernel configuration and add an entry to the <TT>kern_table</TT> array in <SPAN class=docEmphasis>kernel/sysctl.c</SPAN>:</P>
+<DIV class=docText><PRE>{
+  .ctl_name     = KERN_MYEVENT_HANDLER, /* Define in
+                                           <SPAN class=docEmphasis>include/linux/sysctl.h</SPAN> */
+  .procname     = "myevent_handler",
+  .data         = &amp;myevent_handler,
+  .maxlen       = 256,
+  .mode         = 0644,
+  .proc_handler = &amp;proc_dostring,
+  .strategy     = &amp;sysctl_string,
+},</PRE></DIV><BR>
+<P class=docText>This creates the node <SPAN class=docEmphasis>/proc/sys/kernel/myevent_handler</SPAN><A name="user mode"></A> in the process filesystem. To register your user mode helper, do the following:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; echo /path/to/helper &gt; /proc/sys/kernel/myevent_handler</SPAN></PRE></DIV><BR>
+<P class=docText>This results in <SPAN class=docEmphasis>/path/to/helper</SPAN> getting executed when mykthread invokes <TT>run_umode_handler()</TT>.</P>
+<P class=docText><A name="data structure"></A>Mykthread passes the identity of the troubled kernel data structure to the user mode helper through the environment variable <TT>TROUBLED_DS</TT><A name="helper can"></A>. The helper can be a simple script like the following that sends you an email alert containing the information it gleaned from its environment:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /path/to/helper</SPAN>
+#!/bin/bash
+echo Kernel datastructure $TROUBLED_DS is in trouble | mail -s Alert root</PRE></DIV><BR>
+<P class=docText><TT>call_usermodehelper()</TT><A name="root privileges"></A> has to be executed from process context and runs with root privileges. It's implemented using a work queue, which we will soon discuss.</P>
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR>
+<TD align=right>
+<DIV style="MARGIN-LEFT: 0.15in"><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec8.html"></A></DIV></TD></TR></TBODY></TABLE>

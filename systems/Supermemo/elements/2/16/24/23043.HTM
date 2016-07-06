@@ -1,0 +1,345 @@
+<H3 id=-100000 class=docSection1Title>Input Device Drivers</H3>
+<P class=docText><A name="turn our"></A>Let's turn our attention to drivers for common input devices such as keyboards, mice, and touch screens. But first, let's take a quick look at an off-the-shelf hardware access facility available to input drivers.</P><A name=ch07lev2sec2></A>
+<H4 id=title-ID0EU5OM class=docSection2Title>Serio</H4>
+<P class=docText><A name=iddle2392></A><A name=iddle2395></A><A name=iddle2652></A><A name=iddle2653></A><A name=iddle3403></A><A name=iddle3976></A><A name=iddle3977></A>The <SPAN class=docEmphasis>serio</SPAN><A name="library routines"></A> layer offers library routines to access legacy input hardware such as i8042-compatible keyboard controllers and the serial port. PS/2 keyboards and mice interface with the former, whereas serial touch controllers connect to the latter. To communicate with hardware serviced by serio, for example, to send a command to a PS/2 mouse, register prescribed callback routines with serio using <TT>serio_register_driver()</TT>.</P>
+<P class=docText><A name="add a"></A>To add a new driver as part of serio, register <TT>open()/close()/start()/stop()/write()</TT> entry points using <TT>serio_register_port ()</TT>. Look at <SPAN class=docEmphasis>drivers/input/serio/serport.c</SPAN> for an example.</P>
+<P class=docText>As you can see in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07fig01">Figure 7.1</A><A name="device drivers"></A>, serio is only one route to access low-level hardware. Several input device drivers instead rely on low-level support from bus layers such as USB or SPI.</P><A name=ch07lev2sec3></A>
+<H4 id=title-ID0E6BPM class=docSection2Title><FONT class=extract>Keyboards</FONT></H4>
+<P class=docText><A name="so on"></A><FONT class=extract>Keyboards come in different flavors&#37413;&#25869;egacy PS/2, USB, Bluetooth, Infrared, and so on. Each type has a specific input device driver, but all use the same keyboard event driver, thus ensuring a consistent interface to their users. The keyboard event driver, however, has a distinguishing feature compared to other event drivers: It passes data to another kernel subsystem (the tty layer), rather than to user space via <SPAN class=docEmphasis>/dev</SPAN> nodes.</FONT></P><A name=ch07lev3sec3></A>
+<H5 id=title-ID0EMCPM class=docSection3Title><FONT class=extract>PC Keyboards</FONT></H5>
+<P class=docText><A name="the processor"></A><FONT class=extract>The PC keyboard (also called PS/2 keyboard or AT keyboard) interfaces with the processor via an i8042-compatible keyboard controller. Desktops usually have a dedicated keyboard controller, but on laptops, keyboard interfacing is one of the responsibilities of a general-purpose embedded controller (see the section "</FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch20lev1sec3.html#ch20lev1sec3"><FONT class=extract>Embedded Controllers</FONT></A><FONT class=extract>" in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch20.html#ch20"><FONT class=extract>Chapter 20</FONT></A><A name="key on"></A><FONT class=extract>, "More Devices and Drivers"). When you press a key on a PC keyboard, this is the road it takes:</FONT></P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the keyboard"></A><FONT class=extract>The keyboard controller (or the embedded controller) scans and decodes the keyboard matrix and takes care of nuances such as key debouncing.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="keyboard device"></A><FONT class=extract>The keyboard device driver, with the help of serio, reads raw <SPAN class=docEmphasis>scancodes</SPAN></FONT><A name="difference between"></A><FONT class=extract> from the keyboard controller for each key press and release. The difference between a press and a release is in the most significant bit, which is set for the latter. A push on the "a" key, for example, yields a pair of scancodes, <TT>0x1e</TT></FONT><A name=and></A><FONT class=extract> and <TT>0x9e</TT>. Special keys </FONT><A name=iddle2655></A><A name=iddle2835></A><A name=iddle3996></A><A name=using></A><FONT class=extract>are escaped using <TT>0xE0</TT></FONT><A name="a jab"></A><FONT class=extract>, so a jab on the right-arrow key produces the sequence, (<TT>0xE0 0x4D 0xE0 0xCD</TT>). You may use the <SPAN class=docEmphasis>showkey</SPAN> utility to observe scancodes emanating from the controller (the <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF">symbol attaches explanations):</FONT></P>
+<DIV class=docText><PRE><FONT class=extract><SPAN class=docEmphStrong>bash&gt; showkey -s</SPAN>
+kb mode was UNICODE
+[ if you are trying this under X, it might not work since
+ the X server is also reading /dev/console ]
+
+ press any key (program terminates 10s after last
+ keypress)...
+ ...
+ 0x1e 0x9e <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> A push of the "a" key</FONT></PRE></DIV></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><FONT class=extract>The keyboard device driver converts received scancodes to <SPAN class=docEmphasis>keycodes</SPAN></FONT><A name="to the"></A><FONT class=extract>, based on the input mode. To see the keycode corresponding to the "a" key:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract><SPAN class=docEmphStrong>bash&gt; showkey</SPAN>
+...
+keycode 30 press   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> A push of the "a" key
+keycode 30 release <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Release of the "a" key</FONT></PRE></DIV>
+<P class=docList><A name="driver generates"></A><FONT class=extract>To report the keycode upstream, the driver generates an input event, which passes control to the keyboard event driver.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the loaded"></A><FONT class=extract>The keyboard event driver undertakes keycode translation depending on the loaded key map. (See man pages of <SPAN class=docEmphasis>loadkeys</SPAN> and the map files present in <SPAN class=docEmphasis>/lib/kbd/keymaps.</SPAN></FONT><A name="is tied"></A><FONT class=extract>) It checks whether the translated keycode is tied to actions such as switching the virtual console or rebooting the system. To glow the <TT>CAPSLOCK</TT> and <TT>NUMLOCK</TT></FONT><A name="to a"></A><FONT class=extract> LEDs instead of rebooting the system in response to a Ctrl+Alt+Del push, add the following to the Ctrl+Alt+Del handler of the keyboard event driver, <SPAN class=docEmphasis>drivers/char/keyboard.c</SPAN>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>static void fn_boot_it(struct vc_data *vc,
+
+                       struct pt_regs *regs)
+{
+<SPAN class=docEmphStrong>+  set_vc_kbd_led(kbd, VC_CAPSLOCK);</SPAN>
+<SPAN class=docEmphStrong>+  set_vc_kbd_led(kbd, VC_NUMLOCK);</SPAN>
+-  ctrl_alt_del();
+}</FONT></PRE></DIV></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle1284></A><A name=iddle2206></A><A name=iddle2234></A><A name=iddle2389></A><A name=iddle2399></A><A name=iddle2651></A><A name=iddle2654></A><A name=iddle4528></A><A name=iddle4529></A><A name="regular keys"></A><FONT class=extract>For regular keys, the translated keycode is sent to the associated virtual terminal and the <TT>N_TTY</TT> line discipline. (We discussed virtual terminals and line disciplines in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06"><FONT class=extract>Chapter 6</FONT></A><FONT class=extract>, "Serial Drivers.") This is done as follows by <SPAN class=docEmphasis>drivers/char/keyboard.c</SPAN>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>/* Add the keycode to flip buffer */
+tty_insert_flip_char(tty, keycode, 0);
+/* Schedule */
+con_schedule_flip(tty);</FONT></PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText><FONT class=extract>The <TT>N_TTY</TT></FONT><A name="it to"></A><FONT class=extract> line discipline processes the input thus received from the keyboard, echoes it to the virtual console, and lets user-space applications read characters from the <SPAN class=docEmphasis>/dev/ttyX</SPAN></FONT><A name="node connected"></A><FONT class=extract> node connected to the virtual terminal.</FONT></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07fig03"><FONT class=extract>Figure 7.3</FONT></A><A name="data flow"></A><FONT class=extract> shows the data flow from the time you push a key on your keyboard until the time it's echoed on your virtual console. The left half of the figure is hardware-specific, and the right half is generic. As per the design goal of the input subsystem, the underlying hardware interface is transparent to the keyboard event driver and the tty layer. The input core and the clearly defined event interfaces thus insulate input users from the intricacies of the hardware.</FONT></P><A name=ch07fig03></A>
+<P><FONT class=extract></FONT>
+<CENTER>
+<H5 class=docFigureTitle><A name="Data flow"></A><FONT class=extract>Figure 7.3. Data flow from a PS/2-compatible keyboard.</FONT></H5>
+<P class=docText><FONT class=extract></FONT>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmZpMHBhdGxfMC8zaGlnN2NzZ2ku.jpg" target=_blank><FONT class=extract>[View full size image]</FONT></A></DIV><FONT class=extract><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzNoaWc3c2M-.jpg" width=500 height=670> </FONT>
+<P></P></CENTER>
+<P><FONT class=extract></FONT></P><BR><A name=ch07lev3sec4></A>
+<H5 id=title-ID0EILPM class=docSection3Title><FONT class=extract>USB and Bluetooth Keyboards</FONT></H5>
+<P class=docText><FONT class=extract>The USB specifications related to <SPAN class=docEmphasis>human interface devices</SPAN></FONT><A name="use for"></A><FONT class=extract> (HID) stipulate the protocol that USB keyboards, mice, keypads, and other input peripherals use for communication. On Linux, this is implemented via the <SPAN class=docEmphasis>usbhid</SPAN></FONT><A name="for the"></A><FONT class=extract> USB client driver, which is responsible for the USB HID class (<TT>0x03</TT></FONT><A name="to the"></A><FONT class=extract>). Usbhid registers itself as an input device driver. It conforms to the input API and reports input events appropriate to the connected HID.</FONT></P>
+<P class=docText><A name="a USB"></A><FONT class=extract>To understand the code path for a USB keyboard, revert to </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07fig03"><FONT class=extract>Figure 7.3</FONT></A><A name="in the"></A><FONT class=extract> and modify the hardware-specific left half. Replace the keyboard controller in the Input Hardware box with a USB controller, serio with the USB core layer, and the Input Device Driver box with the usbhid driver.</FONT></P>
+<P class=docText><A name="a Bluetooth"></A><FONT class=extract>For a Bluetooth keyboard, replace the keyboard controller in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07fig03"><FONT class=extract>Figure 7.3</FONT></A><A name="Input Device"></A><FONT class=extract> with a Bluetooth chipset, serio with the Bluetooth core layer, and the Input Device Driver box with the Bluetooth hidp driver.</FONT></P>
+<P class=docText><A name="USB and"></A><FONT class=extract>USB and Bluetooth are discussed in detail in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11"><FONT class=extract>Chapter 11</FONT></A><FONT class=extract>, "Universal Serial Bus," and </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16"><FONT class=extract>Chapter 16</FONT></A><FONT class=extract>, "Linux Without Wires," respectively.</FONT></P><A name=ch07lev2sec4></A>
+<H4 id=title-ID0E4MPM class=docSection2Title>Mice</H4>
+<P class=docText><A name="with different"></A>Mice, like keyboards, come with different capabilities and have different interfacing options. Let's look at the common ones.</P><A name=ch07lev3sec5></A>
+<H5 id=title-ID0EJNPM class=docSection3Title>PS/2 Mice</H5>
+<P class=docText><A name=iddle2393></A><A name=iddle2394></A><A name=iddle2981></A><A name=iddle2982></A><A name=iddle3043></A><A name=iddle3675></A><A name=iddle3828></A><A name=iddle3829></A><A name="generate relative"></A>Mice generate relative movements in the X and Y axes. They also possess one or more buttons. Some have scroll wheels, too. The input device driver for PS/2-compatible legacy mice relies on the serio layer to talk to the underlying controller. The input event driver for mice, called <SPAN class=docEmphasis>mousedev</SPAN>, reports mouse events to user applications via <SPAN class=docEmphasis>/dev/input/mice</SPAN>.</P><A name=ch07lev3sec6></A>
+<H5 id=title-ID0EKQPM class=docSection3Title>Device Example: Roller Mouse</H5>
+<P class=docText><A name="the roller"></A>To get a feel of a real-world mouse device driver, let's convert the roller wheel discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="the generic"></A>, "Laying the Groundwork," into a variation of the generic PS/2 mouse. The "roller mouse" generates one-dimensional movement in the Y-axis. Clockwise and anticlockwise turns of the wheel produce positive and negative relative Y coordinates respectively (like the scroll wheel in mice), while pressing the roller wheel results in a left button mouse event. The roller mouse is thus ideal for navigating menus in devices such as smart phones, handhelds, and music players.</P>
+<P class=docText>The roller mouse device driver implemented in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07ex03">Listing 7.3</A> works with windowing systems such as X Windows. Look at <TT>roller_mouse_init()</TT><A name="roller wheel"></A> to see how the driver declares its mouse-like capabilities. Unlike the roller wheel driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex01">Listing 4.1</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A>, the roller mouse driver needs no <TT>read()</TT> or <TT>poll()</TT><A name="input APIs"></A> methods because events are reported using input APIs. The roller interrupt handler <TT>roller_isr()</TT><A name="the interrupt"></A> also changes accordingly. Gone are the housekeepings done in the interrupt handler using a wait queue, a spinlock, and the <TT>store_movement()</TT><A name="to support"></A> routine to support <TT>read()</TT> and <TT>poll()</TT>.</P>
+<P class=docText>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07ex03">Listing 7.3</A>, the leading <SPAN class=docEmphStrong><TT>+</TT></SPAN> and <TT>-</TT> denote the differences from the roller wheel driver implemented in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec2.html#ch04ex01">Listing 4.1</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A>.</P><A name=ch07ex03></A>
+<H5 id=title-ID0E4SPM class=docExampleTitle>Listing 7.3. The Roller Mouse Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>+  #include <LINUX input.h=""></LINUX></SPAN>
+<SPAN class=docEmphStrong>+  #include <LINUX interrupt.h=""></LINUX></SPAN>
+
+<SPAN class=docEmphStrong>+  /* Device structure */</SPAN>
+<SPAN class=docEmphStrong>+  struct {</SPAN>
+<SPAN class=docEmphStrong>+    /* ... */</SPAN>
+<SPAN class=docEmphStrong>+    struct input_dev dev;</SPAN>
+<SPAN class=docEmphStrong>+  } roller_mouse;</SPAN>
+
+<SPAN class=docEmphStrong>+  static int __init</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse_init(void)</SPAN>
+<SPAN class=docEmphStrong>+  {</SPAN>
+<SPAN class=docEmphStrong>+  /* Allocate input device structure */</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev = input_allocate_device();</SPAN>
+<SPAN class=docEmphStrong>+</SPAN>
+<SPAN class=docEmphStrong>+  /* Can generate a click and a relative movement */</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev-&gt;evbit[0] = BIT(EV_KEY) | BIT(EV_REL);</SPAN>
+
+<SPAN class=docEmphStrong>+  /* Can move only in the Y-axis */</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev-&gt;relbit[0] = BIT(REL_Y);</SPAN>
+<SPAN class=docEmphStrong>+</SPAN>
+<SPAN class=docEmphStrong>+  /* My click should be construed as the left button</SPAN>
+<SPAN class=docEmphStrong>+     press of a mouse */</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev-&gt;keybit[LONG(BTN_MOUSE)] = BIT(BTN_LEFT);</SPAN>
+
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev-&gt;name = "roll";</SPAN>
+<SPAN class=docEmphStrong>+</SPAN>
+<SPAN class=docEmphStrong>+  /* For entries in <SPAN class=docEmphasis>/sys/class/input/inputX/id/</SPAN> */</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev-&gt;id.bustype = ROLLER_BUS;</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev-&gt;id.vendor = ROLLER_VENDOR;</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev-&gt;id.product = ROLLER_PROD;</SPAN>
+<SPAN class=docEmphStrong>+  roller_mouse-&gt;dev-&gt;id.version = ROLLER_VER;</SPAN>
+
+<SPAN class=docEmphStrong>+  /* Register with the input subsystem */</SPAN>
+<SPAN class=docEmphStrong>+  input_register_device(roller_mouse-&gt;dev);</SPAN>
+<SPAN class=docEmphStrong>+}</SPAN>
+
+/* Global variables */
+- spinlock_t roller_lock = SPIN_LOCK_UNLOCKED;
+- static DECLARE_WAIT_QUEUE_HEAD(roller_poll);
+
+/* The Roller Interrupt Handler */
+static irqreturn_t
+roller_interrupt(int irq, void *dev_id)
+{
+  int i, PA_t, PA_delta_t, movement = 0;
+
+  /* Get the waveforms from bits 0, 1 and 2
+     of Port D as shown in Figure 7.1 */
+  PA_t = PORTD &amp; 0x07;
+
+  /* Wait until the state of the pins change.
+     (Add some timeout to the loop) */
+  for (i=0; (PA_t==PA_delta_t); i++){
+     PA_delta_t = PORTD &amp; 0x07;
+  }
+
+  movement = determine_movement(PA_t, PA_delta_t);
+
+- spin_lock(&amp;roller_lock);
+-
+- /* Store the wheel movement in a buffer for
+-    later access by the read()/poll() entry points */
+- store_movements(movement);
+-
+- spin_unlock(&amp;roller_lock);
+-
+- /* Wake up the poll entry point that might have
+-    gone to sleep, waiting for a wheel movement */
+- wake_up_interruptible(&amp;roller_poll);
+-
+<SPAN class=docEmphStrong>+ if (movement == CLOCKWISE) {</SPAN>
+<SPAN class=docEmphStrong>+   input_report_rel(roller_mouse-&gt;dev, REL_Y, 1);</SPAN>
+<SPAN class=docEmphStrong>+ } else if (movement == ANTICLOCKWISE) {</SPAN>
+<SPAN class=docEmphStrong>+   input_report_rel(roller_mouse-&gt;dev, REL_Y, -1);</SPAN>
+<SPAN class=docEmphStrong>+ } else if (movement == KEYPRESSED) {</SPAN>
+<SPAN class=docEmphStrong>+   input_report_key(roller_mouse-&gt;dev, BTN_LEFT, 1);</SPAN>
+<SPAN class=docEmphStrong>+ }</SPAN>
+<SPAN class=docEmphStrong>+ input_sync(roller_mouse-&gt;dev);</SPAN>
+
+  return IRQ_HANDLED;
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P><A name=ch07lev3sec7></A>
+<H5 id=title-ID0EMXPM class=docSection3Title>Trackpoints</H5>
+<P class=docText><A name=iddle2398></A><A name=iddle2984></A><A name=iddle4302></A>A <SPAN class=docEmphasis>trackpoint</SPAN><A name="on several"></A> is a pointing device that comes integrated with the PS/2-type keyboard on several laptops. This device includes a joystick located among the keys and mouse buttons positioned under the spacebar. A trackpoint essentially functions as a mouse, so you can operate it using the PS/2 mouse driver.</P>
+<P class=docText><A name="Unlike a"></A>Unlike a regular mouse, a trackpoint offers more movement control. You can command the trackpoint controller to change properties such as sensitivity and inertia. The kernel has a special driver, <SPAN class=docEmphasis>drivers/input/mouse/trackpoint.c</SPAN><A name="and manage"></A>, to create and manage associated sysfs nodes. For the full set of track point configuration options, look under <SPAN class=docEmphasis>/sys/devices/platform/i8042/serioX/serioY/</SPAN>.</P><A name=ch07lev3sec8></A>
+<H5 id=title-ID0EDZPM class=docSection3Title>Touchpads</H5>
+<P class=docText><A name=iddle2397></A><A name=iddle2983></A><A name=iddle3679></A><A name=iddle4185></A><A name=iddle4186></A><A name=iddle4290></A>A <SPAN class=docEmphasis>touchpad</SPAN><A name="a mouse"></A> is a mouse-like pointing device commonly found on laptops. Unlike conventional mice, a touchpad does not have moving parts. It can generate mouse-compatible relative coordinates but is usually used by operating systems in a more powerful mode that produces absolute coordinates. The communication protocol used in absolute mode is similar to the PS/2 mouse protocol, but not compatible with it.</P>
+<P class=docText><A name="that conform"></A>The basic PS/2 mouse driver is capable of supporting devices that conform to different variations of the bare PS/2 mouse protocol. You may add support for a new mouse protocol to the base driver by supplying a protocol driver via the <TT>psmouse</TT><A name="Synaptics touchpad"></A> structure. If your laptop uses the Synaptics touchpad in absolute mode, for example, the base PS/2 mouse driver uses the services of a Synaptics protocol driver to interpret the streaming data. For an end-to-end understanding of how the Synaptics protocol works in tandem with the base PS/2 driver, look at the following four code regions collected in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07ex04">Listing 7.4</A>:</P>
+<UL>
+<LI>
+<P class=docList>The PS/2 mouse driver, <SPAN class=docEmphasis>drivers/input/mouse/psmouse-base.c</SPAN>, instantiates a <TT>psmouse_protocol</TT><A name="touchpad protocol"></A> structure with information regarding supported mouse protocols (including the Synaptics touchpad protocol).</P>
+<LI>
+<P class=docList>The <TT>psmouse</TT> structure, defined in <SPAN class=docEmphasis>drivers/input/mouse/psmouse.h</SPAN>, ties various PS/2 protocols together.</P>
+<LI>
+<P class=docList><TT>synaptics_init()</TT> populates the <TT>psmouse</TT><A name="protocol functions"></A> structure with the address of associated protocol functions.</P>
+<LI>
+<P class=docList>The protocol handler function <TT>synaptics_process_byte()</TT>, populated in <TT>synaptics_init()</TT><A name="mouse movement"></A>, gets called from interrupt context when serio senses mouse movement. If you unfold <TT>synaptics_process_byte()</TT><A name="will see"></A>, you will see touchpad movements being reported to user applications via mousedev.</P></LI></UL><A name=ch07ex04></A>
+<H5 id=title-ID0E53PM class=docExampleTitle>Listing 7.4. PS/2 Mouse Protocol Driver for the Synaptics Touchpad</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphBoldItalic>drivers/input/mouse/psmouse-base.c</SPAN><SPAN class=docEmphStrong>:</SPAN>
+/* List of supported PS/2 mouse protocols */
+static struct psmouse_protocol psmouse_protocols[] = {
+ {
+   .type     = PSMOUSE_PS2, /* The bare PS/2 handler */
+   .name     = "PS/2",
+   .alias    = "bare",
+   .maxproto = 1,
+   .detect   = ps2bare_detect,
+ },
+ /*  ... */
+ {
+   .type    = PSMOUSE_SYNAPTICS, /* Synaptics TouchPad Protocol */
+   .name    = "SynPS/2",
+   .alias   = "synaptics",
+   .detect  = synaptics_detect,  /* Is the protocol detected? */
+   .init    = synaptics_init,    /* Initialize Protocol Handler */
+ },
+  /*  ... */
+}
+
+
+<SPAN class=docEmphBoldItalic>drivers/input/mouse/psmouse.h</SPAN><SPAN class=docEmphStrong>:</SPAN>
+/* The structure that ties various mouse protocols together */
+struct psmouse {
+  struct input_dev *dev; /* The input device */
+  /* ... */
+
+  /* Protocol Methods */
+  psmouse_ret_t (*protocol_handler)
+                 (struct psmouse *psmouse, struct pt_regs *regs);
+  void (*set_rate)(struct psmouse *psmouse, unsigned int rate);
+  void (*set_resolution)
+        (struct psmouse *psmouse, unsigned int resolution);
+  int (*reconnect)(struct psmouse *psmouse);
+  void (*disconnect)(struct psmouse *psmouse);
+  /* ... */
+};
+
+<SPAN class=docEmphBoldItalic>drivers/input/mouse/synaptics.c</SPAN><SPAN class=docEmphStrong>:</SPAN>
+/* init() method of the Synaptics protocol */
+int synaptics_init(struct psmouse *psmouse)
+{
+  struct synaptics_data *priv;
+  psmouse-&gt;private = priv = kmalloc(sizeof(struct synaptics_data),
+                                    GFP_KERNEL);
+  /* ... */
+
+  /* This is called in interrupt context when mouse
+     movement is sensed */
+  psmouse-&gt;protocol_handler = synaptics_process_byte;
+
+  /* More protocol methods */
+  psmouse-&gt;set_rate = synaptics_set_rate;
+  psmouse-&gt;disconnect = synaptics_disconnect;
+  psmouse-&gt;reconnect = synaptics_reconnect;
+
+  /* ... */
+}
+
+<SPAN class=docEmphBoldItalic>drivers/input/mouse/synaptics.c</SPAN><SPAN class=docEmphStrong>:</SPAN>
+/* If you unfold synaptics_process_byte() and look at
+   synaptics_process_packet(), you can see the input
+   events being reported to user applications via mousedev */
+static void synaptics_process_packet(struct psmouse *psmouse)
+{
+  /* ... */
+  if (hw.z &gt; 0) {
+    /* Absolute X Coordinate */
+    input_report_abs(dev, ABS_X, hw.x);
+    /* Absolute Y Coordinate */
+    input_report_abs(dev, ABS_Y,
+                     YMAX_NOMINAL + YMIN_NOMINAL - hw.y);
+  }
+  /* Absolute Z Coordinate */
+  input_report_abs(dev, ABS_PRESSURE, hw.z);
+  /* ... */
+  /* Left TouchPad button */
+  input_report_key(dev, BTN_LEFT, hw.left);
+  /* Right TouchPad button */
+  input_report_key(dev, BTN_RIGHT, hw.right);
+  /* ... */
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P><A name=ch07lev3sec9></A>
+<H5 id=title-ID0EK5PM class=docSection3Title>USB and Bluetooth Mice</H5>
+<P class=docText><A name=iddle1285></A><A name=iddle2205></A><A name=iddle2390></A><A name=iddle2400></A><A name=iddle2980></A><A name=iddle2985></A><A name=iddle4433></A><A name=iddle4527></A>USB mice are handled by the same input driver (<SPAN class=docEmphasis>usbhid</SPAN>) that drives USB keyboards. Similarly, the <SPAN class=docEmphasis>hidp</SPAN><A name="of Bluetooth"></A> driver that implements support for Bluetooth keyboards also takes care of Bluetooth mice.</P>
+<P class=docText><A name="As you"></A>As you would expect, USB and Bluetooth mice drivers channel device data through mousedev.</P><A name=ch07lev2sec5></A>
+<H4 id=title-ID0EVBAO class=docSection2Title>Touch Controllers</H4>
+<P class=docText><A name=iddle1361></A><A name=iddle2396></A><A name=iddle3172></A><A name=iddle3973></A><A name=iddle3978></A><A name=iddle4111></A><A name=iddle4281></A>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="a device"></A>, we implemented a device driver for a serial touch controller in the form of a line discipline called <TT>N_TCH</TT><A name="input subsystem"></A>. The input subsystem offers a better and easier way to implement that driver. Refashion the finite state machine in <TT>N_TCH</TT> as an input device driver with the following changes:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Serio offers a line discipline called <SPAN class=docEmphasis>serport</SPAN><A name="to talk"></A> for accessing devices connected to the serial port. Use serport's services to talk to the touch controller.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="to the"></A>Instead of passing coordinate information to the tty layer, generate input reports via evdev as you did in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec1.html#ch07ex02">Listing 7.2</A> for the virtual mouse.</P></DIV></LI></OL></DIV>
+<P class=docText><A name=via></A>With this, the touch screen is accessible to user space via <SPAN class=docEmphasis>/dev/input/eventX.</SPAN><A name="as an"></A> The actual driver implementation is left as an exercise.</P>
+<P class=docText><A name="not interface"></A>An example of a touch controller that does not interface via the serial port is the Analog Devices ADS7846 chip, which communicates over a <SPAN class=docEmphasis><A name="Peripheral Interface"></A>Serial Peripheral Interface</SPAN><A name="SPI core"></A> (SPI). The driver for this device uses the services of the SPI core rather than serio. The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec8.html#ch08lev1sec8">The Serial Peripheral Interface Bus</A><A name=in></A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08.html#ch08">Chapter 8</A><A name="Like most"></A>, "The Inter-Integrated Circuit Protocol," discusses SPI. Like most touch drivers, the ADS7846 driver uses the evdev interface to dispatch touch information to user applications.</P>
+<P class=docText><A name="touch controllers"></A>Some touch controllers interface over USB. An example is the 3M USB touch controller, driven by <SPAN class=docEmphasis>drivers/input/touchscreen/usbtouchscreen.c</SPAN>.</P><A name=ch07note02></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="The X"></A>Many PDAs have four-wire resistive touch panels superimposed on their LCDs. The X and Y plates of the panel (two wires for either axes) connect to an analog-to-digital converter (ADC), which provides a digital readout of the analog voltage difference arising out of touching the screen. An input driver collects the coordinates from the ADC and dispatches it to user space.</P>
+<P></P></DIV><BR>
+<P class=docText><A name="touch panel"></A>Different instances of the same touch panel may produce slightly different coordinate ranges (maximum values in the X and Y directions) due to the nuances of manufacturing processes. To insulate applications from this variation, touch screens are <SPAN class=docEmphasis>calibrated</SPAN><A name="by displaying"></A> prior to use. Calibration is usually initiated by the GUI by displaying cross-marks at screen boundaries and other vantage points, and requesting the user to touch those points. The generated coordinates are programmed back into the touch controller using appropriate commands if it supports self-calibration, or used to scale the coordinate stream in software otherwise.</P>
+<P class=docText><A name=iddle1014></A><A name=iddle2021></A><A name=iddle2176></A><A name=iddle2186></A><A name=iddle2388></A><A name=iddle2391></A><A name=iddle3359></A><A name=iddle4312></A><A name="event driver"></A>The input subsystem also contains an event driver called <SPAN class=docEmphasis>tsdev</SPAN><A name="If your"></A> that generates coordinate information according to the Compaq touch-screen protocol. If your system reports touch events via <SPAN class=docEmphasis>tsdev</SPAN><A name="that understand"></A>, applications that understand this protocol can elicit touch input from <SPAN class=docEmphasis>/dev/input/tsX.</SPAN><A name="favor of"></A> This driver is, however, scheduled for removal from the mainline kernel in favor of the user space <SPAN class=docEmphasis>tslib</SPAN> library. <SPAN class=docEmphasis>Documentation/feature-removal-schedule.txt</SPAN><A name="lists features"></A> lists features that are going away from the kernel source tree.</P><A name=ch07lev2sec6></A>
+<H4 id=title-ID0EGJAO class=docSection2Title>Accelerometers</H4>
+<P class=docText><A name="measures acceleration"></A>An accelerometer measures acceleration. Several IBM/Lenovo laptops have an accelerometer that detects sudden movement. The generated information is used to protect the hard disk from damage using a mechanism called <SPAN class=docEmphasis><A name="Drive Active"></A>Hard Drive Active Protection System</SPAN><A name="passenger from"></A> (HDAPS), analogous to the way a car airbag shields a passenger from injury. The HDAPS driver is implemented as a platform driver that registers with the input subsystem. It uses evdev to stream the X and Y components of the detected acceleration. Applications can read acceleration events via <SPAN class=docEmphasis>/dev/input/eventX</SPAN><A name="and vibe"></A> to detect conditions, such as shock and vibe, and perform a defensive action, such as parking the hard drive's head. The following command spews output if you move the laptop (assume that event3 is assigned to HDAPS):</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; od &#37413;&#25625; /dev/input/event3</SPAN>
+0000000 a94d 4599 1f19 0007 0003 0000 ffed ffff
+...</PRE></DIV><BR>
+<P class=docText><A name="mouse activity"></A>The accelerometer also provides information such as temperature, keyboard activity, and mouse activity, all of which can be gleaned via files in <SPAN class=docEmphasis>/sys/devices/platform/hdaps/.</SPAN><A name="part of"></A> Because of this, the HDAPS driver is part of the hardware monitoring (<SPAN class=docEmphasis>hwmon</SPAN><A name="monitoring in"></A>) subsystem in the kernel sources. We talk about hardware monitoring in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec7.html#ch08lev1sec7">Hardware Monitoring with LM-Sensors</A><A name="the next"></A>" in the next chapter.</P><A name=ch07lev2sec7></A>
+<H4 id=title-ID0ENKAO class=docSection2Title>Output Events</H4>
+<P class=docText><A name="driver can"></A>Some input device drivers also handle output events. For example, the keyboard driver can glow the <TT>CAPSLOCK</TT><A name="and the"></A> LED, and the PC speaker driver can sound a beep. Let's zoom in on the latter. During initialization, the speaker driver declares its output capability by setting appropriate <SPAN class=docEmphasis>evbits</SPAN><A name="a callback"></A> and registering a callback routine to handle the output event:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphBoldItalic>drivers/input/misc/pcspkr.c</SPAN><SPAN class=docEmphStrong>:</SPAN>
+static int __devinit pcspkr_probe(struct platform_device *dev)
+{
+  /* ... */
+
+  /* Capability Bits */
+  pcspkr_dev-&gt;evbit[0]  = BIT(EV_SND);
+  pcspkr_dev-&gt;sndbit[0] = BIT(SND_BELL) | BIT(SND_TONE);
+
+  /* The Callback routine */
+  pcspkr_dev-&gt;event = pcspkr_event;
+
+  err = input_register_device(pcspkr_dev);
+  /* ... */
+}
+
+/* The callback routine */
+static int pcspkr_event(struct input_dev *dev, unsigned int type,
+                        unsigned int code, int value)
+{
+
+  /* ... */
+
+  /* I/O programming to sound a beep */
+
+  outb_p(inb_p(0x61) | 3, 0x61);
+  /* set command for counter 2, 2 byte write */
+  outb_p(0xB6, 0x43);
+  /* select desired HZ */
+  outb_p(count &amp; 0xff, 0x42);
+  outb((count &gt;&gt; 8) &amp; 0xff, 0x42);
+
+  /* ... */
+}
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="sound the"></A>To sound the beeper, the keyboard event driver generates a sound event (<TT>EV_SND</TT>) as follows:</P>
+<DIV class=docText><PRE>input_event(handle-&gt;dev, EV_SND,    /* Type */
+                         SND_TONE,  /* Code */
+                         hz         /* Value */);</PRE></DIV><BR>
+<P class=docText><A name=iddle1690></A><A name=iddle2019></A><A name=iddle2387></A><A name=iddle3550></A>This triggers execution of the callback routine, <TT>pcspkr_event()</TT>, and you hear the beep.

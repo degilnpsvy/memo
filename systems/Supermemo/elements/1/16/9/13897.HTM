@@ -1,0 +1,37 @@
+<H3 class=section>15.7 Install Command Categories</H3>
+<P><A name=index-pre_002dinstallation-commands-1098></A><A name=index-post_002dinstallation-commands-1099></A>When writing the <CODE>install</CODE> target, you must classify all the commands into three categories: normal ones, <DFN>pre-installation</DFN> commands and <DFN>post-installation</DFN> commands. 
+<P>Normal commands move files into their proper places, and set their modes. They may not alter any files except the ones that come entirely from the package they belong to. 
+<P>Pre-installation and post-installation commands may alter other files; in particular, they can edit global configuration files or data bases. 
+<P>Pre-installation commands are typically executed before the normal commands, and post-installation commands are typically run after the normal commands. 
+<P>The most common use for a post-installation command is to run <CODE>install-info</CODE>. This cannot be done with a normal command, since it alters a file (the Info directory) which does not come entirely and solely from the package being installed. It is a post-installation command because it needs to be done after the normal command which installs the package's Info files. 
+<P>Most programs don't need any pre-installation commands, but we have the feature just in case it is needed. 
+<P>To classify the commands in the <CODE>install</CODE> rule into these three categories, insert <DFN>category lines</DFN> among them. A category line specifies the category for the commands that follow. 
+<P>A category line consists of a tab and a reference to a special Make variable, plus an optional comment at the end. There are three variables you can use, one for each category; the variable name specifies the category. Category lines are no-ops in ordinary execution because these three Make variables are normally undefined (and you <EM>should not</EM> define them in the makefile). 
+<P>Here are the three possible category lines, each with a comment that explains what it means: <PRE class=smallexample>             $(PRE_INSTALL)     # <SPAN class=roman><FONT face="Times New Roman">Pre-install commands follow.</FONT></SPAN>
+             $(POST_INSTALL)    # <SPAN class=roman><FONT face="Times New Roman">Post-install commands follow.</FONT></SPAN>
+             $(NORMAL_INSTALL)  # <SPAN class=roman><FONT face="Times New Roman">Normal commands follow.</FONT></SPAN>
+</PRE>
+<P>If you don't use a category line at the beginning of the <CODE>install</CODE> rule, all the commands are classified as normal until the first category line. If you don't use any category lines, all the commands are classified as normal. 
+<P>These are the category lines for <CODE>uninstall</CODE>: <PRE class=smallexample>             $(PRE_UNINSTALL)     # <SPAN class=roman><FONT face="Times New Roman">Pre-uninstall commands follow.</FONT></SPAN>
+             $(POST_UNINSTALL)    # <SPAN class=roman><FONT face="Times New Roman">Post-uninstall commands follow.</FONT></SPAN>
+             $(NORMAL_UNINSTALL)  # <SPAN class=roman><FONT face="Times New Roman">Normal commands follow.</FONT></SPAN>
+</PRE>
+<P>Typically, a pre-uninstall command would be used for deleting entries from the Info directory. 
+<P>If the <CODE>install</CODE> or <CODE>uninstall</CODE> target has any dependencies which act as subroutines of installation, then you should start <EM>each</EM> dependency's commands with a category line, and start the main target's commands with a category line also. This way, you can ensure that each command is placed in the right category regardless of which of the dependencies actually run. 
+<P>Pre-installation and post-installation commands should not run any programs except for these: <PRE class=example>     [ basename bash cat chgrp chmod chown cmp cp dd diff echo
+     egrep expand expr false fgrep find getopt grep gunzip gzip
+     hostname install install-info kill ldconfig ln ls md5sum
+     mkdir mkfifo mknod mv printenv pwd rm rmdir sed sort tee
+     test touch true uname xargs yes
+</PRE>
+<P><A name=index-binary-packages-1100></A>The reason for distinguishing the commands in this way is for the sake of making binary packages. Typically a binary package contains all the executables and other files that need to be installed, and has its own method of installing them&#8212;so it does not need to run the normal installation commands. But installing the binary package does need to execute the pre-installation and post-installation commands. 
+<P>Programs to build binary packages work by extracting the pre-installation and post-installation commands. Here is one way of extracting the pre-installation commands (the <SAMP><SPAN class=option>-s</SPAN></SAMP> option to <SAMP><SPAN class=command>make</SPAN></SAMP> is needed to silence messages about entering subdirectories): <PRE class=smallexample>     make -s -n install -o all \
+           PRE_INSTALL=pre-install \
+           POST_INSTALL=post-install \
+           NORMAL_INSTALL=normal-install \
+       | gawk -f pre-install.awk
+</PRE>
+<P class=noindent>where the file <SAMP><SPAN class=file>pre-install.awk</SPAN></SAMP> could contain this: <PRE class=smallexample>     $0 ~ /^(normal-install|post-install)[ \t]*$/ {on = 0}
+     on {print $0}
+     $0 ~ /^pre-install[ \t]*$/ {on = 1}
+</PRE>

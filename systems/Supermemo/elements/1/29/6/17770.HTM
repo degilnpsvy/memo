@@ -1,0 +1,56 @@
+<H3 class=section>5.8 Closing Input and Output Redirections</H3><A name=index-files_002c-output_002c-See-output-files></A><A name=index-input-files_002c-closing></A><A name=index-output_002c-files_002c-closing></A><A name=index-pipe_002c-closing></A><A name=index-coprocesses_002c-closing></A><A name=index-getline-command_002c-coprocesses_002c-using-from-1></A>
+<P>If the same file name or the same shell command is used with <CODE>getline</CODE> more than once during the execution of an <CODE>awk</CODE> program (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Getline">Getline</A>), the file is opened (or the command is executed) the first time only. At that time, the first record of input is read from that file or command. The next time the same file or command is used with <CODE>getline</CODE>, another record is read from it, and so on. </P>
+<P>Similarly, when a file or pipe is opened for output, <CODE>awk</CODE> remembers the file name or command associated with it, and subsequent writes to the same file or command are appended to the previous writes. The file or pipe stays open until <CODE>awk</CODE> exits. </P><A name=index-close_0028_0029-function></A>
+<P>This implies that special steps are necessary in order to read the same file again from the beginning, or to rerun a shell command (rather than reading more output from the same command). The <CODE>close()</CODE> function makes these things possible: </P>
+<DIV class=example><PRE class=example>close(<VAR>filename</VAR>)
+</PRE></DIV>
+<P>or: </P>
+<DIV class=example><PRE class=example>close(<VAR>command</VAR>)
+</PRE></DIV>
+<P>The argument <VAR>filename</VAR> or <VAR>command</VAR> can be any expression. Its value must <EM>exactly</EM> match the string that was used to open the file or start the command (spaces and other &#8220;irrelevant&#8221; characters included). For example, if you open a pipe with this: </P>
+<DIV class=example><PRE class=example>"sort -r names" | getline foo
+</PRE></DIV>
+<P>then you must close it with this: </P>
+<DIV class=example><PRE class=example>close("sort -r names")
+</PRE></DIV>
+<P>Once this function call is executed, the next <CODE>getline</CODE> from that file or command, or the next <CODE>print</CODE> or <CODE>printf</CODE> to that file or command, reopens the file or reruns the command. Because the expression that you use to close a file or pipeline must exactly match the expression used to open the file or run the command, it is good practice to use a variable to store the file name or command. The previous example becomes the following: </P>
+<DIV class=example><PRE class=example>sortcom = "sort -r names"
+sortcom | getline foo
+&#8230;
+close(sortcom)
+</PRE></DIV>
+<P>This helps avoid hard-to-find typographical errors in your <CODE>awk</CODE> programs. Here are some of the reasons for closing an output file: </P>
+<UL>
+<LI>To write a file and read it back later on in the same <CODE>awk</CODE> program. Close the file after writing it, then begin reading it with <CODE>getline</CODE>. </LI>
+<LI>To write numerous files, successively, in the same <CODE>awk</CODE> program. If the files aren&#8217;t closed, eventually <CODE>awk</CODE> may exceed a system limit on the number of open files in one process. It is best to close each one when the program has finished writing it. </LI>
+<LI>To make a command finish. When output is redirected through a pipe, the command reading the pipe normally continues to try to read input as long as the pipe is open. Often this means the command cannot really do its work until the pipe is closed. For example, if output is redirected to the <CODE>mail</CODE> program, the message is not actually sent until the pipe is closed. </LI>
+<LI>To run the same program a second time, with the same arguments. This is not the same thing as giving more input to the first run! 
+<P>For example, suppose a program pipes output to the <CODE>mail</CODE> program. If it outputs several lines redirected to this pipe without closing it, they make a single message of several lines. By contrast, if the program closes the pipe after each line of output, then each line makes a separate message. </P></LI></UL><A name=index-differences-in-awk-and-gawk_002c-close_0028_0029-function></A><A name=index-portability_002c-close_0028_0029-function-and></A><A name=index-close_0028_0029-function_002c-portability></A>
+<P>If you use more files than the system allows you to have open, <CODE>gawk</CODE> attempts to multiplex the available open files among your data files. <CODE>gawk</CODE>&#8217;s ability to do this depends upon the facilities of your operating system, so it may not always work. It is therefore both good practice and good portability advice to always use <CODE>close()</CODE> on your files when you are done with them. In fact, if you are using a lot of pipes, it is essential that you close commands when done. For example, consider something like this: </P>
+<DIV class=example><PRE class=example>{
+    &#8230;
+    command = ("grep " $1 " /some/file | my_prog -q " $3)
+    while ((command | getline) &gt; 0) {
+        <VAR>process output of</VAR> command
+    }
+    # need close(command) here
+}
+</PRE></DIV>
+<P>This example creates a new pipeline based on data in <EM>each</EM> record. Without the call to <CODE>close()</CODE> indicated in the comment, <CODE>awk</CODE> creates child processes to run the commands, until it eventually runs out of file descriptors for more pipelines. </P>
+<P>Even though each command has finished (as indicated by the end-of-file return status from <CODE>getline</CODE>), the child process is not terminated;<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT29" name=DOCF29><SUP>29</SUP></A> more importantly, the file descriptor for the pipe is not closed and released until <CODE>close()</CODE> is called or <CODE>awk</CODE> exits. </P>
+<P><CODE>close()</CODE> will silently do nothing if given an argument that does not represent a file, pipe or coprocess that was opened with a redirection. </P>
+<P>Note also that &#8216;<SAMP>close(FILENAME)</SAMP>&#8217; has no &#8220;magic&#8221; effects on the implicit loop that reads through the files named on the command line. It is, more likely, a close of a file that was never opened, so <CODE>awk</CODE> silently does nothing. </P><A name=index-_007c-_0028vertical-bar_0029_002c-_007c_0026-operator-_0028I_002fO_0029_002c-pipes_002c-closing></A>
+<P>When using the &#8216;<SAMP>|&amp;</SAMP>&#8217; operator to communicate with a coprocess, it is occasionally useful to be able to close one end of the two-way pipe without closing the other. This is done by supplying a second argument to <CODE>close()</CODE>. As in any other call to <CODE>close()</CODE>, the first argument is the name of the command or special file used to start the coprocess. The second argument should be a string, with either of the values <CODE>"to"</CODE> or <CODE>"from"</CODE>. Case does not matter. As this is an advanced feature, a more complete discussion is delayed until <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Two_002dway-I_002fO">Two-way I/O</A>, which discusses it in more detail and gives an example. </P><A name=index-sidebar_002c-Using-close_0028_0029_0027s-Return-Value></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B>Using <CODE>close()</CODE>&#8217;s Return Value</B> </DIV><A name=index-dark-corner_002c-close_0028_0029-function></A><A name=index-close_0028_0029-function_002c-return-value></A><A name=index-return-value_002c-close_0028_0029-function></A><A name=index-differences-in-awk-and-gawk_002c-close_0028_0029-function-1></A><A name=index-Unix-awk_002c-close_0028_0029-function-and></A>
+<P>In many versions of Unix <CODE>awk</CODE>, the <CODE>close()</CODE> function is actually a statement. It is a syntax error to try and use the return value from <CODE>close()</CODE>: (d.c.) </P>
+<DIV class=example><PRE class=example>command = "&#8230;"
+command | getline info
+retval = close(command)  # syntax error in many Unix awks
+</PRE></DIV><A name=index-gawk_002c-ERRNO-variable-in-1></A><A name=index-ERRNO-variable_002c-with-close_0028_0029-function></A>
+<P><CODE>gawk</CODE> treats <CODE>close()</CODE> as a function. The return value is -1 if the argument names something that was never opened with a redirection, or if there is a system problem closing the file or process. In these cases, <CODE>gawk</CODE> sets the built-in variable <CODE>ERRNO</CODE> to a string describing the problem. </P>
+<P>In <CODE>gawk</CODE>, when closing a pipe or coprocess (input or output), the return value is the exit status of the command.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT30" name=DOCF30><SUP>30</SUP></A> Otherwise, it is the return value from the system&#8217;s <CODE>close()</CODE> or <CODE>fclose()</CODE> C functions when closing input or output files, respectively. This value is zero if the close succeeds, or -1 if it fails. </P>
+<P>The POSIX standard is very vague; it says that <CODE>close()</CODE> returns zero on success and nonzero otherwise. In general, different implementations vary in what they report when closing pipes; thus the return value cannot be used portably. (d.c.) In POSIX mode (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>), <CODE>gawk</CODE> just returns zero when closing a pipe. </P></TD></TR></TBODY></TABLE>

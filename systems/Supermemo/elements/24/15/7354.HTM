@@ -1,0 +1,48 @@
+<H3 style="WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; FONT-FAMILY: helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><A name=stack>5.1 Command Line Arguments and the Stack</A></H3>
+<P style="WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">Getting the command line arguments from a DOS program is not an enjoyable experience, because working with the PSP and having to worry about segments is simply a pain. In Linux things are much simpler: all arguments are available on the stack when the program starts, so to get them you just<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>pop</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>them off.</P>
+<P style="WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">As an example, say you run a program called<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>program</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>and give it three arguments:</P><PRE style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">./program foo bar 42
+</PRE><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">The stack will then look as follows:</SPAN><BR style="WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE style="WORD-SPACING: 0px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT-FAMILY: helvetica; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px" cellSpacing=10>
+<TBODY>
+<TR>
+<TD>
+<TABLE style="FONT-FAMILY: monospace; BACKGROUND-COLOR: rgb(234,234,234); TEXT-ALIGN: center" height=150 cellPadding=3 border=1>
+<TBODY>
+<TR>
+<TD>4</TD></TR>
+<TR>
+<TD>program</TD></TR>
+<TR>
+<TD>foo</TD></TR>
+<TR>
+<TD>bar</TD></TR>
+<TR>
+<TD>42</TD></TR></TBODY></TABLE></TD>
+<TD>
+<TABLE height=150 cellPadding=3>
+<TBODY>
+<TR>
+<TD>Number of arguments (argc), including the program name</TD></TR>
+<TR>
+<TD>Name of the program (argv[0])</TD></TR>
+<TR>
+<TD>Argument 1, the first real argument (argv[1])</TD></TR>
+<TR>
+<TD>Argument 2 (argv[2])</TD></TR>
+<TR>
+<TD>Argument 3 (argv[3]) (Note: this is the string "42", not the number 42)</TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE>
+<P style="WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"></P>
+<P style="WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">Now lets write the program<SPAN class=Apple-converted-space>&nbsp;</SPAN><TT>program</TT><SPAN class=Apple-converted-space>&nbsp;</SPAN>that takes the three arguments:</P><PRE style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; LETTER-SPACING: normal; BACKGROUND-COLOR: rgb(0,208,255); FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">section .text
+	global _start
+
+_start:
+	pop	eax		; Get the number of arguments
+	pop	ebx		; Get the program name
+	pop	ebx		; Get the first actual argument ("foo")
+	pop	ecx		; "bar"
+	pop	edx		; "42"
+
+	mov	eax,1
+	mov	ebx,0
+	int	80h		; Exit
+</PRE><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">After all that popping, EAX contains the number of arguments, EBX points to wherever "foo" is stored in memory, ECX points to "bar" and EDX to "42". This is obviously<SPAN class=Apple-converted-space>&nbsp;</SPAN></SPAN><I style="FONT-WEIGHT: normal; FONT-SIZE: medium; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-FAMILY: helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">way</I><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><SPAN class=Apple-converted-space>&nbsp;</SPAN>more elegant and simple than in DOS. It took us just 5 lines to get the arguments and even how many there are, while in DOS it takes 14 rather complicated lines just to get<SPAN class=Apple-converted-space>&nbsp;</SPAN></SPAN><I style="FONT-WEIGHT: normal; FONT-SIZE: medium; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-FAMILY: helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">one</I><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><SPAN class=Apple-converted-space>&nbsp;</SPAN>argument! Note that the 3</SPAN><SUP style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; FONT-FAMILY: helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">rd</SUP><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><SPAN class=Apple-converted-space>&nbsp;</SPAN></SPAN><TT style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">pop</TT><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><SPAN class=Apple-converted-space>&nbsp;</SPAN>overwrites the value we put in EBX with the 2</SPAN><SUP style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; FONT-FAMILY: helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">nd</SUP><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><SPAN class=Apple-converted-space>&nbsp;</SPAN></SPAN><TT style="FONT-WEIGHT: normal; WORD-SPACING: 0px; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; LINE-HEIGHT: normal; FONT-STYLE: normal; WHITE-SPACE: normal; LETTER-SPACING: normal; FONT-VARIANT: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">pop</TT><SPAN style="DISPLAY: inline! important; FLOAT: none; WORD-SPACING: 0px; FONT: medium helvetica; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px"><SPAN class=Apple-converted-space>&nbsp;</SPAN>(which was the program name). Unless you have a really good reason, you can usually chuck away the program name as we did here.</SPAN>

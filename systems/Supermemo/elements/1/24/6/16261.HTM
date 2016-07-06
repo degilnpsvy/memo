@@ -1,0 +1,36 @@
+<H4 class=subsection>12.1.3 Example Using Guile in <CODE>make</CODE></H4>
+<P><A name=index-Guile-example-1053></A><A name=index-example-using-Guile-1054></A>Here is a very simple example using GNU Guile to manage writing to a file. These Guile procedures simply open a file, allow writing to the file (one string per line), and close the file. Note that because we cannot store complex values such as Guile ports in <CODE>make</CODE> variables, we'll keep the port as a global variable in the Guile interpreter. 
+<P>You can create Guile functions easily using <CODE>define</CODE>/<CODE>endef</CODE> to create a Guile script, then use the <CODE>guile</CODE> function to internalize it: <PRE class=example>     define GUILEIO
+     ;; A simple Guile IO library for GNU make
+     
+     (define MKPORT #f)
+     
+     (define (mkopen name mode)
+       (set! MKPORT (open-file name mode))
+       #f)
+     
+     (define (mkwrite s)
+       (display s MKPORT)
+       (newline MKPORT)
+       #f)
+     
+     (define (mkclose)
+       (close-port MKPORT)
+       #f)
+     
+     #f
+     endef
+     
+     # Internalize the Guile IO functions
+     $(guile $(GUILEIO))
+</PRE>
+<P>If you have a significant amount of Guile support code, you might consider keeping it in a different file (e.g., <SAMP><SPAN class=file>guileio.scm</SPAN></SAMP>) and then loading it in your makefile using the <CODE>guile</CODE> function: <PRE class=example>     $(guile (load "guileio.scm"))
+</PRE>
+<P>An advantage to this method is that when editing <SAMP><SPAN class=file>guileio.scm</SPAN></SAMP>, your editor will understand that this file contains Scheme syntax rather than makefile syntax. 
+<P>Now you can use these Guile functions to create files. Suppose you need to operate on a very large list, which cannot fit on the command line, but the utility you're using accepts the list as input as well: <PRE class=example>     prog: $(PREREQS)
+             @$(guile (mkopen "tmp.out" "w")) \
+              $(foreach X,$^,$(guile (mkwrite "$(X)"))) \
+              $(guile (mkclose))
+             $(LINK) &lt; tmp.out
+</PRE>
+<P>A more comprehensive suite of file manipulation procedures is possible of course. You could, for example, maintain multiple output files at the same time by choosing a symbol for each one and using it as the key to a hash table, where the value is a port, then returning the symbol to be stored in a <CODE>make</CODE> variable.

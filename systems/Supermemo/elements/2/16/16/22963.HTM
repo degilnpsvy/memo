@@ -1,0 +1,27 @@
+C. Attaching, Detaching and Unloading 
+<P></P>
+<P>Before going on on how to attach, detach and unload the framebuffer console, an<BR>illustration of the dependencies may help.</P>
+<P>The console layer, as with most subsystems, needs a driver that interfaces with<BR>the hardware. Thus, in a VGA console:</P>
+<P>console ---&gt; VGA driver ---&gt; hardware.</P>
+<P>Assuming the VGA driver can be unloaded, one must first unbind the VGA driver<BR>from the console layer before unloading the driver.&nbsp; The VGA driver cannot be<BR>unloaded if it is still bound to the console layer. (See<BR>Documentation/console/console.txt for more information).</P>
+<P><FONT class=extract>This is more complicated in the case of the framebuffer console (fbcon),<BR>because fbcon is an intermediate layer between the console and the drivers:</FONT></P>
+<P><FONT class=extract>console ---&gt; fbcon ---&gt; fbdev drivers ---&gt; hardware</FONT></P>
+<P><FONT class=extract>The fbdev drivers cannot be unloaded if it's bound to fbcon, and fbcon cannot<BR>be unloaded if it's bound to the console layer.</FONT></P>
+<P><FONT class=extract>So to unload the fbdev drivers, one must first unbind fbcon from the console,<BR>then unbind the fbdev drivers from fbcon.&nbsp; Fortunately, unbinding fbcon from<BR>the console layer will automatically unbind framebuffer drivers from<BR>fbcon. Thus, there is no need to explicitly unbind the fbdev drivers from<BR>fbcon.</FONT></P>
+<P><FONT class=extract>So, how do we unbind fbcon from the console? Part of the answer is in<BR>Documentation/console/console.txt. To summarize:</FONT></P>
+<P><FONT class=extract>Echo a value to the bind file that represents the framebuffer console<BR>driver. So assuming vtcon1 represents fbcon, then:</FONT></P>
+<P><FONT class=extract>echo 1 &gt; sys/class/vtconsole/vtcon1/bind - attach framebuffer console to<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; console layer<BR>echo 0 &gt; sys/class/vtconsole/vtcon1/bind - detach framebuffer console from<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; console layer</FONT></P>
+<P><FONT class=extract>If fbcon is detached from the console layer, your boot console driver (which is<BR>usually VGA text mode) will take over.&nbsp; A few drivers (rivafb and i810fb) will<BR>restore VGA text mode for you.&nbsp; With the rest, before detaching fbcon, you<BR>must take a few additional steps to make sure that your VGA text mode is<BR>restored properly. The following is one of the several methods that you can do:</FONT></P>
+<P><FONT class=extract>1. Download or install vbetool.&nbsp; This utility is included with most<BR>&nbsp;&nbsp; distributions nowadays, and is usually part of the suspend/resume tool.</FONT></P>
+<P><FONT class=extract>2. In your kernel configuration, ensure that CONFIG_FRAMEBUFFER_CONSOLE is set<BR>&nbsp;&nbsp; to 'y' or 'm'. Enable one or more of your favorite framebuffer drivers.</FONT></P>
+<P><FONT class=extract>3. Boot into text mode and as root run:</FONT></P>
+<P><FONT class=extract>&nbsp;vbetool vbestate save &gt; &lt;vga state file&gt;</FONT></P>
+<P><FONT class=extract>&nbsp;The above command saves the register contents of your graphics<BR>&nbsp;hardware to &lt;vga state file&gt;.&nbsp; You need to do this step only once as<BR>&nbsp;the state file can be reused.</FONT></P>
+<P><FONT class=extract>4. If fbcon is compiled as a module, load fbcon by doing:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; modprobe fbcon</FONT></P>
+<P><FONT class=extract>5. Now to detach fbcon:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vbetool vbestate restore &lt; &lt;vga state file&gt; &amp;&amp; \<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo 0 &gt; /sys/class/vtconsole/vtcon1/bind</FONT></P>
+<P><FONT class=extract>6. That's it, you're back to VGA mode. And if you compiled fbcon as a module,<BR>&nbsp;&nbsp; you can unload it by 'rmmod fbcon'</FONT></P>
+<P><FONT class=extract>7. To reattach fbcon:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; echo 1 &gt; /sys/class/vtconsole/vtcon1/bind</FONT></P>
+<P><FONT class=extract>8. Once fbcon is unbound, all drivers registered to the system will also<BR>become unbound.&nbsp; This means that fbcon and individual framebuffer drivers<BR>can be unloaded or reloaded at will. Reloading the drivers or fbcon will<BR>automatically bind the console, fbcon and the drivers together. Unloading<BR>all the drivers without unloading fbcon will make it impossible for the<BR>console to bind fbcon.</FONT>

@@ -1,0 +1,17 @@
+#ifdef CONFIG_FREEZER
+<P></P>
+<P>/**<BR>&nbsp;* freeze_workqueues_begin - begin freezing workqueues<BR>&nbsp;*<BR>&nbsp;* Start freezing workqueues.&nbsp; After this function returns, all freezable<BR>&nbsp;* workqueues will queue new works to their delayed_works list instead of<BR>&nbsp;* pool-&gt;worklist.<BR>&nbsp;*<BR>&nbsp;* CONTEXT:<BR>&nbsp;* Grabs and releases wq_pool_mutex, wq-&gt;mutex and pool-&gt;lock's.<BR>&nbsp;*/<BR>void freeze_workqueues_begin(void)<BR>{<BR>&nbsp;struct workqueue_struct *wq;<BR>&nbsp;struct pool_workqueue *pwq;</P>
+<P>&nbsp;mutex_lock(&amp;wq_pool_mutex);</P>
+<P>&nbsp;WARN_ON_ONCE(workqueue_freezing);<BR>&nbsp;workqueue_freezing = true;</P>
+<P>&nbsp;list_for_each_entry(wq, &amp;workqueues, list) {<BR>&nbsp;&nbsp;mutex_lock(&amp;wq-&gt;mutex);<BR>&nbsp;&nbsp;for_each_pwq(pwq, wq)<BR>&nbsp;&nbsp;&nbsp;pwq_adjust_max_active(pwq);<BR>&nbsp;&nbsp;mutex_unlock(&amp;wq-&gt;mutex);<BR>&nbsp;}</P>
+<P>&nbsp;mutex_unlock(&amp;wq_pool_mutex);<BR>}</P>
+<P>/**<BR>&nbsp;* freeze_workqueues_busy - are freezable workqueues still busy?<BR>&nbsp;*<BR>&nbsp;* Check whether freezing is complete.&nbsp; This function must be called<BR>&nbsp;* between freeze_workqueues_begin() and thaw_workqueues().<BR>&nbsp;*<BR>&nbsp;* CONTEXT:<BR>&nbsp;* Grabs and releases wq_pool_mutex.<BR>&nbsp;*<BR>&nbsp;* Return:<BR>&nbsp;* %true if some freezable workqueues are still busy.&nbsp; %false if freezing<BR>&nbsp;* is complete.<BR>&nbsp;*/<BR>bool freeze_workqueues_busy(void)<BR>{<BR>&nbsp;bool busy = false;<BR>&nbsp;struct workqueue_struct *wq;<BR>&nbsp;struct pool_workqueue *pwq;</P>
+<P>&nbsp;mutex_lock(&amp;wq_pool_mutex);</P>
+<P>&nbsp;WARN_ON_ONCE(!workqueue_freezing);</P>
+<P>&nbsp;list_for_each_entry(wq, &amp;workqueues, list) {<BR>&nbsp;&nbsp;if (!(wq-&gt;flags &amp; WQ_FREEZABLE))<BR>&nbsp;&nbsp;&nbsp;continue;<BR>&nbsp;&nbsp;/*<BR>&nbsp;&nbsp; * nr_active is monotonically decreasing.&nbsp; It's safe<BR>&nbsp;&nbsp; * to peek without lock.<BR>&nbsp;&nbsp; */<BR>&nbsp;&nbsp;rcu_read_lock_sched();<BR>&nbsp;&nbsp;for_each_pwq(pwq, wq) {<BR>&nbsp;&nbsp;&nbsp;WARN_ON_ONCE(pwq-&gt;nr_active &lt; 0);<BR>&nbsp;&nbsp;&nbsp;if (pwq-&gt;nr_active) {<BR>&nbsp;&nbsp;&nbsp;&nbsp;busy = true;<BR>&nbsp;&nbsp;&nbsp;&nbsp;rcu_read_unlock_sched();<BR>&nbsp;&nbsp;&nbsp;&nbsp;goto out_unlock;<BR>&nbsp;&nbsp;&nbsp;}<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;rcu_read_unlock_sched();<BR>&nbsp;}<BR>out_unlock:<BR>&nbsp;mutex_unlock(&amp;wq_pool_mutex);<BR>&nbsp;return busy;<BR>}</P>
+<P>/**<BR>&nbsp;* thaw_workqueues - thaw workqueues<BR>&nbsp;*<BR>&nbsp;* Thaw workqueues.&nbsp; Normal queueing is restored and all collected<BR>&nbsp;* frozen works are transferred to their respective pool worklists.<BR>&nbsp;*<BR>&nbsp;* CONTEXT:<BR>&nbsp;* Grabs and releases wq_pool_mutex, wq-&gt;mutex and pool-&gt;lock's.<BR>&nbsp;*/<BR>void thaw_workqueues(void)<BR>{<BR>&nbsp;struct workqueue_struct *wq;<BR>&nbsp;struct pool_workqueue *pwq;</P>
+<P>&nbsp;mutex_lock(&amp;wq_pool_mutex);</P>
+<P>&nbsp;if (!workqueue_freezing)<BR>&nbsp;&nbsp;goto out_unlock;</P>
+<P>&nbsp;workqueue_freezing = false;</P>
+<P>&nbsp;/* restore max_active and repopulate worklist */<BR>&nbsp;list_for_each_entry(wq, &amp;workqueues, list) {<BR>&nbsp;&nbsp;mutex_lock(&amp;wq-&gt;mutex);<BR>&nbsp;&nbsp;for_each_pwq(pwq, wq)<BR>&nbsp;&nbsp;&nbsp;pwq_adjust_max_active(pwq);<BR>&nbsp;&nbsp;mutex_unlock(&amp;wq-&gt;mutex);<BR>&nbsp;}</P>
+<P>out_unlock:<BR>&nbsp;mutex_unlock(&amp;wq_pool_mutex);<BR>}<BR>#endif /* CONFIG_FREEZER */

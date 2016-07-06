@@ -1,0 +1,33 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.59.10 Diagnostic Pragmas</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">GCC allows the user to selectively enable or disable certain types of diagnostics, and change the kind of the diagnostic. For example, a project's policy might require that all sources compile with<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-Werror</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>but certain files might have exceptions allowing specific types of warnings. Or, a project might selectively enable diagnostics and treat them as errors depending on which preprocessor macros are defined.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><CODE>#pragma GCC diagnostic<SPAN class=Apple-converted-space>&nbsp;</SPAN></CODE><VAR>kind</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>option</VAR></DT>
+<DD><A name=index-pragma_002c-diagnostic-3771></A>Modifies the disposition of a diagnostic. Note that not all diagnostics are modifiable; at the moment only warnings (normally controlled by &#8216;<SAMP><SPAN class=samp>-W...</SPAN></SAMP>&#8217;) can be controlled, and not all of them. Use<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-fdiagnostics-show-option</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>to determine which diagnostics are controllable and which option controls them.
+<P><VAR>kind</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is &#8216;<SAMP><SPAN class=samp>error</SPAN></SAMP>&#8217; to treat this diagnostic as an error, &#8216;<SAMP><SPAN class=samp>warning</SPAN></SAMP>&#8217; to treat it like a warning (even if<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-Werror</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>is in effect), or &#8216;<SAMP><SPAN class=samp>ignored</SPAN></SAMP>&#8217; if the diagnostic is to be ignored.<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>option</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a double quoted string that matches the command-line option.</P><PRE style="FONT-SIZE: smaller" class=smallexample>          #pragma GCC diagnostic warning "-Wformat"
+          #pragma GCC diagnostic error "-Wformat"
+          #pragma GCC diagnostic ignored "-Wformat"
+</PRE>
+<P>Note that these pragmas override any command-line options. GCC keeps track of the location of each pragma, and issues diagnostics according to the state as of that point in the source file. Thus, pragmas occurring after a line do not affect diagnostics caused by that line.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></P></DD>
+<DT><CODE>#pragma GCC diagnostic push</CODE></DT>
+<DT><CODE>#pragma GCC diagnostic pop</CODE></DT>
+<DD>Causes GCC to remember the state of the diagnostics as of each<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>push</CODE>, and restore to that point at each<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>pop</CODE>. If a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>pop</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>has no matching<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>push</CODE>, the command-line options are restored.<PRE style="FONT-SIZE: smaller" class=smallexample>          #pragma GCC diagnostic error "-Wuninitialized"
+            foo(a);                       /* error is given for this one */
+          #pragma GCC diagnostic push
+          #pragma GCC diagnostic ignored "-Wuninitialized"
+            foo(b);                       /* no diagnostic for this one */
+          #pragma GCC diagnostic pop
+            foo(c);                       /* error is given for this one */
+          #pragma GCC diagnostic pop
+            foo(d);                       /* depends on command-line options */
+</PRE></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">GCC also offers a simple mechanism for printing messages during compilation.</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><CODE>#pragma message<SPAN class=Apple-converted-space>&nbsp;</SPAN></CODE><VAR>string</VAR></DT>
+<DD><A name=index-pragma_002c-diagnostic-3772></A>Prints<SPAN class=Apple-converted-space>&nbsp;</SPAN><VAR>string</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>as a compiler message on compilation. The message is informational only, and is neither a compilation warning nor an error.<PRE style="FONT-SIZE: smaller" class=smallexample>          #pragma message "Compiling " __FILE__ "..."
+</PRE>
+<P><VAR>string</VAR><SPAN class=Apple-converted-space>&nbsp;</SPAN>may be parenthesized, and is printed with location information. For example,</P><PRE style="FONT-SIZE: smaller" class=smallexample>          #define DO_PRAGMA(x) _Pragma (#x)
+          #define TODO(x) DO_PRAGMA(message ("TODO - " #x))
+          
+          TODO(Remember to fix this)
+</PRE>
+<P class=noindent>prints &#8216;<SAMP><SPAN class=samp>/tmp/file.c:4: note: #pragma message: TODO - Remember to fix this</SPAN></SAMP>&#8217;.</P></DD></DL>

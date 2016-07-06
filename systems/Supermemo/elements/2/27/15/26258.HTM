@@ -1,0 +1,6 @@
+/*<BR>&nbsp;* Pass event first through all filters and then, if event has not been<BR>&nbsp;* filtered out, through all open handles. This function is called with<BR>&nbsp;* dev-&gt;event_lock held and interrupts disabled.<BR>&nbsp;*/<BR>static unsigned int input_to_handler(struct input_handle *handle,<BR>&nbsp;&nbsp;&nbsp;struct input_value *vals, unsigned int count)<BR>{<BR>&nbsp;struct input_handler *handler = handle-&gt;handler;<BR>&nbsp;struct input_value *end = vals;<BR>&nbsp;struct input_value *v; 
+<P></P>
+<P>&nbsp;if (handler-&gt;filter) {<BR>&nbsp;&nbsp;for (v = vals; v != vals + count; v++) {<BR>&nbsp;&nbsp;&nbsp;if (handler-&gt;filter(handle, v-&gt;type, v-&gt;code, v-&gt;value))<BR>&nbsp;&nbsp;&nbsp;&nbsp;continue;<BR>&nbsp;&nbsp;&nbsp;if (end != v)<BR>&nbsp;&nbsp;&nbsp;&nbsp;*end = *v;<BR>&nbsp;&nbsp;&nbsp;end++;<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;count = end - vals;<BR>&nbsp;}</P>
+<P>&nbsp;if (!count)<BR>&nbsp;&nbsp;return 0;</P>
+<P>&nbsp;if (handler-&gt;events)<BR>&nbsp;&nbsp;handler-&gt;events(handle, vals, count);<BR>&nbsp;else if (handler-&gt;event)<BR>&nbsp;&nbsp;for (v = vals; v != vals + count; v++)<BR>&nbsp;&nbsp;&nbsp;handler-&gt;event(handle, v-&gt;type, v-&gt;code, v-&gt;value);</P>
+<P>&nbsp;return count;<BR>}

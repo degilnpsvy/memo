@@ -1,0 +1,158 @@
+# Documentation/atomic_ops.txt
+<P></P>
+<P>&nbsp;&nbsp;Semantics and Behavior of Atomic and<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Bitmask Operations </P>
+<P></P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; David S. Miller&nbsp; </P>
+<P>&nbsp;This document is intended to serve as a guide to Linux port<BR>maintainers on how to implement atomic counter, bitops, and spinlock<BR>interfaces properly.</P>
+<P>&nbsp;The atomic_t type should be defined as a signed integer.<BR>Also, it should be made opaque such that any kind of cast to a normal<BR>C integer type will fail.&nbsp; Something like the following should<BR>suffice:</P>
+<P>&nbsp;typedef struct { int counter; } atomic_t;</P>
+<P>Historically, counter has been declared volatile.&nbsp; This is now discouraged.<BR>See Documentation/volatile-considered-harmful.txt for the complete rationale.</P>
+<P>local_t is very similar to atomic_t. If the counter is per CPU and only<BR>updated by one CPU, local_t is probably more appropriate. Please see<BR>Documentation/local_ops.txt for the semantics of local_t.</P>
+<P>The first operations to implement for atomic_t's are the initializers and<BR>plain reads.</P>
+<P>&nbsp;#define ATOMIC_INIT(i)&nbsp;&nbsp;{ (i) }<BR>&nbsp;#define atomic_set(v, i)&nbsp;((v)-&gt;counter = (i))</P>
+<P>The first macro is used in definitions, such as:</P>
+<P>static atomic_t my_counter = ATOMIC_INIT(1);</P>
+<P>The initializer is atomic in that the return values of the atomic operations<BR>are guaranteed to be correct reflecting the initialized value if the<BR>initializer is used before runtime.&nbsp; If the initializer is used at runtime, a<BR>proper implicit or explicit read memory barrier is needed before reading the<BR>value with atomic_read from another thread.</P>
+<P>The second interface can be used at runtime, as in:</P>
+<P>&nbsp;struct foo { atomic_t counter; };<BR>&nbsp;...</P>
+<P>&nbsp;struct foo *k;</P>
+<P>&nbsp;k = kmalloc(sizeof(*k), GFP_KERNEL);<BR>&nbsp;if (!k)<BR>&nbsp;&nbsp;return -ENOMEM;<BR>&nbsp;atomic_set(&amp;k-&gt;counter, 0);</P>
+<P>The setting is atomic in that the return values of the atomic operations by<BR>all threads are guaranteed to be correct reflecting either the value that has<BR>been set with this operation or set with another operation.&nbsp; A proper implicit<BR>or explicit memory barrier is needed before the value set with the operation<BR>is guaranteed to be readable with atomic_read from another thread.</P>
+<P>Next, we have:</P>
+<P>&nbsp;#define atomic_read(v)&nbsp;((v)-&gt;counter)</P>
+<P>which simply reads the counter value currently visible to the calling thread.<BR>The read is atomic in that the return value is guaranteed to be one of the<BR>values initialized or modified with the interface operations if a proper<BR>implicit or explicit memory barrier is used after possible runtime<BR>initialization by any other thread and the value is modified only with the<BR>interface operations.&nbsp; atomic_read does not guarantee that the runtime<BR>initialization by any other thread is visible yet, so the user of the<BR>interface must take care of that with a proper implicit or explicit memory<BR>barrier.</P>
+<P>*** WARNING: atomic_read() and atomic_set() DO NOT IMPLY BARRIERS! ***</P>
+<P>Some architectures may choose to use the volatile keyword, barriers, or inline<BR>assembly to guarantee some degree of immediacy for atomic_read() and<BR>atomic_set().&nbsp; This is not uniformly guaranteed, and may change in the future,<BR>so all users of atomic_t should treat atomic_read() and atomic_set() as simple<BR>C statements that may be reordered or optimized away entirely by the compiler<BR>or processor, and explicitly invoke the appropriate compiler and/or memory<BR>barrier for each use case.&nbsp; Failure to do so will result in code that may<BR>suddenly break when used with different architectures or compiler<BR>optimizations, or even changes in unrelated code which changes how the<BR>compiler optimizes the section accessing atomic_t variables.</P>
+<P>*** YOU HAVE BEEN WARNED! ***</P>
+<P>Properly aligned pointers, longs, ints, and chars (and unsigned<BR>equivalents) may be atomically loaded from and stored to in the same<BR>sense as described for atomic_read() and atomic_set().&nbsp; The ACCESS_ONCE()<BR>macro should be used to prevent the compiler from using optimizations<BR>that might otherwise optimize accesses out of existence on the one hand,<BR>or that might create unsolicited accesses on the other.</P>
+<P>For example consider the following code:</P>
+<P>&nbsp;while (a &gt; 0)<BR>&nbsp;&nbsp;do_something();</P>
+<P>If the compiler can prove that do_something() does not store to the<BR>variable a, then the compiler is within its rights transforming this to<BR>the following:</P>
+<P>&nbsp;tmp = a;<BR>&nbsp;if (a &gt; 0)<BR>&nbsp;&nbsp;for (;;)<BR>&nbsp;&nbsp;&nbsp;do_something();</P>
+<P>If you don't want the compiler to do this (and you probably don't), then<BR>you should use something like the following:</P>
+<P>&nbsp;while (ACCESS_ONCE(a) &lt; 0)<BR>&nbsp;&nbsp;do_something();</P>
+<P>Alternatively, you could place a barrier() call in the loop.</P>
+<P>For another example, consider the following code:</P>
+<P>&nbsp;tmp_a = a;<BR>&nbsp;do_something_with(tmp_a);<BR>&nbsp;do_something_else_with(tmp_a);</P>
+<P>If the compiler can prove that do_something_with() does not store to the<BR>variable a, then the compiler is within its rights to manufacture an<BR>additional load as follows:</P>
+<P>&nbsp;tmp_a = a;<BR>&nbsp;do_something_with(tmp_a);<BR>&nbsp;tmp_a = a;<BR>&nbsp;do_something_else_with(tmp_a);</P>
+<P>This could fatally confuse your code if it expected the same value<BR>to be passed to do_something_with() and do_something_else_with().</P>
+<P>The compiler would be likely to manufacture this additional load if<BR>do_something_with() was an inline function that made very heavy use<BR>of registers: reloading from variable a could save a flush to the<BR>stack and later reload.&nbsp; To prevent the compiler from attacking your<BR>code in this manner, write the following:</P>
+<P>&nbsp;tmp_a = ACCESS_ONCE(a);<BR>&nbsp;do_something_with(tmp_a);<BR>&nbsp;do_something_else_with(tmp_a);</P>
+<P>For a final example, consider the following code, assuming that the<BR>variable a is set at boot time before the second CPU is brought online<BR>and never changed later, so that memory barriers are not needed:</P>
+<P>&nbsp;if (a)<BR>&nbsp;&nbsp;b = 9;<BR>&nbsp;else<BR>&nbsp;&nbsp;b = 42;</P>
+<P>The compiler is within its rights to manufacture an additional store<BR>by transforming the above code into the following:</P>
+<P>&nbsp;b = 42;<BR>&nbsp;if (a)<BR>&nbsp;&nbsp;b = 9;</P>
+<P>This could come as a fatal surprise to other code running concurrently<BR>that expected b to never have the value 42 if a was zero.&nbsp; To prevent<BR>the compiler from doing this, write something like:</P>
+<P>&nbsp;if (a)<BR>&nbsp;&nbsp;ACCESS_ONCE(b) = 9;<BR>&nbsp;else<BR>&nbsp;&nbsp;ACCESS_ONCE(b) = 42;</P>
+<P>Don't even -think- about doing this without proper use of memory barriers,<BR>locks, or atomic operations if variable a can change at runtime!</P>
+<P>*** WARNING: ACCESS_ONCE() DOES NOT IMPLY A BARRIER! ***</P>
+<P>Now, we move onto the atomic operation interfaces typically implemented with<BR>the help of assembly code.</P>
+<P>&nbsp;void atomic_add(int i, atomic_t *v);<BR>&nbsp;void atomic_sub(int i, atomic_t *v);<BR>&nbsp;void atomic_inc(atomic_t *v);<BR>&nbsp;void atomic_dec(atomic_t *v);</P>
+<P>These four routines add and subtract integral values to/from the given<BR>atomic_t value.&nbsp; The first two routines pass explicit integers by<BR>which to make the adjustment, whereas the latter two use an implicit<BR>adjustment value of "1".</P>
+<P>One very important aspect of these two routines is that they DO NOT<BR>require any explicit memory barriers.&nbsp; They need only perform the<BR>atomic_t counter update in an SMP safe manner.</P>
+<P>Next, we have:</P>
+<P>&nbsp;int atomic_inc_return(atomic_t *v);<BR>&nbsp;int atomic_dec_return(atomic_t *v);</P>
+<P>These routines add 1 and subtract 1, respectively, from the given<BR>atomic_t and return the new counter value after the operation is<BR>performed.</P>
+<P>Unlike the above routines, it is required that explicit memory<BR>barriers are performed before and after the operation.&nbsp; It must be<BR>done such that all memory operations before and after the atomic<BR>operation calls are strongly ordered with respect to the atomic<BR>operation itself.</P>
+<P>For example, it should behave as if a smp_mb() call existed both<BR>before and after the atomic operation.</P>
+<P>If the atomic instructions used in an implementation provide explicit<BR>memory barrier semantics which satisfy the above requirements, that is<BR>fine as well.</P>
+<P>Let's move on:</P>
+<P>&nbsp;int atomic_add_return(int i, atomic_t *v);<BR>&nbsp;int atomic_sub_return(int i, atomic_t *v);</P>
+<P>These behave just like atomic_{inc,dec}_return() except that an<BR>explicit counter adjustment is given instead of the implicit "1".<BR>This means that like atomic_{inc,dec}_return(), the memory barrier<BR>semantics are required.</P>
+<P>Next:</P>
+<P>&nbsp;int atomic_inc_and_test(atomic_t *v);<BR>&nbsp;int atomic_dec_and_test(atomic_t *v);</P>
+<P>These two routines increment and decrement by 1, respectively, the<BR>given atomic counter.&nbsp; They return a boolean indicating whether the<BR>resulting counter value was zero or not.</P>
+<P>It requires explicit memory barrier semantics around the operation as<BR>above.</P>
+<P>&nbsp;int atomic_sub_and_test(int i, atomic_t *v);</P>
+<P>This is identical to atomic_dec_and_test() except that an explicit<BR>decrement is given instead of the implicit "1".&nbsp; It requires explicit<BR>memory barrier semantics around the operation.</P>
+<P>&nbsp;int atomic_add_negative(int i, atomic_t *v);</P>
+<P>The given increment is added to the given atomic counter value.&nbsp; A<BR>boolean is return which indicates whether the resulting counter value<BR>is negative.&nbsp; It requires explicit memory barrier semantics around the<BR>operation.</P>
+<P>Then:</P>
+<P>&nbsp;int atomic_xchg(atomic_t *v, int new);</P>
+<P>This performs an atomic exchange operation on the atomic variable v, setting<BR>the given new value.&nbsp; It returns the old value that the atomic variable v had<BR>just before the operation.</P>
+<P>atomic_xchg requires explicit memory barriers around the operation.</P>
+<P>&nbsp;int atomic_cmpxchg(atomic_t *v, int old, int new);</P>
+<P>This performs an atomic compare exchange operation on the atomic value v,<BR>with the given old and new values. Like all atomic_xxx operations,<BR>atomic_cmpxchg will only satisfy its atomicity semantics as long as all<BR>other accesses of *v are performed through atomic_xxx operations.</P>
+<P>atomic_cmpxchg requires explicit memory barriers around the operation.</P>
+<P>The semantics for atomic_cmpxchg are the same as those defined for 'cas'<BR>below.</P>
+<P>Finally:</P>
+<P>&nbsp;int atomic_add_unless(atomic_t *v, int a, int u);</P>
+<P>If the atomic value v is not equal to u, this function adds a to v, and<BR>returns non zero. If v is equal to u then it returns zero. This is done as<BR>an atomic operation.</P>
+<P>atomic_add_unless requires explicit memory barriers around the operation<BR>unless it fails (returns 0).</P>
+<P>atomic_inc_not_zero, equivalent to atomic_add_unless(v, 1, 0)</P>
+<P><BR>If a caller requires memory barrier semantics around an atomic_t<BR>operation which does not return a value, a set of interfaces are<BR>defined which accomplish this:</P>
+<P>&nbsp;void smp_mb__before_atomic_dec(void);<BR>&nbsp;void smp_mb__after_atomic_dec(void);<BR>&nbsp;void smp_mb__before_atomic_inc(void);<BR>&nbsp;void smp_mb__after_atomic_inc(void);</P>
+<P>For example, smp_mb__before_atomic_dec() can be used like so:</P>
+<P>&nbsp;obj-&gt;dead = 1;<BR>&nbsp;smp_mb__before_atomic_dec();<BR>&nbsp;atomic_dec(&amp;obj-&gt;ref_count);</P>
+<P>It makes sure that all memory operations preceding the atomic_dec()<BR>call are strongly ordered with respect to the atomic counter<BR>operation.&nbsp; In the above example, it guarantees that the assignment of<BR>"1" to obj-&gt;dead will be globally visible to other cpus before the<BR>atomic counter decrement.</P>
+<P>Without the explicit smp_mb__before_atomic_dec() call, the<BR>implementation could legally allow the atomic counter update visible<BR>to other cpus before the "obj-&gt;dead = 1;" assignment.</P>
+<P>The other three interfaces listed are used to provide explicit<BR>ordering with respect to memory operations after an atomic_dec() call<BR>(smp_mb__after_atomic_dec()) and around atomic_inc() calls<BR>(smp_mb__{before,after}_atomic_inc()).</P>
+<P>A missing memory barrier in the cases where they are required by the<BR>atomic_t implementation above can have disastrous results.&nbsp; Here is<BR>an example, which follows a pattern occurring frequently in the Linux<BR>kernel.&nbsp; It is the use of atomic counters to implement reference<BR>counting, and it works such that once the counter falls to zero it can<BR>be guaranteed that no other entity can be accessing the object:</P>
+<P>static void obj_list_add(struct obj *obj, struct list_head *head)<BR>{<BR>&nbsp;obj-&gt;active = 1;<BR>&nbsp;list_add(&amp;obj-&gt;list, head);<BR>}</P>
+<P>static void obj_list_del(struct obj *obj)<BR>{<BR>&nbsp;list_del(&amp;obj-&gt;list);<BR>&nbsp;obj-&gt;active = 0;<BR>}</P>
+<P>static void obj_destroy(struct obj *obj)<BR>{<BR>&nbsp;BUG_ON(obj-&gt;active);<BR>&nbsp;kfree(obj);<BR>}</P>
+<P>struct obj *obj_list_peek(struct list_head *head)<BR>{<BR>&nbsp;if (!list_empty(head)) {<BR>&nbsp;&nbsp;struct obj *obj;</P>
+<P>&nbsp;&nbsp;obj = list_entry(head-&gt;next, struct obj, list);<BR>&nbsp;&nbsp;atomic_inc(&amp;obj-&gt;refcnt);<BR>&nbsp;&nbsp;return obj;<BR>&nbsp;}<BR>&nbsp;return NULL;<BR>}</P>
+<P>void obj_poke(void)<BR>{<BR>&nbsp;struct obj *obj;</P>
+<P>&nbsp;spin_lock(&amp;global_list_lock);<BR>&nbsp;obj = obj_list_peek(&amp;global_list);<BR>&nbsp;spin_unlock(&amp;global_list_lock);</P>
+<P>&nbsp;if (obj) {<BR>&nbsp;&nbsp;obj-&gt;ops-&gt;poke(obj);<BR>&nbsp;&nbsp;if (atomic_dec_and_test(&amp;obj-&gt;refcnt))<BR>&nbsp;&nbsp;&nbsp;obj_destroy(obj);<BR>&nbsp;}<BR>}</P>
+<P>void obj_timeout(struct obj *obj)<BR>{<BR>&nbsp;spin_lock(&amp;global_list_lock);<BR>&nbsp;obj_list_del(obj);<BR>&nbsp;spin_unlock(&amp;global_list_lock);</P>
+<P>&nbsp;if (atomic_dec_and_test(&amp;obj-&gt;refcnt))<BR>&nbsp;&nbsp;obj_destroy(obj);<BR>}</P>
+<P>(This is a simplification of the ARP queue management in the<BR>&nbsp;generic neighbour discover code of the networking.&nbsp; Olaf Kirch<BR>&nbsp;found a bug wrt. memory barriers in kfree_skb() that exposed<BR>&nbsp;the atomic_t memory barrier requirements quite clearly.)</P>
+<P>Given the above scheme, it must be the case that the obj-&gt;active<BR>update done by the obj list deletion be visible to other processors<BR>before the atomic counter decrement is performed.</P>
+<P>Otherwise, the counter could fall to zero, yet obj-&gt;active would still<BR>be set, thus triggering the assertion in obj_destroy().&nbsp; The error<BR>sequence looks like this:</P>
+<P>&nbsp;cpu 0&nbsp;&nbsp;&nbsp;&nbsp;cpu 1<BR>&nbsp;obj_poke()&nbsp;&nbsp;&nbsp;obj_timeout()<BR>&nbsp;obj = obj_list_peek();<BR>&nbsp;... gains ref to obj, refcnt=2<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;obj_list_del(obj);<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;obj-&gt;active = 0 ...<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;... visibility delayed ...<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;atomic_dec_and_test()<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;... refcnt drops to 1 ...<BR>&nbsp;atomic_dec_and_test()<BR>&nbsp;... refcount drops to 0 ...<BR>&nbsp;obj_destroy()<BR>&nbsp;BUG() triggers since obj-&gt;active<BR>&nbsp;still seen as one<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;obj-&gt;active update visibility occurs</P>
+<P>With the memory barrier semantics required of the atomic_t operations<BR>which return values, the above sequence of memory visibility can never<BR>happen.&nbsp; Specifically, in the above case the atomic_dec_and_test()<BR>counter decrement would not become globally visible until the<BR>obj-&gt;active update does.</P>
+<P>As a historical note, 32-bit Sparc used to only allow usage of<BR>24-bits of its atomic_t type.&nbsp; This was because it used 8 bits<BR>as a spinlock for SMP safety.&nbsp; Sparc32 lacked a "compare and swap"<BR>type instruction.&nbsp; However, 32-bit Sparc has since been moved over<BR>to a "hash table of spinlocks" scheme, that allows the full 32-bit<BR>counter to be realized.&nbsp; Essentially, an array of spinlocks are<BR>indexed into based upon the address of the atomic_t being operated<BR>on, and that lock protects the atomic operation.&nbsp; Parisc uses the<BR>same scheme.</P>
+<P>Another note is that the atomic_t operations returning values are<BR>extremely slow on an old 386.</P>
+<P>We will now cover the atomic bitmask operations.&nbsp; You will find that<BR>their SMP and memory barrier semantics are similar in shape and scope<BR>to the atomic_t ops above.</P>
+<P>Native atomic bit operations are defined to operate on objects aligned<BR>to the size of an "unsigned long" C data type, and are least of that<BR>size.&nbsp; The endianness of the bits within each "unsigned long" are the<BR>native endianness of the cpu.</P>
+<P>&nbsp;void set_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;void clear_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;void change_bit(unsigned long nr, volatile unsigned long *addr);</P>
+<P>These routines set, clear, and change, respectively, the bit number<BR>indicated by "nr" on the bit mask pointed to by "ADDR".</P>
+<P>They must execute atomically, yet there are no implicit memory barrier<BR>semantics required of these interfaces.</P>
+<P>&nbsp;int test_and_set_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;int test_and_clear_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;int test_and_change_bit(unsigned long nr, volatile unsigned long *addr);</P>
+<P>Like the above, except that these routines return a boolean which<BR>indicates whether the changed bit was set _BEFORE_ the atomic bit<BR>operation.</P>
+<P>WARNING! It is incredibly important that the value be a boolean,<BR>ie. "0" or "1".&nbsp; Do not try to be fancy and save a few instructions by<BR>declaring the above to return "long" and just returning something like<BR>"old_val &amp; mask" because that will not work.</P>
+<P>For one thing, this return value gets truncated to int in many code<BR>paths using these interfaces, so on 64-bit if the bit is set in the<BR>upper 32-bits then testers will never see that.</P>
+<P>One great example of where this problem crops up are the thread_info<BR>flag operations.&nbsp; Routines such as test_and_set_ti_thread_flag() chop<BR>the return value into an int.&nbsp; There are other places where things<BR>like this occur as well.</P>
+<P>These routines, like the atomic_t counter operations returning values,<BR>require explicit memory barrier semantics around their execution.&nbsp; All<BR>memory operations before the atomic bit operation call must be made<BR>visible globally before the atomic bit operation is made visible.<BR>Likewise, the atomic bit operation must be visible globally before any<BR>subsequent memory operation is made visible.&nbsp; For example:</P>
+<P>&nbsp;obj-&gt;dead = 1;<BR>&nbsp;if (test_and_set_bit(0, &amp;obj-&gt;flags))<BR>&nbsp;&nbsp;/* ... */;<BR>&nbsp;obj-&gt;killed = 1;</P>
+<P>The implementation of test_and_set_bit() must guarantee that<BR>"obj-&gt;dead = 1;" is visible to cpus before the atomic memory operation<BR>done by test_and_set_bit() becomes visible.&nbsp; Likewise, the atomic<BR>memory operation done by test_and_set_bit() must become visible before<BR>"obj-&gt;killed = 1;" is visible.</P>
+<P>Finally there is the basic operation:</P>
+<P>&nbsp;int test_bit(unsigned long nr, __const__ volatile unsigned long *addr);</P>
+<P>Which returns a boolean indicating if bit "nr" is set in the bitmask<BR>pointed to by "addr".</P>
+<P>If explicit memory barriers are required around clear_bit() (which<BR>does not return a value, and thus does not need to provide memory<BR>barrier semantics), two interfaces are provided:</P>
+<P>&nbsp;void smp_mb__before_clear_bit(void);<BR>&nbsp;void smp_mb__after_clear_bit(void);</P>
+<P>They are used as follows, and are akin to their atomic_t operation<BR>brothers:</P>
+<P>&nbsp;/* All memory operations before this call will<BR>&nbsp; * be globally visible before the clear_bit().<BR>&nbsp; */<BR>&nbsp;smp_mb__before_clear_bit();<BR>&nbsp;clear_bit( ... );</P>
+<P>&nbsp;/* The clear_bit() will be visible before all<BR>&nbsp; * subsequent memory operations.<BR>&nbsp; */<BR>&nbsp; smp_mb__after_clear_bit();</P>
+<P>There are two special bitops with lock barrier semantics (acquire/release,<BR>same as spinlocks). These operate in the same way as their non-_lock/unlock<BR>postfixed variants, except that they are to provide acquire/release semantics,<BR>respectively. This means they can be used for bit_spin_trylock and<BR>bit_spin_unlock type operations without specifying any more barriers.</P>
+<P>&nbsp;int test_and_set_bit_lock(unsigned long nr, unsigned long *addr);<BR>&nbsp;void clear_bit_unlock(unsigned long nr, unsigned long *addr);<BR>&nbsp;void __clear_bit_unlock(unsigned long nr, unsigned long *addr);</P>
+<P>The __clear_bit_unlock version is non-atomic, however it still implements<BR>unlock barrier semantics. This can be useful if the lock itself is protecting<BR>the other bits in the word.</P>
+<P>Finally, there are non-atomic versions of the bitmask operations<BR>provided.&nbsp; They are used in contexts where some other higher-level SMP<BR>locking scheme is being used to protect the bitmask, and thus less<BR>expensive non-atomic operations may be used in the implementation.<BR>They have names similar to the above bitmask operation interfaces,<BR>except that two underscores are prefixed to the interface name.</P>
+<P>&nbsp;void __set_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;void __clear_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;void __change_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;int __test_and_set_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;int __test_and_clear_bit(unsigned long nr, volatile unsigned long *addr);<BR>&nbsp;int __test_and_change_bit(unsigned long nr, volatile unsigned long *addr);</P>
+<P>These non-atomic variants also do not require any special memory<BR>barrier semantics.</P>
+<P>The routines xchg() and cmpxchg() need the same exact memory barriers<BR>as the atomic and bit operations returning values.</P>
+<P>Spinlocks and rwlocks have memory barrier expectations as well.<BR>The rule to follow is simple:</P>
+<P>1) When acquiring a lock, the implementation must make it globally<BR>&nbsp;&nbsp; visible before any subsequent memory operation.</P>
+<P>2) When releasing a lock, the implementation must make it such that<BR>&nbsp;&nbsp; all previous memory operations are globally visible before the<BR>&nbsp;&nbsp; lock release.</P>
+<P>Which finally brings us to _atomic_dec_and_lock().&nbsp; There is an<BR>architecture-neutral version implemented in lib/dec_and_lock.c,<BR>but most platforms will wish to optimize this in assembler.</P>
+<P>&nbsp;int _atomic_dec_and_lock(atomic_t *atomic, spinlock_t *lock);</P>
+<P>Atomically decrement the given counter, and if will drop to zero<BR>atomically acquire the given spinlock and perform the decrement<BR>of the counter to zero.&nbsp; If it does not drop to zero, do nothing<BR>with the spinlock.</P>
+<P>It is actually pretty simple to get the memory barrier correct.<BR>Simply satisfy the spinlock grab requirements, which is make<BR>sure the spinlock operation is globally visible before any<BR>subsequent memory operation.</P>
+<P>We can demonstrate this operation more clearly if we define<BR>an abstract atomic operation:</P>
+<P>&nbsp;long cas(long *mem, long old, long new);</P>
+<P>"cas" stands for "compare and swap".&nbsp; It atomically:</P>
+<P>1) Compares "old" with the value currently at "mem".<BR>2) If they are equal, "new" is written to "mem".<BR>3) Regardless, the current value at "mem" is returned.</P>
+<P>As an example usage, here is what an atomic counter update<BR>might look like:</P>
+<P>void example_atomic_inc(long *counter)<BR>{<BR>&nbsp;long old, new, ret;</P>
+<P>&nbsp;while (1) {<BR>&nbsp;&nbsp;old = *counter;<BR>&nbsp;&nbsp;new = old + 1;</P>
+<P>&nbsp;&nbsp;ret = cas(counter, old, new);<BR>&nbsp;&nbsp;if (ret == old)<BR>&nbsp;&nbsp;&nbsp;break;<BR>&nbsp;}<BR>}</P>
+<P>Let's use cas() in order to build a pseudo-C atomic_dec_and_lock():</P>
+<P>int _atomic_dec_and_lock(atomic_t *atomic, spinlock_t *lock)<BR>{<BR>&nbsp;long old, new, ret;<BR>&nbsp;int went_to_zero;</P>
+<P>&nbsp;went_to_zero = 0;<BR>&nbsp;while (1) {<BR>&nbsp;&nbsp;old = atomic_read(atomic);<BR>&nbsp;&nbsp;new = old - 1;<BR>&nbsp;&nbsp;if (new == 0) {<BR>&nbsp;&nbsp;&nbsp;went_to_zero = 1;<BR>&nbsp;&nbsp;&nbsp;spin_lock(lock);<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;ret = cas(atomic, old, new);<BR>&nbsp;&nbsp;if (ret == old)<BR>&nbsp;&nbsp;&nbsp;break;<BR>&nbsp;&nbsp;if (went_to_zero) {<BR>&nbsp;&nbsp;&nbsp;spin_unlock(lock);<BR>&nbsp;&nbsp;&nbsp;went_to_zero = 0;<BR>&nbsp;&nbsp;}<BR>&nbsp;}</P>
+<P>&nbsp;return went_to_zero;<BR>}</P>
+<P>Now, as far as memory barriers go, as long as spin_lock()<BR>strictly orders all subsequent memory operations (including<BR>the cas()) with respect to itself, things will be fine.</P>
+<P>Said another way, _atomic_dec_and_lock() must guarantee that<BR>a counter dropping to zero is never made visible before the<BR>spinlock being acquired.</P>
+<P>Note that this also means that for the case where the counter<BR>is not dropping to zero, there are no memory ordering<BR>requirements.

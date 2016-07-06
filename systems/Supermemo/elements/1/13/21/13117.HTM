@@ -1,0 +1,206 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>14.3.&nbsp;Memory-Mapped I/O</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch14s02.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;14.&nbsp;Input/Output</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch14s04.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="14.3.&nbsp;Memory-Mapped I/O" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=mem_mapped_io></A>14.3.&nbsp;Memory-Mapped I/O</H2></DIV></DIV></DIV>
+<P>See Britton chapter 8.</P>
+<DIV class=section title=14.3.1.&nbsp;Introduction>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286965665></A>14.3.1.&nbsp;Introduction</H3></DIV></DIV></DIV>
+<P>From the CPU's perspective, an I/O device appears as a set of special-purpose registers, of three general types:</P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist type=disc>
+<LI class=listitem>Status registers provide status information to the CPU about the I/O device. These registers are often read-only, i.e. the CPU can only read their bits, and cannot change them.</LI>
+<LI class=listitem>Configuration/control registers are used by the CPU to configure and control the device. Bits in these configuration registers may be write-only, so the CPU can alter them, but not read them back. Most bits in control registers can be both read and written.</LI>
+<LI class=listitem>Data registers are used to read data from or send data to the I/O device.</LI></UL></DIV>
+<P>In some instances, a given register may fit more than one of the above categories, e.g. some bits are used for configuration while other bits in the same register provide status information.</P>
+<P>The logic circuit that contains these registers is called the<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>device controller</EM>, and the software that<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286965685></A>communicates with the controller is called a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>device driver</EM>.<A class=indexterm name=id286965693></A></P><PRE class=screen>				+-------------------+           +-----------+
+				| Device controller |           |           |   
+	    +-------+           |                   |&lt;---------&gt;|  Device   |
+	    |       |----------&gt;| Control register  |           |           |
+	    |  CPU  |&lt;----------| Status register   |           |           |
+	    |       |&lt;---------&gt;| Data register     |           |           |
+	    +-------+           |                   |           |           |
+				+-------------------+           +-----------+
+	    </PRE>
+<P>Simple devices such as keyboards and mice may be represented by only a few registers, while more complex ones such as disk drives and graphics adapters may have dozens.</P>
+<P>Each of the I/O registers, like memory, must have an address so that the CPU can read or write specific registers.</P>
+<P>Some CPUs have a separate address space for I/O devices. This requires separate instructions to perform I/O operations.</P>
+<P>Other architectures, like the MIPS, use<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>memory-mapped I/O</EM>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286965712></A>When using memory-mapped I/O, the same address space is shared by memory and I/O devices. Some addresses represent memory cells, while others represent registers in I/O devices. No separate I/O instructions are needed in a CPU that uses memory-mapped I/O. Instead, we can perform I/O operations using any instruction that can reference memory.</P><PRE class=screen>			    +---------------+
+			    | Address space |
+			    |   +-------+   |
+			    |   |  ROM  |   |
+			    |   +-------+   |
+	    +-------+address|   |       |   |
+	    |       |------&gt;|   |  RAM  |   |
+	    |  CPU  |       |   |       |   |
+	    |       |&lt;-----&gt;|   +-------+   |
+	    +-------+ data  |   |       |   |
+			    |   |  I/O  |   |
+			    |   +-------+   |
+			    +---------------+
+	    </PRE>
+<P>On the MIPS, we would access ROM, RAM, and I/O devices using load and store instructions. Which type of device we access depends only on the address used!</P><PRE class=screen>	    lw      $t0, 0x00000004     # Read ROM
+	    sw      $t0, 0x00000004     # Write ROM (bus error!)
+	    
+	    lbu     $t0, 0x0000ffc1     # Read RAM
+	    sb      $t0, 0x0000ffc1     # Write RAM
+	    
+	    lbu     $t0, 0xffff0000     # Read an I/O device
+	    sb      $t0, 0xffff0004     # Write to an I/O device
+	    </PRE>
+<P>The 32-bit MIPS architecture has a 32-bit address, and hence an address space of 4 gigabytes. Addresses 0x00000000 through 0xfffeffff are used for memory, and addresses 0xffff0000 - 0xffffffff (the last 64 kilobytes) are reserved for I/O device registers. This is a very small fraction of the total address space, and yet far more space than is needed for I/O devices on any one computer.</P>
+<P>Each register within an I/O controller must be assigned a unique address within the address space. This address may be fixed for certain devices, and auto-assigned for others. (PC plug-and-play devices have auto-assigned I/O addresses, which are determined during boot-up.)</P></DIV>
+<DIV class=section title="14.3.2.&nbsp;Memory-Mapped I/O with SPIM">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286965726></A>14.3.2.&nbsp;Memory-Mapped I/O with SPIM</H3></DIV></DIV></DIV>
+<P>The SPIM simulator provides simple keyboard and display devices. In order to access the keyboard and display controllers directly, instead of through syscalls, you must use the<CODE class=option>-mapped_io</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>flags when starting SPIM.</P><PRE class=screen>	    spim -mapped_io -file prog_with_drivers.mal
+	    </PRE>
+<P>The presence of these simple device controllers is one of the big advantages of using a simulator to learn computer organization and assembly language. Developing real device drivers under operating systems like Unix or Windows is far too complex for an undergraduate course.</P></DIV>
+<DIV class=section title="14.3.3.&nbsp;Communicating with a Keyboard Controller">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286965739></A>14.3.3.&nbsp;Communicating with a Keyboard Controller</H3></DIV></DIV></DIV>
+<P>The keyboard controller consists of two 32-bit registers, of which only a few bits are used.</P>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>receiver data register</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>resides at the fixed memory address 0xffff0004. The low 8 bits of this register contain the ASCII/ISO code of the last key that was pressed.</P><PRE class=screen>	     31                8 7     0
+	    +---------------------------+
+	    |       unused      |  key  |
+	    +---------------------------+
+	    </PRE>
+<P>This register is read-only, and can be accessed with a load instruction:</P><PRE class=programlisting>	    # Input ASCII/ISO code of last key to low byte of $t0
+	    # and clear remaining bits of $t0
+	    lbu     $t0, 0xffff0004
+	    </PRE>
+<P>As always, we should use named constants rather than hard-code numbers like 0xffff0004.</P><PRE class=programlisting>	    CONS_RECEIVER_DATA              =   0xffff0004
+	    
+	    # Input ASCII/ISO code of last key to low byte of $t0
+	    # and clear remaining bits of $t0
+	    lbu     $t0, CONS_RECEIVER_DATA
+	    </PRE>
+<P>The lbu (load byte unsigned) instruction should be used instead of lw, since lbu ensures that the 3 high bytes of the destination register are cleared. An lw would copy all 32 bits from the source. The high 3 bytes in the receiver control register are probably read as zeros, but lbu is a safer bet.</P>
+<P>The<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>receiver control register</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>resides at memory address 0xffff0000. Only bits 0 and 1 are used.</P><PRE class=screen>	     31                        0
+	    +---------------------------+
+	    |        unused         |I|R|
+	    +---------------------------+
+	    </PRE>
+<P>Bit 0 (R) is the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>ready</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>bit. It is set to 1 by the keyboard controller when a key is pressed. It is cleared automatically when the receiver data register is read.</P>
+<P>Bit 1 (I) is the interrupt-enable bit. This bit should be set to 1 by software if keyboard interrupts are to be used. Interrupts are discussed in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title=Chapter&nbsp;15.&nbsp;Exceptions href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15.html">Chapter&nbsp;15,<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>Exceptions</I></A>.</P>
+<P>The ready bit in the receiver control register and the entire receiver data register are read-only for the CPU. Attempts to change their values (e.g. using sw or sb) have no effect.</P>
+<P>The code below demonstrates a simple<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>spin waiting</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>(also known as<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>busy waiting</EM>) loop.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286965793></A><A class=indexterm name=id286965797></A>A spin waiting loop does nothing but poll an I/O device until the device becomes "ready" (new input is received, or an output device is done processing previous output). As soon as the device is ready, the loop exits and the I/O transaction occurs.</P><PRE class=programlisting>    ISO_LF              =   10  # Line feed (newline)
+    SYS_PRINT_CHAR      =   11
+    
+    #########################################################################
+    # Receiver control.  1 in bit 0 means new char has arrived.  This bit
+    # is read-only, and resets to 0 when CONS_RECEIVER_DATA is read.
+    # 1 in bit 1 enables hardware interrupt at interrupt level 1.
+    # Interrupts must also be enabled in the coprocessor 0 status register.
+    
+    CONS_RECEIVER_CONTROL           =   0xffff0000
+    CONS_RECEIVER_READY_MASK        =   0x00000001
+    CONS_RECEIVER_DATA              =   0xffff0004
+    
+    # Main body
+	    .text
+    main:
+    
+	    # Spin-wait for key to be pressed
+    key_wait:
+	    lw      $t0, CONS_RECEIVER_CONTROL
+	    andi    $t0, $t0, CONS_RECEIVER_READY_MASK  # Isolate ready bit
+	    beqz    $t0, key_wait
+    
+	    # Read in new character from keyboard to low byte of $a0
+	    # and clear other 3 bytes of $a0
+	    lbu     $a0, CONS_RECEIVER_DATA
+	    
+	    # Print character and newline
+	    li      $v0, SYS_PRINT_CHAR
+	    syscall
+	    
+	    li      $a0, ISO_LF
+	    li      $v0, SYS_PRINT_CHAR
+	    syscall
+	    
+	    jr      $ra
+	    </PRE>
+<P>Note that characters read from the keyboard this way are not automatically echoed to the terminal. Higher level I/O facilities (like SPIM syscall functions) contain code to echo characters as they are received.</P>
+<P>The advantage of spin-waiting is that it responds almost immediately when an I/O device is ready.</P>
+<P>The down side, of course, is that the CPU is completely consumed with polling the device until it is ready, and no useful work can be done until after the I/O transaction. With a device such as a keyboard, which will produce at best about 10 input events in a second, the keyboard may be polled millions of times between keystrokes, even on a slow CPU. Hence, the CPU spends almost all of its time finding out that there is no input available, and once every few million iterations finds something useful to do.</P>
+<P>An alternative to spin waiting is<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>periodic polling</EM>. In a periodic polling scenario, an I/O device is polled at various points during the execution of some useful code. Imagine the spin waiting loop above with a large amount of other code inserted, and you have a basic form of periodic polling.</P>
+<P>With periodic polling, the CPU can spend most of its time doing useful work. However, it is difficult or impossible to ensure that the device is polled at exactly the right frequency.</P>
+<P>Since the working code likely contains conditionals, we cannot always predict exactly how long it will take to reach the next polling instruction. If it takes too long (the device is under-polled), I/O events could be missed. If the software over-polls (polls far more often than events actually occur), then a significant percentage of available CPU time may be spent on polling, and the amount of useful work being done is reduced.</P>
+<P>When using software polling, the systems programmer must strike a balance between CPU time used for polling and the CPU time used for other work.</P>
+<P>If missing an I/O event would be unacceptable (as with keyboard input), then the device must be over-polled to ensure that this doesn't happen, and overall system performance will be reduced.</P>
+<P>If missing an event is not critical (as with an output device becoming ready), then under-polling may be used so that the CPU is available for more useful work.</P>
+<P>The solution to the problems with spin waiting and periodic polling is offered by<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>interrupts</EM>, which are discussed in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=xref title=Chapter&nbsp;15.&nbsp;Exceptions href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15.html">Chapter&nbsp;15,<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>Exceptions</I></A>.</P></DIV>
+<DIV class=section title="14.3.4.&nbsp;Blocking vs. Non-blocking">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286965939></A>14.3.4.&nbsp;Blocking vs. Non-blocking</H3></DIV></DIV></DIV>
+<P>I/O actions can be either<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>blocking</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>non-blocking</EM>.</P>
+<P>A blocking I/O action stops (blocks) the program from proceeding until the I/O transaction is completed. For example, a word processor will usually wait for a key press or a mouse click before doing any additional processing.</P>
+<P>Blocking I/O is not appropriate for some applications, such as video games, for example. Imagine a video game that stops completely while waiting for the player to move the joystick or press a button.</P>
+<P>With non-blocking I/O, a device is checked periodically (via polling or any other method). If no new input is available or the output device is not ready, the program continues. If new input is available or an output device has become ready, then the program may do something different, but it will continue to run whether or not an I/O event has occurred.</P>
+<P>As an example, a getc function might be used to read a character from the keyboard. A blocking getc does not return until a key is pressed. It either spin-waits or sleeps until the user presses a key, and then inputs the character and returns it. A non-blocking getc function checks the keyboard<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>once</EM></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>and either returns the key that was pressed, or some code to indicate than no new input was available.</P></DIV>
+<DIV class=section title="14.3.5.&nbsp;Communicating with a Display Controller">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286965963></A>14.3.5.&nbsp;Communicating with a Display Controller</H3></DIV></DIV></DIV>
+<P>The display controller works much like the keyboard controller.</P>
+<P>The transmitter control register resides at address 0xffff0008. Bit 0 is the ready bit. A value of 1 in the ready bit indicates that the display is ready to receive another character.</P>
+<P>A character is sent to the display by writing it to the transmitter data register at address 0xffff000c.</P>
+<P>The ready bit is cleared automatically each time a write to the transmitter data register is performed. When the display has finished processing the character, the display controller sets the ready bit back to 1.</P>
+<DIV class=caution title=Caution style="MARGIN-LEFT: 0.5in; MARGIN-RIGHT: 0.5in">
+<H3 class=title>Caution</H3>Programs must not write to transmitter data unless ready bit is 1. Doing so will produce undefined results.</DIV>
+<P>As with the receiver control register, the ready bit in the transmitter control register is read-only. The transmitter data register is write-only. Data read back from it is not valid, and may not match what was last written.</P>
+<P>The APE editor includes a<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=quote>&#8220;<SPAN class=quote>Low-level I/O</SPAN>&#8221;</SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro defining constants for direct access to the keyboard and display controllers.</P></DIV>
+<DIV class=section title="14.3.6.&nbsp;Case-study: The PIC 18f8520 Microcontroller">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286965987></A>14.3.6.&nbsp;Case-study: The PIC 18f8520 Microcontroller</H3></DIV></DIV></DIV>
+<P>The PIC 18f8520 microcontroller is a medium-scale processor used in the Vex robotics controller. The 8520's 10-bit analog-to-digital (A/D) converter module provides a fairly simple real-world example of a device controller, which is represented by 5 8-bit registers.</P>
+<P>The A/D module samples an analog input signal (voltage) upon request from a program, and converts it to a 10-bit unsigned binary number.</P>
+<P>Details can be found in the PIC data sheet at:<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=ulink href="http://ww1.microchip.com/downloads/en/devicedoc/39609b.pdf" target=_top>http://ww1.microchip.com/downloads/en/devicedoc/39609b.pdf</A></P></DIV>
+<DIV class=section title="14.3.7.&nbsp;A Real-Time Clock">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966241></A>14.3.7.&nbsp;A Real-Time Clock</H3></DIV></DIV></DIV>
+<P>Not covered. Not possible with SPIM on a multiuser system.</P></DIV>
+<DIV class=section title=14.3.8.&nbsp;Homework>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966246></A>14.3.8.&nbsp;Homework</H3></DIV></DIV></DIV></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch14s02.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch14.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch14s04.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">14.2.&nbsp;I/O Devices&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;14.4.&nbsp;Disk I/O</TD></TR></TBODY></TABLE></DIV>

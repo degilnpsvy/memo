@@ -1,0 +1,232 @@
+<H3 id=title-IDAQVFLH class=docSection1Title>16.3. Platform Initialization</H3>
+<P class=docText>Following is a quick review of the code flow during early initialization. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16fig03">Figure 16-3</A> shows the flow of execution from the bootloader or bootstrap loader to your platform-initialization code.</P><A name=ch16fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 16-3. Platform initialization flow of control</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/16elp03.jpg" width=400 height=161></P></CENTER>
+<P></P><BR>
+<P class=docText>The files <TT>head.S</TT> and <TT>setup.c</TT> are both found in the <TT>.../arch/ppc/kernel</TT> directory for the PowerPC architecture. Our custom platform-initialization file will be placed in the <TT>.../arch/ppc/platforms</TT> directory. In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16fig03">Figure 16-3</A>, it is represented by the file <TT>myplat.c.</TT> We are now in a position to examine the platform-specific initialization file in detail.</P>
+<P class=docText><A name=iddle1964></A><A name=iddle2203></A>In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec2.html#ch16list03">Listing 16-3</A>, we listed the functions in the <TT>lite5200.c</TT> platform-initialization file. Every function except <TT>platform_init()</TT> is declared as static. Therefore, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16fig03">Figure 16-3</A>, this is the entry point for the platform-initialization file. The rest of the functions in the file are referenced only from within the file itself.</P>
+<P class=docText>Let's examine the entry function <TT>platform_init()</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list08">Listing 16-8</A> reproduces the <TT>platform_init()</TT> function from the <TT>lite5200.c</TT> file.</P><A name=ch16list08></A>
+<H5 id=title-IDANZFLH class=docExampleTitle>Listing 16-8. Lite5200 <TT>platform_init</TT> Function</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>void __init
+platform_init(unsigned long r3, unsigned long r4,
+               unsigned long r5, unsigned long r6,
+               unsigned long r7)
+{
+    /* Generic MPC52xx platform initialization */
+    /* TODO Create one and move a max of stuff in it.
+       Put this init in the syslib */
+
+
+    struct bi_record *bootinfo = find_bootinfo();
+
+
+    if (bootinfo)
+        parse_bootinfo(bootinfo);
+    else {
+        /* Load the bd_t board info structure */
+    if (r3)
+        memcpy((void*)&amp;__res,(void*)(r3+KERNELBASE),
+                sizeof(bd_t));
+
+
+#ifdef CONFIG_BLK_DEV_INITRD
+    /* Load the initrd */
+        if (r4) {
+            initrd_start = r4 + KERNELBASE;
+            initrd_end = r5 + KERNELBASE;
+        }
+#endif
+
+
+    /* Load the command line */
+    if (r6) {
+            *(char *)(r7+KERNELBASE) = 0;
+            strcpy(cmd_line, (char *)(r6+KERNELBASE));
+        }
+    }
+
+
+    /* PPC Sys identification */
+    identify_ppc_sys_by_id(mfspr(SPRN_SVR));
+
+
+    /* BAT setup */
+   mpc52xx_set_bat();
+
+
+    /* No ISA bus by default */
+    isa_io_base         = 0;
+    isa_mem_base        = 0;
+
+
+    /* Powersave */
+    /* This is provided as an example on how to do it. But you
+       need to be aware that NAP disable bus snoop and that may
+       be required for some devices to work properly, like USB
+       ... */
+    /* powersave_nap = 1; */
+
+
+
+    /* Setup the ppc_md struct */
+    ppc_md.setup_arch   = lite5200_setup_arch;
+    ppc_md.show_cpuinfo = lite5200_show_cpuinfo;
+    ppc_md.show_percpuinfo    = NULL;
+    ppc_md.init_IRQ           = mpc52xx_init_irq;
+    ppc_md.get_irq            = mpc52xx_get_irq;
+
+
+#ifdef CONFIG_PCI
+    ppc_md.pci_map_irq  = lite5200_map_irq;
+#endif
+
+
+
+    ppc_md.find_end_of_memory = mpc52xx_find_end_of_memory;
+    ppc_md.setup_io_mappings  = mpc52xx_map_io;
+
+
+    ppc_md.restart      = mpc52xx_restart;
+    ppc_md.power_off    = mpc52xx_power_off;
+    ppc_md.halt         = mpc52xx_halt;
+
+
+      /* No time keeper on the LITE5200 */
+    ppc_md.time_init     = NULL;
+    ppc_md.get_rtc_time  = NULL;
+    ppc_md.set_rtc_time  = NULL;
+
+
+
+    ppc_md.calibrate_decr     = mpc52xx_calibrate_decr;
+#ifdef CONFIG_SERIAL_TEXT_DEBUG
+
+    ppc_md.progress           = mpc52xx_progress;
+#endif
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This function contains much of the customizing that is required for this particular platform. It starts by searching for board-specific data supplied by the bootloader. We defer discussion of the details of this until <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16lev2sec6">Section 16.3.2</A>, "Board Information Structure."</P>
+<P class=docText><A name=iddle1107></A><A name=iddle1803></A><A name=iddle2075></A>Following this, if your kernel is configured for an initial ramdisk <TT>(initrd)</TT>,<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16fn5">[5]</A></SUP> the start and end addresses of the ramdisk image are saved. Notice that they are passed in the PowerPC general-purpose registers <TT>r4</TT> and <TT>r5</TT> by convention. It is the bootloader's responsibility to pass the <TT>initrd</TT> addresses in these registers. Later, the kernel will use these addresses to load the <TT>initrd</TT> image from raw memory (where the bootloader placed it, or a nonvolatile Flash image) into an internal kernel ramdisk structure.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn5>[5]</A></SUP> The initial ramdisk, or <TT>initrd</TT>, was introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06.html#ch06">Chapter 6</A>.</P></BLOCKQUOTE>
+<P class=docText>Next we see code to store the kernel command line, whose address is passed into <TT>platform_init()</TT> via registers <TT>r6</TT> and <TT>r7</TT>, marking the start and end addresses, respectively. This differs from the method described earlier for storing a static kernel command line in one specific detail: this kernel command line was passed to <TT>platform_init()</TT> from the bootloader, as opposed to being compiled into the kernel.</P>
+<P class=docText>Copying the <TT>initrd</TT> and kernel command line is very straightforward. Basically, the registers passed in from the bootloader contain the memory addresses where these data structures reside. There is one minor subtlety, however. You may have already wondered about the purpose of the constant <TT>KERNELBASE</TT>. Understanding this is key to grasping one of the more complex parts of the boot sequence.</P>
+<P class=docText>The addresses the bootloader provides are <SPAN class=docEmphasis>physical</SPAN> addresses. This means they are the real hardware addresses where the data resides in the memory chips. The bootloader typically operates without support for virtual memory. However, the kernel itself is statically linked to a well-known, user-configured base address. This address is <TT>KERNELBASE</TT>. (The value itself is not relevant to the discussionit is user configurable but virtually never changed from its default value of 0xC0000000.)</P>
+<P class=docText>This sets up an interesting situation in <TT>head.S</TT>. When the kernel is decompressed and relocated to RAM (usually to location 0), all of its code and data symbols are linked at the kernel's virtual address, <TT>KERNELBASE</TT>. This can be seen by examining the kernel symbol map file, produced during the kernel build process, <TT>System.map</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16fn6">[6]</A></SUP> However, the execution context prior to enabling the MMU is such that physical addresses are real hardware addresses. This means that all the code prior to enabling the MMU and virtual memory mapping must be relocatable, and access to symbols must be <SPAN class=docEmphasis>fixed up</SPAN>. This involves adding an offset to the symbol's address to access it. An example will make this clear.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn6>[6]</A></SUP> We introduced the <TT>System.map</TT> file in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04.html#ch04">Chapter 4</A>.</P></BLOCKQUOTE><A name=ch16lev2sec5></A>
+<H4 id=title-IDAW3FLH class=docSection2Title>16.3.1. Early Variable Access</H4>
+<P class=docText><A name=iddle1375></A><A name=iddle1580></A><A name=iddle2035></A><A name=iddle2212></A><A name=iddle2613></A>Let's assume that a code segment very early in the boot process needs to access the variable <TT>cmd_line</TT>so early that we're executing in 1:1 real to physical mapping. As pointed out earlier, this variable is defined in <TT>head.S</TT> and will end up in the <TT>.data</TT> section when the kernel is linked. From the Linux kernel's <TT>System.map</TT> file, you can find the linked addresses for <TT>cmd_line</TT>:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>cat System.map | grep cmd_line</SPAN>
+   c0115000 D cmd_line</PRE></DIV><BR>
+<P class=docText>If we were running in real = physical mode (MMU disabled) and accessed this variable using its symbol, we would be trying to read or write to an address greater than 3GB. Most smaller embedded systems don't have any RAM in this region, and the results would be undefined or would result in a crash. Even if we had physical RAM at that address, it is unlikely that it would be mapped and accessible this early in the boot process. So we have to adjust our reference to this variable to access it.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list09">Listing 16-9</A> reproduces a code snippet from <TT>head.S</TT> that does just that.</P><A name=ch16list09></A>
+<H5 id=title-IDA4QZKH class=docExampleTitle>Listing 16-9. Variable Reference Fixup</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>relocate_kernel:
+      addis r9,r26,klimit@ha /* fetch klimit */
+      lwz   r25,klimit@l(r9)
+      addis r25,r25,-KERNELBASE@h</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This code snippet from the PowerPC <TT>head.S</TT> is a good example of the issue we are describing. The variable <TT>klimit</TT> represents the end of the kernel image. It is defined elsewhere as <TT>char *klimit</TT>. Therefore, it is a pointerit is an address that contains an address. In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list09">Listing 16-9</A>, we fetch the address of <TT>klimit</TT>, sum it with a previously calculated offset that is passed in <TT>r26</TT>, and deposit the resulting value in register <TT>r9</TT>. Register <TT>r9</TT> now contains the high-order 16 bits of the adjusted address of <TT>klimit</TT>, with the low-order bits zeroed.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16fn7">[7]</A></SUP> It was adjusted by the offset value previously calculated and passed in register <TT>r26</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn7>[7]</A></SUP> For details of PPC assembly language syntax, see <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec5.html#ch16lev2sec9">Section 16.5.1</A>, "Suggestions for Additional Reading" at the end of this chapter.</P></BLOCKQUOTE>
+<P class=docText>In the next line, the <TT>lwz</TT> instruction uses register <TT>r9</TT> together with the offset of <TT>klimit</TT> (the lower 16 bits of the <TT>klimit</TT> address) as an effective address from which <A name=iddle1077></A><A name=iddle1577></A><A name=iddle2209></A>to load register <TT>r25</TT>. (Remember, <TT>klimit</TT> is a pointer, and we are interested in the value that <TT>klimit</TT> points to.) Register <TT>r25</TT> now holds the pointer that was stored in the variable <TT>klimit</TT>. In the final line of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list09">Listing 16-9</A>, we subtract the kernel's linked base address (<TT>KERNELBASE</TT>) from <TT>r25</TT> to adjust the pointer to our actual physical address. In C, it would look like this:</P>
+<DIV class=docText><PRE>      unsigned int *tmp;         /* represents r25 */
+      tmp = *klimit;
+      tmp -= KERNELBASE;</PRE></DIV><BR>
+<P class=docText>In summary, we referenced a pointer stored in <TT>klimit</TT> and adjusted its value to our real (physical) address so we can use its contents. When the kernel enables the MMU and virtual addressing, we no longer have to worry about thisthe kernel will be running at the address where it was linked, regardless of where in physical memory it is actually located.</P><A name=ch16lev2sec6></A>
+<H4 id=title-IDAHVZKH class=docSection2Title>16.3.2. Board Information Structure</H4>
+<P class=docText>Many bootloaders are used for PowerPC platforms, but there is still no unified way to pass in board-specific data such as serial port baud rate, memory size, and other low-level hardware parameters that the bootloader has configured. The platform-initialization file from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list08">Listing 16-8</A> supports two different methods, data stored as <TT>struct bi_record</TT> and data stored as <TT>struct bd_info</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16fn8">[8]</A></SUP> Both methods provide similar results: hardware-specific data is passed from the bootloader to the kernel in these structures.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn8>[8]</A></SUP> Each method has its own roots. The <TT>struct bd_info</TT> originated in U-Boot, and <TT>struct bi_record</TT> was an attempt to unify across all platforms. Both are supported by many platforms.</P></BLOCKQUOTE>
+<P class=docText>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list08">Listing 16-8</A>, here is the code snippet that saves the bootloader-supplied hardware configuration:</P>
+<DIV class=docText><PRE>     struct bi_record *bootinfo = find_bootinfo();
+
+
+     if (bootinfo)
+         parse_bootinfo(bootinfo);
+     else {
+         /* Load the bd_t board info structure */
+     if (r3)
+         memcpy((void*)&amp;__res,(void*)(r3+KERNELBASE),
+                 sizeof(bd_t));</PRE></DIV><BR>
+<P class=docText><A name=iddle1058></A><A name=iddle1073></A>First, we search for a special tag that identifies the data structure as a <TT>struct bi_record</TT>. If that is found, the <TT>bootinfo</TT> pointer is set to the address of the start of the <TT>bootinfo</TT> records. From there, the records are parsed and the hardware related data is gathered. This can be seen by inspecting <TT>.../arch/ppc/kernel/setup.c</TT>. Currently, <TT>bi_records</TT> can contain the kernel command line, the start and end address of the <TT>initrd</TT> image, the machine type, and the size of the memory. Of course, you can extend this for your own requirements.</P>
+<P class=docText>If no <TT>bi_record</TT> data is found, the PowerPC architecture expects this data in the form of U-Boot board information structure, or <TT>bd_info</TT>. It is the bootloader's responsibility to construct this data structure and pass the address in register <TT>r3</TT>. Currently, many bits of hardware information are available in the <TT>bd_info</TT> structure, including information on DRAM, FLASH, SRAM, processor clock rates, bus frequencies, serial port baud rate setting, and more.</P>
+<P class=docText>The <TT>bi_record</TT> structure can be examined in <TT>.../include/asm-ppc/bootinfo.h</TT>, and the <TT>bd_info</TT> structure can be found in <TT>.../include/asm-ppc/ppcboot.h</TT>.</P>
+<P class=docText>It is the responsibility of the platform-initialization routines to make use of any of the data that might be necessary to complete the hardware setup, or to communicate it to the kernel. For example, <TT>platform_init()</TT> sets up a pointer to a function whose name reveals its purpose. The code from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list08">Listing 16-8</A> is reproduced here:</P>
+<DIV class=docText><PRE>    ppc_md.find_end_of_memory = mpc52xx_find_end_of_memory;</PRE></DIV><BR>
+<P class=docText>Looking at the function <TT>mpc52xx_find_end_of_memory()</TT>, which is found in <TT>.../arch/ppc/syslib/mpc52xx_setup.c</TT>, we find the following:</P>
+<DIV class=docText><PRE>      u32 ramsize = __res.bi_memsize;
+
+
+      if (ramsize == 0) {
+            ...   /* Find it another way */
+      }
+
+
+      return ramsize;</PRE></DIV><BR>
+<P class=docText>The <TT>__res</TT> data structure above is the board information structure, whose address was passed to us from the bootloader in register <TT>r3</TT> above. As you can see, the generic setup code stored the <SPAN class=docEmphasis>residual</SPAN> data (as it is often called) passed in by the bootloader, but it's up to the machine or platform-specific code to make use of it.</P><A name=ch16lev2sec7></A>
+<H4 id=title-IDAB0ZKH class=docSection2Title>16.3.3. Machine-Dependent Calls</H4>
+<P class=docText><A name=iddle1582></A><A name=iddle1920></A><A name=iddle2057></A><A name=iddle2204></A><A name=iddle2214></A>Many common routines that the kernel needs either for initialization or for operation are architecture and machine (CPU) dependent. From the <TT>platform_init()</TT> function reproduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list08">Listing 16-8</A>, we saw the following:</P>
+<DIV class=docText><PRE>...
+    /* Setup the ppc_md struct */
+    ppc_md.setup_arch   = lite5200_setup_arch;
+    ppc_md.show_cpuinfo = lite5200_show_cpuinfo;
+    ppc_md.show_percpuinfo    = NULL;
+    ppc_md.init_IRQ           = mpc52xx_init_irq;
+    ppc_md.get_irq            = mpc52xx_get_irq;
+
+
+#ifdef CONFIG_PCI
+      ppc_md.pci_map_irq      = lite5200_map_irq;
+#endif
+
+
+      ppc_md.find_end_of_memory = mpc52xx_find_end_of_memory;
+      ppc_md.setup_io_mappings  = mpc52xx_map_io;
+
+
+      ppc_md.restart    = mpc52xx_restart;
+      ppc_md.power_off  = mpc52xx_power_off;
+      ppc_md.halt       = mpc52xx_halt;
+...</PRE></DIV><BR>
+<P class=docText>Lines similar to these make up the rest of the <TT>platform_init()</TT> function. Here the bulk of the platform-specific needs are communicated to the Linux kernel. The global variable <TT>ppc_md</TT>, of type <TT>struct machdep_calls</TT>, provides the hooks to easily customize the Linux kernel for a PowerPC platform. This variable is declared in <TT>.../arch/ppc/kernel/setup.c</TT>. Many places in the PowerPC-specific kernel branch call functions indirectly through this structure. For example, <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch16lev1sec3.html#ch16list10">Listing 16-10</A> reproduces a portion of <TT>.../arch/ppc/kernel/setup.c</TT>, which contains support for the restart, power-off, and halt functions:</P><A name=ch16list10></A>
+<H5 id=title-IDAL3ZKH class=docExampleTitle>Listing 16-10. Generic PowerPC Machine Functions</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>void machine_restart(char *cmd)
+{
+#ifdef CONFIG_NVRAM
+	nvram_sync();
+#endif
+	ppc_md.restart(cmd);
+}
+
+
+void machine_power_off(void)
+{
+#ifdef CONFIG_NVRAM
+       nvram_sync();
+#endif
+       ppc_md.power_off();
+}
+
+
+void machine_halt(void)
+{
+#ifdef CONFIG_NVRAM
+       nvram_sync();
+#endif
+       ppc_md.halt();
+}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1581></A><A name=iddle2213></A>These functions are called via the <TT>ppc_md</TT> structure and contain the machine- or platform-specific variants of these functions. You can see that some of these functions are machine specific and come from <TT>mpc52xx_*</TT> variants of the functions. Examples of these include <TT>mpc52xx_restart</TT> and <TT>mpc52xx_map_io</TT>. Others are specific to the hardware platform. Examples of platform-specific routines include <TT>lite5200_map_irq</TT> and <TT>lite5200_setup_arch</TT>.

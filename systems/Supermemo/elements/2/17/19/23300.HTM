@@ -1,0 +1,124 @@
+<H3 id=700181-907 class=docSection1Title>14.4. Hardware-Assisted Debugging</H3>
+<P class=docText>By now you've probably realized that you cannot debug very early kernel-startup code with KGDB. This is because KGDB is not initialized until after most of the low-level hardware-initialization code has executed. Furthermore, if you are assigned the task of bringing up a brand-new board design and porting a bootloader and the Linux kernel, having a hardware-debug probe is without a doubt the most efficient means of debugging problems in these early stages of board porting.</P>
+<P class=docText><A name=iddle1232></A><A name=iddle1628></A>You can choose from a wide variety of hardware-debug probes. For the examples in this section, we use a unit manufactured by Abatron called the BDI-2000 (see <A class=docLink href="http://www.abatron.ch/" target=_blank>www.abatron.ch</A>). These units are often called JTAG probes because they use a low-level communications method that was first employed for boundary scan testing of integrated circuits defined by the Joint Test Action Group (JTAG).</P>
+<P class=docText>A JTAG probe contains a small connector designed for connection to your target board. It is often a simple square-pin header and ribbon cable arrangement. Most modern high-performance CPUs contain a JTAG interface that is designed to provide this software debugging capability. The JTAG probe connects to this CPU JTAG interface. The other side of the JTAG probe connects to your host development system usually via Ethernet, USB, or a parallel port. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch14fig06">Figure 14-6</A> details the setup for the Abatron unit.</P><A name=ch14fig06></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 14-6. Hardware JTAG probe debugging</H5>
+<P class=docText><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/14elp06.jpg" width=450 height=211></P></CENTER>
+<P></P><BR>
+<P class=docText>JTAG probes can be complicated to set up. This is a direct result of the complexity of the CPU to which it is connected. When power is applied to a target board and its CPU comes out of reset, almost nothing is initialized. In fact, many processors need at least a small amount of initialization before they can do anything. Many methods are available for getting this initial configuration into the CPU. Some CPUs read a hardware-configuration word or initial values of specific pins to learn their power-on configuration. Others rely on reading a default location in a simple nonvolatile storage device such as Flash. When using a JTAG probe, especially for bringing up a new board design, a minimum level of CPU and board <A name=iddle1226></A><A name=iddle1508></A><A name=iddle1588></A><A name=iddle1714></A><A name=iddle2286></A>initialization must be performed before anything else can be done. Many JTAG probes rely on a configuration file for this initialization.</P>
+<P class=docText>The Abatron unit uses a configuration file to initialize the target hardware it is connected to, as well as to define other operational parameters of the debugger. This configuration file contains directives that initialize the CPU, memory system, and other necessary board-level hardware. It is the developer's responsibility to customize this configuration file with the proper directives for his own board. The details on the configuration command syntax can be found in the JTAG probe's documentation. However, only the embedded developer can create the unique configuration file required for a given board design. This requires detailed knowledge of the CPU and board-level design features. Much like creating a custom Linux port for a new board, there is no shortcut or substitute for this task.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app06.html#app06">Appendix F</A>, "Sample BDI-2000 Configuration File," contains a sample Abatron configuration file for a custom board based on the Freescale Semiconductor MPC5200 embedded controller. In that appendix, you can see the necessary setup for a custom board. Notice the liberal use of comments describing various registers and initialization details. This makes it easier to update and maintain over time, and it can help you to get it right the first time.</P>
+<P class=docText>Hardware probes are generally used in two ways. Most have a user interface of some type that enables the developer to use features of the probe. Examples of this are to program Flash or download binary images. The second usage is as a front end to <TT>gdb</TT> or other source-level debuggers. We demonstrate both usage scenarios.</P><A name=ch14lev2sec11></A>
+<H4 id=title-IDASXAWD class=docSection2Title>14.4.1. Programming Flash Using a JTAG Probe</H4>
+<P class=docText>Many hardware probes include the capability to program a wide variety of Flash memory chips. The Abatron BDI-2000 is no exception. The BDI-2000 configuration file includes a <TT>[FLASH]</TT> section to define the characteristics of the target Flash. Refer to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app06.html#app06">Appendix F</A> for a sample. The <TT>[FLASH]</TT> section defines attributes of the Flash chip as used in a particular design, such as the chip type, the size of the device, and its data bus width. Also defined are the location in memory and some way to describe the chip's storage organization.</P>
+<P class=docText>When updating one portion of the Flash, you often want to preserve the contents of other portions of the same Flash. In this case, your hardware probe must have some way to limit the sectors that are erased. In the case of the Abatron unit, this is <A name=iddle1893></A>done by adding a line starting with the keyword <TT>ERASE</TT> for each sector to be erased. When the <TT>erase</TT> command is issued to the Abatron unit via its <TT>telnet</TT> user interface, all sectors defined with an <TT>ERASE</TT> specification are erased. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch1420">Listing 14-20</A> demonstrates erasing a portion of Flash on a target board and subsequently programming a new U-Boot bootloader image.</P><A name=ch1420></A>
+<H5 id=title-IDAMZAWD class=docExampleTitle>Listing 14-20. Erase and Program Flash</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>telnet bdi</SPAN>
+Trying 192.168.1.129...
+Connected to bdi (192.168.1.129).
+Escape character is '^]'.
+BDI Debugger for Embedded PowerPC
+=================================
+...  (large volume of help text)
+
+uei&gt; <SPAN class=docEmphStrong>erase</SPAN>
+Erasing flash at 0xfff00000
+Erasing flash at 0xfff10000
+Erasing flash at 0xfff20000
+Erasing flash at 0xfff30000
+Erasing flash at 0xfff40000
+Erasing flash passed
+uei&gt; <SPAN class=docEmphStrong>prog 0xfff00000 u-boot.bin BIN</SPAN>
+Programming u-boot.bin , please wait ....
+Programming flash passed
+uei&gt;</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>First we establish a <TT>telnet</TT> session to the Abatron BDI-2000. After some initialization, we are presented with a command prompt. When the <TT>erase</TT> command is issued, the Abatron displays a line of output for each section defined in the configuration file. With the configuration shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app06.html#app06">Appendix F</A>, we defined five erase sectors. This reserves up to 256KB of space for the U-Boot bootloader binary.</P>
+<P class=docText>The <TT>prog</TT> command is shown with all three of its optional parameters. These specify the location in memory where the new image is to be loaded, the name of the image file, and the format of the filein this case, a binary file. You can specify these parameters in the BDI-2000 configuration file. In this case, the command reduces to simply <TT>prog</TT> without parameters.</P>
+<P class=docText>This example only scratches the surface of these two BDI-2000 commands. Many more combinations of usage and capabilities are supported. Each hardware JTAG probe has its own way to specify Flash erasure and programming capabilities. Consult the documentation for your particular device for the specifics.</P><A name=ch14lev2sec12></A>
+<H4 id=title-IDAC1AWD class=docSection2Title>14.4.2. Debugging with a JTAG Probe</H4>
+<P class=docText><A name=iddle1021></A><A name=iddle1137></A><A name=iddle1266></A><A name=iddle1537></A><A name=iddle1568></A><A name=iddle1587></A><A name=iddle1713></A>Instead of interfacing directly with a JTAG probe via its user interface, many JTAG probes can interface with your source-level debugger. By far the most popular debugger supported by hardware probes is the <TT>gdb</TT> debugger. In this usage scenario, <TT>gdb</TT> is instructed to begin a debug session with the target via an external connection, usually an Ethernet connection. Rather than communicate directly with the JTAG probe via a user interface, the debugger passes commands back and forth between itself and the JTAG probe. In this model, the JTAG probe uses the <TT>gdb</TT> remote protocol to control the hardware on behalf of the debugger. Refer again to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch14fig06">Figure 14-6</A> for connection details.</P>
+<P class=docText>JTAG probes are especially useful for source-level debugging of bootloader and early startup code. In this example, we demonstrate the use of <TT>gdb</TT> and an Abatron BDI-2000 for debugging portions of the U-Boot bootloader on a PowerPC target board.</P>
+<P class=docText>Many processors contain debugging registers that include the capability to set traditional address breakpoints (stop when the program reaches a specific address) as well as data breakpoints (stop on conditional access of a specified memory address). When debugging code resident in read-only memory such as Flash, this is the only way to set a breakpoint. However, these registers are typically limited. Many processors contain only one or two such registers. This limitation must be understood before using hardware breakpoints. The following example demonstrates this.</P>
+<P class=docText>Using a setup such as that shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch14fig06">Figure 14-6</A>, assume that our target board has U-Boot stored in Flash. When we presented bootloaders in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>, you learned that U-Boot and other bootloaders typically copy themselves into RAM as soon as possible after startup. This is because hardware read (and write) cycles from RAM are orders of magnitude faster than typical read-only memory devices such as Flash. This presents two specific debugging challenges. First, we cannot modify the contents of read-only memory (to insert a software breakpoint), so we must rely on processor-supported breakpoint registers for this purpose.</P>
+<P class=docText>The second challenge comes from the fact that only one of the execution contexts (Flash or RAM) can be represented by the ELF executable file from which <TT>gdb</TT> reads its symbolic debugging information. In the case of U-Boot, it is linked for the Flash environment where it is initially stored. The early code relocates itself and performs any necessary address adjustments. This means that we need to work with <A name=iddle1119></A><A name=iddle2032></A><A name=iddle2554></A><TT>gdb</TT> within both of these execution contexts. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch1421">Listing 14-21</A> shows an example of such a debug session.</P><A name=ch1421></A>
+<H5 id=title-IDAMQBWD class=docExampleTitle>Listing 14-21. U-Boot Debugging Using JTAG Probe</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ppc-linux-gdb --silent u-boot</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote bdi:2001</SPAN>
+Remote debugging using bdi:2001
+_start () at /home/chris/sandbox/u-boot-1.1.4/cpu/mpc5xxx/start.S:91
+91        li      r21, BOOTFLAG_COLD   /* Normal Power-On */
+Current language:  auto; currently asm
+
+&lt;&lt; <SPAN class=docEmphasis>Debug a flash resident code snippet</SPAN> &gt;&gt;
+(gdb) <SPAN class=docEmphStrong>mon break hard</SPAN>
+(gdb) <SPAN class=docEmphStrong>b board_init_f</SPAN>
+Breakpoint 1 at 0xfff0457c: file board.c, line 366.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+
+Breakpoint 1, board_init_f (bootflag=0x7fc3afc) at board.c:366
+366             gd = (gd_t *) (CFG_INIT_RAM_ADDR + CFG_GBL_DATA_OFFSET);
+Current language:  auto; currently c
+(gdb) <SPAN class=docEmphStrong>bt</SPAN>
+#0  board_init_f (bootflag=0x1) at board.c:366
+#1  0xfff0456c in board_init_f (bootflag=0x1) at board.c:353
+(gdb) <SPAN class=docEmphStrong>i frame</SPAN>
+Stack level 0, frame at 0xf000bf50:
+ pc = 0xfff0457c in board_init_f (board.c:366); saved pc 0xfff0456c
+ called by frame at 0xf000bf78
+ source language c.
+ Arglist at 0xf000bf50, args: bootflag=0x1
+ Locals at 0xf000bf50, Previous frame's sp is 0x0
+
+&lt;&lt; <SPAN class=docEmphasis>Now debug a memory resident code snippet after relocation</SPAN> &gt;&gt;
+(gdb) <SPAN class=docEmphStrong>del 1</SPAN>
+(gdb) <SPAN class=docEmphStrong>symbol-file</SPAN>
+Discard symbol table from '/home/chris/sandbox/u-boot-1.1.4-powerdna/u-boot'?
+(y or n) y
+No symbol file now.
+(gdb) <SPAN class=docEmphStrong>add-symbol-file u-boot 0x7fa8000</SPAN>
+add symbol table from file "u-boot" at
+        .text_addr = 0x7fa8000
+(y or n) y
+Reading symbols from u-boot...done.
+(gdb) <SPAN class=docEmphStrong>b board_init_r</SPAN>
+Breakpoint 2 at 0x7fac6c0: file board.c, line 608.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+Breakpoint 2, board_init_r (id=0x7f85f84, dest_addr=0x7f85f84) at board.c:608
+608             gd = id;      /* initialize RAM version of global data */
+(gdb) <SPAN class=docEmphStrong>i frame</SPAN>
+Stack level 0, frame at 0x7f85f38:
+ pc = 0x7fac6c0 in board_init_r (board.c:608); saved pc 0x7fac6b0
+ called by frame at 0x7f85f68
+ source language c.
+ Arglist at 0x7f85f38, args: id=0x7f85f84, dest_addr=0x7f85f84
+ Locals at 0x7f85f38, Previous frame's sp is 0x0
+(gdb) <SPAN class=docEmphStrong>mon break soft</SPAN>
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Study this example carefully. Some subtleties are definitely worth taking the time to understand. First, we connect to the Abatron BDI-2000 using the target remote command. The IP address in this case is that of the Abatron unit, represented by the symbolic name <TT>bdi</TT>.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch14fn10">[10]</A></SUP> The Abatron BDI-2000 uses port 2001 for its remote <TT>gdb</TT> protocol connection.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch14fn10>[10]</A></SUP> An entry in the host system's <TT>/etc/hosts</TT> file enables the symbolic IP address reference.</P></BLOCKQUOTE>
+<P class=docText>Next we issue a command to the BDI-2000 using the <TT>gdb mon</TT> command. The <TT>mon</TT> command tells <TT>gdb</TT> to pass the rest of the command directly to the remote hardware device. Therefore, <TT>mon break hard</TT> sets the BDI-2000 into hardware breakpoint mode.</P>
+<P class=docText>We then set a hardware breakpoint at <TT>board_init_f</TT>. This is a routine that executes while still running out of Flash memory at address <TT>0xfff0457c</TT>. After the breakpoint is defined, we issue the continue <TT>c</TT> command to resume execution. Immediately, the breakpoint at <TT>board_init_f</TT> is encountered, and we are free to do the usual debugging activities, including stepping through code and examining data. You can see that we have issued the <TT>bt</TT> command to examine the stack backtrace and the <TT>i frame</TT> command to examine the details of the current stack frame.</P>
+<P class=docText>Now we continue execution again, but this time we know that U-Boot copies itself to RAM and resumes execution from its copy in RAM. So we need to change the debugging context while keeping the debugging session alive. To accomplish this, we discard the current symbol table (<TT>symbol-file</TT> command with no arguments) and load in the same symbol file again using the <TT>add-symbol-file</TT> command. This time, we instruct <TT>gdb</TT> to offset the symbol table to match where U-Boot has relocated itself to memory. This ensures that our source code and symbolic debugging information match the actual memory resident image.</P>
+<P class=docText><A name=iddle1133></A><A name=iddle1134></A><A name=iddle1569></A><A name=iddle2425></A>After the new symbol table is loaded, we can add a breakpoint to a location that we know will reside in RAM when it is executed. This is where one of the subtle complications is exposed. Because we know that U-Boot is currently running in Flash but is about to move itself to RAM and jump to its RAM-based copy, we must still use a hardware breakpoint. Consider what happens at this point if we use a software breakpoint. <TT>gdb</TT> dutifully writes the breakpoint opcode into the specified memory location, but U-Boot overwrites it when it copies itself to RAM. The net result is that the breakpoint is never hit, and we begin to suspect that our tools are broken. After U-Boot has entered the RAM copy and our symbol table has been updated to reflect the RAM-based addresses, we are free to use RAM-based breakpoints. This is reflected by the last command in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch1421">Listing 14-21</A> setting the Abatron unit back to soft breakpoint mode.</P>
+<P class=docText>Why do we care about using hardware versus software breakpoints? If we had unlimited hardware breakpoint registers, we wouldn't. But this is never the case. Here is what it looks like when you run out of processor-supported hardware breakpoint registers during a debug session:</P>
+<DIV class=docText><PRE>(gdb) <SPAN class=docEmphStrong>b flash_init</SPAN>
+Breakpoint 3 at 0x7fbebe0: file flash.c, line 70.
+(gdb) <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+warning: Cannot insert breakpoint 3:
+Error accessing memory address 0x7fbebe0: Unknown error 4294967295.</PRE></DIV><BR>
+<P class=docText>Because we are debugging remotely, we aren't told about the resource constraint until we try to resume after entering additional breakpoints. This is because of the way <TT>gdb</TT> handles breakpoints. When a breakpoint is hit, <TT>gdb</TT> restores all the breakpoints with the original opcodes for that particular memory location. When it resumes execution, it restores the breakpoint opcodes at the specified locations. You can observe this behavior by enabling <TT>gdb</TT>'s remote debug mode:</P>
+<DIV class=docText><PRE>(gdb) <SPAN class=docEmphStrong>set debug remote 1</SPAN></PRE></DIV>

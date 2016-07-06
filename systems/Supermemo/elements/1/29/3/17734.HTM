@@ -1,0 +1,32 @@
+<H4 class=subsection>4.5.2 Using Regular Expressions to Separate Fields</H4><A name=index-regular-expressions_002c-as-field-separators></A><A name=index-field-separators_002c-regular-expressions-as-1></A>
+<P>The previous subsection discussed the use of single characters or simple strings as the value of <CODE>FS</CODE>. More generally, the value of <CODE>FS</CODE> may be a string containing any regular expression. In this case, each match in the record for the regular expression separates fields. For example, the assignment: </P>
+<DIV class=example><PRE class=example>FS = ", \t"
+</PRE></DIV>
+<P>makes every area of an input line that consists of a comma followed by a space and a TAB into a field separator. </P>
+<P>For a less trivial example of a regular expression, try using single spaces to separate fields the way single commas are used. <CODE>FS</CODE> can be set to <CODE>"[&nbsp;]"</CODE><!-- /@w --> (left bracket, space, right bracket). This regular expression matches a single space and nothing else (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Regexp">Regexp</A>). </P>
+<P>There is an important difference between the two cases of &#8216;<SAMP>FS = "&nbsp;"<!-- /@w --></SAMP>&#8217; (a single space) and &#8216;<SAMP>FS = "[&nbsp;\t\n]+"<!-- /@w --></SAMP>&#8217; (a regular expression matching one or more spaces, TABs, or newlines). For both values of <CODE>FS</CODE>, fields are separated by <EM>runs</EM> (multiple adjacent occurrences) of spaces, TABs, and/or newlines. However, when the value of <CODE>FS</CODE> is <CODE>"&nbsp;"</CODE><!-- /@w -->, <CODE>awk</CODE> first strips leading and trailing whitespace from the record and then decides where the fields are. For example, the following pipeline prints &#8216;<SAMP>b</SAMP>&#8217;: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo ' a b c d ' | awk '{ print $2 }'</EM></KBD>
+-| b
+</PRE></DIV>
+<P>However, this pipeline prints &#8216;<SAMP>a</SAMP>&#8217; (note the extra spaces around each letter): </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo ' a  b  c  d ' | awk 'BEGIN { FS = "[ \t\n]+" }</EM></KBD>
+&gt;                                  <KBD><EM>{ print $2 }'</EM></KBD>
+-| a
+</PRE></DIV><A name=index-null-strings-1></A><A name=index-strings_002c-null></A><A name=index-empty-strings_002c-See-null-strings></A>
+<P>In this case, the first field is <EM>null</EM> or empty. </P>
+<P>The stripping of leading and trailing whitespace also comes into play whenever <CODE>$0</CODE> is recomputed. For instance, study this pipeline: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo '   a b c d' | awk '{ print; $2 = $2; print }'</EM></KBD>
+-|    a b c d
+-| a b c d
+</PRE></DIV>
+<P>The first <CODE>print</CODE> statement prints the record as it was read, with leading whitespace intact. The assignment to <CODE>$2</CODE> rebuilds <CODE>$0</CODE> by concatenating <CODE>$1</CODE> through <CODE>$NF</CODE> together, separated by the value of <CODE>OFS</CODE>. Because the leading whitespace was ignored when finding <CODE>$1</CODE>, it is not part of the new <CODE>$0</CODE>. Finally, the last <CODE>print</CODE> statement prints the new <CODE>$0</CODE>. </P><A name=index-FS_002c-containing-_005e></A><A name=index-_005e-_0028caret_0029_002c-in-FS></A><A name=index-dark-corner_002c-_005e_002c-in-FS></A>
+<P>There is an additional subtlety to be aware of when using regular expressions for field splitting. It is not well-specified in the POSIX standard, or anywhere else, what &#8216;<SAMP>^</SAMP>&#8217; means when splitting fields. Does the &#8216;<SAMP>^</SAMP>&#8217; match only at the beginning of the entire record? Or is each field separator a new string? It turns out that different <CODE>awk</CODE> versions answer this question differently, and you should not rely on any specific behavior in your programs. (d.c.) </P><A name=index-Brian-Kernighan_0027s-awk-4></A>
+<P>As a point of information, Brian Kernighan&#8217;s <CODE>awk</CODE> allows &#8216;<SAMP>^</SAMP>&#8217; to match only at the beginning of the record. <CODE>gawk</CODE> also works this way. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo 'xxAA  xxBxx  C' |</EM></KBD>
+&gt; <KBD><EM>gawk -F '(^x+)|( +)' '{ for (i = 1; i &lt;= NF; i++)</EM></KBD>
+&gt;                                   <KBD><EM>printf "--&gt;%s&lt;--\n", $i }'</EM></KBD>
+-| --&gt;&lt;--
+-| --&gt;AA&lt;--
+-| --&gt;xxBxx&lt;--
+-| --&gt;C&lt;--
+</PRE></DIV>

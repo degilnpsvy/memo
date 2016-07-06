@@ -1,0 +1,50 @@
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=navheader>
+<TABLE summary="Navigation header" width="100%">
+<TBODY>
+<TR>
+<TH colSpan=3 align=middle>Vertical Blanking</TH></TR>
+<TR>
+<TD width="20%" align=left><A accessKey=p href="https://www.kernel.org/doc/htmldocs/drm/drm-kms-properties.html">Prev</A>&nbsp;</TD>
+<TH width="60%" align=middle>Chapter&nbsp;2.&nbsp;DRM Internals</TH>
+<TD width="20%" align=right>&nbsp;<A accessKey=n href="https://www.kernel.org/doc/htmldocs/drm/API-drm-vblank-cleanup.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=sect1 title="Vertical Blanking">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 style="CLEAR: both" class=title><A name=drm-vertical-blank></A>Vertical Blanking</H2></DIV></DIV></DIV>
+<DIV class=toc>
+<DL>
+<DT><SPAN class=sect2><A href="https://www.kernel.org/doc/htmldocs/drm/drm-vertical-blank.html#idp10997088">Vertical Blanking and Interrupt Handling Functions Reference</A></SPAN></DT></DL></DIV>
+<P>Vertical blanking plays a major role in graphics rendering. To achieve tear-free display, users must synchronize page flips and/or rendering to vertical blanking. The DRM API offers ioctls to perform page flips synchronized to vertical blanking and wait for vertical blanking.</P>
+<P>The DRM core handles most of the vertical blanking management logic, which involves filtering out spurious interrupts, keeping race-free blanking counters, coping with counter wrap-around and resets and keeping use counts. It relies on the driver to generate vertical blanking interrupts and optionally provide a hardware vertical blanking counter. Drivers must implement the following operations.</P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist type=disc>
+<LI class=listitem><PRE class=synopsis>int (*enable_vblank) (struct drm_device *dev, int crtc);
+void (*disable_vblank) (struct drm_device *dev, int crtc);</PRE>
+<P>Enable or disable vertical blanking interrupts for the given CRTC.</P>
+<LI class=listitem><PRE class=synopsis>u32 (*get_vblank_counter) (struct drm_device *dev, int crtc);</PRE>
+<P>Retrieve the value of the vertical blanking counter for the given CRTC. If the hardware maintains a vertical blanking counter its value should be returned. Otherwise drivers can use the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_vblank_count</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>helper function to handle this operation.</P></LI></UL></DIV>
+<P>Drivers must initialize the vertical blanking handling core with a call to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_vblank_init</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in their<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=methodname>load</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>operation. The function will set the struct<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=structname>drm_device</SPAN><EM class=structfield><CODE>vblank_disable_allowed</CODE></EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>field to 0. This will keep vertical blanking interrupts enabled permanently until the first mode set operation, where<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=structfield><CODE>vblank_disable_allowed</CODE></EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>is set to 1. The reason behind this is not clear. Drivers can set the field to 1 after<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>calling drm_vblank_init</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>to make vertical blanking interrupts dynamically managed from the beginning.</P>
+<P>Vertical blanking interrupts can be enabled by the DRM core or by drivers themselves (for instance to handle page flipping operations). The DRM core maintains a vertical blanking use count to ensure that the interrupts are not disabled while a user still needs them. To increment the use count, drivers call<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_vblank_get</CODE>. Upon return vertical blanking interrupts are guaranteed to be enabled.</P>
+<P>To decrement the use count drivers call<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_vblank_put</CODE>. Only when the use count drops to zero will the DRM core disable the vertical blanking interrupts after a delay by scheduling a timer. The delay is accessible through the vblankoffdelay module parameter or the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>drm_vblank_offdelay</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>global variable and expressed in milliseconds. Its default value is 5000 ms.</P>
+<P>When a vertical blanking interrupt occurs drivers only need to call the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_handle_vblank</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function to account for the interrupt.</P>
+<P>Resources allocated by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_vblank_init</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>must be freed with a call to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_vblank_cleanup</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>in the driver<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=methodname>unload</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>operation handler.</P>
+<DIV class=sect2 title="Vertical Blanking and Interrupt Handling Functions Reference">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=idp10997088></A>
+<HR>
+
+<TABLE summary="Navigation footer" width="100%">
+<TBODY>
+<TR>
+<TD width="40%" align=left><A accessKey=p href="https://www.kernel.org/doc/htmldocs/drm/drm-kms-properties.html">Prev</A>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=u href="https://www.kernel.org/doc/htmldocs/drm/drmInternals.html">Up</A></TD>
+<TD width="40%" align=right>&nbsp;<A accessKey=n href="https://www.kernel.org/doc/htmldocs/drm/API-drm-vblank-cleanup.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top width="40%" align=left>KMS Properties&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=h href="https://www.kernel.org/doc/htmldocs/drm/index.html">Home</A></TD>
+<TD vAlign=top width="40%" align=right>&nbsp;<SPAN>drm_vblank_cleanup</SPAN></TD></TR></TBODY></TABLE></H3></DIV></DIV></DIV></DIV></DIV>

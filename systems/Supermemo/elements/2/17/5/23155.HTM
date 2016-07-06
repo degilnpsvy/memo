@@ -1,0 +1,86 @@
+<H3 id=-100000 class=docSection1Title>User Mode SCSI</H3>
+<P class=docText><A name=iddle1385></A><A name=iddle1386></A><A name=iddle3723></A><A name=iddle3902></A><A name=iddle3990></A><A name=iddle3991></A><A name=iddle3992></A><A name=iddle4544></A><A name=The></A>The <SPAN class=docEmphasis>SCSI Generic</SPAN> (<SPAN class=docEmphasis>sg</SPAN><A name="you directly"></A>) interface lets you directly dispatch SCSI commands from user space. The <SPAN class=docEmphasis>sg</SPAN><A name="char interface"></A> driver essentially exports a char interface, so applications can use the <TT>open()</TT>, <TT>close()</TT>, <TT>read()</TT>, <TT>write()</TT>, <TT>ioctl()</TT>, <TT>poll()</TT>, <TT>fcntl()</TT>, and <TT>mmap()</TT><A name="talk to"></A> system calls to talk to the underlying device. Drivers for SCSI devices such as CD burners and scanners are implemented in user space over sg. Look at the sources of <SPAN class=docEmphasis>cdrtools</SPAN> (previously called <SPAN class=docEmphasis>cdrecord</SPAN>) available from <A class=docLink href="http://freshmeat.net/projects/cdrecord/" target=_blank>http://freshmeat.net/projects/cdrecord/</A> for a real-life sg user.</P>
+<P class=docText><A name="of an"></A>Let's learn how to use the sg interface with the help of an example. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec4.html#ch19ex05">Listing 19.5</A><A name="that sends"></A> implements a user program that sends a <TT>READ_CAPACITY</TT><A name="a SCSI"></A> SCSI command to a storage device, such as a SCSI hard disk or a USB mass storage drive to glean its data capacity. The <TT>READ_CAPACITY</TT><A name="the command"></A> command consists of 10 bytes, starting with the command code <TT>0x25</TT><A name="of the"></A>. For the purpose of this example, let's set the rest of the bytes to zero. When a SCSI device receives a <TT>READ_CAPACITY</TT><A name="contain the"></A> command, it responds with an 8-byte reply; the top 4 bytes contain the address of the last logical block, and the bottom 4 bytes contain the block length.</P>
+<P class=docText><A name="sg device"></A>sg device nodes are named <SPAN class=docEmphasis>/dev/sgX</SPAN>, where <SPAN class=docEmphasis>X</SPAN><A name="device number"></A> is the device number, so <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec4.html#ch19ex05">Listing 19.5</A> opens <SPAN class=docEmphasis>/dev/sg0</SPAN><A name="be the"></A>, which is assumed to be the sg char node corresponding to your SCSI storage device. It then sets about populating the <TT>sg_io_hdr_t</TT><A name="main data"></A> structure, which is the main data structure that sg users have to manage. The <TT>read()</TT>, <TT>write()</TT>, and <TT>ioctl()</TT>calls expect a pointer to this structure (defined in <SPAN class=docEmphasis>/usr/include/scsi/sg.h</SPAN>) as an argument. The <TT>cmdp</TT> field of <TT>sg_io_hdr_t</TT><A name="holds the"></A> is set to the address of the command block that holds the 10-byte <TT>READ_CAPACITY</TT> command. The <TT>dxferp</TT><A name="of a"></A> field supplies the address of a buffer that will carry the response data arriving from the device. The <TT>sbp</TT> field contains the address of a <SPAN class=docEmphasis>sense</SPAN><A name="the requested"></A> buffer that will return the status of the requested operation. The <TT>interface_id</TT> has to be set to <TT>S</TT>, and <TT>timeout</TT><A name="milliseconds before"></A> holds the wait time in milliseconds before sg gives up on the command.</P>
+<P class=docText><TT>SG_IO</TT><A name="a command"></A> is an oft-used ioctl command supported by sg. Internally, it writes a command to the device, waits for a response, and reads the received reply into a user-supplied buffer. In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec4.html#ch19ex05">Listing 19.5</A>, <TT>SG_IO</TT> issues a <TT>READ_CAPACITY</TT> command and reads the 8-byte response into <TT>rcap_buff[]</TT><A name="capacity by"></A>. The program calculates and prints the disk capacity by interpreting the data in <TT>rcap_buff[]</TT>.</P>
+<P class=docText></P><A name=ch19ex05></A>
+<H5 id=title-ID0EZRAO class=docExampleTitle>Listing 19.5. Obtaining Disk Capacity via SCSI Generic</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><A name="Code View"></A>Code View:</DIV><PRE>#include <STDIO.H>
+#include <FCNTL.H>
+#include <SYS ioctl.h="">
+#include <SCSI sg.h="">
+
+#define RCAP_COMMAND     0x25
+#define RCAP_COMMAND_LEN 10
+#define RCAP_REPLY_LEN   8
+
+int
+main(int argc, char *argv[])
+{
+  int fd, i;
+  /* READ_CAPACITY command block */
+  unsigned char RCAP_CmdBlk[RCAP_COMMAND_LEN]=
+                              {RCAP_COMMAND, 0,0,0,0,0,0,0,0,0};
+  sg_io_hdr_t sg_io;
+  unsigned char rcap_buff[RCAP_REPLY_LEN];
+  unsigned int lastblock, blocksize;
+  unsigned long long disk_cap;
+  unsigned char sense_buf[32];
+
+  /* Open the sg device */
+  if ((fd = open("/dev/sg0", O_RDONLY)) &lt; 0) {
+    printf("Bad Open\n");
+    exit(1);
+  }
+
+  /* Initialize */
+  memset(&amp;sg_io, 0, sizeof(sg_io_hdr_t));
+
+  /* Command block address and length */
+  sg_io.cmdp = RCAP_CmdBlk;
+  sg_io.cmd_len = RCAP_COMMAND_LEN;
+
+  /* Response buffer address and length */
+  sg_io.dxferp = rcap_buff;
+  sg_io.dxfer_len = RCAP_REPLY_LEN;
+
+  /* Sense buffer address and length */
+  sg_io.sbp = sense_buf;
+  sg_io.mx_sb_len = sizeof(sense_buf);
+  /* Control information */
+  sg_io.interface_id = 'S';
+  sg_io.dxfer_direction = SG_DXFER_FROM_DEV;
+  sg_io.timeout = 10000; /* 10 seconds */
+
+  /* Issue the SG_IO ioctl */
+  if (ioctl(fd, SG_IO, &amp;sg_io) &lt; 0) {
+    printf("Bad SG_IO\n");
+    exit(1);
+  }
+
+  /* Obtain results */
+  if ((sg_io.info &amp; SG_INFO_OK_MASK) == SG_INFO_OK) {
+    /* Address of last disk block */
+    lastblock =  ((rcap_buff[0]&lt;&lt;24)|(rcap_buff[1]&lt;&lt;16)|
+              (rcap_buff[2]&lt;&lt;8)|(rcap_buff[3]));
+
+    /* Block size */
+    blocksize =  ((rcap_buff[4]&lt;&lt;24)|(rcap_buff[5]&lt;&lt;16)|
+              (rcap_buff[6]&lt;&lt;8)|(rcap_buff[7]));
+
+    /* Calculate disk capacity */
+    disk_cap  = (lastblock+1);
+    disk_cap *= blocksize;
+    printf("Disk Capacity = %llu Bytes\n", disk_cap);
+
+  }
+  close(fd);
+}
+
+					  </SCSI></SYS></FCNTL.H></STDIO.H></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1366></A><A name=iddle1809></A><A name=iddle2070></A><A name=iddle3994></A><A name=iddle4448></A><A name=iddle4525></A><A name=iddle4547></A><A name="full list"></A>For the full list of <TT>SG_IO</TT> commands, take a look at <SPAN class=docEmphasis>include/scsi/scsi.h</SPAN> and <SPAN class=docEmphasis>drivers/scsi/sg.c.</SPAN><A name="Generic HOWTO"></A> Read the Linux SCSI Generic HOWTO for an in-depth explanation of the sg interface. Download the <SPAN class=docEmphasis>sg3_utils</SPAN> package from <A class=docLink href="http://sg.torque.net/sg/sg3_utils.html" target=_blank>http://sg.torque.net/sg/sg3_utils.html</A><A name="sources to"></A> and browse the sources to find several useful programs that operate over sg.

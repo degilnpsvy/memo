@@ -1,0 +1,59 @@
+<PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; WORD-WRAP: break-word; WHITE-SPACE: pre-wrap; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">org 100h
+
+start:
+
+mov ah, 0x1A   ; Set DTA table adress
+mov dx, DTA
+int 21h
+
+;call clean_name
+
+mov ah, 0x4E
+xor cx, cx      ; no attributes
+mov dx, squery
+int 21h
+jc theend       ; no files matching query found
+
+mov ah, 9
+mov dx, fname
+int 21h
+
+find_next:
+
+mov ah, 0x4F
+mov dx, squery
+int 21h      ; find next matching file
+jc theend    ; no more files found
+
+mov ah, 9
+mov dx, fname
+int 21h
+
+jmp find_next
+
+
+theend:
+
+mov ah, 0x4C
+int 21h
+
+
+clean_name:
+mov cx, 13
+mov di, fname
+xor ax, ax
+repe stosb ; fill name with zeros incase memory has some ugly stuff or smth left from last search
+ret
+
+
+squery db "*.*", 0x0 ; search query, must end with zero
+
+DTA resb 0x15 ; ignore useless DOS data
+fattr db 0x0  ; file attribute
+ftime dw 0x0  ; file creation/modification time
+fdate dw 0x0  ; file creation/modification date
+fsize dw 0x0  ; file size
+fsmth dw 0x0
+fname resb 14 ; file name terminated with zero
+      db 0xD, 0xA ; New line
+      db "$" ; 0xD - tells DOS to go to new line.</PRE>

@@ -1,0 +1,8 @@
+Initialize the I-cache first, then the D-cache. Following is C code for I-cache initialization. (You have to believe in the functions or macros like Index Store Tag I(),which do low-level functions; they&#8217;re either trivial assembly code subroutines that run the appropriate machine instructions or&#8212;for the brave GNU C user&#8212;macros invoking a C asm statement.) 
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize) /* clear tag to invalidate */ </FONT></P>
+<P><FONT class=clozed>Index_Store_Tag_I (addr); </FONT></P>
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize) /* fill once, so data field parity is correct */ </FONT></P>
+<P><FONT class=clozed>Fill_I (addr); </FONT></P>
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize) /* invalidate again---prudent but not strictly necessary */ Index_Store_Tag_I (addr);</FONT></P>
+<P>We did the fill operation because some CPUs may detect and trap on parity errors, even on apparently invalid cache lines. Unfortunately the Fill I operation is not mandated by MIPS32/64. You can reasonably expect that any CPU that implements parity or ECC protection will include it: CPUs that don&#8217;t protect cache data need only the first store tag loop.</P>
+<P>Moreover, we use three separate loops rather than combining them, because you have to be careful about the tags; with a two-way cache, a single loop would initialize half the cache twice, since the &#8220;index store tag&#8221; with a zero tag register will reset the LRU bit, which determines which set of the cache line is to be used on the next cachemiss.

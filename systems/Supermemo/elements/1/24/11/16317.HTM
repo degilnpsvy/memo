@@ -1,0 +1,76 @@
+<H3 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=section>7.15 Expect</H3>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The macros in this section are made available with:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=lisp><PRE class=lisp>(use-modules (ice-9 expect))
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><CODE>expect</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a macro for selecting actions based on the output from a port. The name comes from a tool of similar functionality by Don Libes. Actions can be taken when a particular string is matched, when a timeout occurs, or when end-of-file is seen on the port. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>macro is described below;<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect-strings</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is a front-end to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>based on regexec (see the regular expression documentation).</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-expect_002dstrings></A>Macro:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>expect-strings</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>clause &#8230;</EM></DT>
+<DD>
+<P>By default,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect-strings</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>will read from the current input port. The first term in each clause consists of an expression evaluating to a string pattern (regular expression). As characters are read one-by-one from the port, they are accumulated in a buffer string which is matched against each of the patterns. When a pattern matches, the remaining expression(s) in the clause are evaluated and the value of the last is returned. For example:</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=lisp><PRE class=lisp>(with-input-from-file "/etc/passwd"
+  (lambda ()
+    (expect-strings
+      ("^nobody" (display "Got a nobody user.\n")
+                 (display "That's no problem.\n"))
+      ("^daemon" (display "Got a daemon user.\n")))))
+</PRE></DIV>
+<P>The regular expression is compiled with the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>REG_NEWLINE</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>flag, so that the ^ and $ anchors will match at any newline, not just at the start and end of the string.</P>
+<P>There are two other ways to write a clause:</P>
+<P>The expression(s) to evaluate can be omitted, in which case the result of the regular expression match (converted to strings, as obtained from regexec with match-pick set to "") will be returned if the pattern matches.</P>
+<P>The symbol<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>=&gt;</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>can be used to indicate that the expression is a procedure which will accept the result of a successful regular expression match. E.g.,</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=lisp><PRE class=lisp>("^daemon" =&gt; write)
+("^d(aemon)" =&gt; (lambda args (for-each write args)))
+("^da(em)on" =&gt; (lambda (all sub)
+                  (write all) (newline)
+                  (write sub) (newline)))
+</PRE></DIV>
+<P>The order of the substrings corresponds to the order in which the opening brackets occur.</P>
+<P>A number of variables can be used to control the behaviour of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>(and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect-strings</CODE>). Most have default top-level bindings to the value<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE>, which produces the default behaviour. They can be redefined at the top level or locally bound in a form enclosing the expect expression.</P>
+<DL compact>
+<DT><CODE>expect-port</CODE></DT>
+<DD>
+<P>A port to read characters from, instead of the current input port.</P></DD>
+<DT><CODE>expect-timeout</CODE></DT>
+<DD>
+<P><CODE>expect</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>will terminate after this number of seconds, returning<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or the value returned by expect-timeout-proc.</P></DD>
+<DT><CODE>expect-timeout-proc</CODE></DT>
+<DD>
+<P>A procedure called if timeout occurs. The procedure takes a single argument: the accumulated string.</P></DD>
+<DT><CODE>expect-eof-proc</CODE></DT>
+<DD>
+<P>A procedure called if end-of-file is detected on the input port. The procedure takes a single argument: the accumulated string.</P></DD>
+<DT><CODE>expect-char-proc</CODE></DT>
+<DD>
+<P>A procedure to be called every time a character is read from the port. The procedure takes a single argument: the character which was read.</P></DD>
+<DT><CODE>expect-strings-compile-flags</CODE></DT>
+<DD>
+<P>Flags to be used when compiling a regular expression, which are passed to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>make-regexp</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Regexp-Functions">Regexp Functions</A>. The default value is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>regexp/newline</CODE>.</P></DD>
+<DT><CODE>expect-strings-exec-flags</CODE></DT>
+<DD>
+<P>Flags to be used when executing a regular expression, which are passed to regexp-exec See<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://www.gnu.org/software/guile/manual/guile.html#Regexp-Functions">Regexp Functions</A>. The default value is<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>regexp/noteol</CODE>, which prevents<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>$</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>from matching the end of the string while it is still accumulating, but still allows it to match after a line break or at the end of file.</P></DD></DL>
+<P>Here&#8217;s an example using all of the variables:</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=smalllisp><PRE style="FONT-SIZE: smaller" class=smalllisp>(let ((expect-port (open-input-file "/etc/passwd"))
+      (expect-timeout 1)
+      (expect-timeout-proc
+        (lambda (s) (display "Times up!\n")))
+      (expect-eof-proc
+        (lambda (s) (display "Reached the end of the file!\n")))
+      (expect-char-proc display)
+      (expect-strings-compile-flags (logior regexp/newline regexp/icase))
+      (expect-strings-exec-flags 0))
+   (expect-strings
+     ("^nobody"  (display "Got a nobody user\n"))))
+</PRE></DIV></DD></DL>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><A name=index-expect></A>Macro:<SPAN class=Apple-converted-space>&nbsp;</SPAN><STRONG>expect</STRONG><SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>clause &#8230;</EM></DT>
+<DD>
+<P><CODE>expect</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is used in the same way as<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect-strings</CODE>, but tests are specified not as patterns, but as procedures. The procedures are called in turn after each character is read from the port, with two arguments: the value of the accumulated string and a flag to indicate whether end-of-file has been reached. The flag will usually be<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#f</CODE>, but if end-of-file is reached, the procedures are called an additional time with the final accumulated string and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>#t</CODE>.</P>
+<P>The test is successful if the procedure returns a non-false value.</P>
+<P>If the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>=&gt;</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>syntax is used, then if the test succeeds it must return a list containing the arguments to be provided to the corresponding expression.</P>
+<P>In the following example, a string will only be matched at the beginning of the file:</P>
+<DIV style="MARGIN-LEFT: 3.2em" class=lisp><PRE class=lisp>(let ((expect-port (open-input-file "/etc/passwd")))
+  (expect
+     ((lambda (s eof?) (string=? s "fnord!"))
+        (display "Got a nobody user!\n"))))
+</PRE></DIV>
+<P>The control variables described for<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect-strings</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>also influence the behaviour of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect</CODE>, with the exception of variables whose names begin with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>expect-strings-</CODE>.</P></DD></DL>

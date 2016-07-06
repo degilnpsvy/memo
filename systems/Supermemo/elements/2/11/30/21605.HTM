@@ -1,0 +1,133 @@
+<H2 class=SECT2><A name=LOCVARRECUR></A>24.2.1. Local variables and recursion.</H2>
+<P><A name=RECURSIONREF0></A></P>
+<TABLE class=SIDEBAR border=1 cellPadding=5>
+<TBODY>
+<TR>
+<TD>
+<DIV class=SIDEBAR><A name=AEN18598></A>
+<P></P>
+<P><A name=RECURSIONREF></A></P>
+<P><I class=FIRSTTERM>Recursion</I> is an interesting and sometimes useful form of <I class=FIRSTTERM>self-reference</I>. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#MAYERREF">Herbert Mayer</A> defines it as <SPAN class=QUOTE>". . . expressing an algorithm by using a simpler version of that same algorithm . . ."</SPAN></P>
+<P>Consider a definition defined in terms of itself, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN18607" name=AEN18607><SPAN class=footnote>[111]</SPAN></A> an expression implicit in its own expression, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN18610" name=AEN18610><SPAN class=footnote>[112]</SPAN></A> <EM>a snake swallowing its own tail</EM>, <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN18614" name=AEN18614><SPAN class=footnote>[113]</SPAN></A> or . . . a function that calls itself. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN18617" name=AEN18617><SPAN class=footnote>[114]</SPAN></A> </P>
+<P><A name=RECURSIONDEMO0></A></P>
+<DIV class=EXAMPLE><A name=RECURSIONDEMO></A>
+<P><B>Example 24-13. Demonstration of a simple recursive function</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# recursion-demo.sh
+# Demonstration of recursion.
+
+RECURSIONS=9   # How many times to recurse.
+r_count=0      # Must be global. Why?
+
+recurse ()
+{
+  var="$1"
+
+  while [ "$var" -ge 0 ]
+  do
+    echo "Recursion count = "$r_count"  +-+  \$var = "$var""
+    (( var-- )); (( r_count++ ))
+    recurse "$var"  #  Function calls itself (recurses)
+  done              #+ until what condition is met?
+}
+
+recurse $RECURSIONS
+
+exit $?</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P><A name=RECURSIONDEMO02></A></P>
+<DIV class=EXAMPLE><A name=RECURSIONDEMO2></A>
+<P><B>Example 24-14. Another simple demonstration</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# recursion-def.sh
+# A script that defines "recursion" in a rather graphic way.
+
+RECURSIONS=10
+r_count=0
+sp=" "
+
+define_recursion ()
+{
+  ((r_count++))
+  sp="$sp"" "
+  echo -n "$sp"
+  echo "\"The act of recurring ... \""   # Per 1913 Webster's dictionary.
+
+  while [ $r_count -le $RECURSIONS ]
+  do
+    define_recursion
+  done
+}
+
+echo
+echo "Recursion: "
+define_recursion
+echo
+
+exit $?</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P></P></DIV></TD></TR></TBODY></TABLE>
+<P>Local variables are a useful tool for writing recursive code, but this practice generally involves a great deal of computational overhead and is definitely <EM>not</EM> recommended in a shell script. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN18632" name=AEN18632><SPAN class=footnote>[115]</SPAN></A> </P>
+<P><A name=FACTORIALREF></A></P>
+<DIV class=EXAMPLE><A name=EX63></A>
+<P><B>Example 24-15. Recursion, using a local variable</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+
+#               factorial
+#               ---------
+
+
+# Does bash permit recursion?
+# Well, yes, but...
+# It's so slow that you gotta have rocks in your head to try it.
+
+
+MAX_ARG=5
+E_WRONG_ARGS=85
+E_RANGE_ERR=86
+
+
+if [ -z "$1" ]
+then
+  echo "Usage: `basename $0` number"
+  exit $E_WRONG_ARGS
+fi
+
+if [ "$1" -gt $MAX_ARG ]
+then
+  echo "Out of range ($MAX_ARG is maximum)."
+  #  Let's get real now.
+  #  If you want greater range than this,
+  #+ rewrite it in a Real Programming Language.
+  exit $E_RANGE_ERR
+fi  
+
+fact ()
+{
+  local number=$1
+  #  Variable "number" must be declared as local,
+  #+ otherwise this doesn't work.
+  if [ "$number" -eq 0 ]
+  then
+    factorial=1    # Factorial of 0 = 1.
+  else
+    let "decrnum = number - 1"
+    fact $decrnum  # Recursive function call (the function calls itself).
+    let "factorial = $number * $?"
+  fi
+
+  return $factorial
+}
+
+fact $1
+echo "Factorial of $1 is $?."
+
+exit 0</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>Also see <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PRIMES">Example A-15</A> for an example of recursion in a script. Be aware that recursion is resource-intensive and executes slowly, and is therefore generally not appropriate in a script.

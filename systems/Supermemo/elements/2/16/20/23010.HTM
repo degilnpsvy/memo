@@ -1,0 +1,214 @@
+<H3 id=-100000 class=docSection1Title>Concurrency in the Kernel</H3>
+<P class=docText><A name=iddle1552></A><A name=iddle1554></A><A name=iddle2557></A><A name=iddle2559></A><A name=iddle3134></A><A name=iddle3136></A><A name=iddle4033></A><A name=iddle4140></A><A name=iddle4183></A><A name="With the"></A>With the arrival of multicore laptops, <SPAN class=docEmphasis>Symmetric Multi Processing</SPAN><A name="longer confined"></A> (SMP) is no longer confined to the realm of hi-tech users. SMP and kernel preemption are scenarios that generate multiple threads of execution. These threads can simultaneously operate on shared kernel data structures. Because of this, accesses to such data structures have to be serialized.</P>
+<P class=docText><A name="the basics"></A>Let's discuss the basics of protecting shared kernel resources from concurrent access. We start with a simple example and gradually introduce complexities such as interrupts, kernel preemption, and SMP.</P><A name=ch02lev2sec17></A>
+<H4 id=title-ID0E1IOM class=docSection2Title><FONT class=extract>Spinlocks and Mutexes</FONT></H4>
+<P class=docText><A name=a></A><FONT class=extract>A code area that accesses shared resources is called a <SPAN class=docEmphasis>critical</SPAN> section. Spinlocks and mutexes (short for <SPAN class=docEmphasis>mutual exclusion</SPAN></FONT><A name="used to"></A><FONT class=extract>) are the two basic mechanisms used to protect critical sections in the kernel. Let's look at each in turn.</FONT></P>
+<P class=docText><A name="a critical"></A><FONT class=extract>A spinlock ensures that only a single thread enters a critical section at a time. Any other thread that desires to enter the critical section has to remain spinning at the door until the first thread exits. Note that we use the term <SPAN class=docEmphasis>thread</SPAN></FONT><A name="rather than"></A><FONT class=extract> to refer to a thread of execution, rather than a kernel thread.</FONT></P>
+<P class=docText><FONT class=extract>The basic usage of spinlocks is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <LINUX spinlock.h="">
+spinlock_t mylock = SPIN_LOCK_UNLOCKED; /* Initialize */
+
+/* Acquire the spinlock. This is inexpensive if there
+ * is no one inside the critical section. In the face of
+ * contention, spinlock() has to busy-wait.
+ */
+spin_lock(&amp;mylock);
+
+/* ... Critical Section code ... */
+
+spin_unlock(&amp;mylock); /* Release the lock */</LINUX></FONT></PRE></DIV><BR>
+<P class=docText><A name="a spin"></A><FONT class=extract>In contrast to spinlocks that put threads into a spin if they attempt to enter a busy critical section, mutexes put contending threads to sleep until it's their turn to occupy the critical section. Because it's a bad thing to consume processor cycles to spin, mutexes are more suitable than spinlocks to protect critical sections when the estimated wait time is long. In mutex terms, anything more than two context switches is considered long, because a mutex has to switch out the contending thread to sleep, and switch it back in when it's time to wake it up.</FONT></P>
+<P class=docText><A name="many cases"></A><FONT class=extract>In many cases, therefore, it's easy to decide whether to use a spinlock or a mutex:</FONT></P>
+<UL>
+<LI>
+<P class=docList><A name="but to"></A><FONT class=extract>If the critical section needs to sleep, you have no choice but to use a mutex. It's illegal to schedule, preempt, or sleep on a wait queue after acquiring a spinlock.</FONT></P>
+<LI>
+<P class=docList><A name="Because mutexes"></A><FONT class=extract>Because mutexes put the calling thread to sleep in the face of contention, you have no choice but to use spinlocks inside interrupt handlers. (You will learn more about the constraints of the interrupt context in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><FONT class=extract>.)</FONT></P></LI></UL>
+<P class=docText><A name="usage is"></A><FONT class=extract>Basic mutex usage is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <LINUX mutex.h="">
+
+/* Statically declare a mutex. To dynamically
+   create a mutex, use mutex_init() */
+static DEFINE_MUTEX(mymutex);
+
+/* Acquire the mutex. This is inexpensive if there
+ * is no one inside the critical section. In the face of
+ * contention, mutex_lock() puts the calling thread to sleep.
+ */
+mutex_lock(&amp;mymutex);
+
+/* ... Critical Section code ... */
+
+mutex_unlock(&amp;mymutex);      /* Release the mutex */</LINUX></FONT></PRE></DIV><BR>
+<P class=docText><A name="illustrate the"></A><FONT class=extract>To illustrate the use of concurrency protection, let's start with a critical section that is present only in process context and gradually introduce complexities in the following order:</FONT></P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="Uniprocessor "></A><FONT class=extract>Critical section present only in process context on a Uniprocessor (UP) box running a nonpreemptible kernel.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle3920></A><A name="and interrupt"></A><FONT class=extract>Critical section present in process and interrupt contexts on a UP machine running a nonpreemptible kernel.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="a UP"></A><FONT class=extract>Critical section present in process and interrupt contexts on a UP machine running a preemptible kernel.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="interrupt contexts"></A><FONT class=extract>Critical section present in process and interrupt contexts on an SMP machine running a preemptible kernel.</FONT></P></DIV></LI></OL></DIV><A name=ch02sb03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle><FONT class=extract>The Old Semaphore Interface</FONT></H2>
+<P class=docText><A name="in the"></A><FONT class=extract>The mutex interface, which replaces the older semaphore interface, originated in the -<TT>rt</TT></FONT><A name="and was"></A><FONT class=extract> tree and was merged into the mainline with the 2.6.16 kernel release. The semaphore interface is still around, however. Basic usage of the semaphore interface is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>#include <ASM semaphore.h="">  /* Architecture dependent
+                               header */
+
+/* Statically declare a semaphore. To dynamically
+   create a semaphore, use init_MUTEX() */
+static DECLARE_MUTEX(mysem);
+
+down(&amp;mysem);    /* Acquire the semaphore */
+
+/* ... Critical Section code ... */
+
+up(&amp;mysem);      /* Release the semaphore */</ASM></FONT></PRE></DIV><BR>
+<P class=docText><A name="threads into"></A><FONT class=extract>Semaphores can be configured to allow a predetermined number of threads into the critical section simultaneously. However, semaphores that permit more than a single holder at a time are rarely used.</FONT></P></TD></TR></TBODY></TABLE></P><BR><A name=ch02lev3sec1></A>
+<H5 id=title-ID0EPMOM class=docSection3Title><FONT class=extract>Case 1: Process Context, UP Machine, No Preemption</FONT></H5>
+<P class=docText><A name="This is"></A><FONT class=extract>This is the simplest case and needs no locking, so we won't discuss this further.</FONT></P><A name=ch02lev3sec2></A>
+<H5 id=title-ID0E1MOM class=docSection3Title><FONT class=extract>Case 2: Process and Interrupt Contexts, UP Machine, No Preemption</FONT></H5>
+<P class=docText><A name="you need"></A><FONT class=extract>In this case, you need to disable only interrupts to protect the critical region. To see why, assume that A and B are process context threads, and C is an interrupt context thread, all vying to enter the same critical section, as shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=extract>Figure 2.4</FONT></A><FONT class=extract>.</FONT></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch02fig02></A>
+<P><FONT class=extract></FONT>
+<CENTER>
+<H5 class=docFigureTitle><A name="Process and"></A><FONT class=extract>Figure 2.4. Process and interrupt context threads inside a critical section.</FONT></H5>
+<P class=docText><FONT class=extract><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzRoaWcyc2M-.jpg" width=500 height=288></FONT></P></CENTER>
+<P><FONT class=extract></FONT></P><BR>
+<P class=docText><A name=iddle2837></A><A name="always runs"></A><FONT class=extract>Because Thread C is executing in interrupt context and always runs to completion before yielding to Thread A or Thread B, it need not worry about protection. Thread A, for its part, need not be concerned about Thread B (and vice versa) because the kernel is not preemptible. Thus, Thread A and Thread B need to guard against only the possibility of Thread C stomping through the critical section while they are inside the same section. They achieve this by disabling interrupts prior to entering the critical section:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>Point A:
+  local_irq_disable();  /* Disable Interrupts in local CPU */
+  /* ... Critical Section ...  */
+  local_irq_enable();   /* Enable Interrupts in local CPU */</FONT></PRE></DIV><BR>
+<P class=docText><A name="when execution"></A><FONT class=extract>However, if interrupts were already disabled when execution reached Point A, <TT>local_irq_enable()</TT></FONT><A name="restoring interrupt"></A><FONT class=extract> creates the unpleasant side effect of reenabling interrupts, rather than restoring interrupt state. This can be fixed as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long flags;
+
+Point A:
+  local_irq_save(flags);     /* Disable Interrupts */
+  /* ... Critical Section ... */
+  local_irq_restore(flags);  /* Restore state to what
+                                it was at Point A */</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle1620></A><A name=iddle3632></A><A name=iddle3633></A><A name=iddle3634></A><A name="interrupt state"></A><FONT class=extract>This works correctly irrespective of the interrupt state at Point A.</FONT></P><A name=ch02lev3sec3></A>
+<H5 id=title-ID0EIQOM class=docSection3Title><FONT class=extract>Case 3: Process and Interrupt Contexts, UP Machine, Preemption</FONT></H5>
+<P class=docText><A name="your critical"></A><FONT class=extract>If preemption is enabled, mere disabling of interrupts won't protect your critical region from being trampled over. There is the possibility of multiple threads simultaneously entering the critical section in process context. Referring back to </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=extract>Figure 2.4</FONT></A><A name="this scenario"></A><FONT class=extract> in this scenario, Thread A and Thread B now need to protect themselves against each other in addition to guarding against Thread C. The solution apparently, is to disable kernel preemption before the start of the critical section and reenable it at the end, in addition to disabling/reenabling interrupts. For this, Thread A and Thread B use the <SPAN class=docEmphasis>irq</SPAN> variant of spinlocks:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long flags;
+
+Point A:
+  /* Save interrupt state.
+   * Disable interrupts - this implicitly disables preemption */
+  spin_lock_irqsave(&amp;mylock, flags);
+
+  /* ... Critical Section ... */
+
+  /* Restore interrupt state to what it was at Point A */
+  spin_unlock_irqrestore(&amp;mylock, flags);</FONT></PRE></DIV><BR>
+<P class=docText><A name="was at"></A><FONT class=extract>Preemption state need not be explicitly restored to what it was at Point A because the kernel internally does that for you via a variable called the <SPAN class=docEmphasis><A name="preemption counter"></A>preemption counter.</SPAN></FONT><A name="gets incremented"></A><FONT class=extract> The counter gets incremented whenever preemption is disabled (using <TT>preempt_disable()</TT></FONT><A name="gets decremented"></A><FONT class=extract>) and gets decremented whenever preemption is enabled (using <TT>preempt_enable()</TT>). Preemption kicks in only if the counter value is zero.</FONT></P><A name=ch02lev3sec4></A>
+<H5 id=title-ID0ELROM class=docSection3Title><FONT class=extract>Case 4: Process and Interrupt Contexts, SMP Machine, Preemption</FONT></H5>
+<P class=docText><A name="SMP machine"></A><FONT class=extract>Let's now assume that the critical section executes on an SMP machine. Your kernel has been configured with <TT>CONFIG_SMP</TT> and <TT>CONFIG_PREEMPT</TT> turned on.</FONT></P>
+<P class=docText><A name="spinlock primitives"></A><FONT class=extract>In the scenarios discussed this far, spinlock primitives have done little more than enable/disable preemption and interrupts. The actual locking functionality has been compiled away. In the presence of SMP, the locking logic gets compiled in, </FONT><A name=iddle1210></A><A name=iddle1331></A><A name=iddle1572></A><A name=iddle3393></A><A name=iddle4129></A><A name=iddle4132></A><A name=iddle4135></A><A name=iddle4137></A><A name="as follows"></A><FONT class=extract>and the spinlock primitives are rendered SMP-safe. The SMP-enabled semantics is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long flags;
+
+Point A:
+  /*
+    - Save interrupt state on the local CPU
+    - Disable interrupts on the local CPU. This implicitly disables
+      preemption.
+    - Lock the section to regulate access by other CPUs
+   */
+  spin_lock_irqsave(&amp;mylock, flags);
+
+  /* ... Critical Section ... */
+
+  /*
+    - Restore interrupt state and preemption to what it
+      was at Point A for the local CPU
+    - Release the lock
+   */
+  spin_unlock_irqrestore(&amp;mylock, flags);</FONT></PRE></DIV><BR>
+<P class=docText><A name="local CPU"></A><FONT class=extract>On SMP systems, only interrupts on the local CPU are disabled when a spinlock is acquired. So, a process context thread (say Thread A in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=extract>Figure 2.4</FONT></A><A name="handler "></A><FONT class=extract>) might be running on one CPU, while an interrupt handler (say Thread C in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=extract>Figure 2.4</FONT></A><A name="executing on"></A><FONT class=extract>) is executing on another CPU. An interrupt handler on a nonlocal processor thus needs to spin-wait until the process context code on the local processor exits the critical section. The interrupt context code calls <TT>spin_lock()</TT>/<TT>spin_unlock()</TT> to do this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>spin_lock(&amp;mylock);
+
+/* ... Critical Section ... */
+
+spin_unlock(&amp;mylock);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Similar to the irq variants, spinlocks also have <SPAN class=docEmphasis>bottom half</SPAN> (BH) flavors. <TT>spin_lock_bh()</TT> disables bottom halves when the lock is acquired, whereas <TT>spin_unlock_bh()</TT></FONT><A name="halves in"></A><FONT class=extract> reenables bottom halves when the lock is released. We discuss bottom halves in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><FONT class=extract>.</FONT></P>
+<P class=docText><FONT class=extract></FONT></P><A name=ch02sb04></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle><A name=The></A><FONT class=extract>The <TT>-rt</TT> tree</FONT></H2>
+<P class=docText><A name=iddle1154></A><A name=iddle1547></A><A name=iddle2555></A><A name=iddle3335></A><A name=iddle3750></A><A name=iddle3850></A><A name=iddle4017></A><A name=iddle4020></A><A name=time></A><FONT class=extract>The real time <TT>(-rt</TT></FONT><A name="called the"></A><FONT class=extract>) tree, also called the <TT>CONFIG_PREEMPT_RT</TT> patch-set, implements low-latency modifications to the kernel. The patch-set, downloadable from </FONT><A class=docLink href="http://www.kernel.org/pub/linux/kernel/projects/rt" target=_blank><FONT class=extract>www.kernel.org/pub/linux/kernel/projects/rt</FONT></A><A name="replacing many"></A><FONT class=extract>, allows most of the kernel to be preempted, partly by replacing many spinlocks with mutexes. It also incorporates high-resolution timers. Several <TT>-rt</TT></FONT><A name="the mainline"></A><FONT class=extract> features have been integrated into the mainline kernel. You will find detailed documentation at the project's wiki hosted at </FONT><A class=docLink href="http://rt.wiki.kernel.org/" target=_blank><FONT class=extract>http://rt.wiki.kernel.org/</FONT></A><FONT class=extract>.</FONT></P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="that help"></A><FONT class=extract>The kernel has specialized locking primitives in its repertoire that help improve performance under specific conditions. Using a mutual-exclusion scheme tailored to your needs makes your code more powerful. Let's take a look at some of the specialized exclusion mechanisms.</FONT></P><A name=ch02lev2sec18></A>
+<H4 id=title-ID0E2YOM class=docSection2Title><FONT class=extract>Atomic Operators</FONT></H4>
+<P class=docText><SPAN class=docEmphasis><FONT class=extract>Atomic operators</FONT></SPAN><A name="such as"></A><FONT class=extract> are used to perform lightweight one-shot operations such as bumping counters, conditional increments, and setting bit positions. Atomic operations are guaranteed to be serialized and do not need locks for protection against concurrent access. The implementation of atomic operators is architecture-dependent.</FONT></P>
+<P class=docText><A name="references before"></A><FONT class=extract>To check whether there are any remaining data references before freeing a kernel network buffer (called an <TT>skbuff</TT>), the <TT>skb_release_data()</TT></FONT><A name="defined in"></A><FONT class=extract> routine defined in <SPAN class=docEmphasis>net/core/skbuff.c</SPAN> does the following:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>if (!skb-&gt;cloned ||
+  /* Atomically decrement and check if the returned value is zero */
+    !atomic_sub_return(skb-&gt;nohdr ? (1 &lt;&lt; SKB_DATAREF_SHIFT) + 1 :
+                       1,&amp;skb_shinfo(skb)-&gt;dataref)) {
+  /* ... */
+  kfree(skb-&gt;head);
+}</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>While <TT>skb_release_data()</TT> is thus executing, another thread using <TT>skbuff_clone()</TT> (defined in the same file) might be simultaneously incrementing the data reference counter:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>/* ... */
+/* Atomically bump up the data reference count */
+atomic_inc(&amp;(skb_shinfo(skb)-&gt;dataref));
+/* ... */</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle1553></A><A name=iddle2467></A><A name=iddle2558></A><A name=iddle2844></A><A name=iddle3726></A><A name=iddle3728></A><A name=iddle3735></A><A name=iddle4654></A><A name=iddle4656></A><A name=iddle4657></A><A name="from being"></A><FONT class=extract>The use of atomic operators protects the data reference counter from being trampled by these two threads. It also eliminates the hassle of using locks to protect a single integer variable from concurrent access.</FONT></P>
+<P class=docText><A name="The kernel"></A><FONT class=extract>The kernel also supports operators such as <TT>set_bit()</TT>, <TT>clear_bit()</TT>, and <TT>test_and_set_bit()</TT></FONT><A name="engage in"></A><FONT class=extract> to atomically engage in bit manipulations. Look at <SPAN class=docEmphasis>include/asm-your-arch/atomic.h</SPAN></FONT><A name="the atomic"></A><FONT class=extract> for the atomic operators supported on your architecture.</FONT></P><A name=ch02lev2sec19></A>
+<H4 id=title-ID0EN4OM class=docSection2Title><FONT class=extract>Reader-Writer Locks</FONT></H4>
+<P class=docText><A name="If the"></A><FONT class=extract>Another specialized concurrency regulation mechanism is a reader-writer variant of spinlocks. If the usage of a critical section is such that separate threads either read from or write to a shared data structure, but don't do both, these locks are a natural fit. Multiple reader threads are allowed inside a critical region simultaneously. Reader spinlocks are defined as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>rwlock_t myrwlock = RW_LOCK_UNLOCKED;
+
+read_lock(&amp;myrwlock);     /* Acquire reader lock */
+/* ... Critical Region ... */
+read_unlock(&amp;myrwlock);   /* Release lock */</FONT></PRE></DIV><BR>
+<P class=docText><A name="a critical"></A><FONT class=extract>However, if a writer thread enters a critical section, other reader or writer threads are not allowed inside. To use writer spinlocks, you would write this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>rwlock_t myrwlock = RW_LOCK_UNLOCKED;
+
+write_lock(&amp;myrwlock);    /* Acquire writer lock */
+/* ... Critical Region ... */
+write_unlock(&amp;myrwlock);  /* Release lock */</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Look at the IPX routing code present in <SPAN class=docEmphasis>net/ipx/ipx_route.c</SPAN> for a real-life example of a reader-writer spinlock. A reader-writer lock called <TT>ipx_routes_lock</TT></FONT><A name="need to"></A><FONT class=extract> protects the IPX routing table from simultaneous access. Threads that need to look up the routing table to forward packets request reader locks. Threads that need to add or delete entries from the routing table acquire writer locks. This improves performance because there are usually far more instances of routing table lookups than routing table updates.</FONT></P>
+<P class=docText><A name="irq variants"></A><FONT class=extract>Like regular spinlocks, reader-writer locks also have corresponding irq variants&#37413;&#25871;amely, <TT>read_lock_irqsave()</TT>, <TT>read_lock_irqrestore()</TT>, <TT>write_lock_irqsave()</TT>, </FONT><A name=iddle3719></A><A name=iddle3724></A><A name=iddle3931></A><A name=iddle3932></A><A name=iddle4652></A><FONT class=extract>and <TT>write_lock_irqrestore()</TT></FONT><A name="those of"></A><FONT class=extract>. The semantics of these functions are similar to those of regular spinlocks.</FONT></P>
+<P class=docText><A name="locks or"></A><FONT class=extract>Sequence locks or <SPAN class=docEmphasis>seqlocks</SPAN></FONT><A name="This is"></A><FONT class=extract>, introduced in the 2.6 kernel, are reader-writer locks where writers are favored over readers. This is useful if write operations on a variable far outnumber read accesses. An example is the <TT>jiffies_64</TT></FONT><A name="variable discussed"></A><FONT class=extract> variable discussed earlier in this chapter. Writer threads do not wait for readers who may be inside a critical section. Because of this, reader threads may discover that their entry inside a critical section has failed and may need to retry:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>u64 get_jiffies_64(void) /* Defined in <SPAN class=docEmphasis>kernel/time.c</SPAN> */
+{
+  unsigned long seq;
+  u64 ret;
+  do {
+    seq = read_seqbegin(&amp;xtime_lock);
+    ret = jiffies_64;
+  } while (read_seqretry(&amp;xtime_lock, seq));
+  return ret;
+}</FONT></PRE></DIV><BR>
+<P class=docText><A name="critical regions"></A><FONT class=extract>Writers protect critical regions using <TT>write_seqlock()</TT> and <TT>write_sequnlock()</TT>.</FONT></P>
+<P class=docText><A name="kernel introduced"></A><FONT class=extract>The 2.6 kernel introduced another mechanism called <SPAN class=docEmphasis>Read-Copy Update</SPAN></FONT><A name="basic idea"></A><FONT class=extract> (RCU), which yields improved performance when readers far outnumber writers. The basic idea is that reader threads can execute without locking. Writer threads are more complex. They perform update operations on a copy of the data structure and replace the pointer that readers see. The original copy is maintained until the next context switch on all CPUs to ensure completion of all ongoing read operations. Be aware that using RCU is more involved than using the primitives discussed thus far and should be used only if you are sure that it's the right tool for the job. RCU data structures and interface functions are defined in <SPAN class=docEmphasis>include/linux/rcupdate.h.</SPAN> There is ample documentation in <SPAN class=docEmphasis>Documentation/RCU/*</SPAN>.</FONT></P>
+<P class=docText><A name=at></A><FONT class=extract>For an RCU usage example, look at <SPAN class=docEmphasis>fs/dcache.c.</SPAN></FONT><A name="in a"></A><FONT class=extract> On Linux, each file is associated with directory entry information (stored in a structure called <SPAN class=docEmphasis>dentry</SPAN></FONT><A name="data "></A><FONT class=extract>), metadata information (stored in an inode), and actual data (stored in data blocks). Each time you operate on a file, the components in the file path are parsed, and the corresponding dentries are obtained. The dentries are kept cached in a data structure called the <SPAN class=docEmphasis>dcache</SPAN>, to speed </FONT><A name=iddle1550></A><A name=iddle1684></A><A name=iddle2556></A><A name=iddle3705></A><A name="lookups is"></A><FONT class=extract>up future operations. At any time, the number of dcache lookups is much more than dcache updates, so references to the dcache are protected using RCU primitives.</FONT></P><A name=ch02lev2sec20></A>
+<H4 id=title-ID0E2CPM class=docSection2Title><FONT class=extract>Debugging</FONT></H4>
+<P class=docText><A name="are generally"></A><FONT class=extract>Concurrency-related problems are generally hard to debug because they are usually difficult to reproduce. It's a good idea to enable SMP (<TT>CONFIG_SMP</TT>) and preemption (<TT>CONFIG_PREEMPT</TT></FONT><A name="is going"></A><FONT class=extract>) while compiling and testing your code, even if your production kernel is going to run on a UP machine with preemption disabled. There is a kernel configuration option under <SPAN class=docEmphasis><A name="Kernel hacking"></A>Kernel hacking</SPAN> called <SPAN class=docEmphasis>Spinlock and rw-lock debugging</SPAN> (<TT>CONFIG_DEBUG_SPINLOCK</TT></FONT><A name="help you"></A><FONT class=extract>) that can help you catch some common spinlock errors. Also available are tools such as lockmeter (</FONT><A class=docLink href="http://oss.sgi.com/projects/lockmeter/" target=_blank><FONT class=extract>http://oss.sgi.com/projects/lockmeter/</FONT></A><A name="collect lock"></A><FONT class=extract>) that collect lock-related statistics.</FONT></P>
+<P class=docText><A name="lock an"></A><FONT class=extract>A common concurrency problem occurs when you forget to lock an access to a shared resource. This results in different threads "racing" through that access in an unregulated manner. The problem, called a <SPAN class=docEmphasis>race condition</SPAN></FONT><A name="of occasional"></A><FONT class=extract>, might manifest in the form of occasional strange code behavior.</FONT></P>
+<P class=docText><A name="locks in"></A><FONT class=extract>Another potential problem arises when you miss releasing held locks in certain code paths, resulting in deadlocks. To understand this, consider the following example:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>spin_lock(&amp;mylock);     /* Acquire lock */
+
+/* ... Critical Section ... */
+
+if (error) {            /* This error condition occurs rarely */
+  return -EIO; /* Forgot to release the lock! */
+}
+
+spin_unlock(&amp;mylock);   /* Release lock */</FONT></PRE></DIV><BR>
+<P class=docText><A name="any thread"></A><FONT class=extract>After the occurrence of the error condition, any thread trying to acquire <TT>mylock</TT> gets deadlocked, and the kernel might freeze.</FONT></P>
+<P class=docText><A name="after you"></A><FONT class=extract>If the problem first manifests months or years after you write the code, it'll be all the more tough to go back and debug it. (There is a related debugging example in the section "</FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21lev1sec3.html#ch21lev2sec14"><FONT class=extract>Kdump</FONT></A><FONT class=extract>" in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch21.html#ch21"><FONT class=extract>Chapter 21</FONT></A><A name="To avoid"></A><FONT class=extract>, "Debugging Device Drivers.") To avoid such unpleasant encounters, concurrency logic should be designed when you architect your software.</FONT>

@@ -1,0 +1,44 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">8.2.&nbsp;</SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">How do I debug pure assembly code under Linux?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">There's an early version of the Assembly Language Debugger, which is designed to work with assembly code, and is portable enough to run on Linux and *BSD. It is already functional and should be the right choice, check it out!</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">You can also try&nbsp;<B>gdb</B>&nbsp;;). Although it is source-level debugger, it can be used to debug pure assembly code, and with some trickery you can make&nbsp;<B>gdb</B>&nbsp;to do what you need (unfortunately, nasm '-g' switch does not generate proper debug info for gdb; this is nasm bug, I think). Here's an answer from Dmitry Bakhvalov:</SPAN></P>
+<TABLE class=MsoNormalTable style="BACKGROUND: #e0e0e0; WIDTH: 100%; mso-cellspacing: 1.5pt" cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes; mso-yfti-lastrow: yes">
+<TD style="BORDER-RIGHT: #ffffff; PADDING-RIGHT: 0.75pt; BORDER-TOP: #ffffff; PADDING-LEFT: 0.75pt; PADDING-BOTTOM: 0.75pt; BORDER-LEFT: #ffffff; PADDING-TOP: 0.75pt; BORDER-BOTTOM: #ffffff; BACKGROUND-COLOR: transparent">
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">Personally, I use gdb for debugging asmutils. Try this:</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;</SPAN></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">1) Use the following stuff to compile:</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>$ nasm -f elf -g smth.asm</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>$ ld -o smth smth.o</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">2) Fire up gdb:</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>$ gdb smth</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">3) In gdb:</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>(gdb) disassemble _start</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>Place a breakpoint at _start+1 (If placed at _start the breakpoint</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>wouldnt work, dunno why)</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>(gdb) b *0x8048075</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>To step thru the code I use the following macro:</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN></SPAN><SPAN lang=FR style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt; mso-ansi-language: FR">(gdb)define n</SPAN></P>
+<p><SPAN lang=FR style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt; mso-ansi-language: FR"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>&gt;ni</SPAN></P>
+<p><SPAN lang=FR style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt; mso-ansi-language: FR"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>&gt;printf "eax=%x ebx=%x ...etc...",$eax,$ebx,...etc...</SPAN></P>
+<p><SPAN lang=FR style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt; mso-ansi-language: FR"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN></SPAN><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&gt;disassemble $pc $pc+15</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>&gt;end</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>Then start the program with r command and debug with n.</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp; </SPAN>Hope this helps.</SPAN></P></TD></TR></TBODY></TABLE>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">An additional note from ???:</SPAN></P>
+<TABLE class=MsoNormalTable style="BACKGROUND: #e0e0e0; WIDTH: 100%; mso-cellspacing: 1.5pt" cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes; mso-yfti-lastrow: yes">
+<TD style="BORDER-RIGHT: #ffffff; PADDING-RIGHT: 0.75pt; BORDER-TOP: #ffffff; PADDING-LEFT: 0.75pt; PADDING-BOTTOM: 0.75pt; BORDER-LEFT: #ffffff; PADDING-TOP: 0.75pt; BORDER-BOTTOM: #ffffff; BACKGROUND-COLOR: transparent">
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp;&nbsp; </SPAN>I have such a macro in my .gdbinit for quite some time now, and it</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp;&nbsp; </SPAN>for sure makes life easier. A small difference : I use "x /8i $pc",</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp;&nbsp; </SPAN>which guarantee a fixed number of disassembled instructions. Then,</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp;&nbsp; </SPAN>with a well chosen size for my xterm, gdb output looks like it is</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-spacerun: yes">&nbsp;&nbsp;&nbsp; </SPAN>refreshed, and not scrolling.</SPAN></P></TD></TR></TBODY></TABLE>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">If you want to set breakpoints across your code, you can just use&nbsp;int 3&nbsp;instruction as breakpoint (instead of entering address manually in&nbsp;<B>gdb</B>).</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">If you're using&nbsp;gas, you should consult&nbsp;gas&nbsp;and&nbsp;gdb&nbsp;related tutorials.</SPAN>

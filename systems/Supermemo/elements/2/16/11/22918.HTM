@@ -1,0 +1,24 @@
+# Documentation/scheduler/sched-arch.txt 
+<P></P>
+<P>&nbsp;CPU Scheduler implementation hints for architecture specific code</P>
+<P></P>
+<P>&nbsp;Nick Piggin, 2005</P>
+<P>Context switch<BR>==============<BR>1. Runqueue locking<BR>By default, the switch_to arch function is called with the runqueue<BR>locked. This is usually not a problem unless switch_to may need to<BR>take the runqueue lock. This is usually due to a wake up operation in<BR>the context switch. See arch/ia64/include/asm/system.h for an example.</P>
+<P>To request the scheduler call switch_to with the runqueue unlocked,<BR>you must `#define __ARCH_WANT_UNLOCKED_CTXSW` in a header file<BR>(typically the one where switch_to is defined).</P>
+<P>Unlocked context switches introduce only a very minor performance<BR>penalty to the core scheduler implementation in the CONFIG_SMP case.</P>
+<P>CPU idle<BR>========<BR>Your cpu_idle routines need to obey the following rules:</P>
+<P>1. Preempt should now disabled over idle routines. Should only<BR>&nbsp;&nbsp; be enabled to call schedule() then disabled again.</P>
+<P>2. need_resched/TIF_NEED_RESCHED is only ever set, and will never<BR>&nbsp;&nbsp; be cleared until the running task has called schedule(). Idle<BR>&nbsp;&nbsp; threads need only ever query need_resched, and may never set or<BR>&nbsp;&nbsp; clear it.</P>
+<P>3. When cpu_idle finds (need_resched() == 'true'), it should call<BR>&nbsp;&nbsp; schedule(). It should not call schedule() otherwise.</P>
+<P>4. The only time interrupts need to be disabled when checking<BR>&nbsp;&nbsp; need_resched is if we are about to sleep the processor until<BR>&nbsp;&nbsp; the next interrupt (this doesn't provide any protection of<BR>&nbsp;&nbsp; need_resched, it prevents losing an interrupt).</P>
+<P>&nbsp;4a. Common problem with this type of sleep appears to be:<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; local_irq_disable();<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if (!need_resched()) {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; local_irq_enable();<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *** resched interrupt arrives here ***<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; __asm__("sleep until next interrupt");<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; }</P>
+<P>5. TIF_POLLING_NRFLAG can be set by idle routines that do not<BR>&nbsp;&nbsp; need an interrupt to wake them up when need_resched goes high.<BR>&nbsp;&nbsp; In other words, they must be periodically polling need_resched,<BR>&nbsp;&nbsp; although it may be reasonable to do some background work or enter<BR>&nbsp;&nbsp; a low CPU priority.</P>
+<P>&nbsp;&nbsp; &nbsp;5a. If TIF_POLLING_NRFLAG is set, and we do decide to enter<BR>&nbsp;&nbsp;&nbsp;&nbsp; an interrupt sleep, it needs to be cleared then a memory<BR>&nbsp;&nbsp;&nbsp;&nbsp; barrier issued (followed by a test of need_resched with<BR>&nbsp;&nbsp;&nbsp;&nbsp; interrupts disabled, as explained in 3).</P>
+<P>arch/x86/kernel/process.c has examples of both polling and<BR>sleeping idle functions.</P>
+<P><BR>Possible arch/ problems<BR>=======================</P>
+<P>Possible arch problems I found (and either tried to fix or didn't):</P>
+<P>h8300 - Is such sleeping racy vs interrupts? (See #4a).<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The H8/300 manual I found indicates yes, however disabling IRQs<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; over the sleep mean only NMIs can wake it up, so can't fix easily<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; without doing spin waiting.</P>
+<P>ia64 - is safe_halt call racy vs interrupts? (does it sleep?) (See #4a)</P>
+<P>sh64 - Is sleeping racy vs interrupts? (See #4a)</P>
+<P>sparc - IRQs on at this point(?), change local_irq_save to _disable.<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - TODO: needs secondary CPUs to disable preempt (See #1)</P>
+<P>&nbsp;

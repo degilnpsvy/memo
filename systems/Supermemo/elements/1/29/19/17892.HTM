@@ -1,0 +1,22 @@
+<H4 class=subsection>11.3.1 Finding Duplicated Words in a Document</H4><A name=index-words_002c-duplicate_002c-searching-for></A><A name=index-searching_002c-for-words></A><A name=index-documents_002c-searching></A>
+<P>A common error when writing large amounts of prose is to accidentally duplicate words. Typically you will see this in text as something like &#8220;the the program does the following&#8230;&#8221; When the text is online, often the duplicated words occur at the end of one line and the beginning of another, making them very difficult to spot. </P>
+<P>This program, <SAMP>dupword.awk</SAMP>, scans through a file one line at a time and looks for adjacent occurrences of the same word. It also saves the last word on a line (in the variable <CODE>prev</CODE>) for comparison with the first word on the next line. </P><A name=index-Texinfo-2></A>
+<P>The first two statements make sure that the line is all lowercase, so that, for example, &#8220;The&#8221; and &#8220;the&#8221; compare equal to each other. The next statement replaces nonalphanumeric and nonwhitespace characters with spaces, so that punctuation does not affect the comparison either. The characters are replaced with spaces so that formatting controls don&#8217;t create nonsense words (e.g., the Texinfo &#8216;<SAMP>@code{NF}</SAMP>&#8217; becomes &#8216;<SAMP>codeNF</SAMP>&#8217; if punctuation is simply deleted). The record is then resplit into fields, yielding just the actual words on the line, and ensuring that there are no empty fields. </P>
+<P>If there are no fields left after removing all the punctuation, the current record is skipped. Otherwise, the program loops through each word, comparing it to the previous one: </P><A name=index-dupword_002eawk-program></A>
+<DIV class=example><PRE class=example># dupword.awk --- find duplicate words in text
+{
+    $0 = tolower($0)
+    gsub(/[^[:alnum:][:blank:]]/, " ");
+    $0 = $0         # re-split
+    if (NF == 0)
+        next
+    if ($1 == prev)
+        printf("%s:%d: duplicate %s\n",
+            FILENAME, FNR, $1)
+    for (i = 2; i &lt;= NF; i++)
+        if ($i == $(i-1))
+            printf("%s:%d: duplicate %s\n",
+                FILENAME, FNR, $i)
+    prev = $NF
+}
+</PRE></DIV>

@@ -1,0 +1,462 @@
+<H1 class=SECT1><A name=BASHVER4></A>37.3. Bash, version 4</H1>
+<P><A name=BASH4REF></A></P>
+<P>Chet Ramey announced Version 4 of Bash on the 20th of February, 2009. This release has a number of significant new features, as well as some important bugfixes.</P>
+<P>Among the new goodies:</P>
+<P></P>
+<UL>
+<LI>
+<P><A name=ASSOCARR></A>Associative arrays. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN21025" name=AEN21025><SPAN class=footnote>[130]</SPAN></A> </P>
+<TABLE class=SIDEBAR border=1 cellPadding=5>
+<TBODY>
+<TR>
+<TD>
+<DIV class=SIDEBAR><A name=AEN21029></A>
+<P></P>
+<P>An <I class=FIRSTTERM>associative</I> array can be thought of as a set of two linked arrays -- one holding the <I class=FIRSTTERM>data</I>, and the other the <I class=FIRSTTERM>keys</I> that index the individual elements of the <I class=FIRSTTERM>data</I> array.</P>
+<P></P></DIV></TD></TR></TBODY></TABLE>
+<DIV class=EXAMPLE><A name=FETCHADDRESS></A>
+<P><B>Example 37-5. A simple address database</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+# fetch_address.sh
+
+declare -A address
+#       -A option declares associative array.
+
+address[Charles]="414 W. 10th Ave., Baltimore, MD 21236"
+address[John]="202 E. 3rd St., New York, NY 10009"
+address[Wilma]="1854 Vermont Ave, Los Angeles, CA 90023"
+
+
+echo "Charles's address is ${address[Charles]}."
+# Charles's address is 414 W. 10th Ave., Baltimore, MD 21236.
+echo "Wilma's address is ${address[Wilma]}."
+# Wilma's address is 1854 Vermont Ave, Los Angeles, CA 90023.
+echo "John's address is ${address[John]}."
+# John's address is 202 E. 3rd St., New York, NY 10009.
+
+echo
+
+echo "${!address[*]}"   # The array indices ...
+# Charles John Wilma</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<DIV class=EXAMPLE><A name=FETCHADDRESS2></A>
+<P><B>Example 37-6. A somewhat more elaborate address database</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+# fetch_address-2.sh
+# A more elaborate version of fetch_address.sh.
+
+SUCCESS=0
+E_DB=99    # Error code for missing entry.
+
+declare -A address
+#       -A option declares associative array.
+
+
+store_address ()
+{
+  address[$1]="$2"
+  return $?
+}
+
+
+fetch_address ()
+{
+  if [[ -z "${address[$1]}" ]]
+  then
+    echo "$1's address is not in database."
+    return $E_DB
+  fi
+
+  echo "$1's address is ${address[$1]}."
+  return $?
+}
+
+
+store_address "Lucas Fayne" "414 W. 13th Ave., Baltimore, MD 21236"
+store_address "Arvid Boyce" "202 E. 3rd St., New York, NY 10009"
+store_address "Velma Winston" "1854 Vermont Ave, Los Angeles, CA 90023"
+#  Exercise:
+#  Rewrite the above store_address calls to read data from a file,
+#+ then assign field 1 to name, field 2 to address in the array.
+#  Each line in the file would have a format corresponding to the above.
+#  Use a while-read loop to read from file, sed or awk to parse the fields.
+
+fetch_address "Lucas Fayne"
+# Lucas Fayne's address is 414 W. 13th Ave., Baltimore, MD 21236.
+fetch_address "Velma Winston"
+# Velma Winston's address is 1854 Vermont Ave, Los Angeles, CA 90023.
+fetch_address "Arvid Boyce"
+# Arvid Boyce's address is 202 E. 3rd St., New York, NY 10009.
+fetch_address "Bozo Bozeman"
+# Bozo Bozeman's address is not in database.
+
+exit $?   # In this case, exit code = 99, since that is function return.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>See <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SAMORSE">Example A-53</A> for an interesting usage of an <I class=FIRSTTERM>associative array</I>.</P>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P>Elements of the <I class=FIRSTTERM>index</I> array may include embedded <A href="http://tldp.org/LDP/abs/html/abs-guide.html#WHITESPACEREF">space characters</A>, or even leading and/or trailing space characters. However, index array elements containing <EM>only</EM> <I class=FIRSTTERM>whitespace</I> are <EM>not</EM> permitted.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>address[   ]="Blank"   # Error!</PRE></FONT></TD></TR></TBODY></TABLE></P></TD></TR></TBODY></TABLE></DIV>
+<LI>
+<P><A name=NCTERM></A>Enhancements to the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CASEESAC1">case</A> construct: the <TT class=REPLACEABLE><I>;;&amp;</I></TT> and <TT class=REPLACEABLE><I>;&amp;</I></TT> terminators.</P>
+<DIV class=EXAMPLE><A name=CASE4></A>
+<P><B>Example 37-7. Testing characters</B></P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+
+test_char ()
+{
+  case "$1" in
+    [[:print:]] )  echo "$1 is a printable character.";;&amp;       # |
+    # The ;;&amp; terminator continues to the next pattern test.      |
+    [[:alnum:]] )  echo "$1 is an alpha/numeric character.";;&amp;  # v
+    [[:alpha:]] )  echo "$1 is an alphabetic character.";;&amp;     # v
+    [[:lower:]] )  echo "$1 is a lowercase alphabetic character.";;&amp;
+    [[:digit:]] )  echo "$1 is an numeric character.";&amp;         # |
+    # The ;&amp; terminator executes the next statement ...         # |
+    %%%@@@@@    )  echo "********************************";;    # v
+#   ^^^^^^^^  ... even with a dummy pattern.
+  esac
+}
+
+echo
+
+test_char 3
+# 3 is a printable character.
+# 3 is an alpha/numeric character.
+# 3 is an numeric character.
+# ********************************
+echo
+
+test_char m
+# m is a printable character.
+# m is an alpha/numeric character.
+# m is an alphabetic character.
+# m is a lowercase alphabetic character.
+echo
+
+test_char /
+# / is a printable character.
+
+echo
+
+# The ;;&amp; terminator can save complex if/then conditions.
+# The ;&amp; is somewhat less useful.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<LI>
+<P><A name=COPROCREF></A>The new <B class=COMMAND>coproc</B> builtin enables two parallel <A href="http://tldp.org/LDP/abs/html/abs-guide.html#PROCESSREF">processes</A> to communicate and interact. As Chet Ramey states in the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BASHFAQ">Bash FAQ</A> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN21068" name=AEN21068><SPAN class=footnote>[131]</SPAN></A> , ver. 4.01: </P><A name=AEN21070></A>
+<BLOCKQUOTE class=BLOCKQUOTE>
+<P class=LITERALLAYOUT>&nbsp;&nbsp;&nbsp;&nbsp;There&nbsp;is&nbsp;a&nbsp;new&nbsp;'coproc'&nbsp;reserved&nbsp;word&nbsp;that&nbsp;specifies&nbsp;a&nbsp;coprocess:<BR>&nbsp;&nbsp;&nbsp;&nbsp;an&nbsp;asynchronous&nbsp;command&nbsp;run&nbsp;with&nbsp;two&nbsp;pipes&nbsp;connected&nbsp;to&nbsp;the&nbsp;creating<BR>&nbsp;&nbsp;&nbsp;&nbsp;shell.&nbsp;Coprocs&nbsp;can&nbsp;be&nbsp;named.&nbsp;The&nbsp;input&nbsp;and&nbsp;output&nbsp;file&nbsp;descriptors<BR>&nbsp;&nbsp;&nbsp;&nbsp;and&nbsp;the&nbsp;PID&nbsp;of&nbsp;the&nbsp;coprocess&nbsp;are&nbsp;available&nbsp;to&nbsp;the&nbsp;calling&nbsp;shell&nbsp;in<BR>&nbsp;&nbsp;&nbsp;&nbsp;variables&nbsp;with&nbsp;coproc-specific&nbsp;names.<BR><BR>&nbsp;&nbsp;&nbsp;&nbsp;George&nbsp;Dimitriu&nbsp;explains,<BR>&nbsp;&nbsp;&nbsp;&nbsp;"...&nbsp;coproc&nbsp;...&nbsp;is&nbsp;a&nbsp;feature&nbsp;used&nbsp;in&nbsp;Bash&nbsp;process&nbsp;substitution,<BR>&nbsp;&nbsp;&nbsp;&nbsp;which&nbsp;now&nbsp;is&nbsp;made&nbsp;publicly&nbsp;available."<BR>&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;means&nbsp;it&nbsp;can&nbsp;be&nbsp;explicitly&nbsp;invoked&nbsp;in&nbsp;a&nbsp;script,&nbsp;rather&nbsp;than<BR>&nbsp;&nbsp;&nbsp;&nbsp;just&nbsp;being&nbsp;a&nbsp;behind-the-scenes&nbsp;mechanism&nbsp;used&nbsp;by&nbsp;Bash.<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</P></BLOCKQUOTE>
+<P>Coprocesses use <I class=FIRSTTERM>file descriptors</I>. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FDREF2">File descriptors enable processes and pipes to communicate</A>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+# A coprocess communicates with a while-read loop.
+
+
+coproc { cat mx_data.txt; sleep 2; }
+#                         ^^^^^^^
+# Try running this without "sleep 2" and see what happens.
+
+while read -u ${COPROC[0]} line    #  ${COPROC[0]} is the
+do                                 #+ file descriptor of the coprocess.
+  echo "$line" | sed -e 's/line/NOT-ORIGINAL-TEXT/'
+done
+
+kill $COPROC_PID                   #  No longer need the coprocess,
+                                   #+ so kill its PID.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>But, be careful!</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+
+echo; echo
+a=aaa
+b=bbb
+c=ccc
+
+coproc echo "one two three"
+while read -u ${COPROC[0]} a b c;  #  Note that this loop
+do                                 #+ runs in a subshell.
+  echo "Inside while-read loop: ";
+  echo "a = $a"; echo "b = $b"; echo "c = $c"
+  echo "coproc file descriptor: ${COPROC[0]}"
+done 
+
+# a = one
+# b = two
+# c = three
+# So far, so good, but ...
+
+echo "-----------------"
+echo "Outside while-read loop: "
+echo "a = $a"  # a =
+echo "b = $b"  # b =
+echo "c = $c"  # c =
+echo "coproc file descriptor: ${COPROC[0]}"
+echo
+#  The coproc is still running, but ...
+#+ it still doesn't enable the parent process
+#+ to "inherit" variables from the child process, the while-read loop.
+
+#  Compare this to the "badread.sh" script.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<DIV class=CAUTION>
+<P></P>
+<TABLE class=CAUTION border=0 width="90%">
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=middle><IMG hspace=5 alt=Caution src="http://tldp.org/LDP/abs/images/caution.gif"></TD>
+<TD vAlign=top align=left>
+<P>The coprocess is <I class=FIRSTTERM>asynchronous</I>, and this might cause a problem. It may terminate before another process has finished communicating with it.</P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+
+coproc cpname { for i in {0..10}; do echo "index = $i"; done; }
+#      ^^^^^^ This is a *named* coprocess.
+read -u ${cpname[0]}
+echo $REPLY         #  index = 0
+echo ${COPROC[0]}   #+ No output ... the coprocess timed out
+#  after the first loop iteration.
+
+
+
+# However, George Dimitriu has a partial fix.
+
+coproc cpname { for i in {0..10}; do echo "index = $i"; done; sleep 1;
+echo hi &gt; myo; cat - &gt;&gt; myo; }
+#       ^^^^^ This is a *named* coprocess.
+
+echo "I am main"$'\04' &gt;&amp;${cpname[1]}
+myfd=${cpname[0]}
+echo myfd=$myfd
+
+### while read -u $myfd
+### do
+###   echo $REPLY;
+### done
+
+echo $cpname_PID
+
+#  Run this with and without the commented-out while-loop, and it is
+#+ apparent that each process, the executing shell and the coprocess,
+#+ waits for the other to finish writing in its own write-enabled pipe.</PRE></FONT></TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE></DIV>
+<LI>
+<P><A name=MAPFILEREF></A>The new <B class=COMMAND>mapfile</B> builtin makes it possible to load an array with the contents of a text file without using a loop or <A href="http://tldp.org/LDP/abs/html/abs-guide.html#ARRAYINITCS">command substitution</A>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+
+mapfile Arr1 &lt; $0
+# Same result as     Arr1=( $(cat $0) )
+echo "${Arr1[@]}"  # Copies this entire script out to stdout.
+
+echo "--"; echo
+
+# But, not the same as   read -a   !!!
+read -a Arr2 &lt; $0
+echo "${Arr2[@]}"  # Reads only first line of script into the array.
+
+exit</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P>The <A href="http://tldp.org/LDP/abs/html/abs-guide.html#READREF">read</A> builtin got a minor facelift. The <TT class=OPTION>-t</TT> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#READTIMED">timeout</A> option now accepts (decimal) fractional values <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN21096" name=AEN21096><SPAN class=footnote>[132]</SPAN></A> and the <TT class=OPTION>-i</TT> option permits preloading the edit buffer. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN21101" name=AEN21101><SPAN class=footnote>[133]</SPAN></A> Unfortunately, these enhancements are still a work in progress and not (yet) usable in scripts.</P>
+<LI>
+<P><A name=CASEMODPARAMSUB></A><A href="http://tldp.org/LDP/abs/html/abs-guide.html#PARAMSUBREF">Parameter substitution</A> gets <I class=FIRSTTERM>case-modification</I> operators.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+
+var=veryMixedUpVariable
+echo ${var}            # veryMixedUpVariable
+echo ${var^}           # VeryMixedUpVariable
+#         *              First char --&gt; uppercase.
+echo ${var^^}          # VERYMIXEDUPVARIABLE
+#         **             All chars  --&gt; uppercase.
+echo ${var,}           # veryMixedUpVariable
+#         *              First char --&gt; lowercase.
+echo ${var,,}          # verymixedupvariable
+#         **             All chars  --&gt; lowercase.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=DECLARECASEMOD></A></P>
+<P>The <A href="http://tldp.org/LDP/abs/html/abs-guide.html#DECLAREREF">declare</A> builtin now accepts the <TT class=OPTION>-l</TT> <I class=FIRSTTERM>lowercase</I> and <TT class=OPTION>-c</TT> <I class=FIRSTTERM>capitalize</I> options.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+
+declare -l var1            # Will change to lowercase
+var1=MixedCaseVARIABLE
+echo "$var1"               # mixedcasevariable
+# Same effect as             echo $var1 | tr A-Z a-z
+
+declare -c var2            # Changes only initial char to uppercase.
+var2=originally_lowercase
+echo "$var2"               # Originally_lowercase
+# NOT the same effect as     echo $var2 | tr a-z A-Z</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=BRACEEXPREF4></A><A href="http://tldp.org/LDP/abs/html/abs-guide.html#BRACEEXPREF">Brace expansion</A> has more options.</P>
+<P><I class=FIRSTTERM>Increment/decrement</I>, specified in the final term within braces.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+
+echo {40..60..2}
+# 40 42 44 46 48 50 52 54 56 58 60
+# All the even numbers, between 40 and 60.
+
+echo {60..40..2}
+# 60 58 56 54 52 50 48 46 44 42 40
+# All the even numbers, between 40 and 60, counting backwards.
+# In effect, a decrement.
+echo {60..40..-2}
+# The same output. The minus sign is not necessary.
+
+# But, what about letters and symbols?
+echo {X..d}
+# X Y Z [  ] ^ _ ` a b c d
+# Does not echo the \ which escapes a space.</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P><I class=FIRSTTERM>Zero-padding</I>, specified in the first term within braces, prefixes each term in the output with the <EM>same number</EM> of zeroes.</P>
+<TABLE border=1 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=SCREEN><TT class=PROMPT>bash4$ </TT><TT class=USERINPUT><B>echo {010..15}</B></TT>
+<TT class=COMPUTEROUTPUT>010 011 012 013 014 015</TT>
+
+
+<TT class=PROMPT>bash4$ </TT><TT class=USERINPUT><B>echo {000..10}</B></TT>
+<TT class=COMPUTEROUTPUT>000 001 002 003 004 005 006 007 008 009 010</TT>
+      </PRE></FONT></TD></TR></TBODY></TABLE>
+<LI>
+<P><A name=SUBSTREXTREF4></A></P>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#SUBSTREXTREF4"><I class=FIRSTTERM>Substring extraction</I> on <I class=FIRSTTERM>positional parameters</I></A> now starts with <A href="http://tldp.org/LDP/abs/html/abs-guide.html#SCRNAMEPARAM">$0</A> as the <I class=FIRSTTERM>zero-index</I>. (This corrects an inconsistency in the treatment of positional parameters.)</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash
+# show-params.bash
+# Requires version 4+ of Bash.
+
+# Invoke this scripts with at least one positional parameter.
+
+E_BADPARAMS=99
+
+if [ -z "$1" ]
+then
+  echo "Usage $0 param1 ..."
+  exit $E_BADPARAMS
+fi
+
+echo ${@:0}
+
+# bash3 show-params.bash4 one two three
+# one two three
+
+# bash4 show-params.bash4 one two three
+# show-params.bash4 one two three
+
+# $0                $1  $2  $3</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P><A name=GLOBSTARREF></A>The new <SPAN class=TOKEN>**</SPAN> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#GLOBBINGREF">globbing</A> operator matches filenames and directories <A href="http://tldp.org/LDP/abs/html/abs-guide.html#RECURSIONREF0">recursively</A>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+# filelist.bash4
+
+shopt -s globstar  # Must enable globstar, otherwise ** doesn't work.
+                   # The globstar shell option is new to version 4 of Bash.
+
+echo "Using *"; echo
+for filename in *
+do
+  echo "$filename"
+done   # Lists only files in current directory ($PWD).
+
+echo; echo "--------------"; echo
+
+echo "Using **"
+for filename in **
+do
+  echo "$filename"
+done   # Lists complete file tree, recursively.
+
+exit
+
+Using *
+
+allmyfiles
+filelist.bash4
+
+--------------
+
+Using **
+
+allmyfiles
+allmyfiles/file.index.txt
+allmyfiles/my_music
+allmyfiles/my_music/me-singing-60s-folksongs.ogg
+allmyfiles/my_music/me-singing-opera.ogg
+allmyfiles/my_music/piano-lesson.1.ogg
+allmyfiles/my_pictures
+allmyfiles/my_pictures/at-beach-with-Jade.png
+allmyfiles/my_pictures/picnic-with-Melissa.png
+filelist.bash4</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<LI>
+<P>The new <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BASHPIDREF">$BASHPID</A> internal variable.</P>
+<LI>
+<P><A name=CNFH></A></P>
+<P>There is a new <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BUILTINREF">builtin</A> error-handling function named <B class=COMMAND>command_not_found_handle</B>.</P>
+<P>
+<TABLE border=0 width="90%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#!/bin/bash4
+
+command_not_found_handle ()
+{ # Accepts implicit parameters.
+  echo "The following command is not valid: \""$1\"""
+  echo "With the following argument(s): \""$2\"" \""$3\"""   # $4, $5 ...
+} # $1, $2, etc. are not explicitly passed to the function.
+
+bad_command arg1 arg2
+
+# The following command is not valid: "bad_command"
+# With the following argument(s): "arg1" "arg2"</PRE></FONT></TD></TR></TBODY></TABLE></P></LI></UL>
+<TABLE class=SIDEBAR border=1 cellPadding=5>
+<TBODY>
+<TR>
+<TD>
+<DIV class=SIDEBAR><A name=AEN21170></A>
+<P></P>
+<P><EM>Editorial comment</EM></P>
+<P>Associative arrays? Coprocesses? Whatever happened to the lean and mean Bash we have come to know and love? Could it be suffering from (horrors!) <SPAN class=QUOTE>"feature creep"</SPAN>? Or perhaps even Korn shell envy?</P>
+<P><EM>Note to Chet Ramey:</EM> Please add only <EM>essential</EM> features in future Bash releases -- perhaps <I class=FIRSTTERM>for-each</I> loops and support for multi-dimensional arrays. <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN21179" name=AEN21179><SPAN class=footnote>[134]</SPAN></A> Most Bash users won't need, won't use, and likely won't greatly appreciate complex <SPAN class=QUOTE>"features"</SPAN> like built-in debuggers, Perl interfaces, and bolt-on rocket boosters.</P>
+<P></P></DIV></TD></TR></TBODY></TABLE>

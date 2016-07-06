@@ -1,0 +1,40 @@
+# Documentation/driver-mode/bus.txt 
+<P></P>
+<P>Bus Types </P>
+<P></P>
+<P><FONT class=extract>Definition<BR>~~~~~~~~~~<BR>See the kerneldoc for the struct bus_type.</FONT></P>
+<P><FONT class=extract>int bus_register(struct bus_type * bus);</FONT></P>
+<P><BR><FONT class=extract>Declaration<BR>~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>Each bus type in the kernel (PCI, USB, etc) should declare one static<BR>object of this type. They must initialize the name field, and may<BR>optionally initialize the match callback.</FONT></P>
+<P><FONT class=extract>struct bus_type pci_bus_type = {<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .name&nbsp;= "pci",<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; .match&nbsp;= pci_bus_match,<BR>};</FONT></P>
+<P><FONT class=extract>The structure should be exported to drivers in a header file:</FONT></P>
+<P><FONT class=extract>extern struct bus_type pci_bus_type;</FONT></P>
+<P><BR><FONT class=extract>Registration<BR>~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>When a bus driver is initialized, it calls bus_register. This<BR>initializes the rest of the fields in the bus object and inserts it<BR>into a global list of bus types. Once the bus object is registered, <BR>the fields in it are usable by the bus driver.</FONT> </P>
+<P><BR>Callbacks<BR>~~~~~~~~~</P>
+<P><FONT class=extract>match(): Attaching Drivers to Devices<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>The format of device ID structures and the semantics for comparing<BR>them are inherently bus-specific. Drivers typically declare an array<BR>of device IDs of devices they support that reside in a bus-specific<BR>driver structure. </FONT></P>
+<P><FONT class=extract>The purpose of the match callback is to give the bus an opportunity to<BR>determine if a particular driver supports a particular device by<BR>comparing the device IDs the driver supports with the device ID of a<BR>particular device, without sacrificing bus-specific functionality or<BR>type-safety. </FONT></P>
+<P><FONT class=extract>When a driver is registered with the bus, the bus's list of devices is<BR>iterated over, and the match callback is called for each device that<BR>does not have a driver associated with it.</FONT> </P>
+<P>&nbsp;</P>
+<P><FONT class=extract>Device and Driver Lists<BR>~~~~~~~~~~~~~~~~~~~~~~~</FONT></P>
+<P><FONT class=extract>The lists of devices and drivers are intended to replace the local<BR>lists that many buses keep. They are lists of struct devices and<BR>struct device_drivers, respectively. Bus drivers are free to use the<BR>lists as they please, but conversion to the bus-specific type may be<BR>necessary. </FONT></P>
+<P><FONT class=extract>The LDM core provides helper functions for iterating over each list.</FONT></P>
+<P><FONT class=extract>int bus_for_each_dev(struct bus_type * bus, struct device * start, void * data,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; int (*fn)(struct device *, void *));</FONT></P>
+<P><FONT class=extract>int bus_for_each_drv(struct bus_type * bus, struct device_driver * start, <BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; void * data, int (*fn)(struct device_driver *, void *));</FONT></P>
+<P><FONT class=extract>These helpers iterate over the respective list, and call the callback<BR>for each device or driver in the list. All list accesses are<BR>synchronized by taking the bus's lock (read currently). The reference<BR>count on each object in the list is incremented before the callback is<BR>called; it is decremented after the next object has been obtained. The<BR>lock is not held when calling the callback.</FONT> </P>
+<P><BR><FONT class=extract>sysfs<BR>~~~~~~~~<BR>There is a top-level directory named 'bus'.</FONT></P>
+<P><FONT class=extract>Each bus gets a directory in the bus directory, along with two default<BR>directories:</FONT></P>
+<P><FONT class=extract>&nbsp;/sys/bus/pci/<BR>&nbsp;|-- devices<BR>&nbsp;`-- drivers</FONT></P>
+<P><FONT class=extract>Drivers registered with the bus get a directory in the bus's drivers<BR>directory:</FONT></P>
+<P><FONT class=extract>&nbsp;/sys/bus/pci/<BR>&nbsp;|-- devices<BR>&nbsp;`-- drivers<BR>&nbsp;&nbsp;&nbsp;&nbsp; |-- Intel ICH<BR>&nbsp;&nbsp;&nbsp;&nbsp; |-- Intel ICH Joystick<BR>&nbsp;&nbsp;&nbsp;&nbsp; |-- agpgart<BR>&nbsp;&nbsp;&nbsp;&nbsp; `-- e100</FONT></P>
+<P><FONT class=extract>Each device that is discovered on a bus of that type gets a symlink in<BR>the bus's devices directory to the device's directory in the physical<BR>hierarchy:</FONT></P>
+<P><FONT class=extract>&nbsp;/sys/bus/pci/<BR>&nbsp;|-- devices<BR>&nbsp;|&nbsp;&nbsp; |-- 00:00.0 -&gt; ../../../root/pci0/00:00.0<BR>&nbsp;|&nbsp;&nbsp; |-- 00:01.0 -&gt; ../../../root/pci0/00:01.0<BR>&nbsp;|&nbsp;&nbsp; `-- 00:02.0 -&gt; ../../../root/pci0/00:02.0<BR>&nbsp;`-- drivers</FONT></P>
+<P><BR><FONT class=extract>Exporting Attributes<BR>~~~~~~~~~~~~~~~~~~~~<BR>struct bus_attribute {<BR>&nbsp;struct attribute&nbsp;attr;<BR>&nbsp;ssize_t (*show)(struct bus_type *, char * buf);<BR>&nbsp;ssize_t (*store)(struct bus_type *, const char * buf, size_t count);<BR>};</FONT></P>
+<P><FONT class=extract>Bus drivers can export attributes using the BUS_ATTR macro that works<BR>similarly to the DEVICE_ATTR macro for devices. For example, a definition <BR>like this:</FONT></P>
+<P><FONT class=extract>static BUS_ATTR(debug,0644,show_debug,store_debug);</FONT></P>
+<P><FONT class=extract>is equivalent to declaring:</FONT></P>
+<P><FONT class=extract>static bus_attribute bus_attr_debug;</FONT></P>
+<P><FONT class=extract>This can then be used to add and remove the attribute from the bus's<BR>sysfs directory using:</FONT></P>
+<P><FONT class=extract>int bus_create_file(struct bus_type *, struct bus_attribute *);<BR>void bus_remove_file(struct bus_type *, struct bus_attribute *);</FONT></P>
+<P><BR>&nbsp;

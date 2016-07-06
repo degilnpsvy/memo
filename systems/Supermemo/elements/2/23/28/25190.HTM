@@ -1,0 +1,10 @@
+/**<BR>&nbsp;* kobject_rename - change the name of an object<BR>&nbsp;* @kobj: object in question.<BR>&nbsp;* @new_name: object's new name<BR>&nbsp;*<BR>&nbsp;* It is the responsibility of the caller to provide mutual<BR>&nbsp;* exclusion between two different calls of kobject_rename<BR>&nbsp;* on the same kobject and to ensure that new_name is valid and<BR>&nbsp;* won't conflict with other kobjects.<BR>&nbsp;*/<BR>int kobject_rename(struct kobject *kobj, const char *new_name)<BR>{<BR>&nbsp;int error = 0;<BR>&nbsp;const char *devpath = NULL;<BR>&nbsp;const char *dup_name = NULL, *name;<BR>&nbsp;char *devpath_string = NULL;<BR>&nbsp;char *envp[2]; 
+<P></P>
+<P>&nbsp;kobj = kobject_get(kobj);<BR>&nbsp;if (!kobj)<BR>&nbsp;&nbsp;return -EINVAL;<BR>&nbsp;if (!kobj-&gt;parent)<BR>&nbsp;&nbsp;return -EINVAL;</P>
+<P>&nbsp;devpath = kobject_get_path(kobj, GFP_KERNEL);<BR>&nbsp;if (!devpath) {<BR>&nbsp;&nbsp;error = -ENOMEM;<BR>&nbsp;&nbsp;goto out;<BR>&nbsp;}<BR>&nbsp;devpath_string = kmalloc(strlen(devpath) + 15, GFP_KERNEL);<BR>&nbsp;if (!devpath_string) {<BR>&nbsp;&nbsp;error = -ENOMEM;<BR>&nbsp;&nbsp;goto out;<BR>&nbsp;}<BR>&nbsp;sprintf(devpath_string, "DEVPATH_OLD=%s", devpath);<BR>&nbsp;envp[0] = devpath_string;<BR>&nbsp;envp[1] = NULL;</P>
+<P>&nbsp;name = dup_name = kstrdup(new_name, GFP_KERNEL);<BR>&nbsp;if (!name) {<BR>&nbsp;&nbsp;error = -ENOMEM;<BR>&nbsp;&nbsp;goto out;<BR>&nbsp;}</P>
+<P>&nbsp;error = sysfs_rename_dir_ns(kobj, new_name, kobject_namespace(kobj));<BR>&nbsp;if (error)<BR>&nbsp;&nbsp;goto out;</P>
+<P>&nbsp;/* Install the new kobject name */<BR>&nbsp;dup_name = kobj-&gt;name;<BR>&nbsp;kobj-&gt;name = name;</P>
+<P>&nbsp;/* This function is mostly/only used for network interface.<BR>&nbsp; * Some hotplug package track interfaces by their name and<BR>&nbsp; * therefore want to know when the name is changed by the user. */<BR>&nbsp;kobject_uevent_env(kobj, KOBJ_MOVE, envp);</P>
+<P>out:<BR>&nbsp;kfree(dup_name);<BR>&nbsp;kfree(devpath_string);<BR>&nbsp;kfree(devpath);<BR>&nbsp;kobject_put(kobj);</P>
+<P>&nbsp;return error;<BR>}<BR>EXPORT_SYMBOL_GPL(kobject_rename);

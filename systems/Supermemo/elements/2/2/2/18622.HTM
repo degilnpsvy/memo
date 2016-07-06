@@ -1,0 +1,38 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsection>6.57.12 X86 transaction memory intrinsics</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Hardware transactional memory intrinsics for i386. These allow to use memory transactions with RTM (Restricted Transactional Memory). For using HLE (Hardware Lock Elision) see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="https://gcc.gnu.org/onlinedocs/gcc-4.9.1/gcc/x86-specific-memory-model-extensions-for-transactional-memory.html#x86-specific-memory-model-extensions-for-transactional-memory">x86 specific memory model extensions for transactional memory</A><SPAN class=Apple-converted-space>&nbsp;</SPAN>instead. This support is enabled with the<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>-mrtm</SPAN></SAMP>option.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">A memory transaction commits all changes to memory in an atomic way, as visible to other threads. If the transaction fails it is rolled back and all side effects discarded.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Generally there is no guarantee that a memory transaction ever succeeds and suitable fallback code always needs to be supplied.</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=defun>&#8212; RTM Function: unsigned<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>_xbegin</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>()<VAR><A name=index-g_t_005fxbegin-3701></A></VAR><BR>
+<BLOCKQUOTE>
+<P>Start a RTM (Restricted Transactional Memory) transaction. Returns _XBEGIN_STARTED when the transaction started successfully (note this is not 0, so the constant has to be explicitely tested). When the transaction aborts all side effects are undone and an abort code is returned. There is no guarantee any transaction ever succeeds, so there always needs to be a valid tested fallback path.</P></BLOCKQUOTE></DIV><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     #include &lt;immintrin.h&gt;
+     
+     if ((status = _xbegin ()) == _XBEGIN_STARTED) {
+         ... transaction code...
+         _xend ();
+     } else {
+         ... non transactional fallback path...
+     }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Valid abort status bits (when the value is not<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_XBEGIN_STARTED</CODE>) are:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">
+<DT><CODE>_XABORT_EXPLICIT</CODE></DT>
+<DD>Transaction explicitely aborted with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_xabort</CODE>. The parameter passed to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_xabort</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>is available with<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_XABORT_CODE(status)</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></DD>
+<DT><CODE>_XABORT_RETRY</CODE></DT>
+<DD>Transaction retry is possible.<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></DD>
+<DT><CODE>_XABORT_CONFLICT</CODE></DT>
+<DD>Transaction abort due to a memory conflict with another thread<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></DD>
+<DT><CODE>_XABORT_CAPACITY</CODE></DT>
+<DD>Transaction abort due to the transaction using too much memory<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></DD>
+<DT><CODE>_XABORT_DEBUG</CODE></DT>
+<DD>Transaction abort due to a debug trap<SPAN class=Apple-converted-space>&nbsp;</SPAN><BR></DD>
+<DT><CODE>_XABORT_NESTED</CODE></DT>
+<DD>Transaction abort in a inner nested transaction</DD></DL>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=defun>&#8212; RTM Function: void<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>_xend</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>()<VAR><A name=index-g_t_005fxend-3702></A></VAR><BR>
+<BLOCKQUOTE>
+<P>Commit the current transaction. When no transaction is active this will fault. All memory side effects of the transactions will become visible to other threads in an atomic matter.</P></BLOCKQUOTE></DIV>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=defun>&#8212; RTM Function: int<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>_xtest</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>()<VAR><A name=index-g_t_005fxtest-3703></A></VAR><BR>
+<BLOCKQUOTE>
+<P>Return a value not zero when a transaction is currently active, otherwise 0.</P></BLOCKQUOTE></DIV>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=defun>&#8212; RTM Function: void<SPAN class=Apple-converted-space>&nbsp;</SPAN><B>_xabort</B><SPAN class=Apple-converted-space>&nbsp;</SPAN>(<VAR>status</VAR>)<VAR><A name=index-g_t_005fxabort-3704></A></VAR><BR>
+<BLOCKQUOTE>
+<P>Abort the current transaction. When no transaction is active this is a no-op. status must be a 8bit constant, that is included in the status code returned by<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>_xbegin</CODE></P></BLOCKQUOTE></DIV>

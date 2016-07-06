@@ -1,0 +1,191 @@
+<H3 id=700181-968 class=docSection1Title>6.3. The Init Process</H3>
+<P class=docText>Unless you are doing something highly unusual, you will never need to provide a customized initial process because the capabilities of the standard <TT>init</TT> process are very flexible. The <TT>init</TT> program, together with a family of startup scripts that we examine shortly, implement what is commonly called <SPAN class=docEmphasis>System V Init</SPAN>, from the original UNIX System V that used this schema. We now examine this powerful system configuration and control utility.</P>
+<P class=docText>We saw in the previous section that <TT>init</TT> is the first user space process spawned by the kernel after completion of the boot process. As you will learn, every process in a running Linux system has a child-parent relationship with another process running in the system. <TT>init</TT> is the ultimate parent of all user space processes in a Linux system. Furthermore, <TT>init</TT> provides the default set of environment parameters for all other processes to inherit, including such things as <TT>PATH</TT> and <TT>CONSOLE</TT>.</P>
+<P class=docText>Its primary role is to spawn additional processes under the direction of a special configuration file. This configuration file is usually stored as <TT>/etc/inittab</TT>. <TT>init</TT> has the concept of a <SPAN class=docEmphasis>runlevel</SPAN>. A runlevel can be thought of as a system state. Each runlevel is defined by the services enabled and programs spawned upon entry to that runlevel.</P>
+<P class=docText><TT>init</TT> can exist in a single runlevel at any given time. Runlevels used by <TT>init</TT> include runlevels from 0 to 6 and a special runlevel called <TT>S</TT>. Runlevel 0 instructs <TT>init</TT> to halt the system, while runlevel 6 results in a system reboot. For each run-level, a set of startup and shutdown scripts is usually provided that define the action a system should take for each runlevel. Actions to perform for a given runlevel are determined by the <TT>/etc/inittab</TT> configuration file, described shortly.</P>
+<P class=docText>Several of the runlevels have been reserved for specific purposes in many distributions. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06table02">Table 6-2</A> details the runlevels and their purpose in common use in many Linux distributions.</P>
+<P class=docText></P><A name=ch06table02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 6-2. Runlevels</H5></CAPTION>
+<COLGROUP span=2 align=left>
+<COL width=200>
+<COL width=250></COLGROUP>
+<THEAD>
+<TR>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText><A name=iddle1989></A>Runlevel</P></TH>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Purpose</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>0</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>System shutdown (halt)</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>1</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Single-user system configuration for maintenance</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>2</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>User defined</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>3</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>General purpose multiuser configuration</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>4</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>User defined</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>5</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Multiuser with graphical user interface on startup</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>6</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>System restart (reboot)</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>The runlevel scripts are commonly found under a directory called <TT>/etc/rc.d/init.d.</TT> Here you will find most of the scripts that enable and disable individual services. Services can be configured manually, by invoking the script and passing one of the appropriate arguments to the script, such as <TT>start</TT>, <TT>stop</TT>, or <TT>restart</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list3">Listing 6-3</A> displays an example of restarting the <TT>nfs</TT> service.</P><A name=ch06list3></A>
+<H5 id=title-IDAOSOWC class=docExampleTitle>Listing 6-3. NFS Restart</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>/etc/rc.d/init.d/nfs restart</SPAN>
+Shutting down NFS mountd:                           [  OK  ]
+Shutting down NFS daemon:                           [  OK  ]
+Shutting down NFS quotas:                           [  OK  ]
+Shutting down NFS services:                         [  OK  ]
+Starting NFS services:                              [  OK  ]
+Starting NFS quotas:                                [  OK  ]
+Starting NFS daemon:                                [  OK  ]
+Starting NFS mountd:                                [  OK  ]</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>If you have spent any time with a desktop Linux distribution such as Red Hat or Fedora, you have undoubtedly seen lines like this during system startup.</P>
+<P class=docText>A runlevel is defined by the services that are enabled at that runlevel. Most Linux distributions contain a directory structure under <TT>/etc</TT> that contains symbolic links to the service scripts in <TT>/etc/rc.d/init.d</TT>. These runlevel directories are typically rooted at <TT>/etc/rc.d</TT>. Under this directory, you will find a series of runlevel directories that contain startup and shutdown specifications for each runlevel. <TT>init</TT> <A name=iddle2009></A><A name=iddle2010></A><A name=iddle2466></A>simply executes these scripts upon entry and exit from a runlevel. The scripts define the system state, and <TT>inittab</TT> instructs <TT>init</TT> on which scripts to associate with a given runlevel. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list4">Listing 6-4</A> contains the directory structure beneath <TT>/etc/rc.d</TT> that drives the runlevel startup and shutdown behavior upon entry to or exit from the specified runlevel, respectively.</P><A name=ch06list4></A>
+<H5 id=title-IDA1UOWC class=docExampleTitle>Listing 6-4. Runlevel Directory Structure</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ls -l /etc/rc.d</SPAN>
+total 96
+drwxr-xr-x 2 root root  4096 Oct 20 10:19 init.d
+-rwxr-xr-x 1 root root  2352 Mar 16  2004 rc
+drwxr-xr-x 2 root root  4096 Mar 22  2005 rc0.d
+drwxr-xr-x 2 root root  4096 Mar 22  2005 rc1.d
+drwxr-xr-x 2 root root  4096 Mar 22  2005 rc2.d
+drwxr-xr-x 2 root root  4096 Mar 22  2005 rc3.d
+drwxr-xr-x 2 root root  4096 Mar 22  2005 rc4.d
+drwxr-xr-x 2 root root  4096 Mar 22  2005 rc5.d
+drwxr-xr-x 2 root root  4096 Mar 22  2005 rc6.d
+-rwxr-xr-x 1 root root   943 Dec 31 16:36 rc.local
+-rwxr-xr-x 1 root root 25509 Jan 11  2005 rc.sysinit</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Each of the runlevels is defined by the scripts contained in the <TT>rc</TT>N<TT>.d</TT>, where <SPAN class=docEmphasis>N</SPAN> is the runlevel. Inside each <TT>rc</TT>N<TT>.d</TT> directory, you will find numerous symlinks arranged in a specific order. These symbolic links start with either a <SPAN class=docEmphasis>K</SPAN> or an <SPAN class=docEmphasis>S.</SPAN> Those beginning with <SPAN class=docEmphasis>S</SPAN> point to service scripts, which are invoked with startup instructions; those starting with a <SPAN class=docEmphasis>K</SPAN> point to service scripts that are invoked with shutdown instructions. An example with a very small number of services might look like <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list5">Listing 6-5</A>.</P><A name=ch06list5></A>
+<H5 id=title-IDAMWOWC class=docExampleTitle>Listing 6-5. Example Runlevel Directory</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>lrwxrwxrwx 1 root root 17 Nov 25  2004 S10network -&gt; ../init.d/network
+lrwxrwxrwx 1 root root 16 Nov 25  2004 S12syslog  -&gt; ../init.d/syslog
+lrwxrwxrwx 1 root root 16 Nov 25  2004 S56xinetd  -&gt; ../init.d/xinetd
+lrwxrwxrwx 1 root root 16 Nov 25  2004 K50xinetd  -&gt; ../init.d/xinetd
+lrwxrwxrwx 1 root root 16 Nov 25  2004 K88syslog  -&gt; ../init.d/syslog
+lrwxrwxrwx 1 root root 17 Nov 25  2004 K90network -&gt; ../init.d/network</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1612></A><A name=iddle1633></A><A name=iddle1648></A><A name=iddle1936></A><A name=iddle2474></A><A name=iddle2475></A><A name=iddle2476></A>In this example, we are instructing the startup scripts to start three services upon entry to this fictitious runlevel: <TT>network</TT>, <TT>syslog</TT>, and <TT>xinetd</TT>. Because the <TT>S*</TT> scripts are ordered with a numeric tag, they will be started in this order. In a similar fashion, when exiting this runlevel, three services will be terminated: <TT>xinetd</TT>, <TT>syslog</TT>, and <TT>network</TT>. In a similar fashion, these services will be terminated in the order presented by the two-digit number following the K in the symlink filename. In an actual system, there would undoubtedly be many more entries. You can include your own entries for your own custom applications, too.</P>
+<P class=docText>The top-level script that executes these service startup and shutdown scripts is defined in the <TT>init</TT> configuration file, which we now examine.</P><A name=ch06lev2sec10></A>
+<H4 id=title-IDAD0OWC class=docSection2Title>6.3.1. inittab</H4>
+<P class=docText>When <TT>init</TT> is started, it reads the system configuration file <TT>/etc/inittab</TT>. This file contains directives for each runlevel, as well as directives that apply to all run-levels. This file and <TT>init</TT>'s behavior are well documented in man pages on most Linux workstations, as well as by several books covering system administration. We do not attempt to duplicate those works; we focus on how a developer might configure <TT>inittab</TT> for an embedded system. For a detailed explanation of how <TT>inittab</TT> and <TT>init</TT> work together, view the man page on most Linux workstations by typing <SPAN class=docEmphStrong><TT>man init</TT></SPAN> and <SPAN class=docEmphStrong><TT>man inittab</TT></SPAN>.</P>
+<P class=docText>Let's take a look at a typical <TT>inittab</TT> for a simple embedded system. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list6">Listing 6-6</A> contains a simple <TT>inittab</TT> example for a system that supports a single runlevel as well as shutdown and reboot.</P><A name=ch06list6></A>
+<H5 id=title-IDAW1OWC class=docExampleTitle>Listing 6-6. Simple Example inittab</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>  # /etc/inittab
+
+  # The default runlevel (2 in this example)
+  id:2:initdefault:
+
+  # This is the first process (actually a script) to be run.
+  si::sysinit:/etc/rc.sysinit
+
+  # Execute our shutdown script on entry to runlevel 0
+  l0:0:wait:/etc/init.d/sys.shutdown
+
+  # Execute our normal startup script on entering runlevel 2
+  l2:2:wait:/etc/init.d/runlvl2.startup
+
+  # This line executes a reboot script (runlevel 6)
+  l6:6:wait:/etc/init.d/sys.reboot
+
+  # This entry spawns a login shell on the console
+  # Respawn means it will be restarted each time it is killed
+  con:2:respawn:/bin/sh</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2019></A>This very simple<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06fn6">[6]</A></SUP> <TT>inittab</TT> script describes three individual runlevels. Each run-level is associated with a script, which must be created by the developer for the desired actions in each runlevel. When this file is read by <TT>init</TT>, the first script to be executed is <TT>/etc/rc.sysinit</TT>. This is denoted by the <TT>sysinit</TT> tag. Then <TT>init</TT> enters runlevel 2, and executes the script defined for runlevel 2. From this example, this would be <TT>/etc/init.d/runlvl2.startup</TT>. As you might guess from the <TT>:wait:</TT> tag in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list6">Listing 6-6</A>, <TT>init</TT> waits until the script completes before continuing. When the runlevel 2 script completes, <TT>init</TT> spawns a shell on the console (through the <TT>/bin/sh</TT> symbolic link), as shown in the last line of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list6">Listing 6-6</A>. The <TT>respawn</TT> keyword instructs <TT>init</TT> to restart the shell each time it detects that it has exited. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list7">Listing 6-7</A> shows what it looks like during boot.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch06fn6>[6]</A></SUP> This <TT>inittab</TT> is a nice example of a small, purpose-built embedded system.</P></BLOCKQUOTE><A name=ch06list7></A>
+<H5 id=title-IDAJ4OWC class=docExampleTitle>Listing 6-7. Example Startup Messages</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+VFS: Mounted root (nfs filesystem).
+Freeing init memory: 304K
+INIT: version 2.78 booting
+This is rc.sysinit
+INIT: Entering runlevel: 2
+This is runlvl2.startup
+
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The startup scripts in this example do nothing except announce themselves for illustrative purposes. Of course, in an actual system, these scripts enable features and services that do useful work! Given the simple configuration in this example, you would enable the services and applications for your particular widget in the <TT>/etc/init.d/runlvl2.startup</TT> script and do the reversedisable your <A name=iddle1615></A><A name=iddle2036></A><A name=iddle2442></A><A name=iddle2478></A><A name=iddle2627></A>applications, services, and devicesin your shutdown and/or reboot scripts. In the next section, we look at some typical system configurations and the required entries in the startup scripts to enable these configurations.</P><A name=ch06lev2sec11></A>
+<H4 id=title-IDAUIPWC class=docSection2Title>6.3.2. Example Web Server Startup Script</H4>
+<P class=docText>Although simple, this example startup script is designed to illustrate the mechanism and guide you in designing your own system startup and shutdown behavior. This example is based on <TT>busybox</TT>, which has a slightly different initialization behavior than <TT>init</TT>. These differences are covered in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch11.html#ch11">Chapter 11</A>.</P>
+<P class=docText>In a typical embedded appliance that contains a web server, we might want several servers available for maintenance and remote access. In this example, we enable servers for HTTP and Telnet access (via inetd). <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list8">Listing 6-8</A> contains a simple <TT>rc.sysinit</TT> script for our hypothetical web server appliance.</P><A name=ch06list8></A>
+<H5 id=title-IDAZJPWC class=docExampleTitle>Listing 6-8. Web Server <TT>rc.sysinit</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE> #!/bin/sh
+
+ echo "This is rc.sysinit"
+
+ busybox mount -t proc none /proc
+
+ # Load the system loggers
+ syslogd
+ klogd
+
+ # Enable legacy PTY support for telnetd
+ busybox mkdir /dev/pts
+ busybox mknod /dev/ptmx c 5 2
+ busybox mount -t devpts devpts /dev/pts</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>In this simple initialization script, we first enable the <TT>proc</TT> file system. The details of this useful subsystem are covered in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>. Next we enable the system loggers so that we can capture system information during operation. This is especially useful when things go wrong. The last entries enable support for the UNIX PTY subsystem, which is required for the implementation of the Telnet server used for this example.</P>
+<P class=docText><A name=iddle1622></A><A name=iddle1641></A><A name=iddle2008></A><A name=iddle2302></A><A name=iddle2480></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list9">Listing 6-9</A> contains the commands in the runlevel 2 startup script. This script contains the commands to enable any services we want to have operational for our appliance.</P><A name=ch06list9></A>
+<H5 id=title-IDA5MPWC class=docExampleTitle>Listing 6-9. Example Runlevel 2 Startup Script</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE> #!/bin/sh
+
+ echo "This is runlvl2.startup"
+
+ echo "Starting Internet Superserver"
+ inetd
+
+ echo "Starting web server"
+ webs &amp;</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice how simple this runlevel 2 startup script actually is. First we enable the so-called Internet superserver <TT>inetd</TT>, which intercepts and spawns services for common TCP/IP requests. In our example, we enabled Telnet services through a configuration file called <TT>/etc/inetd.conf</TT>. Then we execute the web server, here called <TT>webs</TT>. That's all there is to it. Although minimal, this is a working configuration for Telnet and web services.</P>
+<P class=docText>To complete this configuration, you might supply a shutdown script (refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06lev1sec3.html#ch06list6">Listing 6-6</A>), which, in this case, would terminate the web server and the Internet superserver before system shutdown. In our example scenario, that is sufficient for a clean shutdown.

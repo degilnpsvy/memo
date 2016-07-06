@@ -1,0 +1,86 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>5.6.&nbsp;The Instruction Cycle</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s05.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;5.&nbsp;The MIPS Architecture</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s07.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="5.6.&nbsp;The Instruction Cycle" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286959735></A>5.6.&nbsp;The Instruction Cycle</H2></DIV></DIV></DIV>
+<DIV class=section title="5.6.1.&nbsp;Generic CPU Instruction Cycle">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286959738></A>5.6.1.&nbsp;Generic CPU Instruction Cycle</H3></DIV></DIV></DIV>
+<P>The generic instruction cycle for an unspecified CPU consists of the following stages:</P>
+<DIV class=orderedlist>
+<OL class=orderedlist type=1>
+<LI class=listitem>Fetch instruction: Read instruction code from address in PC and place in IR. ( IR &#8592; Memory[PC] )</LI>
+<LI class=listitem>Decode instruction: Hardware determines what the opcode/function is, and determines which registers or memory addresses contain the operands.</LI>
+<LI class=listitem>Fetch operands from memory if necessary: If any operands are memory addresses, initiate memory read cycles to read them into CPU registers. If an operand is in memory, not a register, then the memory address of the operand is known as the<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>effective address</EM>, or EA for short. The fetching of an operand can therefore be denoted as Register &#8592; Memory[EA]. On today's computers, CPUs are much faster than memory, so operand fetching usually takes multiple CPU clock cycles to complete.</LI>
+<LI class=listitem>Execute: Perform the function of the instruction. If arithmetic or logic instruction, utilize the ALU circuits to carry out the operation on data in registers. This is the only stage of the instruction cycle that is useful from the perspective of the end user. Everything else is overhead required to make the execute stage happen. One of the major goals of CPU design is to eliminate overhead, and spend a higher percentage of the time in the execute stage. Details on how this is achieved is a topic for a hardware-focused course in computer architecture.</LI>
+<LI class=listitem>Store result in memory if necessary: If destination is a memory address, initiate a memory write cycle to transfer the result from the CPU to memory. Depending on the situation, the CPU may or may not have to wait until this operation completes. If the next instruction does not need to access the memory chip where the result is stored, it can proceed with the next instruction while the memory unit is carrying out the write operation.</LI></OL></DIV>
+<P>An example of a full instruction cycle is provided by the following VAX instruction, which uses memory addresses for all three operands.</P><PRE class=programlisting>	    mull    x, y, product
+	    </PRE>
+<DIV class=orderedlist>
+<OL class=orderedlist type=1>
+<LI class=listitem>Fetch the instruction code from Memory[PC]</LI>
+<LI class=listitem>Decode the instruction. This reveals that it's a multiply instruction, and that the operands are memory locations<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>x</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>y</CODE>, and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>product</CODE>.</LI>
+<LI class=listitem>Fetch<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>x</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>y</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>from memory.</LI>
+<LI class=listitem>Multiply<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>x</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>y</CODE>, storing the result in a CPU register.</LI>
+<LI class=listitem>Save the result from the CPU to memory location<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=varname>product</CODE>.</LI></OL></DIV></DIV>
+<DIV class=section title="5.6.2.&nbsp;MIPS Instruction Cycle">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286959803></A>5.6.2.&nbsp;MIPS Instruction Cycle</H3></DIV></DIV></DIV>
+<P>Since the MIPS is a load-store architecture, all instructions except load and store get their operands from CPU registers and store their result in a CPU register. Hence, the instruction cycle for all instructions except load and store is somewhat simpler. When all operands are in CPU registers, which can be accessed within a single clock cycle, fetching operands and storing the results can occur within the same clock cycle as execution (add, subtract, etc.). For example, suppose R0, R1, R2 ... R15 are CPU registers. Then the operation</P><PRE class=programlisting>	    R0 &#8592; R4 + R7           # One clock cycle
+	    </PRE>
+<P>is a simple, atomic operation inside the CPU, and therefore is not regarded as multiple steps in the instruction cycle. If one of operands were in memory instead of a register, on the other hand, fetching it from memory and placing it into a register would be a separate step.</P><PRE class=programlisting>	    R4 &#8592; Mem[address1]     # Multiple clock cycles
+	    R0 &#8592; R4 + R7           # One clock cycle
+	    </PRE>
+<DIV class=orderedlist>
+<OL class=orderedlist type=1>
+<LI class=listitem>Fetch instruction from memory to IR</LI>
+<LI class=listitem>Decode</LI>
+<LI class=listitem>Execute (all data in CPU registers)</LI></OL></DIV>
+<P>The specific cycle for a load instruction is:</P>
+<DIV class=orderedlist>
+<OL class=orderedlist type=1>
+<LI class=listitem>Fetch instruction from memory to IR</LI>
+<LI class=listitem>Decode</LI>
+<LI class=listitem>Fetch operand from memory to a register</LI></OL></DIV>
+<P>The specific cycle for a store instruction is:</P>
+<DIV class=orderedlist>
+<OL class=orderedlist type=1>
+<LI class=listitem>Fetch instruction from memory to IR</LI>
+<LI class=listitem>Decode</LI>
+<LI class=listitem>Store operand from register to memory</LI></OL></DIV></DIV>
+<DIV class=section title="5.6.3.&nbsp;Analysis of the Instruction Cycle">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286959845></A>5.6.3.&nbsp;Analysis of the Instruction Cycle</H3></DIV></DIV></DIV>
+<P>Note that in any case, most of the instruction cycle is overhead. Only the execute stage actually does something considered useful by the user, and all the other stages are fluff, either preparation or wrap-up.</P>
+<P>One way to increase the density of useful work in a program is by making more complex instructions. If the execute cycle accomplishes more for the same amount of fetching, decoding and storing overhead, then the program will be shorter, and will run faster. This is the philosophy behind CISC architectures. A classic example of this idea is the VAX<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=code>polyf</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>instruction, which evaluates a polynomial given an array of coefficients, the order or the polynomial, and the value of x. It accomplishes in one instruction cycle what would require a loop, and hence dozens of instruction cycles otherwise.</P>
+<P>The cost of overhead can also be alleviated without actually reducing it. The primary technique to achieve this is called<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>pipelining</EM>. A pipelined CPU overlaps the execution of two or more instructions, so that while one instruction is executing, the next one is already being decoded, and the one after that is being fetched. Pipelining is discussed in<A class=xref title="Chapter&nbsp;17.&nbsp;A Pipelined Implementation" href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch17.html">Chapter&nbsp;17,<SPAN class=Apple-converted-space>&nbsp;</SPAN><I>A Pipelined Implementation</I></A>.</P></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s05.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s07.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">5.5.&nbsp;Architecture Classifications&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;5.7.&nbsp;MIPS Instruction Code Formats</TD></TR></TBODY></TABLE></DIV>

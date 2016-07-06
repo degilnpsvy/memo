@@ -1,0 +1,310 @@
+<DIV id=content-header>
+<H1 class=title>Playing with ptrace, Part II</H1></DIV>
+<DIV id=content-area>
+<DIV id=node-6210 class="node node-type-xmlnode">
+<DIV class=node-inner>
+<DIV id=facebook-like>
+<DIV class=fb-like data-show-faces="false" data-width="250" data-send="false" data-href="http://www.linuxjournal.com//article/6210"></DIV></DIV>
+<DIV class=issue>
+<DIV class=issue-cover><A href="http://www.linuxjournal.com/issue/104"><IMG title="Issue 104" alt="Issue 104" src="http://www.linuxjournal.com/files/linuxjournal.com/linuxjournal/issues/104/cover104.small.jpg"></A> </DIV>
+<P><A href="http://www.linuxjournal.com/issue/104">From Issue #104<BR>December 2002</A></P></DIV>
+<DIV class=meta>
+<DIV class=submitted>Dec 01, 2002 &nbsp;By&nbsp;<A title="View user profile." href="http://www.linuxjournal.com/user/800841">Pradeep Padala</A> </DIV>
+<DIV class="terms terms-inline">&nbsp;in
+<UL class="links inline">
+<LI class="taxonomy_term_21 first last"><A title="" href="http://www.linuxjournal.com/tag/sysadmin" rel=tag>SysAdmin</A></LI></UL></DIV></DIV>
+<DIV class=abstract>In Part II of his series on ptrace, Pradeep tackles the more advanced topics of setting breakpoints and injecting code into running processes. </DIV>
+<DIV class=content>
+<DIV lang=en class=article>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x18b9890.0x19add28></A></DIV>
+<P>In Part I of this article [<I>LJ</I>, November 2002], we saw how ptrace can be used to trace system calls and change system call arguments. In this article, we investigate advanced techniques like setting breakpoints and injecting code into running programs. Debuggers use these methods to set up breakpoints and execute debugging handlers. As with Part I, all code in this article is i386 architecture-specific. </P></DIV>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x18b9890.0x19ade88></A>Attaching to a Running Process</DIV>
+<P>In Part I, we ran the process to be traced as a child after calling ptrace(PTRACE_TRACEME, ..). If you simply wanted to see how the process is making system calls and trace the program, this would be sufficient. If you want to trace or debug a process already running, then ptrace(PTRACE_ATTACH, ..) should be used.</P>
+<P>When a ptrace(PTRACE_ATTACH, ..) is called with the pid to be traced, it is roughly equivalent to the process calling ptrace(PTRACE_TRACEME, ..) and becoming a child of the tracing process. The traced process is sent a SIGSTOP, so we can examine and modify the process as usual. After we are done with modifications or tracing, we can let the traced process continue on its own by calling ptrace(PTRACE_DETACH, ..).</P>
+<P>The following is the code for a small example tracing program:</P><PRE class=programlisting>int main()
+{   int i;
+    for(i = 0;i &lt; 10; ++i) {
+        printf("My counter: %d\n", i);
+        sleep(2);
+    }
+    return 0;
+}
+</PRE>
+<P>Save the program as dummy2.c. Compile and run it: </P><PRE class=programlisting>gcc -o dummy2 dummy2.c
+./dummy2 &amp;
+</PRE>Now, we can attach to dummy2 by using the code below: <PRE class=programlisting>#include &lt;sys/ptrace.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;linux/user.h&gt;   /* For user_regs_struct
+                             etc. */
+int main(int argc, char *argv[])
+{   pid_t traced_process;
+    struct user_regs_struct regs;
+    long ins;
+    if(argc != 2) {
+        printf("Usage: %s &lt;pid to be traced&gt;\n",
+               argv[0], argv[1]);
+        exit(1);
+    }
+    traced_process = atoi(argv[1]);
+    ptrace(PTRACE_ATTACH, traced_process,
+           NULL, NULL);
+    wait(NULL);
+    ptrace(PTRACE_GETREGS, traced_process,
+           NULL, &amp;regs);
+    ins = ptrace(PTRACE_PEEKTEXT, traced_process,
+                 regs.eip, NULL);
+    printf("EIP: %lx Instruction executed: %lx\n",
+           regs.eip, ins);
+    ptrace(PTRACE_DETACH, traced_process,
+           NULL, NULL);
+    return 0;
+}
+</PRE>The above program simply attaches to a process, waits for it to stop, examines its eip (instruction pointer) and detaches. 
+<P></P>
+<P>To inject code use ptrace(PTRACE_POKETEXT, ..) and ptrace(PTRACE_POKEDATA, ..) after the traced process has stopped.</P></DIV>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x18b9890.0x19ae1f8></A>Setting Breakpoints</DIV>
+<P>How do debuggers set breakpoints? Generally, they replace the instruction to be executed with a trap instruction, so that when the traced program stops, the tracing program, the debugger, can examine it. It will replace the original instruction once the tracing program continues the traced process. Here's an example:</P><PRE class=programlisting>#include &lt;sys/ptrace.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;linux/user.h&gt;
+const int long_size = sizeof(long);
+void getdata(pid_t child, long addr,
+             char *str, int len)
+{   char *laddr;
+    int i, j;
+    union u {
+            long val;
+            char chars[long_size];
+    }data;
+    i = 0;
+    j = len / long_size;
+    laddr = str;
+    while(i &lt; j) {
+        data.val = ptrace(PTRACE_PEEKDATA, child,
+                          addr + i * 4, NULL);
+        memcpy(laddr, data.chars, long_size);
+        ++i;
+        laddr += long_size;
+    }
+    j = len % long_size;
+    if(j != 0) {
+        data.val = ptrace(PTRACE_PEEKDATA, child,
+                          addr + i * 4, NULL);
+        memcpy(laddr, data.chars, j);
+    }
+    str[len] = '\0';
+}
+void putdata(pid_t child, long addr,
+             char *str, int len)
+{   char *laddr;
+    int i, j;
+    union u {
+            long val;
+            char chars[long_size];
+    }data;
+    i = 0;
+    j = len / long_size;
+    laddr = str;
+    while(i &lt; j) {
+        memcpy(data.chars, laddr, long_size);
+        ptrace(PTRACE_POKEDATA, child,
+               addr + i * 4, data.val);
+        ++i;
+        laddr += long_size;
+    }
+    j = len % long_size;
+    if(j != 0) {
+        memcpy(data.chars, laddr, j);
+        ptrace(PTRACE_POKEDATA, child,
+               addr + i * 4, data.val);
+    }
+}
+int main(int argc, char *argv[])
+{   pid_t traced_process;
+    struct user_regs_struct regs, newregs;
+    long ins;
+    /* int 0x80, int3 */
+    char code[] = {0xcd,0x80,0xcc,0};
+    char backup[4];
+    if(argc != 2) {
+        printf("Usage: %s &lt;pid to be traced&gt;\n",
+               argv[0], argv[1]);
+        exit(1);
+    }
+    traced_process = atoi(argv[1]);
+    ptrace(PTRACE_ATTACH, traced_process,
+           NULL, NULL);
+    wait(NULL);
+    ptrace(PTRACE_GETREGS, traced_process,
+           NULL, &amp;regs);
+    /* Copy instructions into a backup variable */
+    getdata(traced_process, regs.eip, backup, 3);
+    /* Put the breakpoint */
+    putdata(traced_process, regs.eip, code, 3);
+    /* Let the process continue and execute
+       the int 3 instruction */
+    ptrace(PTRACE_CONT, traced_process, NULL, NULL);
+    wait(NULL);
+    printf("The process stopped, putting back "
+           "the original instructions\n");
+    printf("Press &lt;enter&gt; to continue\n");
+    getchar();
+    putdata(traced_process, regs.eip, backup, 3);
+    /* Setting the eip back to the original
+       instruction to let the process continue */
+    ptrace(PTRACE_SETREGS, traced_process,
+           NULL, &amp;regs);
+    ptrace(PTRACE_DETACH, traced_process,
+           NULL, NULL);
+    return 0;
+}
+</PRE>
+<P>Here we replace the three bytes with the code for a trap instruction, and when the process stops, we replace the original instructions and reset the eip to original location. Figures 1-4 clarify how the instruction stream looks when above program is executed. </P>
+<DIV class=table><A name=N0x18b9890.0x19ae3b0></A>
+<P class=title><B></B></P>
+<TABLE summary="" border=1>
+<COLGROUP>
+<COL>
+<COL></COLGROUP>
+<TBODY>
+<TR>
+<TD>
+<P></P>
+<DIV class=mediaobject><IMG src="http://www.linuxjournal.com/files/linuxjournal.com/linuxjournal/articles/062/6210/6210f1.jpg"></DIV>
+<P></P></TD>
+<TD>
+<P></P>
+<DIV class=mediaobject><IMG src="http://www.linuxjournal.com/files/linuxjournal.com/linuxjournal/articles/062/6210/6210f2.jpg"></DIV>
+<P></P></TD></TR>
+<TR>
+<TD>
+<P>Figure 1. After the Process Is Stopped</P></TD>
+<TD>
+<P>Figure 2. After the Trap Instruction Bytes Are Set</P></TD></TR>
+<TR>
+<TD>
+<P></P>
+<DIV class=mediaobject><IMG src="http://www.linuxjournal.com/files/linuxjournal.com/linuxjournal/articles/062/6210/6210f3.jpg"></DIV>
+<P></P></TD>
+<TD>
+<P></P>
+<DIV class=mediaobject><IMG src="http://www.linuxjournal.com/files/linuxjournal.com/linuxjournal/articles/062/6210/6210f4.jpg"></DIV>
+<P></P></TD></TR>
+<TR>
+<TD>
+<P>Figure 3. Trap Is Hit and Control Is Given to the Tracing Program</P></TD>
+<TD>
+<P>Figure 4. After the Original Instructions Are Replaced and eip Is Reset to the Original Location</P></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>Now that we have a clear idea of how breakpoints are set, let's inject some code bytes into a running program. These code bytes will print &#8220;hello world&#8221;.</P>
+<P>The following program is a simple &#8220;hello world&#8221; program with modifications to fit our needs. Compile the following program with:</P><PRE class=programlisting>gcc -o hello hello.c
+void main()
+{
+__asm__("
+         jmp forward
+backward:
+         popl   %esi      # Get the address of
+                          # hello world string
+         movl   $4, %eax  # Do write system call
+         movl   $2, %ebx
+         movl   %esi, %ecx
+         movl   $12, %edx
+         int    $0x80
+         int3             # Breakpoint. Here the
+                          # program will stop and
+                          # give control back to
+                          # the parent
+forward:
+         call   backward
+         .string \"Hello World\\n\""
+       );
+}
+</PRE>
+<P>The jumping backward and forward here is required to find the address of the &#8220;hello world&#8221; string. </P>
+<P>We can get the machine code for the above assembly from GDB. Fire up GDB and disassemble the program:</P><PRE class=programlisting>(gdb) disassemble main
+Dump of assembler code for function main:
+0x80483e0 &lt;main&gt;:       push   %ebp
+0x80483e1 &lt;main+1&gt;:     mov    %esp,%ebp
+0x80483e3 &lt;main+3&gt;:     jmp    0x80483fa &lt;forward&gt;
+End of assembler dump.
+(gdb) disassemble forward
+Dump of assembler code for function forward:
+0x80483fa &lt;forward&gt;:    call   0x80483e5 &lt;backward&gt;
+0x80483ff &lt;forward+5&gt;:  dec    %eax
+0x8048400 &lt;forward+6&gt;:  gs
+0x8048401 &lt;forward+7&gt;:  insb   (%dx),%es:(%edi)
+0x8048402 &lt;forward+8&gt;:  insb   (%dx),%es:(%edi)
+0x8048403 &lt;forward+9&gt;:  outsl  %ds:(%esi),(%dx)
+0x8048404 &lt;forward+10&gt;: and    %dl,0x6f(%edi)
+0x8048407 &lt;forward+13&gt;: jb     0x8048475
+0x8048409 &lt;forward+15&gt;: or     %fs:(%eax),%al
+0x804840c &lt;forward+18&gt;: mov    %ebp,%esp
+0x804840e &lt;forward+20&gt;: pop    %ebp
+0x804840f &lt;forward+21&gt;: ret
+End of assembler dump.
+(gdb) disassemble backward
+Dump of assembler code for function backward:
+0x80483e5 &lt;backward&gt;:   pop    %esi
+0x80483e6 &lt;backward+1&gt;: mov    $0x4,%eax
+0x80483eb &lt;backward+6&gt;: mov    $0x2,%ebx
+0x80483f0 &lt;backward+11&gt;:        mov    %esi,%ecx
+0x80483f2 &lt;backward+13&gt;:        mov    $0xc,%edx
+0x80483f7 &lt;backward+18&gt;:        int    $0x80
+0x80483f9 &lt;backward+20&gt;:        int3
+End of assembler dump.
+</PRE>
+<P>We need to take the machine code bytes from main+3 to backward+20, which is a total of 41 bytes. The machine code can be seen with the x command in GDB: </P><PRE class=programlisting>(gdb) x/40bx main+3
+&lt;main+3&gt;: eb 15 5e b8 04 00 00 00
+&lt;backward+6&gt;: bb 02 00 00 00 89 f1 ba
+&lt;backward+14&gt;: 0c 00 00 00 cd 80 cc
+&lt;forward+1&gt;: e6 ff ff ff 48 65 6c 6c
+&lt;forward+9&gt;: 6f 20 57 6f 72 6c 64 0a
+</PRE>Now we have the instruction bytes to be executed. Why wait? We can inject them using the same method as in the previous example. The following is the source code; only the main function is given here: <PRE class=programlisting>int main(int argc, char *argv[])
+{   pid_t traced_process;
+    struct user_regs_struct regs, newregs;
+    long ins;
+    int len = 41;
+    char insertcode[] =
+"\xeb\x15\x5e\xb8\x04\x00"
+        "\x00\x00\xbb\x02\x00\x00\x00\x89\xf1\xba"
+        "\x0c\x00\x00\x00\xcd\x80\xcc\xe8\xe6\xff"
+        "\xff\xff\x48\x65\x6c\x6c\x6f\x20\x57\x6f"
+        "\x72\x6c\x64\x0a\x00";
+    char backup[len];
+    if(argc != 2) {
+        printf("Usage: %s &lt;pid to be traced&gt;\n",
+               argv[0], argv[1]);
+        exit(1);
+    }
+    traced_process = atoi(argv[1]);
+    ptrace(PTRACE_ATTACH, traced_process,
+           NULL, NULL);
+    wait(NULL);
+    ptrace(PTRACE_GETREGS, traced_process,
+           NULL, &amp;regs);
+    getdata(traced_process, regs.eip, backup, len);
+    putdata(traced_process, regs.eip,
+            insertcode, len);
+    ptrace(PTRACE_SETREGS, traced_process,
+           NULL, &amp;regs);
+    ptrace(PTRACE_CONT, traced_process,
+           NULL, NULL);
+    wait(NULL);
+    printf("The process stopped, Putting back "
+           "the original instructions\n");
+    putdata(traced_process, regs.eip, backup, len);
+    ptrace(PTRACE_SETREGS, traced_process,
+           NULL, &amp;regs);
+    printf("Letting it continue with "
+           "original flow\n");
+    ptrace(PTRACE_DETACH, traced_process,
+           NULL, NULL);
+    return 0;
+}
+</PRE></DIV></DIV></DIV></DIV></DIV></DIV>

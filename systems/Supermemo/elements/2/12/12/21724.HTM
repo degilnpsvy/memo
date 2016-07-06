@@ -1,0 +1,159 @@
+<H1 class=SECT1><A name=AWK></A>C.2. Awk</H1>
+<P><A name=AWKREF></A></P>
+<P><I class=FIRSTTERM>Awk</I> <A href="http://tldp.org/LDP/abs/html/abs-guide.html#FTN.AEN23443" name=AEN23443><SPAN class=footnote>[143]</SPAN></A> is a full-featured text processing language with a syntax reminiscent of <I class=FIRSTTERM>C</I>. While it possesses an extensive set of operators and capabilities, we will cover only a few of these here - the ones most useful in shell scripts.</P>
+<P>Awk breaks each line of input passed to it into <A name=FIELDREF2></A><A href="http://tldp.org/LDP/abs/html/abs-guide.html#FIELDREF">fields</A>. By default, a field is a string of consecutive characters delimited by <A href="http://tldp.org/LDP/abs/html/abs-guide.html#WHITESPACEREF">whitespace</A>, though there are options for changing this. Awk parses and operates on each separate field. This makes it ideal for handling structured text files -- especially tables -- data organized into consistent chunks, such as rows and columns.</P>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#SNGLQUO">Strong quoting</A> and <A href="http://tldp.org/LDP/abs/html/abs-guide.html#CODEBLOCKREF">curly brackets</A> enclose blocks of awk code within a shell script.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING># $1 is field #1, $2 is field #2, etc.
+
+echo one two | awk '{print $1}'
+# one
+
+echo one two | awk '{print $2}'
+# two
+
+# But what is field #0 ($0)?
+echo one two | awk '{print $0}'
+# one two
+# All the fields!
+
+
+awk '{print $3}' $filename
+# Prints field #3 of file $filename to stdout.
+
+awk '{print $1 $5 $6}' $filename
+# Prints fields #1, #5, and #6 of file $filename.
+
+awk '{print $0}' $filename
+# Prints the entire file!
+# Same effect as:   cat $filename . . . or . . . sed '' $filename</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>We have just seen the awk <I class=FIRSTTERM>print</I> command in action. The only other feature of awk we need to deal with here is variables. Awk handles variables similarly to shell scripts, though a bit more flexibly.</P>
+<P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>{ total += ${column_number} }</PRE></FONT></TD></TR></TBODY></TABLE>This adds the value of <TT class=PARAMETER><I>column_number</I></TT> to the running total of <TT class=PARAMETER><I>total</I></TT>&gt;. Finally, to print <SPAN class=QUOTE>"total"</SPAN>, there is an <B class=COMMAND>END</B> command block, executed after the script has processed all its input. 
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>END { print total }</PRE></FONT></TD></TR></TBODY></TABLE></P>
+<P>Corresponding to the <B class=COMMAND>END</B>, there is a <B class=COMMAND>BEGIN</B>, for a code block to be performed before awk starts processing its input.</P>
+<P>The following example illustrates how <B class=COMMAND>awk</B> can add text-parsing tools to a shell script.</P>
+<DIV class=EXAMPLE><A name=LETTERCOUNT2></A>
+<P><B>Example C-1. Counting Letter Occurrences</B></P>
+<TABLE border=0 width="100%" bgColor=#e0e0e0>
+<TBODY>
+<TR>
+<TD><FONT color=#000000><PRE class=PROGRAMLISTING>#! /bin/sh
+# letter-count2.sh: Counting letter occurrences in a text file.
+#
+# Script by nyal [nyal@voila.fr].
+# Used in ABS Guide with permission.
+# Recommented and reformatted by ABS Guide author.
+# Version 1.1: Modified to work with gawk 3.1.3.
+#              (Will still work with earlier versions.)
+
+
+INIT_TAB_AWK=""
+# Parameter to initialize awk script.
+count_case=0
+FILE_PARSE=$1
+
+E_PARAMERR=85
+
+usage()
+{
+    echo "Usage: letter-count.sh file letters" 2&gt;&amp;1
+    # For example:   ./letter-count2.sh filename.txt a b c
+    exit $E_PARAMERR  # Too few arguments passed to script.
+}
+
+if [ ! -f "$1" ] ; then
+    echo "$1: No such file." 2&gt;&amp;1
+    usage                 # Print usage message and exit.
+fi 
+
+if [ -z "$2" ] ; then
+    echo "$2: No letters specified." 2&gt;&amp;1
+    usage
+fi 
+
+shift                      # Letters specified.
+for letter in `echo $@`    # For each one . . .
+  do
+  INIT_TAB_AWK="$INIT_TAB_AWK tab_search[${count_case}] = \
+  \"$letter\"; final_tab[${count_case}] = 0; " 
+  # Pass as parameter to awk script below.
+  count_case=`expr $count_case + 1`
+done
+
+# DEBUG:
+# echo $INIT_TAB_AWK;
+
+cat $FILE_PARSE |
+# Pipe the target file to the following awk script.
+
+# ---------------------------------------------------------------------
+# Earlier version of script:
+# awk -v tab_search=0 -v final_tab=0 -v tab=0 -v \
+# nb_letter=0 -v chara=0 -v chara2=0 \
+
+awk \
+"BEGIN { $INIT_TAB_AWK } \
+{ split(\$0, tab, \"\"); \
+for (chara in tab) \
+{ for (chara2 in tab_search) \
+{ if (tab_search[chara2] == tab[chara]) { final_tab[chara2]++ } } } } \
+END { for (chara in final_tab) \
+{ print tab_search[chara] \" =&gt; \" final_tab[chara] } }"
+# ---------------------------------------------------------------------
+#  Nothing all that complicated, just . . .
+#+ for-loops, if-tests, and a couple of specialized functions.
+
+exit $?
+
+# Compare this script to letter-count.sh.</PRE></FONT></TD></TR></TBODY></TABLE></DIV>
+<P>For simpler examples of awk within shell scripts, see: 
+<P></P>
+<OL type=1>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#EX44">Example 15-14</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#REDIR4">Example 20-8</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#STRIPC">Example 16-32</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#COLTOTALER">Example 36-5</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#COLTOTALER2">Example 28-2</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#COLTOTALER3">Example 15-20</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#PIDID">Example 29-3</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#CONSTAT">Example 29-4</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#FILEINFO">Example 11-3</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#BLOTOUT">Example 16-61</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#SEEDINGRANDOM">Example 9-16</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#IDELETE">Example 16-4</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#SUBSTRINGEX">Example 10-6</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#SUMPRODUCT">Example 36-19</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#USERLIST">Example 11-9</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#PRASC">Example 36-4</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#HYPOT">Example 16-53</A></P>
+<LI>
+<P><A href="http://tldp.org/LDP/abs/html/abs-guide.html#ASCII3SH">Example T-3</A></P></LI></OL>
+<P></P>
+<P>That's all the awk we'll cover here, folks, but there's lots more to learn. See the appropriate references in the <A href="http://tldp.org/LDP/abs/html/abs-guide.html#BIBLIO"><I>Bibliography</I></A>.

@@ -1,0 +1,97 @@
+<H3 id=-100000 class=docSection1Title>Accessing I/O Regions</H3>
+<P class=docText><A name="systems have"></A>PC-compatible systems have 64K I/O ports, all of which may be driven from user space. User access to I/O ports on Linux is controlled by two functions: <TT>ioperm()</TT> and <TT>iopl()</TT>. <TT>ioperm()</TT><A name="permissions to"></A> controls access permissions to the first <TT>0x3ff</TT> ports. <TT>iopl()</TT><A name="of the"></A> changes the I/O privilege level of the calling process, thus allowing among other things, unrestricted access to all ports. Only the super-user can invoke both these functions.</P>
+<P class=docText><A name="to an"></A>To write data to an I/O port, use <TT>outb()</TT>, <TT>outw()</TT>, <TT>outl()</TT>, or their cousins. To read data from a port, use <TT>inb()</TT>, <TT>inw()</TT>, <TT>inl()</TT><A name="ticking inside"></A>, or their relatives. Let's implement a simple program that reads the seconds ticking inside the RTC chip. I/O regions in the PC CMOS, of which the RTC is a part, are accessed via an index port (<TT>0x70</TT>) and a data port (<TT>0x71</TT>), as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05tab01">Table 5.1</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A><A name="of data"></A>, "Character Drivers." To read a byte of data from offset <TT>off</TT> within an I/O address range, write <TT>off</TT><A name="associated data"></A> to the index port and read the associated data from the data port. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec2.html#ch19ex02">Listing 19.2</A><A name="the RTC"></A> reads the seconds field of the RTC; but to use it to obtain data from other I/O regions, change the arguments passed to <TT>dump_port()</TT> suitably.</P>
+<P class=docText></P><A name=ch19ex02></A>
+<H5 id=title-ID0E6MAO class=docExampleTitle>Listing 19.2. Utility to Dump Bytes from an I/O Region</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX ioport.h="">
+
+void
+dump_port(unsigned char addr_port, unsigned char data_port,
+          unsigned short offset, unsigned short length)
+{
+  unsigned char i, *data;
+
+  if (!(data = (unsigned char *)malloc(length))) {
+    perror("Bad Malloc\n");
+    exit(1);
+  }
+
+  /* Write the offset to the <SPAN class=docEmphasis>index</SPAN> port
+     and read data from the <SPAN class=docEmphasis>data</SPAN> port */
+  for(i=offset; i<OFFSET+LENGTH; outb(i,="" addr_port="" );="" data[i-offset]="inb(data_port);" dump="" for(i="0;" i<length;="" printf(?%02x="" ?,="" data[i]);="" free(data);="" int="" main(int="" argc,="" char="" *argv[])="" get="" permissions="" if(="" iopl(3)="" 0)="" perror(?iopl="" access="" error\n?);="" exit(1);="" dump_port(0x70,="" 0x71,="" 0x0,="" 1);="" }="" <="" i++)="" {="" *="" pre=""><BR>
+
+</OFFSET+LENGTH;></LINUX></PRE></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1860></A><A name=iddle2246></A><A name=iddle4536></A><A name=iddle3627></A><A name="operating on"></A>You may also accomplish the same task by operating on <SPAN class=docEmphasis>/dev/port.</SPAN><A name="code flow"></A> This will incur a performance penalty because code flow has to pass through a kernel driver, but you have the flexibility to control access permissions on the device node without using <TT>iopl()</TT><A name=or></A> or <TT>ioperm()</TT>. Here's the <SPAN class=docEmphasis>/dev/port</SPAN> equivalent of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec2.html#ch19ex02">Listing 19.2</A>:</P>
+<DIV class=docText><PRE>#include <UNISTD.H>
+#include <FCNTL.H>
+
+int
+main(int argc, char *argv[])
+{
+  char seconds=0;
+  char data = 0;
+  int fd = open("/dev/port", O_RDWR);
+
+  lseek(fd, 0x70, SEEK_SET);
+  write(fd, &amp;data, 1);
+
+  lseek(fd, 0x71, SEEK_SET);
+  read(fd, &amp;seconds, 1);
+  printf("%02X ", seconds);
+}</FCNTL.H></UNISTD.H></PRE></DIV><BR>
+<P class=docText>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A><A name="to talk"></A>, you learned to talk to your computer's parallel port via a kernel driver. Let's now implement a sample program that interacts with a parallel port device from user space. The kernel's parallel port subsystem provides a character driver called <SPAN class=docEmphasis>ppdev</SPAN><A name="access to"></A> that exports parallel port access to user land. Ppdev creates device nodes, <SPAN class=docEmphasis>/dev/parportX</SPAN>, where <SPAN class=docEmphasis>X</SPAN><A name="port number"></A> is the parallel port number. Applications can open <SPAN class=docEmphasis>/dev/parportX</SPAN>, exchange data via <TT>read()</TT>/<TT>write()</TT> system calls, and issue a variety of <TT>ioctl()</TT><A name="ports using"></A> commands. Using kernel interfaces, such as ppdev, is preferable to directly operating over I/O ports using <TT>ioperm()</TT>, <TT>iopl()</TT>, or <SPAN class=docEmphasis>/dev/port.</SPAN><A name="works across"></A> The former technique is safer, works across architectures, and functions over different device form factors such as USB-to-parallel converters.</P>
+<P class=docText><A name="used in"></A>Consider the simple LED board that you used in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A><A name="pins "></A>. It had 8 LEDs interfaced to pins 2 to 9 on a standard 25-pin parallel connector. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec2.html#ch19ex03">Listing 19.3</A><A name="diodes on"></A> implements a simple user application that glows alternate diodes on this parallel port LED board using the ppdev interface. It's the user-space equivalent of the kernel driver developed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05ex06">Listing 5.6</A> of <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A>.<A name=iddle3373></A><A name=iddle4538></A></P>
+<P class=docText></P><A name=ch19ex03></A>
+<H5 id=title-ID0EASAO class=docExampleTitle>Listing 19.3. Controlling a Parallel Port LED Board from User Space</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <STDIO.H>
+#include <LINUX ioctl.h="">
+#include <LINUX parport.h="">
+#include <LINUX ppdev.h="">
+#include <FCNTL.H>
+
+int main(int argc, char *argv[])
+{
+  int led_fd;
+  char data = 0xAA; /* Bit pattern to glow alternate LEDs */
+
+  /* Open <SPAN class=docEmphasis>/dev/parport0</SPAN>. This assumes that the LED connector board
+     is connected to the first parallel port on your computer */
+  if ((led_fd = open("/dev/parport0", O_RDWR)) &lt; 0) {
+    perror("Bad Open\n");
+    exit(1);
+  }
+
+  /* Claim the port */
+  if (ioctl(led_fd, PPCLAIM)) {
+    perror("Bad Claim\n");
+    exit(2);
+  }
+
+  /* Set pins to forward direction and write a
+     byte to glow alternate LEDs */
+  if (ioctl(led_fd, PPWDATA, &amp;data)) {
+    perror("Bad Write\n");
+    exit(3);
+  }
+
+  /* Release the port */
+  if (ioctl(led_fd, PPRELEASE)) {
+    perror("Bad Release\n");
+    exit(4);
+  }
+
+  /* Close <SPAN class=docEmphasis>/dev/parport0</SPAN> */
+  close(led_fd);
+}
+
+					  </FCNTL.H></LINUX></LINUX></LINUX></STDIO.H></PRE></TD></TR></TBODY></TABLE>

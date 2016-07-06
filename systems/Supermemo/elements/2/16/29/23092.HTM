@@ -1,0 +1,90 @@
+<H3 id=-100000 class=docSection1Title>The Frame Buffer API</H3>
+<P class=docText><A name="next wet"></A>Let's next wet our feet in the frame buffer API. The frame buffer core layer exports device nodes to user space so that applications can access each supported video device. <SPAN class=docEmphasis>/dev/fbX</SPAN><A name="node associated"></A> is the node associated with frame buffer device <SPAN class=docEmphasis>X.</SPAN><A name="following are"></A> The following are the main data structures that interest users of the frame buffer API. Inside the kernel, they are defined in <SPAN class=docEmphasis>include/linux/fb.h</SPAN>, whereas in user land, their definitions reside in <SPAN class=docEmphasis>/usr/include/linux/fb.h</SPAN>:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="saw in"></A>Variable information pertaining to the video card that you saw in the fbset output in the previous section is held in <TT>struct fb_var_screeninfo</TT><A name="as the"></A>. This structure contains fields such as the X-resolution, Y-resolution, bits required to hold a pixel, pixclock, <TT>HSYNC</TT> duration, <TT>VSYNC</TT> duration, and margin lengths. These values are programmable by the user:</P>
+<DIV class=docText><PRE>struct fb_var_screeninfo {
+  __u32 xres;             /* Visible resolution in the X axis */
+  __u32 yres;             /* Visible resolution in the Y axis */
+  /* ... */
+  __u32 bits_per_pixel;   /* Number of bits required to hold a
+                             pixel */
+  /* ... */
+  __u32 pixclock;         /* Pixel clock in picoseconds */
+  __u32 left_margin;      /* Time from sync to picture */
+  __u32 right_margin;     /* Time from picture to sync */
+  /* ... */
+  __u32 hsync_len;        /* Length of horizontal sync */
+  __u32 vsync_len;        /* Length of vertical sync */
+  /* ... */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="address and"></A>Fixed information about the video hardware, such as the start address and size of frame buffer memory, is held in <TT>struct fb_fix_screeninfo</TT>. These values cannot be altered by the user:</P>
+<DIV class=docText><PRE>struct fb_fix_screeninfo {
+  char id[16];              /* Identification string */
+  unsigned long smem_start; /* Start of frame buffer memory */
+  __u32 smem_len;           /* Length of frame buffer memory */
+  /* ... */
+};</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>The <TT>fb_cmap</TT><A name="to convey"></A> structure specifies the color map, which is used to convey the user's definition of colors to the underlying video hardware. You can use this structure to define the RGB (Red, Green, Blue) ratio that you desire for different colors:</P>
+<DIV class=docText><PRE>struct fb_cmap {
+  __u32 start;    /* First entry */
+  __u32 len;      /* Number of entries */
+  __u16 *red;     /* Red values */
+  __u16 *green;   /* Green values */
+  __u16 *blue;    /* Blue values */
+  __u16 *transp;  /* Transparency. Discussed later on */
+};</PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch12lev1sec4.html#ch12ex01">Listing 12.1</A><A name="The program"></A> is a simple application that works over the frame buffer API. The program clears the screen by operating on <SPAN class=docEmphasis>/dev/fb0</SPAN><A name="device node"></A>, the frame buffer device node corresponding to the display. It first deciphers the visible resolutions and the <SPAN class=docEmphasis>bits per pixel</SPAN><A name="manner using"></A> in a hardware-independent manner using the frame buffer API, <TT>FBIOGET_VSCREENINFO</TT><A name="This interface"></A>. This interface command gleans the display's variable parameters by operating on the <TT>fb_var_screeninfo</TT><A name="then goes"></A> structure. The program then goes on to <TT>mmap()</TT><A name="frame buffer"></A> the frame buffer memory and clears each constituent pixel bit.</P>
+<P class=docText></P><A name=ch12ex01></A>
+<H5 id=title-ID0EW1PM class=docExampleTitle>Listing 12.1. Clear the Display in a Hardware-Independent Manner</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <STDIO.H>
+#include <FCNTL.H>
+#include <LINUX fb.h="">
+#include <SYS mman.h="">
+#include <STDLIB.H>
+
+struct fb_var_screeninfo vinfo;
+
+int
+main(int argc, char *argv[])
+{
+  int fbfd, fbsize, i;
+  unsigned char *fbbuf;
+
+  /* Open video memory */
+  if ((fbfd = open("/dev/fb0", O_RDWR)) &lt; 0) {
+    exit(1);
+  }
+
+  /* Get variable display parameters */
+  if (ioctl(fbfd, FBIOGET_VSCREENINFO, &amp;vinfo)) {
+    printf("Bad vscreeninfo ioctl\n");
+    exit(2);
+  }
+
+  /* Size of frame buffer =
+         (X-resolution * Y-resolution * bytes per pixel) */
+  fbsize = vinfo.xres*vinfo.yres*(vinfo.bits_per_pixel/8);
+
+  /* Map video memory */
+  if ((fbbuf = mmap(0, fbsize, PROT_READ|PROT_WRITE,
+                         MAP_SHARED, fbfd, 0)) == (void *) -1){
+    exit(3);
+  }
+
+  /* Clear the screen */
+   for (i=0; i<FBSIZE; *(fbbuf+i)="0x0;" munmap(fbbuf,="" fbsize);="" close(fbfd);="" }="" <="" i++)="" {="" pre=""><BR>
+
+</FBSIZE;></STDLIB.H></SYS></LINUX></FCNTL.H></STDIO.H></PRE></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2094></A><A name=iddle2722></A><A name=iddle2806></A><A name=iddle3198></A><A name="learn to"></A>We look at another frame buffer application when we learn to access memory regions from user space in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A>, "Drivers in User Space."

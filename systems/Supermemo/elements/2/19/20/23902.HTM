@@ -1,0 +1,27 @@
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>Built-In Kernel Threads</H2>
+<P class=docText><A name="the kernel"></A><FONT class=extract>To see the kernel threads (also called <SPAN class=docEmphasis>kernel processes</SPAN></FONT><A name="on your"></A><FONT class=extract>) running on your system, run the <TT>ps</TT> command. Names of kernel threads are surrounded by square brackets:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract><SPAN class=docEmphStrong>bash&gt; ps -ef</SPAN>
+UID        PID  PPID  C STIME TTY         TIME CMD
+root         1     0  0 22:36 ?       00:00:00 init [3]
+root         2     0  0 22:36 ?       00:00:00 [kthreadd]
+root         3     2  0 22:36 ?       00:00:00 [ksoftirqd/0]
+root         4     2  0 22:36 ?       00:00:00 [events/0]
+root        38     2  0 22:36 ?       00:00:00 [pdflush]
+root        39     2  0 22:36 ?       00:00:00 [pdflush]
+root        29     2  0 22:36 ?       00:00:00 [khubd]
+root       695     2  0 22:36 ?       00:00:00 [kjournald]
+...
+root      3914     2  0 22:37 ?       00:00:00 [nfsd]
+root      3915     2  0 22:37 ?       00:00:00 [nfsd]
+...
+root      4015  3364  0 22:55 tty3    00:00:00 -bash
+root      4066  4015  0 22:59 tty3    00:00:00 ps -ef</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>The <SPAN class=docEmphasis>[ksoftirqd/0]</SPAN> kernel thread is an aid to implement <SPAN class=docEmphasis>softirqs.</SPAN></FONT><A name="of portions"></A><FONT class=extract> Softirqs are raised by interrupt handlers to request "bottom half" processing of portions of the handler whose execution can be deferred. We take a detailed look at bottom halves and softirqs in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><A name="here is"></A><FONT class=extract>, "Laying the Groundwork," but the basic idea here is to allow as little code as possible to be present inside interrupt handlers. Having small interrupt handlers reduces interrupt-off times in the system, resulting in lower latencies. <SPAN class=docEmphasis>Ksoftirqd</SPAN></FONT><A name="softirqs neither"></A><FONT class=extract>'s job is to ensure that a high load of softirqs neither starves the softirqs nor overwhelms the system. On <SPAN class=docEmphasis>Symmetric Multi Processing</SPAN></FONT><A name="run on"></A><FONT class=extract> (SMP) machines where multiple thread instances can run on different processors in parallel, one instance of ksoftirqd is created per CPU to improve throughput (<SPAN class=docEmphasis>ksoftirqd/n</SPAN>, where <SPAN class=docEmphasis>n</SPAN> is the CPU number).</FONT></P>
+<P class=docText><FONT class=extract>The <SPAN class=docEmphasis>events/n</SPAN> threads (where <SPAN class=docEmphasis>n</SPAN> is the CPU number) help implement <SPAN class=docEmphasis>work queues</SPAN></FONT><A name="the kernel"></A><FONT class=extract>, which are another way of deferring work in the kernel. Parts of the kernel that desire deferred execution of work can either create their own work queue or make use of the default <SPAN class=docEmphasis>events/n</SPAN></FONT><A name="Work queues"></A><FONT class=extract> worker thread. Work queues are also dissected in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><FONT class=extract>.</FONT></P>
+<P class=docText><FONT class=extract>The task of the <SPAN class=docEmphasis>pdflush</SPAN></FONT><A name="page cache"></A><FONT class=extract> kernel thread is to flush out dirty pages from the page cache. The page cache buffers accesses to the disk. To improve performance, actual writes to the disk are delayed until the pdflush daemon writes out dirtied data to disk. This is done if the available free memory dips below a threshold, or if the page has remained dirty for a sufficiently long time. In 2.4 kernels, these two tasks were respectively performed by separate kernel threads, <SPAN class=docEmphasis>bdflush</SPAN></FONT><A name=and></A><FONT class=extract> and <SPAN class=docEmphasis>kupdated.</SPAN></FONT><A name="have noticed"></A><FONT class=extract> You might have noticed two instances of pdflush in the ps output. A new instance is created if the kernel senses that existing instances have their hands full, servicing disk queues. This improves throughput, especially if your system has multiple disks and many of them are busy.</FONT></P>
+<P class=docText><A name="you saw"></A><FONT class=extract>As you saw in the preceding chapter, kjournald is the generic kernel journaling thread, which is used by filesystems such as EXT3.</FONT></P>
+<P class=docText><FONT class=extract>The Linux <SPAN class=docEmphasis>Network File System</SPAN></FONT><A name=named></A><FONT class=extract> (NFS) server is implemented using a set of kernel threads named <SPAN class=docEmphasis>nfsd</SPAN>.</FONT></P></TD></TR></TBODY></TABLE>

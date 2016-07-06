@@ -1,0 +1,147 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>9.3.&nbsp;A Complete Example Program</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch09s02.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;9.&nbsp;Assembly Macros</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch09s04.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="9.3.&nbsp;A Complete Example Program" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286961964></A>9.3.&nbsp;A Complete Example Program</H2></DIV></DIV></DIV><PRE class=programlisting>#########################################################################
+#   Description:
+#
+#   Modification history:
+#   Date        Name        Modification
+#   2010-12-16  Jason Bacon Begin
+#########################################################################
+
+#########################################################################
+#   System call constants
+#########################################################################
+
+SYS_PRINT_INT       =   1
+SYS_PRINT_FLOAT     =   2
+SYS_PRINT_DOUBLE    =   3
+SYS_PRINT_STRING    =   4
+SYS_READ_INT        =   5
+SYS_READ_FLOAT      =   6
+SYS_READ_DOUBLE     =   7
+SYS_READ_STRING     =   8
+SYS_SBRK            =   9
+SYS_EXIT            =   10
+SYS_PRINT_CHAR      =   11
+SYS_READ_CHAR       =   12
+
+#########################################################################
+#   Macro definitions and includes.  Add your own for other purposes.
+#########################################################################
+
+	# Push contents of a register
+	.macro  push($register)
+	sw      $register, ($sp)
+	addi    $sp, $sp, -4
+	.end_macro
+	
+	# Pop to a register
+	.macro  pop($register)
+	addi    $sp, $sp, 4
+	lw      $register, ($sp)
+	.end_macro
+
+	# Print the string at address $var
+	.macro  print_string_var($var)
+	push($a0)
+	push($v0)
+	
+	la      $a0, $var
+	li      $v0, SYS_PRINT_STRING
+	syscall
+	
+	pop($v0)
+	pop($a0)
+	.end_macro
+	
+	# Print the integer in $var
+	.macro  print_int_var($var)
+	push($a0)
+	push($v0)
+	
+	lw      $a0, $var
+	li      $v0, SYS_PRINT_INT
+	syscall
+	
+	pop($v0)
+	pop($a0)
+	.end_macro
+
+	# Read an integer and store in $var
+	.macro  read_int_var($var)
+	push($v0)
+	
+	li      $v0, SYS_READ_INT
+	syscall
+	sw      $v0, $var
+	
+	pop($v0)
+	.end_macro
+
+#########################################################################
+#   Main program
+#########################################################################
+
+# Variables for main
+	.data
+	.align 2    # Put next label on a word boundary
+length:         .word   0
+width:          .word   0
+area:           .word   0
+
+length_prompt:  .asciiz "Please enter the length of the rectangle: "
+width_prompt:   .asciiz "Please enter the width of the rectangle: "
+area_msg:       .asciiz "The area of the rectangle is "
+period_nl:      .asciiz ".\n"
+
+# Main body
+	.text
+main:
+	# Input length
+	print_string_var(length_prompt)
+	read_int_var(length)
+	
+	# Input width
+	print_string_var(width_prompt)
+	read_int_var(width)
+	
+	# Compute area
+	lw      $t0, length
+	lw      $t1, width
+	mul     $t0, $t0, $t1
+	sw      $t0, area
+	
+	# Print area
+	print_string_var(area_msg)
+	print_int_var(area)
+	print_string_var(period_nl)
+
+	# Return to calling program
+	jr      $ra
+	</PRE></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch09s02.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch09.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch09s04.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">9.2.&nbsp;Push and Pop&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;9.4.&nbsp;Homework</TD></TR></TBODY></TABLE></DIV>

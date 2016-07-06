@@ -1,0 +1,184 @@
+<H3 id=title-IDACJDLH class=docSection1Title>8.1. Device Driver Concepts</H3>
+<P class=docText>Many experienced embedded developers struggle at first with the concepts of device drivers in a virtual memory operating system. This is because many popular legacy real-time operating systems do not have a similar architecture. The introduction of virtual memory and kernel space versus user space frequently introduces complexity that is not familiar to experienced embedded developers.</P>
+<P class=docText>One of the fundamental purposes of a device driver is to isolate the user's programs from ready access to critical kernel data structures and hardware devices. Furthermore, a well-written device driver hides the complexity and variability of the hardware device from the user. For example, a program that wants to write data to the hard disk need not care if the disk drive uses 512-byte or 1024-byte sectors. The user simply opens a file and issues a write command. The device driver handles the details and isolates the user from the complexities and perils of hardware device programming. The device driver provides a consistent user interface to a large variety of hardware devices. It provides the basis for the familiar UNIX/Linux convention that everything must be represented as a file.</P><A name=ch08lev2sec1></A>
+<H4 id=title-IDASJDLH class=docSection2Title>8.1.1. Loadable Modules</H4>
+<P class=docText><A name=iddle2041></A>Unlike some other operating systems, Linux has the capability to add and remove kernel components at runtime. Linux is structured as a monolithic kernel with a well-defined interface for adding and removing device driver modules dynamically after boot time. This feature not only adds flexibility to the user, but it has proven invaluable to the device driver development effort. Assuming that your device driver is reasonably well behaved, you can insert and remove the device driver from a running kernel at will during the development cycle instead of rebooting the kernel every time a change occurs.</P>
+<P class=docText>Loadable modules have particular importance to embedded systems. Loadable modules enhance field upgrade capabilities; the module itself can be updated in a live system without the need for a reboot. Modules can be stored on media other than the root (boot) device, which can be space constrained.</P>
+<P class=docText>Of course, device drivers can also be statically compiled into the kernel, and, for many drivers, this is completely appropriate. Consider, for example, a kernel configured to mount a root file system from a network-attached NFS server. In this scenario, you configure the network-related drivers (TCP/IP and the network interface card driver) to be compiled into the main kernel image so they are available during boot for mounting the remote root file system. You can use the initial ramdisk functionality as described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06.html#ch06">Chapter 6</A>, "System Initialization," as an alternative to having these drivers compiled statically as part of the kernel proper. In this case, the necessary modules and a script to load them would be included in the initial ramdisk image.</P>
+<P class=docText>Loadable modules are installed after the kernel has booted. Startup scripts can load device driver modules, and modules can also be "demand loaded" when needed. The kernel has the capability to request a module when a service is requested that requires a particular module.</P>
+<P class=docText>Terminology has never been standardized when discussing kernel modules. Many terms have been and continue to be used interchangeably when discussing loadable kernel modules. Throughout this and later chapters, the terms <SPAN class=docEmphasis>device driver, loadable kernel module (LKM), loadable module,</SPAN> and <SPAN class=docEmphasis>module</SPAN> are all used to describe a loadable kernel device driver module.</P><A name=ch08lev2sec2></A>
+<H4 id=title-IDABLDLH class=docSection2Title>8.1.2. Device Driver Architecture</H4>
+<P class=docText><A name=iddle1075></A><A name=iddle1178></A><A name=iddle1324></A><A name=iddle1326></A><A name=iddle1334></A><A name=iddle1975></A><A name=iddle2085></A>The basic Linux device driver model is familiar to UNIX/Linux system developers. Although the device driver model continues to evolve, some fundamental constructs have remained nearly constant over the course of UNIX/Linux evolution. Device drivers are broadly classified into two basic categories: <SPAN class=docEmphasis>character devices</SPAN> and <SPAN class=docEmphasis>block devices</SPAN>. Character devices can be thought of as serial streams of sequential data. Examples of character devices include serial ports and keyboards. Block devices are characterized by the capability to read and write blocks of data to and from random locations on an addressable medium. Examples of block devices include hard drives and floppy disk drives.</P><A name=ch08lev2sec3></A>
+<H4 id=title-IDASNDLH class=docSection2Title>8.1.3. Minimal Device Driver Example</H4>
+<P class=docText>Because Linux supports loadable device drivers, it is relatively easy to demonstrate a simple device driver skeleton. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A> illustrates a loadable device driver module that contains the bare minimum structure to be loaded and unloaded by a running kernel.</P><A name=ch08list01></A>
+<H5 id=title-IDAHODLH class=docExampleTitle>Listing 8-1. Minimal Device Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>/* Example Minimal Character Device Driver */
+#include &lt;linux/module.h&gt;
+
+
+static int __init hello_init(void)
+{
+    printk("Hello Example Init\n");
+
+
+    return 0;
+}
+
+
+static void __exit hello_exit(void)
+{
+    printk("Hello Example Exit\n");
+}
+
+
+module_init(hello_init);
+module_exit(hello_exit);
+
+
+MODULE_AUTHOR("Chris Hallinan");
+MODULE_DESCRIPTION("Hello World Example");
+MODULE_LICENSE("GPL");</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1153></A><A name=iddle1154></A><A name=iddle1325></A>The skeletal driver in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A> contains enough structure for the kernel to load and unload the driver, and to invoke the initialization and exit routines. Let's look at how this is done because it illustrates some important high-level concepts that are useful for device driver development.</P>
+<P class=docText>A device driver is a special kind of binary module. Unlike a stand-alone binary executable application, a device driver cannot be simply executed from a command prompt. The 2.6 kernel series requires that the binary be in a special "kernel object" format. When properly built, the device driver binary module contains a <TT>.ko</TT> suffix. The build steps and compiler options required to create the <TT>.ko</TT> module object can be quite complex. Here we outline a set of steps to harness the power of the Linux kernel build system without requiring you to become an expert in it, which is beyond the scope of this book.</P><A name=ch08lev2sec4></A>
+<H4 id=title-IDAHQDLH class=docSection2Title>8.1.4. Module Build Infrastructure</H4>
+<P class=docText>A device driver must be compiled against the kernel on which it will execute. Although it is possible to load and execute kernel modules built against a different kernel version, it is risky to do so unless you are certain that the module does not rely on any features of your new kernel. The easiest way to do this is to build the module within the kernel's own source tree. This ensures that as the developer changes the kernel configuration, his custom driver is automatically rebuilt with the correct kernel configuration. It is certainly possible to build your drivers outside of the kernel source tree. However, in this case, you are responsible for making sure that your device driver build configuration stays in sync with the kernel you want to run your driver on. This typically includes compiler switches, location of kernel header files, and kernel configuration options.</P>
+<P class=docText>For the example driver introduced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A>, the following changes were made to the stock Linux kernel source tree to enable building this example driver. We explain each step in detail.</P><A name=ch08pro01></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>Starting from the top-level Linux source directory, create a directory under <TT>.../drivers/char</TT> called <TT>examples</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText><A name=step02></A>Add a menu item to the kernel configuration to enable building <TT>examples</TT> and to specify built-in or loadable kernel module.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>Add the new <TT>examples</TT> subdirectory to the <TT>.../drivers/char/Makefile</TT> conditional on the menu item created in step <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#step02">2</A>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD></TD>
+<TD></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>4. </B></DIV></TD>
+<TD>
+<DIV class=docText><A name=iddle1942></A>Create a makefile for the new <TT>examples</TT> directory, and add the <TT>hello1.o</TT> module object to be compiled conditional on the menu item created in step <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#step02">2</A>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>5. </B></DIV></TD>
+<TD>
+<DIV class=docText>Finally, create the driver <TT>hello1.c</TT> source file from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8.1</A>.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText>Adding the <TT>examples</TT> directory under the <TT>.../drivers/char</TT> subdirectory is self-explanatory. After this directory is created, two files are created in this directory: the module source file itself from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A> and the makefile for the <TT>examples</TT> directory. The makefile for <TT>examples</TT> is quite trivial. It will contain this single line:</P>
+<DIV class=docText><PRE>obj-$(CONFIG_EXAMPLES) += hello1.o</PRE></DIV><BR>
+<P class=docText>Adding the menu item to the kernel configuration utility is a little more involved. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list02">Listing 8-2</A> contains a patch that, when applied to the <TT>.../drivers/char/Kconfig</TT> file from a recent Linux release, adds the configuration menu item to enable our <TT>examples</TT> configuration option. For those readers not familiar with the <TT>diff</TT>/<TT>patch</TT> format, each line in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A> preceded by a single plus (<TT>+</TT>) character is inserted in the file between the indicated lines (those without the leading <TT>+</TT> character).</P><A name=ch08list02></A>
+<H5 id=title-IDANVDLH class=docExampleTitle>Listing 8-2. Kconfig Patch for Examples</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>diff -u ~/base/linux-2.6.14/drivers/char/Kconfig
+./drivers/char/Kconfig
+--- ~/base/linux-2.6.14/drivers/char/Kconfig
++++ ./drivers/char/Kconfig
+@@ -4,6 +4,12 @@
+
+ menu "Character devices"
+
+
+ +config EXAMPLES
+ +       tristate "Enable Examples"
+ +       default M
+ +       ---help---
+ +       Enable compilation option for driver examples
+ +
+  config VT
+         bool "Virtual terminal" if EMBEDDED
+         select INPUT
+</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>When applied to <TT>Kconfig</TT> in the <TT>.../drivers/char</TT> subdirectory of a recent Linux kernel, this patch results in a new kernel configuration option called <TT>CONFIG_EXAMPLES</TT>. As a reminder from our discussion on building the Linux kernel in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch04.html#ch04">Chapter 4</A>, "The Linux KernelA Different Perspective," the configuration utility is invoked as follows (this example assumes the ARM architecture):</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>make ARCH=ARM CROSS_COMPILE=xscale_be- gconfig</SPAN></PRE></DIV><BR>
+<P class=docText>After the configuration utility is invoked using a command similar to the previous one, our new <TT>Enable Examples</TT> configuration option appears under the <TT>Character devices</TT> menu, as indicated in the patch. Because it is defined as type tristate, the kernel developer can choose from three choices:</P>
+<P class=docText>(N) No. Do not compile <TT>examples</TT>.</P>
+<P class=docText>(Y) Yes. Compile <TT>examples</TT> and link with final kernel image.</P>
+<P class=docText>(M) Module. Compile <TT>examples</TT> as dynamically loadable module.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08fig01">Figure 8-1</A> shows the resulting <TT>gconfig</TT> screen with the new configuration option added. The dash (<TT>-</TT>) in the check box selects (M)odule, as indicated in the M column on the right. A check mark in the check box selects (Y)es, indicating that the driver module should be compiled as part of the kernel proper. An empty check box indicates that the option is not selected.</P><A name=ch08fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 8-1. Kernel configuration with <TT>Examples</TT> module</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/08elp01_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/08elp01.jpg" width=500 height=341>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1971></A>Now that we have added the configuration option to enable compiling our <TT>examples</TT> device driver module, we need to modify the makefile in <TT>.../drivers/char</TT> to instruct the build system to descend into our new <TT>examples</TT> subdirectory if the configuration option <TT>CONFIG_EXAMPLES</TT> is present in our configuration. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list03">Listing 8-3</A> contains the patch for this against the makefile in a recent Linux release.</P><A name=ch08list03></A>
+<H5 id=title-IDAVZDLH class=docExampleTitle>Listing 8-3. Makefile Patch for Examples</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>diff -u ~/base/linux-2.6.14/drivers/char/Makefile
+./drivers/char/Makefile
+--- ~/base/linux-2.6.14/drivers/char/Makefile
++++ ./drivers/char/Makefile
+@@ -88,6 +88,7 @@
+ obj-$(CONFIG_DRM) += drm/
+ obj-$(CONFIG_PCMCIA) += pcmcia/
+ obj-$(CONFIG_IPMI_HANDLER) += ipmi/
++obj-$(CONFIG_EXAMPLES) += examples/
+
+obj-$(CONFIG_HANGCHECK_TIMER) += hangcheck-timer.o</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The patch in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list03">Listing 8-3</A> adds the single line (preceded by the <TT>+</TT> character) to the makefile found in <TT>.../drivers/char</TT>. The additional lines of context are there so that the patch utility can determine where to insert the new line. Our new <TT>examples</TT> directory was added to the end of the list of directories already being searched in this makefile, which seemed like a logical place to put it. Other than for consistency and readability, the location is irrelevant.</P>
+<P class=docText>Having completed the steps in this section, the infrastructure is now in place to build the example device driver. The beauty of this approach is that the driver is built automatically whenever a kernel build is invoked. As long as the configuration option defined in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list03">Listing 8-3</A> is selected (either <TT>M</TT> or <TT>Y</TT>), the driver module is included in the build.</P>
+<P class=docText>Building for an arbitrary ARM system, the command line for building modules might look like this:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>make ARCH=arm CROSS_COMPILE=xscale_be- modules</SPAN></PRE></DIV><BR>
+<P class=docText><A name=iddle1330></A><A name=iddle1349></A><A name=iddle1350></A><A name=iddle1659></A><A name=iddle1981></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list04">Listing 8-4</A> shows the build output after a typical editing session on the module (all other modules have already been built in this kernel source tree.)</P><A name=ch08list04></A>
+<H5 id=title-IDAJ3DLH class=docExampleTitle>Listing 8-4. Module Build Output</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ make ARCH=arm CROSS_COMPILE=xscale_be- modules
+  CHK     include/linux/version.h
+make[1]: 'arch/arm/kernel/asm-offsets.s' is up to date.
+make[1]: 'include/asm-arm/mach-types.h' is up to date.
+  CC [M]  drivers/char/examples/hello1.o
+  Building modules, stage 2.
+  MODPOST
+  LD [M]  drivers/char/examples/hello1.ko</PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch08lev2sec5></A>
+<H4 id=title-IDAZ3DLH class=docSection2Title>8.1.5. Installing Your Device Driver</H4>
+<P class=docText>Now that this driver is built, we can load and unload it on a running kernel to observe its behavior. Before we can load the module, we need to copy it to an appropriate location on our target system. Although we could put it anywhere we want, a convention is in place for kernel modules and where they are populated on a running Linux system. As with module compilation, it is easiest to let the kernel build system do that for us. The makefile target <TT>modules_install</TT> automatically places modules in the system in a logical layout. You simply need to supply the desired location as a prefix to the default path.</P>
+<P class=docText>In a standard Linux workstation installation, you might already know that the device driver modules live in <TT>/lib/modules/&lt;kernel-version&gt;/...</TT> ordered in a manner similar to the device driver directory hierarchy in the Linux kernel tree.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08fn02">[2]</A></SUP> The <TT>&lt;kernel-version&gt;</TT> string is produced by executing the command <TT>uname -r</TT> on your target Linux system. If you do not provide an installation prefix to the kernel build system, by default, your modules are installed in your own workstation's <TT>/lib/modules/...</TT> directory. This is probably not what you had intended. You can point to a temporary location in your home directory and manually copy the modules to your target's file system. Alternatively, if your target embedded system uses NFS root mount to a directory on your local development <A name=iddle1331></A><A name=iddle1965></A><A name=iddle2043></A><A name=iddle2568></A>workstation, you can install the modules directly to the target file system. The following example assumes the latter.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch08fn02>[2]</A></SUP> This path is used by Red Hat and Fedora distributions, and is also required by the File System Hierarchy Standard referenced at the end of this chapter. Other distributions might use different locations in the file system for kernel modules.</P></BLOCKQUOTE>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>make ARCH=arm CROSS_COMPILE=xscale_be-                  \
+   INSTALL_MOD_PATH=/home/chris/sandbox/coyote-target     \
+   modules_install</SPAN></PRE></DIV><BR>
+<P class=docText>This places all your modules in the directory <TT>coyote-target</TT>, which on this example system is exported via NFS and mounted as root on the target system.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch083">[3]</A></SUP></P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch083>[3]</A></SUP> Hosting a target board and NFS root mount are covered in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12.html#ch12">Chapter 12</A>, "Embedded Development Environment".</P></BLOCKQUOTE><A name=ch08lev2sec6></A>
+<H4 id=title-IDA3AELH class=docSection2Title>8.1.6. Loading Your Module</H4>
+<P class=docText>Having completed all the steps necessary, we are now in a position to load and test the device driver module. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list05">Listing 8-5</A> shows the output resulting from loading and subsequently unloading the device driver on the embedded system.</P><A name=ch08list05></A>
+<H5 id=title-IDASBELH class=docExampleTitle>Listing 8-5. Loading and Unloading a Module</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>modprobe hello1</SPAN>            &lt;&lt;&lt; Load the driver
+Hello Example Init
+$ <SPAN class=docEmphStrong>modprobe -r hello1</SPAN>         &lt;&lt;&lt; Unload the driver
+Hello Example Exit
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>You should be able to correlate the output with our device driver source code found in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A>. The module does no work other than printing messages to the kernel log system via <TT>printk()</TT>, which we see on our console.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08fn04">[4]</A></SUP> When the module is loaded, the module-initialization function is called. We specify the initialization function that will be executed on module insertion using the <TT>module_init()</TT> macro. We declared it as follows:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch08fn04>[4]</A></SUP> If you don't see the messages on the console, either disable your syslogd logger or lower the console loglevel. We describe how to do this in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14.html#ch14">Chapter 14</A>, "Kernel Debugging Techniques".</P></BLOCKQUOTE>
+<DIV class=docText><PRE>module_init(hello_init);</PRE></DIV><BR>
+<P class=docText>In our initialization function, we simply print the obligatory hello message and return. In a real device driver, this is where you would perform any initial resource allocation and hardware device initialization. In a similar fashion, when we unload the module (using the <TT>modprobe -r</TT> command), our module exit routine is called. <A name=iddle1337></A><A name=iddle1339></A><A name=iddle1344></A><A name=iddle1654></A><A name=iddle2173></A><A name=iddle2178></A><A name=iddle2179></A><A name=iddle2585></A><A name=iddle2587></A><A name=iddle2592></A>As shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08lev1sec1.html#ch08list01">Listing 8-1</A>, the exit routine is specified using the <TT>module_exit()</TT> macro.</P>
+<P class=docText>That's all there is to a skeletal device driver capable of live insertion in an actual kernel. In the sections to follow, we introduce additional functionality to our loadable device driver module that illustrates how a user space program would interact with a device driver module.

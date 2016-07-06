@@ -1,0 +1,50 @@
+<H4 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: medium; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=subsubsection>16.4.10.3 Creating and Using Cached Values</H4>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The routines in this section allow you to create and release cached values. As with scalar cookies, in theory, cached values are not necessary. You can create numbers and strings using the functions in<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Constructor-Functions">Constructor Functions</A>. You can then assign those values to variables using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>sym_update()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>sym_update_scalar()</CODE>, as you like.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">However, you can understand the point of cached values if you remember that<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>every</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>string value&#8217;s storage<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>must</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>come from<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_malloc()</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_calloc()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>api_realloc()</CODE>. If you have 20 variables, all of which have the same string value, you must create 20 identical copies of the string.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT101" name=DOCF101><SUP>101</SUP></A></P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">It is clearly more efficient, if possible, to create a value once, and then tell<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>to reuse the value for multiple variables. That is what the routines in this section let you do. The functions are as follows:</P>
+<DL style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" compact>
+<DT><CODE>awk_bool_t create_value(awk_value_t *value, awk_value_cookie_t *result);</CODE></DT>
+<DD>
+<P>Create a cached string or numeric value from<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>value</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>for efficient later assignment. Only<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AWK_NUMBER</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AWK_STRING</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>values are allowed. Any other type is rejected. While<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>AWK_UNDEFINED</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>could be allowed, doing so would result in inferior performance.</P></DD>
+<DT><CODE>awk_bool_t release_value(awk_value_cookie_t vc);</CODE></DT>
+<DD>
+<P>Release the memory associated with a value cookie obtained from<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>create_value()</CODE>.</P></DD></DL>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">You use value cookies in a fashion similar to the way you use scalar cookies. In the extension initialization routine, you create the value cookie:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>static awk_value_cookie_t answer_cookie;  /* static value cookie */
+
+static void
+my_extension_init()
+{
+    awk_value_t value;
+    char *long_string;
+    size_t long_string_len;
+
+    /* code from earlier */
+    &#8230; 
+    /* &#8230; fill in long_string and long_string_len &#8230; */
+    make_malloced_string(long_string, long_string_len, &amp; value);
+    create_value(&amp; value, &amp; answer_cookie);    /* create cookie */
+    &#8230;
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Once the value is created, you can use it as the value of any number of variables:</P>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); MARGIN-LEFT: 3.2em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=example><PRE class=example>static awk_value_t *
+do_magic(int nargs, awk_value_t *result)
+{
+    awk_value_t new_value;
+
+    &#8230;    /* as earlier */
+
+    value.val_type = AWK_VALUE_COOKIE;
+    value.value_cookie = answer_cookie;
+    sym_update("VAR1", &amp; value);
+    sym_update("VAR2", &amp; value);
+    &#8230;
+    sym_update("VAR100", &amp; value);
+    &#8230;
+}
+</PRE></DIV>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Using value cookies in this way saves considerable storage, since all of<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>VAR1</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>through<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>VAR100</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>share the same value.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">You might be wondering, &#8220;Is this sharing problematic? What happens if<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>awk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>code assigns a new value to<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>VAR1</CODE>, are all the others be changed too?&#8221;</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">That&#8217;s a great question. The answer is that no, it&#8217;s not a problem. Internally,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>uses reference-counted strings. This means that many variables can share the same string value, and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>keeps track of the usage. When a variable&#8217;s value changes,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>gawk</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>simply decrements the reference count on the old value and updates the variable to use the new value.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Finally, as part of your clean up action (see<SPAN class=Apple-converted-space>&nbsp;</SPAN><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Exit-Callback-Functions">Exit Callback Functions</A>) you should release any cached values that you created, using<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>release_value()</CODE>.

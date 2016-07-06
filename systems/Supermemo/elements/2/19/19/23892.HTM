@@ -1,0 +1,19 @@
+<P class=docText><FONT class=extract>On 32-bit x86 systems, the default kernel configuration splits the available 4GB address space into a 3GB virtual memory space for user processes and a 1GB space for the kernel, as shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec7.html#ch02fig03"><FONT class=extract>Figure 2.5</FONT></A><A name="memory that"></A><FONT class=extract>. This imposes a 1GB limit on the amount of physical memory that the kernel can handle. In reality, the limit is 896MB because 128MB of the address space is occupied by kernel data structures. You may increase this limit by changing the 3GB/1GB split during kernel configuration, but you will incur the displeasure of memory-intensive applications if you reduce the virtual address space of user processes.</FONT></P><A name=ch02fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="a "></A>Figure 2.5. Default address space split on a 32-bit PC system.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzVoaWcyc2M-.jpg" width=450 height=283></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="physical addresses"></A><FONT class=extract>Kernel addresses that map the low 896MB differ from physical addresses by a constant offset and are called <SPAN class=docEmphasis>logical addresses.</SPAN></FONT><A name="the kernel"></A><FONT class=extract> With "high memory" support, the kernel can access memory beyond 896MB by generating <SPAN class=docEmphasis>virtual addresses</SPAN></FONT><A name="virtual addresses"></A><FONT class=extract> for those regions using special mappings. All logical addresses are kernel virtual addresses, but not vice versa.</FONT></P>
+<P class=docText><A name="This leads"></A><FONT class=extract>This leads us to the following kernel memory zones:</FONT></P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT><FONT class=extract>ZONE_DMA</FONT></TT><A name="used for"></A><FONT class=extract> (&lt;16MB), the zone used for <SPAN class=docEmphasis><A name="Memory Access"></A>Direct Memory Access</SPAN></FONT><A name="access only"></A><FONT class=extract> (DMA). Because legacy ISA devices have 24 address lines and can access only the first 16MB, the kernel tries to dedicate this area for such devices.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT><FONT class=extract>ZONE_NORMAL</FONT></TT><A name="called low"></A><FONT class=extract> (16MB to 896MB), the normally addressable region, also called low memory. The "virtual" field in <TT>struct page</TT> for low memory pages contains the corresponding logical addresses.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT><FONT class=extract>ZONE_HIGH</FONT></TT><A name="mapping resident"></A><FONT class=extract> (&gt;896MB), the space that the kernel can access only after mapping resident pages to regions in <TT>ZONE_NORMAL</TT> (using <TT>kmap()</TT> and <TT>kunmap()</TT>). </FONT><A name=iddle2665></A><A name=iddle2710></A><A name=iddle4601></A><A name="and not"></A><FONT class=extract>The corresponding kernel addresses are virtual and not logical. The "virtual" field in <TT>struct page</TT> for high memory pages points to <TT>NULL</TT> if the page is not kmapped.</FONT></P></DIV></LI></OL></DIV>

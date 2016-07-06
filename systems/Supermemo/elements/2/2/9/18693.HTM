@@ -1,0 +1,40 @@
+<H3 style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=section>8.4 Garbage Collection</H3>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This section is specific for the GNU Objective-C runtime. If you are using a different runtime, you can skip it.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Support for garbage collection with the GNU runtime has been added by using a powerful conservative garbage collector, known as the Boehm-Demers-Weiser conservative garbage collector.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">To enable the support for it you have to configure the compiler using an additional argument,<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=option>--enable-objc-gc</SPAN></SAMP>. This will build the boehm-gc library, and build an additional runtime library which has several enhancements to support the garbage collector. The new library has a new name,<SPAN class=Apple-converted-space>&nbsp;</SPAN><SAMP><SPAN class=file>libobjc_gc.a</SPAN></SAMP><SPAN class=Apple-converted-space>&nbsp;</SPAN>to not conflict with the non-garbage-collected library.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When the garbage collector is used, the objects are allocated using the so-called typed memory allocation mechanism available in the Boehm-Demers-Weiser collector. This mode requires precise information on where pointers are located inside objects. This information is computed once per class, immediately after the class has been initialized.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">There is a new runtime function<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>class_ivar_set_gcinvisible()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>which can be used to declare a so-called<SPAN class=Apple-converted-space>&nbsp;</SPAN><DFN>weak pointer</DFN><SPAN class=Apple-converted-space>&nbsp;</SPAN>reference. Such a pointer is basically hidden for the garbage collector; this can be useful in certain situations, especially when you want to keep track of the allocated objects, yet allow them to be collected. This kind of pointers can only be members of objects, you cannot declare a global pointer as a weak reference. Every type which is a pointer type can be declared a weak pointer, including<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>id</CODE>,<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>Class</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>and<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>SEL</CODE>.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Here is an example of how to use this feature. Suppose you want to implement a class whose instances hold a weak pointer reference; the following class does this:</P><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: smaller; FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=smallexample>     
+     @interface WeakPointer : Object
+     {
+         const void* weakPointer;
+     }
+     
+     - initWithPointer:(const void*)p;
+     - (const void*)weakPointer;
+     @end
+     
+     
+     @implementation WeakPointer
+     
+     + (void)initialize
+     {
+       if (self == objc_lookUpClass ("WeakPointer"))
+         class_ivar_set_gcinvisible (self, "weakPointer", YES);
+     }
+     
+     - initWithPointer:(const void*)p
+     {
+       weakPointer = p;
+       return self;
+     }
+     
+     - (const void*)weakPointer
+     {
+       return weakPointer;
+     }
+     
+     @end
+     
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Weak pointers are supported through a new type character specifier represented by the &#8216;<SAMP><SPAN class=samp>!</SPAN></SAMP>&#8217; character. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE>class_ivar_set_gcinvisible()</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function adds or removes this specifier to the string type description of the instance variable named as argument.

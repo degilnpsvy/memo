@@ -1,0 +1,132 @@
+<H1 style="BORDER-BOTTOM: rgb(238,238,238) 0px solid; LINE-HEIGHT: 23px; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; FONT-FAMILY: Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-SIZE: 1.8em; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" id=toc_1>qemu internal part 2: softmmu</H1>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px"><FONT class=extract>Qemu uses softmmu to accelerate the process of finding the mapping between guest physical address and host virtual address and the mapping between guest I/O region and qemu I/O emulation functions.</FONT> In this article, I assume the guest page table size is 4K.</P>
+<H2 style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: 1.6em/23px Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">1. the two level guest physical page descriptor table</H2>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Qemu uses a two level guest physical page descriptor table to maintain the guest memory space and MMIO space. The table is pointed by l1_phys_map. Bits [31:22] is used to index first level entry and bits [21:12] is used to index the second level entry. The entry of the second level table is PhysPageDesc.</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: hidden; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">exec.c
+
+146 typedef struct PhysPageDesc {
+147     /* offset in host memory of the page + io_index in the low bits */
+148     ram_addr_t phys_offset;
+149     ram_addr_t region_offset;
+150 } PhysPageDesc;
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">If the memory region is RAM, then the bits [31:12] of<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>phys_offset</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>means the offset of this page in emulated physical memory. If the memory region is memory mapped I/O, then the bits of [11:3] of<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>phys_offset</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>means the index in<EM>io_mem_write/io_mem_read array</EM>. When accessing this memory region, the functions in<EM>io_mem_write/io_mem_read</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>of index<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM>phys_offset</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>will be called.</P>
+<H2 style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: 1.6em/23px Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">2. register the guest physical memory</H2>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Function cpu_register_physical_memory is used to register a guest memory region. If phys_offset is IO_MEM_RAM then it means this region is guest RAM space. If the phys_offset &gt;IO_MEM_ROM, then it means this memory region is MMIO space.</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: hidden; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">898 static inline void cpu_register_physical_memory(target_phys_addr_t start_addr,
+899                                                 ram_addr_t size,
+900                                                 ram_addr_t phys_offset)
+901 {
+902     cpu_register_physical_memory_offset(start_addr, size, phys_offset, 0);
+903 }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Function cpu_register_physical_memory_offset will first find the PhysPageDesc in table l1_phys_map using the given guest physical address. If finding the entry, qemu will update the entry. If not finding the entry, then qemu creates a new entry and updates its value and insert this entry to the table at last.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">In malta emulation, the following is the code to register malta RAM space.</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: hidden; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">hw/mips_malta.c
+
+811     cpu_register_physical_memory(0, ram_size, IO_MEM_RAM);
+</PRE>
+<H2 style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: 1.6em/23px Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">3. register the mmio space</H2>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Before registering mmio space using cpu_register_physical_memory, qemu uses the function cpu_register_io_memory to register the I/O emulation functions to array io_mem_write/io_mem_read.</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: hidden; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">exec.c
+
+2851 int cpu_register_io_memory(int io_index,
+2852                            CPUReadMemoryFunc **mem_read,
+2853                            CPUWriteMemoryFunc **mem_write,
+2854                            void *opaque)
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This function will return the index in array io_mem_write/io_mem_read and this index will be passed to function cpu_register_physical_memory via parameter phys_offset.</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: hidden; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">hw/mips_malta.c
+
+malta = cpu_register_io_memory(0, malta_fpga_read,
+                                   malta_fpga_write, s);
+
+cpu_register_physical_memory(base, 0x900, malta);
+</PRE>
+<H2 style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: 1.6em/23px Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">4. softmmu</H2>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Given the guest virtual address, how does qemu find the corresponding host virtual address? First qemu needs to translate the guest virtual address to guest physical address. Then qemu needs to find the PhysPageDesc entry in table l1_phys_map and get the phys_offset. At last qemu should add phys_offset to phys_ram_base to get the host virtual address.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Qemu uses a softmmu model to speed up this process. Its main idea is storing the offset of guest virtual address to host virtual address in a TLB table. When translating the guest virtual address to host virtual address, it will search this TLB table firstly. If there is an entry in the table, then qemu can add this offset to guest virtual address to get the host virtual address directly. Otherwise, it needs to search the l1_phys_map table and then fill the corresponding entry to the TLB table. The index of this TLB table is bits [19:12] of guest virtual address and there is no asid field in tlb entry. This means the TLB table needs to be flushed in process switch!</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">This TLB table idea is just like the most traditional hardware TLB. However, to MIPS cpu, there is another mmu model in qemu. Unlike x86 cpu, MIPS does NOT care about hardware page table. Instead it uses hardware TLB which is NOT transparent to software. Maybe It is another topic I will explain in another article. What we need to understand here is that the softmmu model in this article is not the mmu model of MIPS cpu itself.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Moreover, besides helping speed up the process of translating guest virtual address to host virtual address, this softmmu model can speed up the process of dispatching I/O emulation functions according to guest virtual address too. In this case, the idex of I/O emulation functions in io_mem_write/io_mem_read is stored in iotlb.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The format of TLB entry is as flowing:</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: hidden; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">cpu-defs.h
+
+176     CPUTLBEntry tlb_table[NB_MMU_MODES][CPU_TLB_SIZE];                  \
+177     target_phys_addr_t iotlb[NB_MMU_MODES][CPU_TLB_SIZE];
+
+108 typedef struct CPUTLBEntry {
+109     /* bit TARGET_LONG_BITS to TARGET_PAGE_BITS : virtual address
+110        bit TARGET_PAGE_BITS-1..4  : Nonzero for accesses that should not
+111                                     go directly to ram.
+112        bit 3                      : indicates that the entry is invalid
+113        bit 2..0                   : zero
+114     */
+115     target_ulong addr_read;
+116     target_ulong addr_write;
+117     target_ulong addr_code;
+124     target_phys_addr_t addend;
+131 } CPUTLBEntry;
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Field addr_read/write/code stores the guest virtual address for TLB entry. It is the tag of this entry. Filed addend is the offset of host virtual address to guest virtual address. We can add this value to guest virtual address to get the host virtual address.</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: hidden; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">addend = host_virtual_address &#8211; guest_virtual_address
+
+host_virtual_address = phys_ram_base(qemu variable) + guest_physical_address &#8211; guest_physical_address_base(0 in MIPS)
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">The iotlb stores the index of I/O emulation function in io_mem_write/io_mem_read.</P>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">Function __ldb_mmu/__ldl_mmu/__ldw_mmu is used to translating the guest virtual address to host virtual address or dispatching guest virtual address to I/O emulation functions.</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: hidden; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">softmmu_template.h
+
+86 DATA_TYPE REGPARM glue(glue(__ld, SUFFIX), MMUSUFFIX)(target_ulong addr,
+87                                                       int mmu_idx)
+88 {
+89     DATA_TYPE res;
+90     int index;
+91     target_ulong tlb_addr;
+92     target_phys_addr_t addend;
+93     void *retaddr;
+94
+95     /* test if there is match for unaligned or IO access */
+96     /* XXX: could done more in memory macro in a non portable way */
+97     index = (addr &gt;&gt; TARGET_PAGE_BITS) &amp; (CPU_TLB_SIZE - 1);
+98  redo:
+99     tlb_addr = env-&gt;tlb_table[mmu_idx][index].ADDR_READ;
+100     if ((addr &amp; TARGET_PAGE_MASK) == (tlb_addr &amp; (TARGET_PAGE_MASK | TLB_INVALID_MASK))) {
+101         if (tlb_addr &amp; ~TARGET_PAGE_MASK) {
+102             /* IO access */
+103             if ((addr &amp; (DATA_SIZE - 1)) != 0)
+104                 goto do_unaligned_access;
+105             retaddr = GETPC();
+106             addend = env-&gt;iotlb[mmu_idx][index];
+107             res = glue(io_read, SUFFIX)(addend, addr, retaddr);
+108         } else if (((addr &amp; ~TARGET_PAGE_MASK) + DATA_SIZE - 1) &gt;= TARGET_PAGE_SIZE) {
+109             /* slow unaligned access (it spans two pages or IO) */
+110         do_unaligned_access:
+111             retaddr = GETPC();
+112 #ifdef ALIGNED_ONLY
+113             do_unaligned_access(addr, READ_ACCESS_TYPE, mmu_idx, retaddr);
+114 #endif
+115             res = glue(glue(slow_ld, SUFFIX), MMUSUFFIX)(addr,
+116                                                          mmu_idx, retaddr);
+117         } else {
+118             /* unaligned/aligned access in the same page */
+119 #ifdef ALIGNED_ONLY
+120             if ((addr &amp; (DATA_SIZE - 1)) != 0) {
+121                 retaddr = GETPC();
+122                 do_unaligned_access(addr, READ_ACCESS_TYPE, mmu_idx, retaddr);
+123             }
+124 #endif
+125             addend = env-&gt;tlb_table[mmu_idx][index].addend;
+126             res = glue(glue(ld, USUFFIX), _raw)((uint8_t *)(long)(addr+addend));
+127         }
+128     } else {
+129         /* the page is not in the TLB : fill it */
+130         retaddr = GETPC();
+131 #ifdef ALIGNED_ONLY
+132         if ((addr &amp; (DATA_SIZE - 1)) != 0)
+133             do_unaligned_access(addr, READ_ACCESS_TYPE, mmu_idx, retaddr);
+134 #endif
+135         tlb_fill(addr, READ_ACCESS_TYPE, mmu_idx, retaddr);
+136         goto redo;
+137     }
+138     return res;
+139 }
+</PRE>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">In this function, it will get the index of TLB table and compare the guest virtual address with the address stored in this tlb entry(line 97-100). If these two addresses match, it means this guest virtual address hits the tlb entry. Then qemu will determine this virtual address is a MMIO address or RAM address. If it is a MMIO address, get the index of IO emulation functions from env-&gt;iotlb and call these functions(line 103-117). If it is a RAM space, add the guest virtual address to addend to get the host virtual address(line 118-128). If there is no matched tlb entry, then fietch the entry from table l1_phys_map and insert the entry to tlb table(line 135).</P>
+<H2 style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: 1.6em/23px Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">5. an example</H2>
+<P style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">When fetching code from guest memory, the whole code path is as flowing:</P><PRE style="BORDER-BOTTOM: rgb(238,238,238) 1px solid; BORDER-LEFT: rgb(238,238,238) 3px solid; PADDING-BOTTOM: 5px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.5em; PADDING-LEFT: 5px; PADDING-RIGHT: 5px; FONT: 0.9em/1.5em 'Courier New', &#23435;&#20307;; BACKGROUND: rgb(248,248,248); LETTER-SPACING: normal; COLOR: rgb(0,0,0); OVERFLOW: auto; BORDER-TOP: rgb(238,238,238) 1px solid; BORDER-RIGHT: rgb(238,238,238) 0px solid; WORD-SPACING: 0px; PADDING-TOP: 5px; -webkit-text-stroke-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; border-bottom-right-radius: 3px; border-bottom-left-radius: 3px">cpu_exec-&gt;tb_find_fast-&gt;tb_find_slow-&gt;get_phys_addr_code
+-&gt;(if tlb not match)ldub_code(softmmu_header.h)-&gt;__ldl_mmu(softmmu_template.h)
+-&gt;tlb_fill-&gt;cpu_mips_handle_mmu_fault-&gt;tlb_set_page-&gt;tlb_set_page_exec
+</PRE>
+<P style="TEXT-ALIGN: left; PADDING-BOTTOM: 4px; TEXT-TRANSFORM: none; TEXT-INDENT: 0px; MARGIN: 0.8em 0px; PADDING-LEFT: 8px; PADDING-RIGHT: 8px; FONT: 18px/1.5em Georgia, Times, sans-serif, Arial, Verdana, Helvetica; WHITE-SPACE: normal; BACKGROUND: rgb(231,242,253); LETTER-SPACING: normal; COLOR: rgb(6,95,185); WORD-SPACING: 0px; PADDING-TOP: 4px; -webkit-text-stroke-width: 0px; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px; -webkit-box-shadow: rgb(153, 153, 153) 0px 0px 8px; box-shadow: rgb(153, 153, 153) 0px 0px 8px">2009/07/10(YYYY/MM/DD) Category:<A style="COLOR: rgb(0,43,184); TEXT-DECORATION: none" href="http://vm-kernel.org/blog/category.html?cat=QEMU">QEMU</A><SPAN class=Apple-converted-space>&nbsp;</SPAN><BR>Tag: QEMU, MIPS

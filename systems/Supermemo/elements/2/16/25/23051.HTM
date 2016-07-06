@@ -1,0 +1,141 @@
+<H3 id=-100000 class=docSection1Title>Device Example: Real Time Clock</H3>
+<P class=docText><A name="now take"></A>Let's now take the example of an RTC chip connected to an embedded controller over the I<SUP>2</SUP><A name="connection diagram"></A>C bus. The connection diagram is shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec5.html#ch08fig03">Figure 8.3</A>.</P><A name=ch08fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="An I"></A>Figure 8.3. An I<SUP>2</SUP>C RTC on an embedded system.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzNoaWc4c2M-.jpg" width=500 height=198></P></CENTER>
+<P></P><BR>
+<P class=docText>Assume that the I<SUP>2</SUP>C slave address of the RTC is <TT>0x60</TT><A name=in></A> and that its register space is organized as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec5.html#ch08tab02">Table 8.2</A>.</P><A name=ch08tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 8.2. Register Layout on the I<SUP>2</SUP>C RTC</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=200>
+<COL width=200>
+<COL width=100></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Register Name</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Offset</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>RTC_HOUR_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Hour counter</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x0</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>RTC_MINUTE_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Minute counter</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x1</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>RTC_SECOND_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Second counter</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x2</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>RTC_STATUS_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Flags and interrupt status</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x3</TT></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left><TT>RTC_CONTROL_REG</TT></TD>
+<TD class=docTableCell vAlign=top align=left>Enable/disable RTC</TD>
+<TD class=docTableCell vAlign=top align=left><TT>0x4</TT></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name="chip on"></A>Let's base our driver for this chip on the EEPROM driver discussed previously. We will take the I<SUP>2</SUP>C client driver architecture, slave registration, and I<SUP>2</SUP><A name="code that"></A>C core functions for granted and implement only the code that communicates with the RTC.</P>
+<P class=docText><A name=iddle2308></A><A name=iddle3169></A>When the I<SUP>2</SUP><A name="the RTC"></A>C core detects a device having the RTC's slave address (<TT>0x60</TT>) on the I<SUP>2</SUP>C bus, it invokes <TT>myrtc_attach()</TT>. The invocation train is similar to that for <TT>eep_attach()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec4.html#ch08ex05">Listing 8.5</A><A name="chip initializations"></A>. Assume that you have to perform the following chip initializations in <TT>myrtc_attach()</TT>:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the RTC"></A>Clear the RTC status register (<TT>RTC_STATUS_REG</TT>).</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="appropriate bits"></A>Start the RTC (if it is not already running) by turning on appropriate bits in the RTC control register (<TT>RTC_CONTROL_REG</TT>).</P></DIV></LI></OL></DIV>
+<P class=docText><A name="To do"></A>To do this, let's build an <TT>i2c_msg</TT> and generate I<SUP>2</SUP><A name="on the"></A>C transactions on the bus using <TT>i2c_transfer</TT><TT>()</TT><A name="transfer mechanism"></A>. This transfer mechanism is exclusive to I<SUP>2</SUP><A name="RTC registers"></A>C and is not SMBus-compatible. To write to the two RTC registers referred to previously, you have to build two <TT>i2c_msg</TT><A name="register offset"></A> messages. The first message sets the register offset. In our case, it's 3, the offset of <TT>RTC_STATUS_REG</TT><A name="to the"></A>. The second message carries the desired number of bytes to the specified offset. In this context, it ferries 2 bytes, one each to <TT>RTC_STATUS_REG</TT> and <TT>RTC_CONTROL_REG</TT>.</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX i2c.h=""> /* For struct i2c_msg */
+int
+myrtc_attach(struct i2c_adapter *adapter, int addr, int kind)
+{
+  u8 buf[2];
+  int offset = RTC_STATUS_REG;  /* Status register lives here */
+  struct i2c_msg rtc_msg[2];
+
+  /* Write 1 byte of offset information to the RTC */
+  rtc_msg[0].addr = addr;       /* Slave address. In our case,
+                                   this is 0x60 */
+  rtc_msg[0].flags = I2C_M_WR;  /* Write Command */
+  rtc_msg[0].buf = &amp;offset;     /* Register offset for
+                                   the next transaction */
+  rtc_msg[0].len = 1;           /* Offset is 1 byte long */
+
+  /* Write 2 bytes of data (the contents of the status and
+     control registers) at the offset programmed by the previous
+     i2c_msg */
+  rtc_msg[1].addr = addr;       /* Slave address */
+  rtc_msg[1].flags = I2C_M_WR;  /* Write command */
+  rtc_msg[1].buf = &amp;buf[0];     /* Data to be written to control
+                                   and status registers */
+  rtc_msg[1].len = 2;           /* Two register values */
+  buf[0] = 0;                   /* Zero out the status register */
+  buf[1] |= ENABLE_RTC;         /* Turn on control register bits
+                                   that start the RTC */
+
+  /* Generate bus transactions corresponding to the two messages */
+  i2c_transfer(adapter, rtc_msg, 2);
+
+  /* ... */
+  printk("My RTC Initialized\n");
+}
+
+					  </LINUX></PRE></DIV><BR>
+<P class=docText><A name="and ticking"></A>Now that the RTC is initialized and ticking, you can glean the current time by reading the contents of <TT>RTC_HOUR_REG</TT>, <TT>RTC_MINUTE_REG</TT>, and <TT>RTC_SECOND_REG</TT>. This is done as follows:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX rtc.h=""> /* For struct rtc_time */
+int
+myrtc_gettime(struct i2c_client *client, struct rtc_time *r_t)
+{
+  u8 buf[3];      /* Space to carry hour/minute/second */
+  int offset = 0; /* Time-keeping registers start at offset 0 */
+  struct i2c_msg rtc_msg[2];
+
+  /* Write 1 byte of offset information to the RTC */
+  rtc_msg[0].addr = addr;       /* Slave address */
+  rtc_msg[0].flags = 0;         /* Write Command */
+  rtc_msg[0].buf = &amp;offset;     /* Register offset for
+                                   the next transaction */
+  rtc_msg[0].len = 1;           /* Offset is 1 byte long */
+
+  /* Read current time by getting 3 bytes of data from offset 0
+     (i.e., from RTC_HOUR_REG, RTC_MINUTE_REG, and RTC_SECOND_REG) */
+  rtc_msg[1].addr = addr;       /* Slave address */
+  rtc_msg[1].flags = I2C_M_RD;  /* Read command */
+  rtc_msg[1].buf = &amp;buf[0];     /* Data to be read from hour, minute
+                                   and second registers */
+  rtc_msg[1].len = 3;           /* Three registers to read */
+
+  /* Generate bus transactions corresponding to the above
+     two messages */
+  i2c_transfer(adapter, rtc_msg, 2);
+  /* Read the time */
+  r_t-&gt;tm_hour = BCD2BIN(buf[0]); /* Hour */
+  r_t-&gt;tm_min  = BCD2BIN(buf[1]); /* Minute */
+  r_t-&gt;tm_sec  = BCD2BIN(buf[2]); /* Second */
+  return(0);
+}
+
+					  </LINUX></PRE></DIV><BR>
+<P class=docText><A name=iddle1204></A><A name=iddle1205></A><A name=iddle1211></A><A name=iddle3170></A><TT>myrtc_gettime()</TT><A name="top layer"></A> implements the bus-specific bottom layer of the RTC driver. The top layer of the RTC driver should conform to the kernel RTC API, as discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec5.html#ch05lev1sec5">RTC Subsystem</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05.html#ch05">Chapter 5</A><A name="advantage of"></A>. The advantage of this scheme is that applications can run unchanged irrespective of whether your RTC is internal to the South Bridge of a PC or externally connected to an embedded controller as in this example.</P>
+<P class=docText>RTCs usually store time in <SPAN class=docEmphasis>Binary Coded Decimal</SPAN><A name="and "></A> (BCD), where each nibble represents a number between 0 and 9 (rather than between 0 and 15). The kernel provides a macro called <TT>BCD2BIN()</TT><A name="to convert"></A> to convert from BCD encoding to decimal and <TT>BIN2BCD()</TT><A name="the reverse"></A> to perform the reverse operation. <TT>myrtc_gettime()</TT><A name="the former"></A> uses the former while reading time from RTC registers.</P>
+<P class=docText>Look at <SPAN class=docEmphasis>drivers/rtc/rtc-ds1307.c</SPAN><A name="of I"></A> for an example RTC driver that handles the -Dallas/Maxim DS13XX series of I<SUP>2</SUP>C RTC chips.</P>
+<P class=docText>Being a 2-wire bus, the I<SUP>2</SUP><A name="an interrupt"></A>C bus does not have an interrupt request line that slave devices can assert, but some I<SUP>2</SUP><A name="processor to"></A>C host adapters have the capability to interrupt the processor to signal completion of data-transfer requests. This interrupt-driven operation is, however, transparent to I<SUP>2</SUP><A name="inside the"></A>C client drivers and is hidden inside the service routines offered by the I<SUP>2</SUP>C core. Assuming that the I<SUP>2</SUP><A name="embedded SoC"></A>C host controller that is part of the embedded SoC in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch08lev1sec5.html#ch08fig03">Figure 8.3</A><A name="the capability"></A> has the capability to interrupt the processor, the invocation of <TT>i2c_transfer()</TT> in <TT>myrtc_attach()</TT> might be doing the following under the hood:</P>
+<UL>
+<LI>
+<P class=docList>Build a transaction corresponding to <TT>rtc_msg[0]</TT><A name="the host"></A> and write it to the bus using the services of the host controller device driver.</P></LI>
+<LI>
+<P class=docList><A name="Wait until"></A>Wait until the host controller asserts a transmit complete interrupt signaling that <TT>rtc_msg[0]</TT><A name="on the"></A> is now on the wire.</P></LI>
+<LI>
+<P class=docList><A name="the interrupt"></A>Inside the interrupt handler, look at the I<SUP>2</SUP><A name="acknowledgment has"></A>C host controller status register to see whether an acknowledgment has been received from the RTC slave.</P></LI>
+<LI>
+<P class=docList><A name="controller status"></A>Return error if the host controller status and control registers indicate that all's not well.</P></LI>
+<LI>
+<P class=docList>Repeat the same for <TT>rtc_msg[1]</TT>.</P></LI></UL>

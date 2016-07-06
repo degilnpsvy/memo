@@ -1,0 +1,41 @@
+=== 3. Creating a Kbuild File for an External Module 
+<P></P>
+<P><FONT class=extract>In the last section we saw the command to build a module for the<BR>running kernel. The module is not actually built, however, because a<BR>build file is required. Contained in this file will be the name of<BR>the module(s) being built, along with the list of requisite source<BR>files. The file may be as simple as a single line:</FONT></P>
+<P><FONT class=extract>&nbsp;obj-m := &lt;module_name&gt;.o</FONT></P>
+<P><FONT class=extract>The kbuild system will build &lt;module_name&gt;.o from &lt;module_name&gt;.c,<BR>and, after linking, will result in the kernel module &lt;module_name&gt;.ko.<BR>The above line can be put in either a "Kbuild" file or a "Makefile."<BR>When the module is built from multiple sources, an additional line is<BR>needed listing the files:</FONT></P>
+<P><FONT class=extract>&nbsp;&lt;module_name&gt;-y := &lt;src1&gt;.o &lt;src2&gt;.o ...</FONT></P>
+<P><FONT class=extract>NOTE: Further documentation describing the syntax used by kbuild is<BR>located in Documentation/kbuild/makefiles.txt.</FONT></P>
+<P>The examples below demonstrate how to create a build file for the<BR>module 8123.ko, which is built from the following files:</P>
+<P>&nbsp;8123_if.c<BR>&nbsp;8123_if.h<BR>&nbsp;8123_pci.c<BR>&nbsp;8123_bin.o_shipped&nbsp;&lt;= Binary blob</P>
+<P><FONT class=extract>--- 3.1 Shared Makefile</FONT></P>
+<P><FONT class=extract>&nbsp;An external module always includes a wrapper makefile that<BR>&nbsp;supports building the module using "make" with no arguments.<BR>&nbsp;This target is not used by kbuild; it is only for convenience.<BR>&nbsp;Additional functionality, such as test targets, can be included<BR>&nbsp;but should be filtered out from kbuild due to possible name<BR>&nbsp;clashes.</FONT></P>
+<P><FONT class=extract>&nbsp;Example 1:<BR>&nbsp;&nbsp;--&gt; filename: Makefile<BR>&nbsp;&nbsp;ifneq ($(KERNELRELEASE),)<BR>&nbsp;&nbsp;# kbuild part of makefile<BR>&nbsp;&nbsp;obj-m&nbsp; := 8123.o<BR>&nbsp;&nbsp;8123-y := 8123_if.o 8123_pci.o 8123_bin.o</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;else<BR>&nbsp;&nbsp;# normal makefile<BR>&nbsp;&nbsp;KDIR ?= /lib/modules/`uname -r`/build</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;default:<BR>&nbsp;&nbsp;&nbsp;$(MAKE) -C $(KDIR) M=$$PWD</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;# Module specific targets<BR>&nbsp;&nbsp;genbin:<BR>&nbsp;&nbsp;&nbsp;echo "X" &gt; 8123_bin.o_shipped</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;endif</FONT></P>
+<P><FONT class=extract>&nbsp;The check for KERNELRELEASE is used to separate the two parts<BR>&nbsp;of the makefile. In the example, kbuild will only see the two<BR>&nbsp;assignments, whereas "make" will see everything except these<BR>&nbsp;two assignments. This is due to two passes made on the file:<BR>&nbsp;the first pass is by the "make" instance run on the command<BR>&nbsp;line; the second pass is by the kbuild system, which is<BR>&nbsp;initiated by the parameterized "make" in the default target.</FONT></P>
+<P><FONT class=extract>--- 3.2 Separate Kbuild File and Makefile</FONT></P>
+<P><FONT class=extract>&nbsp;In newer versions of the kernel, kbuild will first look for a<BR>&nbsp;file named "Kbuild," and only if that is not found, will it<BR>&nbsp;then look for a makefile. Utilizing a "Kbuild" file allows us<BR>&nbsp;to split up the makefile from example 1 into two files:</FONT></P>
+<P><FONT class=extract>&nbsp;Example 2:<BR>&nbsp;&nbsp;--&gt; filename: Kbuild<BR>&nbsp;&nbsp;obj-m&nbsp; := 8123.o<BR>&nbsp;&nbsp;8123-y := 8123_if.o 8123_pci.o 8123_bin.o</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;--&gt; filename: Makefile<BR>&nbsp;&nbsp;KDIR ?= /lib/modules/`uname -r`/build</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;default:<BR>&nbsp;&nbsp;&nbsp;$(MAKE) -C $(KDIR) M=$$PWD</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;# Module specific targets<BR>&nbsp;&nbsp;genbin:<BR>&nbsp;&nbsp;&nbsp;echo "X" &gt; 8123_bin.o_shipped</FONT></P>
+<P><FONT class=extract>&nbsp;The split in example 2 is questionable due to the simplicity of<BR>&nbsp;each file; however, some external modules use makefiles<BR>&nbsp;consisting of several hundred lines, and here it really pays<BR>&nbsp;off to separate the kbuild part from the rest.</FONT></P>
+<P><FONT class=extract>&nbsp;The next example shows a backward compatible version.</FONT></P>
+<P><FONT class=extract>&nbsp;Example 3:<BR>&nbsp;&nbsp;--&gt; filename: Kbuild<BR>&nbsp;&nbsp;obj-m&nbsp; := 8123.o<BR>&nbsp;&nbsp;8123-y := 8123_if.o 8123_pci.o 8123_bin.o</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;--&gt; filename: Makefile<BR>&nbsp;&nbsp;ifneq ($(KERNELRELEASE),)<BR>&nbsp;&nbsp;# kbuild part of makefile<BR>&nbsp;&nbsp;include Kbuild</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;else<BR>&nbsp;&nbsp;# normal makefile<BR>&nbsp;&nbsp;KDIR ?= /lib/modules/`uname -r`/build</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;default:<BR>&nbsp;&nbsp;&nbsp;$(MAKE) -C $(KDIR) M=$$PWD</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;# Module specific targets<BR>&nbsp;&nbsp;genbin:<BR>&nbsp;&nbsp;&nbsp;echo "X" &gt; 8123_bin.o_shipped</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;endif</FONT></P>
+<P><FONT class=extract>&nbsp;Here the "Kbuild" file is included from the makefile. This<BR>&nbsp;allows an older version of kbuild, which only knows of<BR>&nbsp;makefiles, to be used when the "make" and kbuild parts are<BR>&nbsp;split into separate files.</FONT></P>
+<P><FONT class=extract>--- 3.3 Binary Blobs</FONT></P>
+<P><FONT class=extract>&nbsp;Some external modules need to include an object file as a blob.<BR>&nbsp;kbuild has support for this, but requires the blob file to be<BR>&nbsp;named &lt;filename&gt;_shipped. When the kbuild rules kick in, a copy<BR>&nbsp;of &lt;filename&gt;_shipped is created with _shipped stripped off,<BR>&nbsp;giving us &lt;filename&gt;. This shortened filename can be used in<BR>&nbsp;the assignment to the module.</FONT></P>
+<P><FONT class=extract>&nbsp;Throughout this section, 8123_bin.o_shipped has been used to<BR>&nbsp;build the kernel module 8123.ko; it has been included as<BR>&nbsp;8123_bin.o.</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;8123-y := 8123_if.o 8123_pci.o 8123_bin.o</FONT></P>
+<P><FONT class=extract>&nbsp;Although there is no distinction between the ordinary source<BR>&nbsp;files and the binary file, kbuild will pick up different rules<BR>&nbsp;when creating the object file for the module.</FONT></P>
+<P><FONT class=extract>--- 3.4 Building Multiple Modules</FONT></P>
+<P><FONT class=extract>&nbsp;kbuild supports building multiple modules with a single build<BR>&nbsp;file. For example, if you wanted to build two modules, foo.ko<BR>&nbsp;and bar.ko, the kbuild lines would be:</FONT></P>
+<P><FONT class=extract>&nbsp;&nbsp;obj-m := foo.o bar.o<BR>&nbsp;&nbsp;foo-y := &lt;foo_srcs&gt;<BR>&nbsp;&nbsp;bar-y := &lt;bar_srcs&gt;</FONT></P>
+<P><FONT class=extract>&nbsp;It is that simple!</FONT>

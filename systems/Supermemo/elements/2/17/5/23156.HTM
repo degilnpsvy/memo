@@ -1,0 +1,143 @@
+<H3 id=-100000 class=docSection1Title>User Mode USB</H3>
+<P class=docText><A name=The></A>The <SPAN class=docEmphasis>usbfs</SPAN><A name="allows raw"></A> virtual filesystem allows raw access to USB devices from user space. Usbfs is usually mounted over <SPAN class=docEmphasis>/proc/bus/usb/.</SPAN><A name="directories corresponding"></A> The usbfs tree contains directories corresponding to each USB controller (or bus) on your system. Each of these directories, in turn, contains nodes corresponding to USB devices present on that bus.</P>
+<P class=docText><A name=iddle1606></A><A name=iddle1909></A><A name=iddle1992></A><A name="look at"></A>To better understand usbfs, let's look at a system with an Intel ICH4 South Bridge chipset. As you learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A><A name="on PC"></A>, "Universal Serial Bus," USB controllers are part of the South Bridge chipset on PC systems. The ICH4 supports one USB EHCI (high-speed USB 2.0) controller and three USB UHCI controllers and can connect to six physical USB ports. The EHCI controller can converse with all six ports, and the three UHCI controllers can talk to two ports each. Let's call the EHCI controller <SPAN class=docEmphasis>bus1</SPAN><A name=controllers></A> and the three UHCI controllers <SPAN class=docEmphasis>bus2, bus3</SPAN>, and <SPAN class=docEmphasis>bus4</SPAN><A name="two physical"></A>, respectively. Now assume that the system has only two physical USB ports and that they are connected to the UHCI controller corresponding to bus3. (The <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> symbol attaches comments to command output.)</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; ls &#37413;&#25607;R /proc/bus/usb</SPAN>
+/proc/bus/usb:
+total 0
+dr-xr-xr-x  2 root root 0 Dec  2 12:44 001    <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> EHCI. Can talk to
+                                                any physical port
+dr-xr-xr-x  2 root root 0 Dec  2 12:44 002    <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> No corresponding
+                                                physical ports
+dr-xr-xr-x  2 root root 0 Dec  2 12:44 003    <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> UHCI bus for the 2
+                                                physical USB ports
+                                               on this system
+dr-xr-xr-x  2 root root 0 Dec  2 12:44 004    <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> No corresponding
+                                                physical ports
+-r--r--r--  1 root root 0 Dec  2 20:02 devices
+
+/proc/bus/usb/001:
+total 0
+-rw-r--r--  1 root root 43 Dec  2 12:44 001   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Root Hub (bus1)
+
+/proc/bus/usb/002:
+total 0
+-rw-r--r--  1 root root 43 Dec  2 12:44 001   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Root Hub (bus2)
+
+/proc/bus/usb/003:
+total 0
+-rw-r--r--  1 root root 43 Dec  2 12:44 001   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Root Hub (bus3)
+
+/proc/bus/usb/004:
+total 0
+-rw-r--r--  1 root root 43 Dec  2 12:44 001   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Root Hub (bus4)
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="and a"></A>Let's connect a full-speed Nikon digital camera and a high-speed Seagate USB 2.0 hard disk to the two USB ports on the system. First, take a peek at <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN> and find the relevant entries:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; ls &#37413;&#25607;R /proc/bus/usb/devices</SPAN>
+...
+T:  Bus=03 Lev=01 Prnt=01 Port=01 Cnt=01 Dev#=  5 Spd=12  MxCh= 0
+D:  Ver= 1.10 Cls=00(&gt;ifc ) Sub=00 Prot=00 MxPS=64 #Cfgs=  1
+P:  Vendor=04b0 ProdID=0205 Rev= 1.00
+S:  Manufacturer=NIKON
+S:  Product=NIKON DSC E5200
+S:  SerialNumber=2507597
+C:* #Ifs= 1 Cfg#= 1 Atr=c0 MxPwr=  2mA
+I:  If#= 0 Alt= 0 #EPs= 2 Cls=08(stor.) Sub=06 Prot=50
+    Driver=usb-storage
+E:  Ad=01(O) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+E:  Ad=82(I) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+...
+T:  Bus=01 Lev=01 Prnt=01 Port=02 Cnt=01 Dev#= 12 Spd=480 MxCh= 0
+D:  Ver= 2.00 Cls=00(&gt;ifc ) Sub=00 Prot=00 MxPS=64 #Cfgs=  1
+P:  Vendor=0bc2 ProdID=0501 Rev= 0.01
+S:  Manufacturer=Seagate
+S:  Product=USB Mass Storage
+S:  SerialNumber=000000062459
+C:* #Ifs= 1 Cfg#= 1 Atr=c0 MxPwr= 0mA
+I:  If#= 0 Alt= 0 #EPs= 2 Cls=08(stor.) Sub=06 Prot=50
+    Driver=usb-storage
+E:  Ad=02(O) Atr=02(Bulk) MxPS= 512 Ivl=0ms
+E:  Ad=88(I) Atr=02(Bulk) MxPS= 512 Ivl=0ms
+
+					  </PRE></DIV><BR>
+<P class=docText>Look at the <TT>T:</TT><A name="the hard"></A> lines in the preceding output, which display the topology. As expected, the hard disk has arrived on the EHCI bus, <SPAN class=docEmphasis>bus1</SPAN><A name="UHCI bus"></A>, and the camera has appeared on the UHCI bus, <SPAN class=docEmphasis>bus3</SPAN><A name="This is"></A>. This is how the usbfs tree looks now:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; ls &#37413;&#25607;R /proc/bus/usb</SPAN>
+/proc/bus/usb:
+total 0
+dr-xr-xr-x  2 root root 0 Dec  2 12:44 001
+dr-xr-xr-x  2 root root 0 Dec  2 12:44 002
+dr-xr-xr-x  2 root root 0 Dec  2 12:44 003
+dr-xr-xr-x  2 root root 0 Dec  2 12:44 004
+-r--r--r--  1 root root 0 Dec  2 19:51 devices
+/proc/bus/usb/001:                           <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF">   EHCI: bus1
+total 0
+-rw-r--r--  1 root root 43 Dec  2 12:44 001
+-rw-r--r--  1 root root 50 Dec  2 19:51 007  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF">   High-speed disk
+
+/proc/bus/usb/002:                           <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF">   UHCI: bus2
+total 0
+-rw-r--r--  1 root root 43 Dec  2 12:44 001
+
+/proc/bus/usb/003:                           <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF">   UHCI: bus3
+total 0
+-rw-r--r--  1 root root 43 Dec  2 12:44 001
+-rw-r--r--  1 root root 50 Dec  2 19:16 003  <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF">   Full-speed camera
+
+/proc/bus/usb/004:                           <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF">   UHCI: bus4
+total 0
+-rw-r--r--  1 root root 43 Dec  2 12:44 001
+
+					  </PRE></DIV><BR>
+<P class=docText><A name=iddle2741></A><A name=iddle4243></A><A name="files corresponding"></A>The usbfs files corresponding to plugged-in devices contain the associated USB device and configuration descriptors. In the preceding example, read <SPAN class=docEmphasis>/proc/bus/usb/003/003</SPAN><A name="for the"></A> to get descriptor information for the camera and <SPAN class=docEmphasis>/proc/bus/usb/001/007</SPAN><A name="associated with"></A> for the descriptor associated with the hard disk. Managing usbfs files is not straightforward however, because the device filenames get reused after a device is plugged out. The solution is to use the <SPAN class=docEmphasis>libusb</SPAN><A name="operating on"></A> library, which uses usbfs under the hood. Using libusb instead of directly operating on usbfs has another benefit: Your driver is likely to work unchanged on other operating systems that support this library. If you don't find libusb bundled along with your distribution, download its sources from <A class=docLink href="http://libusb.sourceforge.net/" target=_blank>http://libusb.sourceforge.net/</A><A name="USB access"></A>. The full list of USB access functions offered by this library is available under the <SPAN class=docEmphasis>doc/</SPAN> directory of the libusb sources.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19lev1sec5.html#ch19ex06">Listing 19.6</A><A name="the digital"></A> implements a skeletal user space driver for the digital camera using an oft-used libusb programming template. The camera's vendor ID (<TT>0x04b0</TT>) and device ID (<TT>0x0205</TT>) are obtained from the <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN> output shown previously.</P><A name=ch19ex06></A>
+<H5 id=title-ID0EERAO class=docExampleTitle>Listing 19.6. A Skeletal User Space USB Driver Using libusb</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <USB.H>                   /* From the libusb package */
+
+#define DIGICAM_VENDOR_ID   0x04b0 /* From <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN> */
+#define DIGICAM_PRODUCT_ID  0x0205 /* From <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN> */
+int
+main(int argc, char *argv[])
+{
+  struct usb_dev_handle *mydevice_handle;
+  struct usb_bus *usb_bus;
+  struct usb_device *mydevice;
+
+  /* Initialize libusb */
+  usb_init();
+  usb_find_buses();
+  usb_find_devices();
+
+  /* Walk the bus */
+  for (usb_bus = usb_buses; usb_bus; usb_bus = usb_bus-&gt;next) {
+    for (mydevice = usb_bus-&gt;devices; mydevice;
+         mydevice = mydevice-&gt;next) {
+      if ((mydevice-&gt;descriptor.idVendor == DIGICAM_VENDOR_ID) &amp;&amp;
+       (mydevice-&gt;descriptor.idProduct == DIGICAM_PRODUCT_ID)) {
+
+        /* Open the device */
+        mydevice_handle = usb_open(mydevice);
+
+        /* Send commands to the camera. This is the heart of the
+           driver. Getting information about the USB control
+           messages to which your device responds is often a
+           challenge since many vendors do not readily divulge
+           hardware details */
+        usb_control_msg(mydevice_handle, ...);
+        /* ... */
+
+        /* Close the device */
+        usb_close(mydevice_handle);
+      }
+    }
+  }
+}
+
+					  </USB.H></PRE></TD></TR></TBODY></TABLE>

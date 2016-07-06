@@ -1,0 +1,185 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>7.8.&nbsp;Structure and Subprograms</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch07s07.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;7.&nbsp;Code Quality Standards</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch07s09.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="7.8.&nbsp;Structure and Subprograms" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286961269></A>7.8.&nbsp;Structure and Subprograms</H2></DIV></DIV></DIV>
+<DIV class=section title=7.8.1.&nbsp;Modularity>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286961274></A>7.8.1.&nbsp;Modularity</H3></DIV></DIV></DIV>
+<P>A well-written program is a collection of smaller, COMPLETELY INDEPENDENT subprograms. No subprogram should have any effect on another subprogram (including the main program) that isn't visible in the subprogram interface. i.e., only the return value and arguments passed by reference should be modified by a subprogram call.</P>
+<P>Modularity should extend below the subprogram level as well. A subprogram should consist of independent blocks of code that can be moved or altered individually without worrying about effects on any other code, except the block that immediately follows.</P>
+<P>No statement should have any effect on the surrounding code except for the primary purpose of that statement. Such side effects make debugging nearly impossible, and cause minor changes to the code to introduce new bugs.</P>
+<P>Each subprogram should have exactly one purpose, which should be fully described by the subprogram name. If you can't come up with a reasonably short name that states the entire purpose of the subprogram, then the subprogram is doing too much and should be broken up.</P>
+<DIV class=example><A name=id286961286></A>
+<P class=title><B>Example&nbsp;7.10.&nbsp;One Purpose Per Subprogram (Cohesion)</B></P>
+<DIV class=example-contents><PRE class=programlisting>    /*
+	Find smallest element and swap with first.
+	(Not cohesive)
+     */
+    void    find_low_and_swap(data_t list[], size_t first)
+    {
+    }
+    </PRE><PRE class=programlisting>    /*
+	Find smallest element in list.
+	(Cohesive)
+     */
+    size_t  find_low(data_t list[], size_t first);
+    {
+    }
+
+    /*
+	    Swap any two elements in a list.
+     */
+    void    swap(data_t *element1, data_t *element2)
+    {
+    }
+    </PRE></DIV></DIV><BR class=example-break>
+<P>Most subprograms should be no longer than 20 or 30 lines of code. Subprograms containing switch/case statements are common exceptions. For switch/case statements with many cases, each case should consist of a single subprogram call, and nothing else. This is not a<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>goal</EM></SPAN>, but serves as a litmus test to see if you have properly applied the rules of modularity above.</P>
+<P>Don't sacrifice modularity and generality for a marginal gain in performance. Program speed is important, but programmer time and reliability are more important.</P>
+<P>Do not use global variables. There are few exceptions to this rule, and most involve device drivers, which few people will ever write.</P>
+<DIV class=example><A name=id286961516></A>
+<P class=title><B>Example&nbsp;7.11.&nbsp;Prefix Variable Names</B></P>
+<DIV class=example-contents>
+<P>In assembly language, all variables are global in the assembler's view. However, the programmer can and should define separate variables for each subprogram, and never write code that references variables from a different subprogram. The only variables that should be accessed by more than one subprogram are variables used by exception handlers (discussed later in the semester)</P>
+<P>This is easily accomplished by prefixing all variable names with the name of the subprogram. Variables are then only used in the subprogram that matches their prefix.</P><PRE class=programlisting>	    .data
+    sine_x:         .double     0.0
+    sine_sine:      .double     0.0
+    sine_factorial: .double     0.0
+    sine_power:     .double     0.0
+    
+	    .text
+    sine:
+    
+	    # Compute Taylor series terms until error below tolerance
+    
+    sine_next_term:
+    
+	    # Compute power
+    sine_power_loop:
+	    
+	    # Compute factorial
+    sine_factorial_loop:
+    
+    sine_return:
+	    jr      $ra
+    </PRE></DIV></DIV><BR class=example-break></DIV>
+<DIV class=section title=7.8.2.&nbsp;Generality>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286961530></A>7.8.2.&nbsp;Generality</H3></DIV></DIV></DIV>
+<P>Make code as general purpose as possible. Programmers often write code that's limited to a particular situation for no good reason, and in fact makes the code more complicated than it needs to be.</P>
+<DIV class=example><A name=id286961532></A>
+<P class=title><B>Example&nbsp;7.12.&nbsp;Generality of Design</B></P>
+<DIV class=example-contents><PRE class=programlisting>    // Bad: More arguments than needed, requires an array,
+    // and argument names imply restricted use.
+
+    void    swap(data_t list[], size_t first, size_t smallest)
+    {
+    }
+
+    // Good: Minimal argument list, no limitations on what
+    // memory locations are swapped.
+
+    void    swap(data_t *element1, data_t *element2)
+    {
+    }
+    </PRE></DIV></DIV><BR class=example-break>
+<P>Subprograms that compute results should return them, not print them. A subprogram that prints results is useless if you want to use the value it computes. You'll have to write another function that duplicates the functionality, which raises the complexity and cost of the program.</P>
+<DIV class=example><A name=id286961544></A>
+<P class=title><B>Example&nbsp;7.13.&nbsp;Printing from Subprograms</B></P>
+<DIV class=example-contents><PRE class=programlisting>    // Subprogram prints results.  Limits utility of the subprogram.
+
+    void    factorial(int n)
+    {
+	// Compute n!
+
+	printf("%d\n", f);
+    }
+    </PRE><PRE class=programlisting>    // Subprogram returns results, letting caller decide how
+    // to use them.  Maximizes utility of the subprogram.
+
+    unsigned long factorial(int n)
+    {
+	// Compute n!
+
+	return f;
+    }
+    </PRE></DIV></DIV><BR class=example-break></DIV>
+<DIV class=section title=7.8.3.&nbsp;Cohesiveness>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286961557></A>7.8.3.&nbsp;Cohesiveness</H3></DIV></DIV></DIV>
+<P>Keep related code together in a block (cohesion). E.g. initialize variables immediately before the code they are used in, not at the beginning or end of the subprogram. All the code that serves a given purpose should be together, with nothing else in between. Don't make yourself and others scroll all over the code to find out what a variable contains.</P>
+<DIV class=example><A name=id286961597></A>
+<P class=title><B>Example&nbsp;7.14.&nbsp;Cohesive Code Segments</B></P>
+<DIV class=example-contents><PRE class=programlisting>    // Bad
+    int     c = 0;
+    
+    // A bunch of code unrelated to the loop
+    
+    while ( c &lt; 10 )
+    {
+	...
+    }
+    </PRE><PRE class=programlisting>    // Good
+    int     c;
+    
+    // A bunch of code unrelated to the loop
+    
+    // c was initialized above, so we don't bother here
+    c = 0;
+    while ( c &lt; 10 )
+    {
+	...
+    }
+    </PRE></DIV></DIV><BR class=example-break></DIV>
+<DIV class=section title=7.8.4.&nbsp;Elegance>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286961610></A>7.8.4.&nbsp;Elegance</H3></DIV></DIV></DIV>
+<P>Avoid unnecessary special cases. Most code can be structured so that no special checks are necessary. E.g. the else clause alone is sufficient in following code snippet:</P>
+<DIV class=example><A name=id286961616></A>
+<P class=title><B>Example&nbsp;7.15.&nbsp;Elegant Code</B></P>
+<DIV class=example-contents><PRE class=programlisting>    // An inelegant example
+    if ( n == 0 )
+	factorial = 1;
+    else
+    {
+	factorial = 1;
+	while ( n &gt; 1 )
+	    factorial *= n--;
+    }
+    </PRE><PRE class=programlisting>    // An elegant example
+    factorial = 1;
+    while ( n &gt; 1 )
+	factorial *= n--;
+    </PRE></DIV></DIV><BR class=example-break></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch07s07.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch07.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch07s09.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">7.7.&nbsp;Code Size&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;7.9.&nbsp;Homework</TD></TR></TBODY></TABLE></DIV>

@@ -1,0 +1,84 @@
+<A name=Conditional-Constructs></A>
+<H4 class=subsubsection>3.2.4.2 Conditional Constructs</H4><A name=index-commands_002c-conditional></A>
+<DL compact>
+<DT><FONT class=extract><CODE>if</CODE> </FONT>
+<DD><A name=index-if></A><A name=index-then></A><A name=index-else></A><A name=index-elif></A><A name=index-fi></A>
+<P><FONT class=extract>The syntax of the <CODE>if</CODE> command is: </FONT></P>
+<DIV class=example><PRE class=example><FONT class=extract>if <VAR>test-commands</VAR>; then
+  <VAR>consequent-commands</VAR>;
+[elif <VAR>more-test-commands</VAR>; then
+  <VAR>more-consequents</VAR>;]
+[else <VAR>alternate-consequents</VAR>;]
+fi
+</FONT></PRE></DIV>
+<P><FONT class=extract>The <VAR>test-commands</VAR> list is executed, and if its return status is zero, the <VAR>consequent-commands</VAR> list is executed. If <VAR>test-commands</VAR> returns a non-zero status, each <CODE>elif</CODE> list is executed in turn, and if its exit status is zero, the corresponding <VAR>more-consequents</VAR> is executed and the command completes. If &#8216;<SAMP>else <VAR>alternate-consequents</VAR></SAMP>&#8217; is present, and the final command in the final <CODE>if</CODE> or <CODE>elif</CODE> clause has a non-zero exit status, then <VAR>alternate-consequents</VAR> is executed. The return status is the exit status of the last command executed, or zero if no condition tested true.</FONT> </P>
+<DT><FONT class=extract><CODE>case</CODE> </FONT>
+<DD><A name=index-case></A><A name=index-in></A><A name=index-esac></A>
+<P><FONT class=extract>The syntax of the <CODE>case</CODE> command is: </FONT></P>
+<DIV class=example><PRE class=example><FONT class=extract><CODE>case <VAR>word</VAR> in [ [(] <VAR>pattern</VAR> [| <VAR>pattern</VAR>]&#8230;) <VAR>command-list</VAR> ;;]&#8230; esac</CODE>
+</FONT></PRE></DIV>
+<P><FONT class=extract><CODE>case</CODE> will selectively execute the <VAR>command-list</VAR> corresponding to the first <VAR>pattern</VAR> that matches <VAR>word</VAR>. If the shell option <CODE>nocasematch</CODE> (see the description of <CODE>shopt</CODE> in </FONT><A href="http://www.gnu.org/software/bash/manual/html_node/The-Shopt-Builtin.html#The-Shopt-Builtin"><FONT class=extract>The Shopt Builtin</FONT></A><FONT class=extract>) is enabled, the match is performed without regard to the case of alphabetic characters. The &#8216;<SAMP>|</SAMP>&#8217; is used to separate multiple patterns, and the &#8216;<SAMP>)</SAMP>&#8217; operator terminates a pattern list. A list of patterns and an associated command-list is known as a <VAR>clause</VAR>. </FONT></P>
+<P><FONT class=extract>Each clause must be terminated with &#8216;<SAMP>;;</SAMP>&#8217;, &#8216;<SAMP>;&amp;</SAMP>&#8217;, or &#8216;<SAMP>;;&amp;</SAMP>&#8217;. The <VAR>word</VAR> undergoes tilde expansion, parameter expansion, command substitution, arithmetic expansion, and quote removal before matching is attempted. Each <VAR>pattern</VAR> undergoes tilde expansion, parameter expansion, command substitution, and arithmetic expansion. </FONT></P>
+<P><FONT class=extract>There may be an arbitrary number of <CODE>case</CODE> clauses, each terminated by a &#8216;<SAMP>;;</SAMP>&#8217;, &#8216;<SAMP>;&amp;</SAMP>&#8217;, or &#8216;<SAMP>;;&amp;</SAMP>&#8217;. The first pattern that matches determines the command-list that is executed. </FONT></P>
+<P><FONT class=extract>Here is an example using <CODE>case</CODE> in a script that could be used to describe one interesting feature of an animal: </FONT></P>
+<DIV class=example><PRE class=example><FONT class=extract>echo -n "Enter the name of an animal: "
+read ANIMAL
+echo -n "The $ANIMAL has "
+case $ANIMAL in
+  horse | dog | cat) echo -n "four";;
+  man | kangaroo ) echo -n "two";;
+  *) echo -n "an unknown number of";;
+esac
+echo " legs."
+</FONT></PRE></DIV>
+<P><FONT class=extract>If the &#8216;<SAMP>;;</SAMP>&#8217; operator is used, no subsequent matches are attempted after the first pattern match. Using &#8216;<SAMP>;&amp;</SAMP>&#8217; in place of &#8216;<SAMP>;;</SAMP>&#8217; causes execution to continue with the <VAR>command-list</VAR> associated with the next clause, if any. Using &#8216;<SAMP>;;&amp;</SAMP>&#8217; in place of &#8216;<SAMP>;;</SAMP>&#8217; causes the shell to test the patterns in the next clause, if any, and execute any associated <VAR>command-list</VAR> on a successful match. </FONT></P>
+<P><FONT class=extract>The return status is zero if no <VAR>pattern</VAR> is matched. Otherwise, the return status is the exit status of the <VAR>command-list</VAR> executed.</FONT> </P>
+<DT><FONT class=extract><CODE>select</CODE> </FONT>
+<DD><A name=index-select></A>
+<P><FONT class=extract>The <CODE>select</CODE> construct allows the easy generation of menus. It has almost the same syntax as the <CODE>for</CODE> command: </FONT></P>
+<DIV class=example><PRE class=example><FONT class=extract>select <VAR>name</VAR> [in <VAR>words</VAR> &#8230;]; do <VAR>commands</VAR>; done
+</FONT></PRE></DIV>
+<P><FONT class=extract>The list of words following <CODE>in</CODE> is expanded, generating a list of items. The set of expanded words is printed on the standard error output stream, each preceded by a number. If the &#8216;<SAMP>in <VAR>words</VAR></SAMP>&#8217; is omitted, the positional parameters are printed, as if &#8216;<SAMP>in "$@"</SAMP>&#8217; had been specified. The <CODE>PS3</CODE> prompt is then displayed and a line is read from the standard input. If the line consists of a number corresponding to one of the displayed words, then the value of <VAR>name</VAR> is set to that word. If the line is empty, the words and prompt are displayed again. If <CODE>EOF</CODE> is read, the <CODE>select</CODE> command completes. Any other value read causes <VAR>name</VAR> to be set to null. The line read is saved in the variable <CODE>REPLY</CODE>. </FONT></P>
+<P><FONT class=extract>The <VAR>commands</VAR> are executed after each selection until a <CODE>break</CODE> command is executed, at which point the <CODE>select</CODE> command completes. </FONT></P>
+<P><FONT class=extract>Here is an example that allows the user to pick a filename from the current directory, and displays the name and index of the file selected. </FONT></P>
+<DIV class=example><PRE class=example><FONT class=extract>select fname in *;
+do
+	echo you picked $fname \($REPLY\)
+	break;
+done</FONT>
+</PRE></DIV>
+<DT><FONT class=extract><CODE>((&#8230;))</CODE> </FONT>
+<DD>
+<DIV class=example><PRE class=example><FONT class=extract>(( <VAR>expression</VAR> ))
+</FONT></PRE></DIV>
+<P><FONT class=extract>The arithmetic <VAR>expression</VAR> is evaluated according to the rules described below (see </FONT><A href="http://www.gnu.org/software/bash/manual/html_node/Shell-Arithmetic.html#Shell-Arithmetic"><FONT class=extract>Shell Arithmetic</FONT></A><FONT class=extract>). If the value of the expression is non-zero, the return status is 0; otherwise the return status is 1. This is exactly equivalent to </FONT></P>
+<DIV class=example><PRE class=example><FONT class=extract>let "<VAR>expression</VAR>"
+</FONT></PRE></DIV>
+<P><FONT class=extract>See </FONT><A href="http://www.gnu.org/software/bash/manual/html_node/Bash-Builtins.html#Bash-Builtins"><FONT class=extract>Bash Builtins</FONT></A><FONT class=extract>, for a full description of the <CODE>let</CODE> builtin.</FONT> </P>
+<DT><FONT class=extract><CODE>[[&#8230;]]</CODE> </FONT>
+<DD><A name=index-_005b_005b></A><A name=index-_005d_005d></A>
+<DIV class=example><PRE class=example><FONT class=extract>[[ <VAR>expression</VAR> ]]
+</FONT></PRE></DIV>
+<P><FONT class=extract>Return a status of 0 or 1 depending on the evaluation of the conditional expression <VAR>expression</VAR>. Expressions are composed of the primaries described below in </FONT><A href="http://www.gnu.org/software/bash/manual/html_node/Bash-Conditional-Expressions.html#Bash-Conditional-Expressions"><FONT class=extract>Bash Conditional Expressions</FONT></A><FONT class=extract>. Word splitting and filename expansion are not performed on the words between the &#8216;<SAMP>[[</SAMP>&#8217; and &#8216;<SAMP>]]</SAMP>&#8217;; tilde expansion, parameter and variable expansion, arithmetic expansion, command substitution, process substitution, and quote removal are performed. Conditional operators such as &#8216;<SAMP>-f</SAMP>&#8217; must be unquoted to be recognized as primaries. </FONT></P>
+<P><FONT class=extract>When used with &#8216;<SAMP>[[</SAMP>&#8217;, the &#8216;<SAMP>&lt;</SAMP>&#8217; and &#8216;<SAMP>&gt;</SAMP>&#8217; operators sort lexicographically using the current locale. </FONT></P>
+<P><FONT class=extract>When the &#8216;<SAMP>==</SAMP>&#8217; and &#8216;<SAMP>!=</SAMP>&#8217; operators are used, the string to the right of the operator is considered a pattern and matched according to the rules described below in </FONT><A href="http://www.gnu.org/software/bash/manual/html_node/Pattern-Matching.html#Pattern-Matching"><FONT class=extract>Pattern Matching</FONT></A><FONT class=extract>. If the shell option <CODE>nocasematch</CODE> (see the description of <CODE>shopt</CODE> in </FONT><A href="http://www.gnu.org/software/bash/manual/html_node/The-Shopt-Builtin.html#The-Shopt-Builtin"><FONT class=extract>The Shopt Builtin</FONT></A><FONT class=extract>) is enabled, the match is performed without regard to the case of alphabetic characters. The return value is 0 if the string matches (&#8216;<SAMP>==</SAMP>&#8217;) or does not match (&#8216;<SAMP>!=</SAMP>&#8217;)the pattern, and 1 otherwise. Any part of the pattern may be quoted to force it to be matched as a string. </FONT></P>
+<P><FONT class=extract>An additional binary operator, &#8216;<SAMP>=~</SAMP>&#8217;, is available, with the same precedence as &#8216;<SAMP>==</SAMP>&#8217; and &#8216;<SAMP>!=</SAMP>&#8217;. When it is used, the string to the right of the operator is considered an extended regular expression and matched accordingly (as in <I>regex</I>3)). The return value is 0 if the string matches the pattern, and 1 otherwise. If the regular expression is syntactically incorrect, the conditional expression&#8217;s return value is 2. If the shell option <CODE>nocasematch</CODE> (see the description of <CODE>shopt</CODE> in </FONT><A href="http://www.gnu.org/software/bash/manual/html_node/The-Shopt-Builtin.html#The-Shopt-Builtin"><FONT class=extract>The Shopt Builtin</FONT></A><FONT class=extract>) is enabled, the match is performed without regard to the case of alphabetic characters. Any part of the pattern may be quoted to force it to be matched as a string. Substrings matched by parenthesized subexpressions within the regular expression are saved in the array variable <CODE>BASH_REMATCH</CODE>. The element of <CODE>BASH_REMATCH</CODE> with index 0 is the portion of the string matching the entire regular expression. The element of <CODE>BASH_REMATCH</CODE> with index <VAR>n</VAR> is the portion of the string matching the <VAR>n</VAR>th parenthesized subexpression. </FONT></P>
+<P><FONT class=extract>Expressions may be combined using the following operators, listed in decreasing order of precedence: </FONT></P>
+<DL compact>
+<DT><FONT class=extract><CODE>( <VAR>expression</VAR> )</CODE> </FONT>
+<DD>
+<P><FONT class=extract>Returns the value of <VAR>expression</VAR>. This may be used to override the normal precedence of operators. </FONT></P>
+<DT><FONT class=extract><CODE>! <VAR>expression</VAR></CODE> </FONT>
+<DD>
+<P><FONT class=extract>True if <VAR>expression</VAR> is false. </FONT></P>
+<DT><FONT class=extract><CODE><VAR>expression1</VAR> &amp;&amp; <VAR>expression2</VAR></CODE> </FONT>
+<DD>
+<P><FONT class=extract>True if both <VAR>expression1</VAR> and <VAR>expression2</VAR> are true. </FONT></P>
+<DT><FONT class=extract><CODE><VAR>expression1</VAR> || <VAR>expression2</VAR></CODE> </FONT>
+<DD>
+<P><FONT class=extract>True if either <VAR>expression1</VAR> or <VAR>expression2</VAR> is true. </FONT></P></DD></DL>
+<P><FONT class=extract>The <CODE>&amp;&amp;</CODE> and <CODE>||</CODE> operators do not evaluate <VAR>expression2</VAR> if the value of <VAR>expression1</VAR> is sufficient to determine the return value of the entire conditional expression.</FONT> </P></DD></DL>
+<HR>
+
+<DIV class=header>
+<P>Next: <A accessKey=n href="http://www.gnu.org/software/bash/manual/html_node/Command-Grouping.html#Command-Grouping" rel=next>Command Grouping</A>, Previous: <A accessKey=p href="http://www.gnu.org/software/bash/manual/html_node/Looping-Constructs.html#Looping-Constructs" rel=previous>Looping Constructs</A>, Up: <A accessKey=u href="http://www.gnu.org/software/bash/manual/html_node/Compound-Commands.html#Compound-Commands" rel=up>Compound Commands</A> &nbsp; [<A title="Table of contents" href="http://www.gnu.org/software/bash/manual/html_node/index.html#SEC_Contents" rel=contents>Contents</A>][<A title=Index href="http://www.gnu.org/software/bash/manual/html_node/Indexes.html#Indexes" rel=index>Index</A>]</P></DIV>

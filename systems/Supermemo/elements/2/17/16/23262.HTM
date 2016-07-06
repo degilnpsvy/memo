@@ -1,0 +1,105 @@
+<H3 id=title-IDAQJD3D class=docSection1Title>9.2. ext2</H3>
+<P class=docText>Building on the example of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec1.html#ch09list01">Listing 9-1</A>, we need to format the partitions created with fdisk. To do so, we use the Linux mke2fs utility. mke2fs is similar to the familiar DOS format command. This utility makes a file system of type ext2 on the specified partition. mke2fs is specific to the ext2 file system; other file systems have their own versions of these utilities. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list02">Listing 9-2</A> captures the output of this process.</P>
+<P class=docText></P><A name=ch09list02></A>
+<H5 id=title-IDAOKD3D class=docExampleTitle>Listing 9-2. Formatting a Partition Using mke2fs</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>mke2fs /dev/sdb1 -L CFlash_Boot_Vol</SPAN>
+mke2fs 1.37 (21-Mar-2005)
+Filesystem label=CFlash_Boot_Vol
+OS type: Linux
+Block size=1024 (log=0)
+Fragment size=1024 (log=0)
+2880 inodes, 11504 blocks
+575 blocks (5.00%) reserved for the super user
+First data block=1
+Maximum filesystem blocks=11796480
+2 block groups
+8192 blocks per group, 8192 fragments per group
+1440 inodes per group
+Superblock backups stored on blocks:
+         8193
+
+Writing inode tables: done
+Writing superblocks and filesystem accounting information: done
+
+This filesystem will be automatically checked every 39 mounts or
+180 days, whichever comes first.  Use tune2fs -c or -i to override.
+#
+</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1076></A><A name=iddle1454></A><A name=iddle1455></A><A name=iddle1560></A><A name=iddle1561></A><A name=iddle1909></A><A name=iddle2182></A><A name=iddle2183></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list02">Listing 9-2</A> contains a great deal of detail relating to the ext2 file system and provides an excellent way to begin to understand its operational characteristics. Note that this partition was formatted as type <TT>ext2</TT> with a volume label of <TT>CFlash_Boot_Vol</TT>. It was created on a Linux partition (<TT>OS Type:</TT>) with a block size of 1024 bytes. Space was allocated for 2,880 inodes, occupying 11,504 blocks. An inode is the fundamental data structure representing a single file. For more detailed information about the internal structure of the ext2 file system, the reader is directed to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec11.html#ch09lev2sec7">Section 9.11.1</A> at the end of this chapter.</P>
+<P class=docText>Looking at the output of mke2fs in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list02">Listing 9-2</A>, we can ascertain certain characteristics of how the storage device is organized. We already know that the block size is 1024 bytes. If necessary for your particular application, mke2fs can be instructed to format an ext2 file system with different block sizes. Current implementations allow block sizes of 1,024, 2,048, and 4,096 blocks.</P>
+<P class=docText>Block size is always a compromise for best performance. On one hand, large block sizes waste more space on disks with many files because each file must fit into an integral number of blocks. Any leftover fragment above <TT>block_size * n</TT> must <A name=iddle1427></A><A name=iddle1430></A><A name=iddle1446></A><A name=iddle2105></A><A name=iddle2106></A><A name=iddle2107></A><A name=iddle2111></A><A name=iddle2112></A><A name=iddle2602></A><A name=iddle2603></A>occupy another full block, even if only 1 byte. On the other hand, very small block sizes increase the file system overhead of managing the metadata that describes the block-to-file mapping. Benchmark testing on your particular hardware implementation is the only way to be sure you have selected an optimum block size.</P><A name=ch09lev2sec2></A>
+<H4 id=title-IDA5RD3D class=docSection2Title>9.2.1. Mounting a File System</H4>
+<P class=docText>After a file system has been created, we can mount that file system on a running Linux system, provided that we have access to the hardware device and that the kernel has been compiled with support for our particular file system type, either as a compiled-in module or a dynamically loadable module. The following command mounts the previously created ext2 file system on a mount point that we specify:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>mount /dev/sdb1 /mnt/flash</SPAN></PRE></DIV><BR>
+<P class=docText>This example assumes that we have a directory created on our target Linux machine called <TT>/mnt/flash</TT>. This is called the mount point because we are installing (mounting) the file system rooted at this point in our file system hierarchy. We are mounting the Flash device described earlier that the kernel assigned to the device <TT>/dev/sdb1</TT>. On a typical Linux desktop (development) machine, we need to have root privileges to execute this command.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch092">[2]</A></SUP> The mount point is any place on your file system that you decide, which becomes the top level (root) of your newly mounted device. In the previous example, to reference any files on your Flash device, you must prefix the path with <TT>/mnt/flash</TT>.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch092>[2]</A></SUP> File systems can be made mountable by nonroot users, as with <TT>cdrom</TT>.</P></BLOCKQUOTE>
+<P class=docText>The <TT>mount</TT> command is a powerful command, with many options. Many of the options that <TT>mount</TT> accepts depend on the target file system type of the <TT>mount</TT> operation. Most of the time, <TT>mount</TT> can determine the type of file system on a properly formatted file system known to the kernel. We provide additional usage examples for the <TT>mount</TT> command as we proceed through this chapter.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list03">Listing 9-3</A> displays the directory contents of a Flash device configured for an arbitrary embedded system.</P>
+<P class=docText></P><A name=ch09list03></A>
+<H5 id=title-IDAAUD3D class=docExampleTitle>Listing 9-3. Flash Device Listing</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ls -l /mnt/flash</SPAN>
+total 24
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 bin
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 boot
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 dev
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 etc
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 home
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 lib
+drwx------  2 root root 12288 Jul 17 13:02 lost+found
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 proc
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 root
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 sbin
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 tmp
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 usr
+drwxr-xr-x  2 root root  1024 Jul 18 20:18 var
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1370></A><A name=iddle1371></A><A name=iddle1422></A><A name=iddle1423></A><A name=iddle1444></A><A name=iddle1674></A><A name=iddle1675></A><A name=iddle1908></A><A name=iddle2594></A><A name=iddle2595></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list03">Listing 9-3</A> is an example of what an embedded systems root file system might look like at the top (root) level. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch06.html#ch06">Chapter 6</A>, "System Initialization," provides guidance and examples for how to determine the contents of the root file system.</P><A name=ch09lev2sec3></A>
+<H4 id=title-IDAPYD3D class=docSection2Title>9.2.2. Checking File System Integrity</H4>
+<P class=docText>The <TT>e2fsck</TT> command is used to check the integrity of an ext2 file system. A file system can become corrupted for several reasons, but by far the most common reason is an unexpected power failure or intentional power-down without first closing all open files and unmounting the file systems. Linux distributions perform these operations during the shutdown sequence (assuming an orderly shutdown of the system). However, when we are dealing with embedded systems, unexpected power-downs are common, and we need to provide some defensive measures against these cases. <TT>e2fsck</TT> is our first line of defense for unexpected power-down using the ext2 file system.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list04">Listing 9.4</A> shows the output of <TT>e2fsck</TT> run on our CompactFlash from the previous examples. It has been formatted and properly unmounted; there should be no errors.</P>
+<P class=docText></P><A name=ch09list04></A>
+<H5 id=title-IDAOZD3D class=docExampleTitle>Listing 9-4. Clean File System Check</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>e2fsck /dev/sdb1</SPAN>
+e2fsck 1.37 (21-Mar-2005)
+CFlash_Boot_Vol: clean, 23/2880 files, 483/11504 blocks
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1372></A><A name=iddle1424></A><A name=iddle1676></A><A name=iddle1862></A><A name=iddle1873></A><A name=iddle2596></A>The <TT>e2fsck</TT> utility checks several aspects of the file system for consistency. If no issues are found, <TT>e2fsck</TT> issues a message similar to that shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list04">Listing 9-4</A>. Note that <TT>e2fsck</TT> should be run only on an unmounted file system. Although it is possible to run it on a mounted file system, doing so can cause significant damage to internal file system structures on the disk or Flash device.</P>
+<P class=docText>To create a more interesting example, <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list05">Listing 9-5</A> was created by pulling the CompactFlash device out of its socket while still mounted. We intentionally created a file and editing session on that file before removing it from the system. This can result in corruption of the data structures describing the file, as well as the actual data blocks containing the file's data.</P><A name=ch09list05></A>
+<H5 id=title-IDA42D3D class=docExampleTitle>Listing 9-5. Corrupted File System Check</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>e2fsck -y /dev/sdb1</SPAN>
+e2fsck 1.37 (21-Mar-2005)
+/dev/sdb1 was not cleanly unmounted, check forced.
+Pass 1: Checking inodes, blocks, and sizes
+Inode 13, i_blocks is 16, should be 8.  Fix? yes
+
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+
+/dev/sdb1: ***** FILE SYSTEM WAS MODIFIED *****
+/dev/sdb1: 25/2880 files (4.0% non-contiguous), 488/11504 blocks
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch09list05">Listing 9-5</A>, you can see that <TT>e2fsck</TT> detected that the CompactFlash was not cleanly unmounted. Furthermore, you can see the processing on the file system during <TT>e2fsck</TT> checking. The <TT>e2fsck</TT> utility makes five passes over the file system, checking various elements of the internal file system's data structures. An error <A name=iddle1426></A><A name=iddle1431></A><A name=iddle1433></A><A name=iddle1449></A><A name=iddle1451></A><A name=iddle1460></A><A name=iddle1653></A><A name=iddle1700></A><A name=iddle2468></A><A name=iddle2519></A><A name=iddle2608></A><A name=iddle2629></A>associated with a file, identified by inode <SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec2.html#ch093">[3]</A></SUP> 13, was automatically fixed because the <TT>-y</TT> flag was included on the <TT>e2fsck</TT> command line.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch093>[3]</A></SUP> A file on a file system is represented by an internal ext2 data structure called an inode.</P></BLOCKQUOTE>
+<P class=docText>Of course, in a real system, you might not be this lucky. Some types of file system errors are not repairable using <TT>e2fsck</TT>. Moreover, the embedded system designer should understand that if power has been removed without proper shutdown, the boot cycle can be delayed by the length of time it takes to scan your boot device and repair any errors. Indeed, if these errors are not repairable, the system boot is halted and manual intervention is indicated. Furthermore, it should be noted that if your file system is large, the file system check (<TT>fsck</TT>) can take minutes or even hours for large multigigabyte file systems.</P>
+<P class=docText>Another defense against file system corruption is to ensure that writes are committed to disk immediately when written. The <TT>sync</TT> utility can be used to force all queued I/O requests to be committed to their respective devices. One strategy to minimize the window of vulnerability for data corruption from unexpected power loss or drive failure is to issue the <TT>sync</TT> command after every file write or strategically as needed by your application requirements. The trade-off here is, of course, a performance penalty. Deferring disk writes is a performance optimization used in all modern operating systems. Using <TT>sync</TT> effectively defeats this optimization.</P>
+<P class=docText>The ext2 file system has matured as a fast, efficient, and robust file system for Linux systems. However, if you need the additional reliability of a journaling file system, or if boot time after unclean shutdown is an issue in your design, you should consider the ext3 file system.

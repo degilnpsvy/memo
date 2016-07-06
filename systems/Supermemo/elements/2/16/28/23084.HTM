@@ -1,0 +1,298 @@
+<H3 id=-100000 class=docSection1Title>Class Drivers</H3>
+<P class=docText><A name=iddle1476></A><A name=iddle2207></A><A name=iddle2235></A><A name=iddle4416></A><A name="The USB"></A>The USB specification introduces the concept of device classes and describes the functionality of each class driver. Examples of standard device classes include mass storage, networking, hubs, serial converters, audio, video, imaging, modems, printers, and <SPAN class=docEmphasis>human interface devices</SPAN><A name="are generic"></A> (HIDs). Class drivers are generic and let you plug and play a wide array of cards without the need for developing and installing drivers for every single device. The Linux-USB subsystem includes support for major class drivers.</P>
+<P class=docText><A name="USB device"></A>Each USB device has a class and a subclass code. The mass storage class (<TT>0x08</TT>), for example, supports subclasses such as compact disc (<TT>0x02</TT>), tape (<TT>0x03</TT>), and solid-state <A name=iddle1475></A><A name=iddle2906></A><A name=iddle3899></A><A name=iddle4025></A><A name=iddle4415></A>storage (<TT>0x06</TT>). As you saw previously, device drivers populate the <TT>usb_device_id</TT><A name="glean a"></A> structure with the classes and subclasses they support. You can glean a device's class and subclass information by looking at the "I:" lines in the <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN> output.</P>
+<P class=docText><A name="important class"></A>Let's take a look at some important class drivers.</P><A name=ch11lev2sec12></A>
+<H4 id=title-ID0EAXPM class=docSection2Title>Mass Storage</H4>
+<P class=docText><A name="floppy drives"></A>In USB parlance, mass storage refers to USB hard disks, pen drives, CD-ROMs, floppy drives, and similar storage devices. USB mass storage devices adhere to the <SPAN class=docEmphasis>Small Computer System Interface</SPAN><A name="to USB"></A> (SCSI) protocol to communicate with host systems. Block access to USB storage devices is hence routed through the kernel's SCSI subsystem. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11fig05">Figure 11.4</A><A name="and SCSI"></A> provides you an overview of the interaction between USB storage and SCSI subsystems. As shown in the figure, the SCSI subsystem is architected into three layers:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="such as"></A>Top-level drivers for devices such as disks (<SPAN class=docEmphasis>sd.c</SPAN>) and CD-ROMs (<SPAN class=docEmphasis>sr.c</SPAN>)</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="that scans"></A>A middle-level layer that scans the bus, configures devices, and glues top-level drivers to low-level drivers</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="SCSI adapter"></A>Low-level SCSI adapter drivers</P></DIV></LI></OL></DIV><A name=ch11fig05></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="mass storage"></A>Figure 11.4. USB mass storage and SCSI.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZy5wX2xjc2kwMXQvNTFoZmlnaWFm.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzVmMWhpZ2Y-.jpg" width=500 height=647>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="mass storage"></A>The mass storage driver registers itself as a virtual SCSI adapter. The virtual adapter communicates upstream via SCSI commands and downstream using URBs. A USB disk appears to higher layers as a SCSI device attached to this virtual adapter.</P>
+<P class=docText><A name="SCSI layers"></A>To better understand the interactions between the USB and SCSI layers, let's implement a modification to the USB mass storage driver. The <SPAN class=docEmphasis>usbfs</SPAN> node <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN><A name="details of"></A>, contains the properties and connection details of all USB devices attached to the system. The "T:" line in the <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN><A name="operational speed"></A> output, for example, contains the bus number, the device's depth from the root hub, operational speed, and so on. The "P:" line contains the vendor ID, product ID, and revision number of the device. All the information available in <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN><A name="is one"></A> is managed by the USB subsystem, but there is one piece missing that is under the jurisdiction of the SCSI subsystem. The <SPAN class=docEmphasis>/dev</SPAN> node name associated with the USB storage device (<SPAN class=docEmphasis>sd[a-z][1-9]</SPAN> for disks and <SPAN class=docEmphasis>sr[0-9]</SPAN> for CD-ROMs) is not available in <SPAN class=docEmphasis>/proc/bus/usb/devices.</SPAN> To overcome this limitation, let's add an "N:" line that displays the <SPAN class=docEmphasis>/dev</SPAN> node name associated with the device. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11ex05">Listing 11.6</A><A name="source patch"></A> shows the necessary code changes in the form of a source patch to the 2.6.23.1 kernel tree.<A name=iddle1759></A><A name=iddle4524></A></P>
+<P class=docText></P><A name=ch11ex05></A>
+<H5 id=title-ID0EY1PM class=docExampleTitle>Listing 11.6. Adding a Disk's <SPAN class=docEmphasis>/dev</SPAN> Name to usbfs</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong><SPAN class=docEmphasis>include/scsi/scsi_host.h</SPAN>:</SPAN>
+struct Scsi_Host {
+  /* ... */
+  void *shost_data;
+<SPAN class=docEmphStrong>+ char snam[8];      /* <SPAN class=docEmphasis>/dev</SPAN> node name for this disk */</SPAN>
+  /* ... */
+};
+
+
+<SPAN class=docEmphStrong><SPAN class=docEmphasis>drivers/usb/storage/usb.h</SPAN>:</SPAN>
+struct us_data {
+  /* ... */
+<SPAN class=docEmphStrong>+ char magic[4];</SPAN>
+};
+
+
+<SPAN class=docEmphStrong><SPAN class=docEmphasis>include/linux/usb.h</SPAN>:</SPAN>
+struct usb_interface {
+  /* ... */
+<SPAN class=docEmphStrong>+ void *private_data;</SPAN>
+};
+
+
+<SPAN class=docEmphStrong><SPAN class=docEmphasis>drivers/usb/storage/usb.c</SPAN>:</SPAN>
+static int storage_probe(struct usb_interface *intf,
+                       const struct usb_device_id *id)
+{
+  /* ... */
+  memset(us, 0, sizeof(struct us_data));
+<SPAN class=docEmphStrong>+ intf-&gt;private_data = (void *) us;</SPAN>
+<SPAN class=docEmphStrong>+ strncpy(us-&gt;magic, "disk", 4);</SPAN>
+  mutex_init(&amp;(us-&gt;dev_mutex));
+  /* ... */
+}
+
+
+<SPAN class=docEmphStrong><SPAN class=docEmphasis>drivers/scsi/sd.c</SPAN>:</SPAN>
+static int sd_probe(struct device *dev)
+{
+  /* ... */
+  add_disk(gd);
+<SPAN class=docEmphStrong>+ memset(sdp-&gt;host-&gt;snam,0, sizeof(sdp-&gt;host-&gt;snam));</SPAN>
+<SPAN class=docEmphStrong>+ strncpy(sdp-&gt;host-&gt;snam, gd-&gt;disk_name, 3);</SPAN>
+  sdev_printk(KERN_NOTICE, sdp, "Attached scsi %sdisk %s\n",
+              sdp-&gt;removable ? "removable " : "", gd-&gt;disk_name);
+  /* ... */
+}
+
+<SPAN class=docEmphStrong><SPAN class=docEmphasis>drivers/scsi/sr.c</SPAN>:</SPAN>
+static int sr_probe(struct device *dev)
+{
+  /* ... */
+  add_disk(disk);
+<SPAN class=docEmphStrong>+ memset(sdev-&gt;host-&gt;snam,0, sizeof(sdev-&gt;host-&gt;snam));</SPAN>
+<SPAN class=docEmphStrong>+ strncpy(sdev-&gt;host-&gt;snam, cd-&gt;cdi.name, 3);</SPAN>
+  sdev_printk(KERN_DEBUG, sdev, "Attached scsi CD-ROM %s\n",
+              cd-&gt;cdi.name);
+  /* ... */
+}
+
+<SPAN class=docEmphStrong><SPAN class=docEmphasis>drivers/usb/core/devices.c</SPAN>:</SPAN>
+  /* ... */
+  #include <ASM uaccess.h="">
+<SPAN class=docEmphStrong>+ #include <SCSI scsi_host.h=""></SCSI></SPAN>
+<SPAN class=docEmphStrong>+ #include "../storage/usb.h"</SPAN>
+
+static ssize_t usb_device_dump(char __user **buffer, size_t *nbytes,
+                         loff_t *skip_bytes, loff_t *file_offset,
+                         struct usb_device *usbdev,
+                         struct usb_bus *bus, int level,
+                         int index, int count)
+{
+  /* ... */
+  ssize_t total_written = 0;
+<SPAN class=docEmphStrong>+ struct us_data *us_d;</SPAN>
+<SPAN class=docEmphStrong>+ struct Scsi_Host *s_h;</SPAN>
+  /* ... */
+  data_end = pages_start + sprintf(pages_start, format_topo,
+                                   bus-&gt;busnum, level,
+                                   parent_devnum,
+                                   index, count, usbdev-&gt;devnum,
+                                   speed, usbdev-&gt;maxchild);
+<SPAN class=docEmphStrong>+ /* Assume this device supports only one interface */</SPAN>
+<SPAN class=docEmphStrong>+ us_d =  (struct us_data *)</SPAN>
+<SPAN class=docEmphStrong>+           (usbdev-&gt;actconfig-&gt;interface[0]-&gt;private_data);</SPAN>
+<SPAN class=docEmphStrong>+</SPAN>
+<SPAN class=docEmphStrong>+ if ((us_d) &amp;&amp; (!strncmp(us_d-&gt;magic, "disk", 4))) {</SPAN>
+<SPAN class=docEmphStrong>+   s_h = (struct Scsi_Host *) container_of((void *)us_d</SPAN>,
+<SPAN class=docEmphStrong>+                                           struct Scsi_Host</SPAN>,
+<SPAN class=docEmphStrong>+                                           hostdata);</SPAN>
+<SPAN class=docEmphStrong>+   data_end += sprintf(data_end, "N: ");</SPAN>
+<SPAN class=docEmphStrong>+   data_end += sprintf(data_end, "Device=%.100s",s_h-&gt;snam);</SPAN>
+<SPAN class=docEmphStrong>+   if (!strncmp(s_h-&gt;snam, "sr", 2)) {</SPAN>
+<SPAN class=docEmphStrong>+     data_end += sprintf(data_end, " (CDROM)\n");</SPAN>
+<SPAN class=docEmphStrong>+   } else if (!strncmp(s_h-&gt;snam, "sd", 2)) {</SPAN>
+<SPAN class=docEmphStrong>+     data_end += sprintf(data_end, " (Disk)\n");</SPAN>
+<SPAN class=docEmphStrong>+   }</SPAN>
+<SPAN class=docEmphStrong>+ }</SPAN>
+   /* ... */
+}
+
+					  </ASM></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A name=iddle3901></A><A name=iddle4156></A>To understand <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11ex05">Listing 11.6</A><A name="code flow"></A>, let's first trace the code flow, continuing from where we left off in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec4.html#ch11lev1sec4">Enumeration</A><A name="we inserted"></A>." In that section, we inserted a USB pen drive and followed the execution train until the invocation of <TT>storage_probe()</TT><A name=the></A>, the <TT>probe()</TT><A name="the mass"></A> method of the mass storage driver. Moving further:</P><A name=ch11pro04></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText><TT>storage_probe()</TT> registers a virtual SCSI adapter by calling <TT>scsi_add_host</TT><TT>()</TT>, supplying a private data structure called <TT>us_data</TT> as argument. <TT>scsi_add_host()</TT> returns a <TT>Scsi_Host</TT> structure for this virtual adapter, with space at the end for <TT>us_data</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>It starts a kernel thread called <SPAN class=docEmphasis>usb-storage</SPAN> to handle all SCSI commands queued to the virtual adapter.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>It schedules a kernel thread called <SPAN class=docEmphasis>usb-stor-scan</SPAN> that requests the SCSI middle-level layer to scan the bus for attached devices.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>4. </B></DIV></TD>
+<TD>
+<DIV class=docText>The device scan initiated in Step 3 discovers the presence of the inserted pen drive and binds the upper-level SCSI disk driver (<SPAN class=docEmphasis>sd.c</SPAN>) to the device. This results in the invocation of the SCSI disk driver's probe method, <TT>sd_probe()</TT>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>5. </B></DIV></TD>
+<TD>
+<DIV class=docText>The <SPAN class=docEmphasis>sd</SPAN> driver allocates a <SPAN class=docEmphasis>/dev/sd*</SPAN> node to the disk. From this point on, applications use this interface to access the USB disk. The SCSI subsystem queues disk commands to the virtual adapter, which the usb-storage kernel thread handles using appropriate URBs.<BR><BR></DIV></TD></TR></TBODY></TABLE>
+<P class=docText><A name=iddle1596></A><A name="that you"></A>Now that you know the basics, let's dissect <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11ex05">Listing 11.6</A><A name=a></A>, looking at the data structure additions first. The listing adds a <TT>snam</TT> field to the <TT>Scsi_Host</TT><A name=SCSI></A> structure to hold the associated SCSI <SPAN class=docEmphasis>/dev</SPAN><A name="private field"></A> name that we are interested in. It also adds a private field to the <TT>usb_interface</TT><A name=its></A> structure to associate each USB interface with its <TT>us_data</TT>. Because <TT>us_data</TT><A name="validity of"></A> is relevant only for storage devices, we need to ensure the validity of the private field of a USB interface before accessing it as <TT>us_data</TT>. For this, <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11ex05">Listing 11.6</A><A name=to></A> adds a magic string, "disk," to <TT>us_data</TT>.</P>
+<P class=docText>The <SPAN class=docEmphasis>usbfs</SPAN> modification in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11ex05">Listing 11.6</A> (to <SPAN class=docEmphasis>drivers/usb/core/devices.c</SPAN><A name=the></A>) pulls out the <TT>us_data</TT><A name="associated with"></A> associated with each interface via the private data field of its <TT>usb_interface</TT><A name="latches on"></A>. It then latches on to the associated <TT>Scsi_Host</TT><A name=the></A> using the <TT>container_of()</TT> function, because as you saw in Step 1 previously, <TT>usb_data</TT> is glued to the end of the corresponding <TT>Scsi_Host</TT>. As you further saw in Step 5, <TT>Scsi_Host</TT> contains the <SPAN class=docEmphasis>/dev</SPAN><A name="stitches together"></A> node names that the sd and sr drivers populate. Usbfs stitches together an "N:" line using this information.</P>
+<P class=docText>The following is the <SPAN class=docEmphasis>/proc/bus/usb/devices</SPAN><A name=in></A> output after integrating the changes in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11ex05">Listing 11.6</A><A name="a Seagate"></A> and attaching a PNY USB pen drive, an Addonics CD-ROM drive, and a Seagate hard disk to a laptop via a USB hub. The "N:" lines announce the identity of the <SPAN class=docEmphasis>/dev</SPAN> node corresponding to each device:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; cat /proc/bus/usb/devices</SPAN>
+...
+T:  Bus=04 Lev=02 Prnt=02 Port=00 Cnt=01 Dev#= 3 Spd=480 MxCh= 0
+<SPAN class=docEmphStrong>N:  Device=sda(Disk)</SPAN>
+D:  Ver= 2.00 Cls=00(&gt;ifc ) Sub=00 Prot=00 MxPS=64 #Cfgs= 1
+P:  Vendor=154b ProdID=0002 Rev= 1.00
+S:  Manufacturer=PNY
+S:  Product=USB 2.0 FD
+S:  SerialNumber=6E5C07005B4F
+C:* #Ifs= 1 Cfg#= 1 Atr=80 MxPwr= 0mA
+I:* If#= 0 Alt= 0 #EPs= 2 Cls=08(stor.) Sub=06 Prot=50 Driver=usb-
+    storage
+E:  Ad=81(I) Atr=02(Bulk) MxPS= 512 Ivl=0ms
+E:  Ad=02(O) Atr=02(Bulk) MxPS= 512 Ivl=0ms
+
+T:  Bus=04 Lev=02 Prnt=02 Port=01 Cnt=02 Dev#= 5 Spd=480 MxCh= 0
+<SPAN class=docEmphStrong>N:  Device=sr0(CDROM)</SPAN>
+D:  Ver= 2.00 Cls=00(&gt;ifc ) Sub=00 Prot=00 MxPS=64 #Cfgs= 1
+P:  Vendor=0bf6 ProdID=a002 Rev= 3.00
+S:  Manufacturer=Addonics
+S:  Product=USB to IDE Cable
+S:  SerialNumber=1301011002A9AFA9
+C:* #Ifs= 1 Cfg#= 2 Atr=c0 MxPwr= 98mA
+I:* If#= 0 Alt= 0 #EPs= 3 Cls=08(stor.) Sub=06 Prot=50 Driver=usb-
+    storage
+E:  Ad=01(O) Atr=02(Bulk) MxPS= 512 Ivl=125us
+E:  Ad=82(I) Atr=02(Bulk) MxPS= 512 Ivl=0ms
+E:  Ad=83(I) Atr=03(Int.) MxPS=   2 Ivl=32ms
+
+T:  Bus=04 Lev=02 Prnt=02 Port=02 Cnt=03 Dev#= 4 Spd=480 MxCh= 0
+<SPAN class=docEmphStrong>N:  Device=sdb(Disk)</SPAN>
+D:  Ver= 2.00 Cls=00(&gt;ifc ) Sub=00 Prot=00 MxPS=64 #Cfgs= 1
+P:  Vendor=0bc2 ProdID=0501 Rev= 0.01
+S:  Manufacturer=Seagate
+S:  Product=USB Mass Storage
+S:  SerialNumber=000000062459
+C:* #Ifs= 1 Cfg#= 1 Atr=c0 MxPwr=  0mA
+I:* If#= 0 Alt= 0 #EPs= 2 Cls=08(stor.) Sub=06 Prot=50 Driver=usb-
+    storage
+E:  Ad=02(O) Atr=02(Bulk) MxPS= 512 Ivl=0ms
+E:  Ad=88(I) Atr=02(Bulk) MxPS= 512 Ivl=0ms
+...
+
+					  </PRE></DIV><BR>
+<P class=docText><A name=iddle1477></A><A name=iddle4417></A><A name=iddle4450></A><A name=allotted></A>As you can see, the SCSI subsystem has allotted <SPAN class=docEmphasis>sda</SPAN> to the pen drive, <SPAN class=docEmphasis>sr0</SPAN> to the CD-ROM, and <SPAN class=docEmphasis>sdb</SPAN><A name="with the"></A> to the hard disk. User-space applications operate on these nodes to communicate with the respective devices. As you saw in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="of udev"></A>, with the arrival of udev, however, you have the option of creating higher-level abstractions to identify each device without relying on the identity of the <SPAN class=docEmphasis>/dev</SPAN><A name="by the"></A> names allocated by the SCSI subsystem.</P><A name=ch11lev2sec13></A>
+<H4 id=title-ID0EHHAO class=docSection2Title>USB-Serial</H4>
+<P class=docText><A name="converters bring"></A>USB-to-serial converters bring serial port capabilities to your computer via USB. You can use a USB-to-serial converter, for example, to get a serial debug console from an embedded device on a development laptop that has no serial ports.</P>
+<P class=docText>In <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch06.html#ch06">Chapter 6</A><A name="the benefits"></A>, "Serial Drivers," you learned the benefits of the kernel's layered serial architecture. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11fig06">Figure 11.5</A><A name="how the"></A> illustrates how the USB-Serial layer fits into the kernel's serial framework.</P>
+<P class=docText></P><A name=ch11fig06></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 11.5. The USB-Serial layer.</H5>
+<P class=docText>
+<DIV class=st1><A href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZy5wX2xjc2kwMXQvNjFoZmlnaWFm.jpg" target=_blank>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzZmMWhpZ2Y-.jpg" width=500 height=478>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="except that"></A>A USB-serial driver is similar to other USB client drivers except that it avails the services of a USB-Serial core in addition to the USB core. The USB-Serial core provides the following:</P>
+<UL>
+<LI>
+<P class=docList><A name="converter drivers"></A>A tty driver that insulates low-level USB-to-serial converter drivers from higher serial layers such as line disciplines.</P></LI>
+<LI>
+<P class=docList>Generic <TT>probe()</TT> and <TT>disconnect()</TT> routines that individual USB-serial drivers can leverage.</P></LI>
+<LI>
+<P class=docList><A name="on USB"></A>Device nodes to access USB-serial ports from user space. Applications operate on USB-serial ports via <SPAN class=docEmphasis>/dev/ttyUSBX</SPAN>, where <SPAN class=docEmphasis>X</SPAN><A name=as></A> is the serial port number. Terminal emulators such as <SPAN class=docEmphasis>minicom</SPAN> and protocols such as PPP run unchanged over these interfaces.</P></LI></UL>
+<P class=docText><A name=iddle2115></A><A name=iddle4503></A><A name=iddle4507></A><A name=iddle4508></A>A low-level USB-to-serial converter driver essentially does the following:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Registers a <TT>usb_serial_driver</TT> structure with the USB-Serial core using <TT>usb_serial_register()</TT>. The entry points supplied as part of <TT>usb_serial_driver</TT> form the crux of the driver.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Populates a <TT>usb_driver</TT> structure and registers it with the USB core using <TT>usb_register()</TT><A name="that a"></A>. This is similar to what the example telemetry driver does, except that a serial converter driver can count on the generic <TT>probe()</TT> and <TT>disconnect()</TT><A name="the USB"></A> routines provided by the USB-Serial core.</P></DIV></LI></OL></DIV>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11ex06">Listing 11.7</A><A name="from the"></A> contains snippets from the FTDI driver (<SPAN class=docEmphasis>drivers/usb/serial/ftdi_sio.c</SPAN><A name="that accomplish"></A>) that accomplish these two registrations for USB-to-serial converters based on FTDI chipsets.</P><A name=ch11ex06></A>
+<H5 id=title-ID0ECMAO class=docExampleTitle>Listing 11.7. A Snippet from the FTDI Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>/* The usb_driver structure */
+static struct usb_driver ftdi_driver = {
+  .name          =  "ftdi_sio",           /* Name */
+  .probe         =  usb_serial_probe,     /* Provided by the
+                                             USB-Serial core */
+  .disconnect    =  usb_serial_disconnect,/* Provided by the
+                                             USB-Serial core */
+  .id_table      =  id_table_combined,    /* List of supported
+                                             devices built
+                                             around the FTDI chip */
+  .no_dynamic_id =  1,                    /* Supported ids cannot be
+                                             added dynamically */
+};
+
+/* The usb_serial_driver structure */
+static struct usb_serial_driver ftdi_sio_device = {
+  /* ... */
+  .num_ports           = 1,
+  .probe               = ftdi_sio_probe,
+  .port_probe          = ftdi_sio_port_probe,
+  .port_remove         = ftdi_sio_port_remove,
+  .open                = ftdi_open,
+  .close               = ftdi_close,
+  .throttle            = ftdi_throttle,
+  .unthrottle          = ftdi_unthrottle,
+  .write               = ftdi_write,
+  .write_room          = ftdi_write_room,
+  .chars_in_buffer     = ftdi_chars_in_buffer,
+  .read_bulk_callback  = ftdi_read_bulk_callback,
+  .write_bulk_callback = ftdi_write_bulk_callback,
+  /* ... */
+};
+
+/* Driver Initialization */
+static int __init ftdi_init(void)
+{
+   /* ... */
+   /* Register with the USB-Serial core */
+   retval = usb_serial_register(&amp;ftdi_sio_device);
+   /* ... */
+   /* Register with the USB core */
+   retval = usb_register(&amp;ftdi_driver);
+   /* ... */
+}
+
+					  </PRE><BR></TD></TR></TBODY></TABLE></P><A name=ch11lev2sec14></A>
+<H4 id=title-ID0EWMAO class=docSection2Title>Human Interface Devices</H4>
+<P class=docText><A name=iddle1273></A><A name=iddle1473></A><A name=iddle1474></A><A name=iddle2122></A><A name=iddle2208></A><A name=iddle2236></A><A name=iddle4375></A><A name=iddle4414></A><A name=iddle4428></A><A name=iddle4493></A><A name="as keyboards"></A>Devices such as keyboards and mice are called <SPAN class=docEmphasis><A name="interface devices"></A>human interface devices</SPAN> (HIDs). Take a look at the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec2.html#ch07lev3sec4">USB and Bluetooth Keyboards</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07">Chapter 7</A>, "Input Drivers," for a discussion on the USB HID class.</P><A name=ch11lev2sec15></A>
+<H4 id=title-ID0EPQAO class=docSection2Title>Bluetooth</H4>
+<P class=docText><A name="so that"></A>A USB-Bluetooth dongle is a quick way to Bluetooth-enable your computer so that it can communicate with Bluetooth-equipped devices such as cell phones, mice, or handhelds. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16.html#ch16">Chapter 16</A> discusses the USB Bluetooth class.

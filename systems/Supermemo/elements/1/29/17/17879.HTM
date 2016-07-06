@@ -1,0 +1,158 @@
+<H3 class=section>10.6 Reading the Group Database</H3><A name=index-libraries-of-awk-functions_002c-group-database_002c-reading></A><A name=index-functions_002c-library_002c-group-database_002c-reading></A><A name=index-group-database_002c-reading></A><A name=index-database_002c-group_002c-reading></A><A name=index-PROCINFO-array_002c-and-group-membership></A><A name=index-getgrent_0028_0029-function-_0028C-library_0029></A><A name=index-getgrent_0028_0029-user_002ddefined-function></A><A name=index-groups_002c-information-about></A><A name=index-account-information-1></A><A name=index-group-file></A><A name=index-files_002c-group></A>
+<P>Much of the discussion presented in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Passwd-Functions">Passwd Functions</A>, applies to the group database as well. Although there has traditionally been a well-known file (<SAMP>/etc/group</SAMP>) in a well-known format, the POSIX standard only provides a set of C library routines (<CODE>&lt;grp.h&gt;</CODE> and <CODE>getgrent()</CODE>) for accessing the information. Even though this file may exist, it may not have complete information. Therefore, as with the user database, it is necessary to have a small C program that generates the group database as its output. <CODE>grcat</CODE>, a C program that &#8220;cats&#8221; the group database, is as follows: </P><A name=index-grcat-program></A>
+<DIV class=example><PRE class=example>/*
+ * grcat.c
+ *
+ * Generate a printable version of the group database
+ */
+#include &lt;stdio.h&gt;
+#include &lt;grp.h&gt;
+
+int
+main(int argc, char **argv)
+{
+    struct group *g;
+    int i;
+
+    while ((g = getgrent()) != NULL) {
+        printf("%s:%s:%ld:", g-&gt;gr_name, g-&gt;gr_passwd,
+                                     (long) g-&gt;gr_gid);
+        for (i = 0; g-&gt;gr_mem[i] != NULL; i++) {
+            printf("%s", g-&gt;gr_mem[i]);
+</PRE><PRE class=example>            if (g-&gt;gr_mem[i+1] != NULL)
+                putchar(',');
+        }
+</PRE><PRE class=example>        putchar('\n');
+    }
+    endgrent();
+    return 0;
+}
+</PRE></DIV>
+<P>Each line in the group database represents one group. The fields are separated with colons and represent the following information: </P>
+<DL compact>
+<DT>Group Name</DT>
+<DD>
+<P>The group&#8217;s name. </P></DD>
+<DT>Group Password</DT>
+<DD>
+<P>The group&#8217;s encrypted password. In practice, this field is never used; it is usually empty or set to &#8216;<SAMP>*</SAMP>&#8217;. </P></DD>
+<DT>Group ID Number</DT>
+<DD>
+<P>The group&#8217;s numeric group ID number; this number must be unique within the file. (On some systems it&#8217;s a C <CODE>long</CODE>, and not an <CODE>int</CODE>. Thus we cast it to <CODE>long</CODE> for all cases.) </P></DD>
+<DT>Group Member List</DT>
+<DD>
+<P>A comma-separated list of user names. These users are members of the group. Modern Unix systems allow users to be members of several groups simultaneously. If your system does, then there are elements <CODE>"group1"</CODE> through <CODE>"group<VAR>N</VAR>"</CODE> in <CODE>PROCINFO</CODE> for those group ID numbers. (Note that <CODE>PROCINFO</CODE> is a <CODE>gawk</CODE> extension; see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Built_002din-Variables">Built-in Variables</A>.) </P></DD></DL>
+<P>Here is what running <CODE>grcat</CODE> might produce: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>grcat</EM></KBD>
+-| wheel:*:0:arnold
+-| nogroup:*:65534:
+-| daemon:*:1:
+-| kmem:*:2:
+-| staff:*:10:arnold,miriam,andy
+-| other:*:20:
+&#8230;
+</PRE></DIV>
+<P>Here are the functions for obtaining information from the group database. There are several, modeled after the C library functions of the same names: </P><A name=index-getline-command_002c-_005fgr_005finit_0028_0029-user_002ddefined-function></A><A name=index-_005fgr_005finit_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example># group.awk --- functions for dealing with the group file
+
+BEGIN    \
+{
+    # Change to suit your system
+    _gr_awklib = "/usr/local/libexec/awk/"
+}
+
+function _gr_init(    oldfs, oldrs, olddol0, grcat,
+                             using_fw, using_fpat, n, a, i)
+{
+    if (_gr_inited)
+        return
+
+    oldfs = FS
+    oldrs = RS
+    olddol0 = $0
+    using_fw = (PROCINFO["FS"] == "FIELDWIDTHS")
+    using_fpat = (PROCINFO["FS"] == "FPAT")
+    FS = ":"
+    RS = "\n"
+
+    grcat = _gr_awklib "grcat"
+    while ((grcat | getline) &gt; 0) {
+        if ($1 in _gr_byname)
+            _gr_byname[$1] = _gr_byname[$1] "," $4
+        else
+            _gr_byname[$1] = $0
+        if ($3 in _gr_bygid)
+            _gr_bygid[$3] = _gr_bygid[$3] "," $4
+        else
+            _gr_bygid[$3] = $0
+
+        n = split($4, a, "[ \t]*,[ \t]*")
+        for (i = 1; i &lt;= n; i++)
+            if (a[i] in _gr_groupsbyuser)
+                _gr_groupsbyuser[a[i]] = \
+                    _gr_groupsbyuser[a[i]] " " $1
+            else
+                _gr_groupsbyuser[a[i]] = $1
+
+        _gr_bycount[++_gr_count] = $0
+    }
+    close(grcat)
+    _gr_count = 0
+    _gr_inited++
+    FS = oldfs
+    if (using_fw)
+        FIELDWIDTHS = FIELDWIDTHS
+    else if (using_fpat)
+        FPAT = FPAT
+    RS = oldrs
+    $0 = olddol0
+}
+</PRE></DIV>
+<P>The <CODE>BEGIN</CODE> rule sets a private variable to the directory where <CODE>grcat</CODE> is stored. Because it is used to help out an <CODE>awk</CODE> library routine, we have chosen to put it in <SAMP>/usr/local/libexec/awk</SAMP>. You might want it to be in a different directory on your system. </P>
+<P>These routines follow the same general outline as the user database routines (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Passwd-Functions">Passwd Functions</A>). The <CODE><SPAN class=nolinebreak>_gr_inited</SPAN><!-- /@w --></CODE> variable is used to ensure that the database is scanned no more than once. The <CODE><SPAN class=nolinebreak>_gr_init()</SPAN><!-- /@w --></CODE> function first saves <CODE>FS</CODE>, <CODE>RS</CODE>, and <CODE>$0</CODE>, and then sets <CODE>FS</CODE> and <CODE>RS</CODE> to the correct values for scanning the group information. It also takes care to note whether <CODE>FIELDWIDTHS</CODE> or <CODE>FPAT</CODE> is being used, and to restore the appropriate field splitting mechanism. </P>
+<P>The group information is stored is several associative arrays. The arrays are indexed by group name (<CODE><SPAN class=nolinebreak>_gr_byname</SPAN><!-- /@w --></CODE>), by group ID number (<CODE><SPAN class=nolinebreak>_gr_bygid</SPAN><!-- /@w --></CODE>), and by position in the database (<CODE><SPAN class=nolinebreak>_gr_bycount</SPAN><!-- /@w --></CODE>). There is an additional array indexed by user name (<CODE><SPAN class=nolinebreak>_gr_groupsbyuser</SPAN><!-- /@w --></CODE>), which is a space-separated list of groups to which each user belongs. </P>
+<P>Unlike the user database, it is possible to have multiple records in the database for the same group. This is common when a group has a large number of members. A pair of such entries might look like the following: </P>
+<DIV class=example><PRE class=example>tvpeople:*:101:johnny,jay,arsenio
+tvpeople:*:101:david,conan,tom,joan
+</PRE></DIV>
+<P>For this reason, <CODE>_gr_init()</CODE> looks to see if a group name or group ID number is already seen. If it is, then the user names are simply concatenated onto the previous list of users. (There is actually a subtle problem with the code just presented. Suppose that the first time there were no names. This code adds the names with a leading comma. It also doesn&#8217;t check that there is a <CODE>$4</CODE>.) </P>
+<P>Finally, <CODE>_gr_init()</CODE> closes the pipeline to <CODE>grcat</CODE>, restores <CODE>FS</CODE> (and <CODE>FIELDWIDTHS</CODE> or <CODE>FPAT</CODE> if necessary), <CODE>RS</CODE>, and <CODE>$0</CODE>, initializes <CODE>_gr_count</CODE> to zero (it is used later), and makes <CODE>_gr_inited</CODE> nonzero. </P><A name=index-getgrnam_0028_0029-function-_0028C-library_0029></A>
+<P>The <CODE>getgrnam()</CODE> function takes a group name as its argument, and if that group exists, it is returned. Otherwise, it relies on the array reference to a nonexistent element to create the element with the null string as its value: </P><A name=index-getgrnam_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example>function getgrnam(group)
+{
+    _gr_init()
+    return _gr_byname[group]
+}
+</PRE></DIV><A name=index-getgrgid_0028_0029-function-_0028C-library_0029></A>
+<P>The <CODE>getgrgid()</CODE> function is similar; it takes a numeric group ID and looks up the information associated with that group ID: </P><A name=index-getgrgid_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example>function getgrgid(gid)
+{
+    _gr_init()
+    return _gr_bygid[gid]
+}
+</PRE></DIV><A name=index-getgruser_0028_0029-function-_0028C-library_0029></A>
+<P>The <CODE>getgruser()</CODE> function does not have a C counterpart. It takes a user name and returns the list of groups that have the user as a member: </P><A name=index-getgruser_0028_0029-function_002c-user_002ddefined></A>
+<DIV class=example><PRE class=example>function getgruser(user)
+{
+    _gr_init()
+    return _gr_groupsbyuser[user]
+}
+</PRE></DIV><A name=index-getgrent_0028_0029-function-_0028C-library_0029-1></A>
+<P>The <CODE>getgrent()</CODE> function steps through the database one entry at a time. It uses <CODE>_gr_count</CODE> to track its position in the list: </P><A name=index-getgrent_0028_0029-user_002ddefined-function-1></A>
+<DIV class=example><PRE class=example>function getgrent()
+{
+    _gr_init()
+    if (++_gr_count in _gr_bycount)
+        return _gr_bycount[_gr_count]
+    return ""
+}
+</PRE></DIV><A name=index-endgrent_0028_0029-function-_0028C-library_0029></A>
+<P>The <CODE>endgrent()</CODE> function resets <CODE>_gr_count</CODE> to zero so that <CODE>getgrent()</CODE> can start over again: </P><A name=index-endgrent_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example>function endgrent()
+{
+    _gr_count = 0
+}
+</PRE></DIV>
+<P>As with the user database routines, each function calls <CODE>_gr_init()</CODE> to initialize the arrays. Doing so only incurs the extra overhead of running <CODE>grcat</CODE> if these functions are used (as opposed to moving the body of <CODE>_gr_init()</CODE> into a <CODE>BEGIN</CODE> rule). </P>
+<P>Most of the work is in scanning the database and building the various associative arrays. The functions that the user calls are themselves very simple, relying on <CODE>awk</CODE>&#8217;s associative arrays to do work. </P>
+<P>The <CODE>id</CODE> program in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Id-Program">Id Program</A>, uses these functions.

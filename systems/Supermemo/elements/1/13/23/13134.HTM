@@ -1,0 +1,147 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>16.2.&nbsp;Mixed-Language Programs</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch16.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;16.&nbsp;Compilation and Assembly</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch16s03.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="16.2.&nbsp;Mixed-Language Programs" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286966838></A>16.2.&nbsp;Mixed-Language Programs</H2></DIV></DIV></DIV>
+<DIV class=section title="16.2.1.&nbsp;Scripting Languages">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966843></A>16.2.1.&nbsp;Scripting Languages</H3></DIV></DIV></DIV>
+<P>Scripting languages, such as Bourne shell, C-shell, and their derivatives in Unix, and Windows batch files are used mainly for running automated sequences of other programs. The content of a script consists of scripting control structures such as conditionals and loops, and internal and external commands including compiled programs, interpreted programs, and even other scripts. This is the simplest way to utilize multiple languages (the script language and whatever languages were used to write the programs run by the script).</P>
+<P>A simple script to automate the programming sequence for CS 201 might look like this:</P><PRE class=programlisting>	    #!/bin/sh
+	    
+	    ##########################################################################
+	    #   Edit a program using a primitive text editor.  This is a lousy
+	    #   way to program compared to using an integrated development environment
+	    #   but it demonstrates how scripts work in a way students can
+	    #   easily grasp.
+	    ##########################################################################
+	    
+	    again='y'
+	    while [ 0"$again" = 0"y" ]; do
+		pico asg01.java
+		javac asg01.java
+		java asg01
+		printf "Edit again? (y/n) "
+		read again
+	    done
+	    </PRE>
+<P>In the above script, pico and printf are executables written in C. The javac and java commands are written primarily in C++. The while-do-done control structure is part of the shell itself, as are some ordinary commands such as<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=command><STRONG>cd</STRONG></SPAN>.</P>
+<P>Most of the real work is done by the programs the script runs. The script only serves to organize programs into a work flow so that the user isn't manually typing the same sequence of commands repeatedly.</P></DIV>
+<DIV class=section title="16.2.2.&nbsp;The system() Function">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966870></A>16.2.2.&nbsp;The system() Function</H3></DIV></DIV></DIV>
+<P>Sometimes we want to execute another program from within a program that is not written in a scripting language. Compiled languages such as C, C++, or Fortran can use the standard library function<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=command><STRONG>system()</STRONG></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>for this purpose.</P><PRE class=programlisting>	    #include &lt;stdio.h&gt;
+	    #include &lt;stdlib.h&gt;
+	    #include &lt;sysexits.h&gt;
+	    
+	    /*
+	     *  A completely silly program demonstrating the system() function.
+	     *  This type of programming is generally to be avoided, but at times
+	     *  provides an easy method for leveraging existing programs.
+	     *  It would be better if we could use the code through library
+	     *  function calls instead of running a separate program. (This
+	     *  is often possible, since good programmers try to make their work
+	     *  available as both an API and a program).
+	     */
+	    int     main(int argc,char *argv[])
+	    
+	    {
+		int     again;
+		
+		do
+		{
+		    system("nano asg01.java");
+		    system("javac asg01.java");
+		    system("java asg01");
+		
+		    printf("Edit again? (y/n) ");
+		    again = getchar();
+		    getchar();          /* Discard newline entered after 'y' or 'n' */
+		}   while ( again == 'y' );
+		
+		return EX_OK;
+	    }
+	    </PRE>
+<P>The system() function invokes a shell as a child process and runs the argument string as a command within the shell. Hence, the command can contain redirection, pipes, and any other features supported by the shell.</P>
+<P>The APE IDE makes extensive use of this notion (not using system(), but using a similar internal implementation) to run compilers, debuggers, scripts, etc. and to run the program you are editing if compilation was successful.</P></DIV>
+<DIV class=section title="16.2.3.&nbsp;Mixing Compiled Languages">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966892></A>16.2.3.&nbsp;Mixing Compiled Languages</H3></DIV></DIV></DIV>
+<P>Compiled programs can be (and often are) written in more than one language. The key to allowing this is having a set of compilers that output machine code into<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>object files</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>in compatible formats. For instance, all object files must use the same format for a stack frame, and pass arguments in the same way so that a Fortran program can call a function written in C or vice-versa.</P>
+<P>Given a set of compatible compilers, building a multi-language program is simply a matter of compiling each file separately without linking, and then doing a separate link step later.</P><PRE class=screen>	C/C++ Source        Assembly source     Fortran source
+	    |                   |                   |
+	Preprocessor        Preprocessor?           |
+	(stream editor)         |                   |
+	cpp, m4, sed            |                   |
+	    |                   |                   |
+	Edited source       Edited source           |
+	    |                   |                   |
+	Compiler            Assembler           Compiler
+	    |                   |                   |
+	Object file         Object file         Object file
+	    |                   |                   |
+	    |                   +---------+  +------+
+	    |                             |  |
+	    +--------------------------- Linker ------------ Library files
+					    |           ( object file archives )
+					    |
+					Executable
+	    </PRE>
+<P>Suppose we have three source files written in Fortran, C, and Pascal. Exactly one of them must contain a main program, and the others contain only subprograms.</P>
+<P>A simple compile command such as<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=command><STRONG>cc file.c</STRONG></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>or<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=command><STRONG>javac file.java</STRONG></SPAN><SPAN class=Apple-converted-space>&nbsp;</SPAN>performs all the steps necessary to convert source code to an executable (preprocessing, translation, and linking). Unix compilers by convention all include a<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=option>-c</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>flag that tells the command to skip the link step, so it can be done separately later.</P><PRE class=screen>	    miller: gcc -c file1.c
+	    miller: gfortran -1 file2.f90
+	    miller: gpc -c file3.pas
+	    miller: gfortran -o myprog file1.o file2.o file3.o
+	    </PRE></DIV>
+<DIV class=section title="16.2.4.&nbsp;Hand-optimizing Compiler Output">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966966></A>16.2.4.&nbsp;Hand-optimizing Compiler Output</H3></DIV></DIV></DIV>
+<P></P></DIV>
+<DIV class=section title=16.2.5.&nbsp;Rube-Goldberg>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966976></A>16.2.5.&nbsp;Rube-Goldberg</H3></DIV></DIV></DIV>
+<P>Using too many different languages for a project will turn it into a rube Goldberg machine, driving up maintenance costs and causing more bugs. Programming in too many different languages prevents individuals from mastering any one of them to the level that they could. It also makes the project more confusing to manage, and makes it harder to hire new people to maintain and develop it. There can also be logistical issues such as compatibility issues between compilers that are supposed to work together, but don't always do so.</P>
+<P>If you can do a project reasonably well in a single language, then you should. Don't add additional languages to a project if they have a marginal benefit. Make sure the benefit is significant enough to warrant complicating the project by making it multi-language. A general-purpose compiled language like C or C++, along with appropriate libraries, will be reasonably effective for most purposes.</P>
+<P>For example, the ability to write:</P><PRE class=programlisting>	    % Matlab
+	    mata = matb * matc;
+	    </PRE>
+<P>instead of:</P><PRE class=programlisting>	    /* C */
+	    matmult(mata, matb, matc);
+	    </PRE>
+<P>is not a good reason to write part of a project in Matlab instead of C. The former may look prettier, but it offers no concrete benefit.</P>
+<P>However, there may be cases where another language has a feature that makes mixing languages easier than doing the entire project in C. For instance, Matlab has some nice multidimensional graphing capabilities that are difficult to duplicate with existing C libraries.</P>
+<P>Do the research. Try hard to stick to one language, but don't be completely pig-headed about it.</P></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch16.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch16.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch16s03.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">Chapter&nbsp;16.&nbsp;Compilation and Assembly&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;16.3.&nbsp;Homework</TD></TR></TBODY></TABLE></DIV>

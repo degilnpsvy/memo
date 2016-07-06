@@ -1,0 +1,16 @@
+concurrency protection 
+<P></P>
+<P>Case 3: Process and Interrupt Contexts, UP Machine, Preemption</P>
+<P class=docText><A name="your critical"></A><FONT class=clozed>If preemption is enabled, mere disabling of interrupts won't protect your critical region from being trampled over. There is the possibility of multiple threads simultaneously entering the critical section in process context. Referring back to </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec5.html#ch02fig02"><FONT class=clozed>Figure 2.4</FONT></A><A name="this scenario"></A><FONT class=clozed> in this scenario, Thread A and Thread B now need to protect themselves against each other in addition to guarding against Thread C. The solution apparently, is to disable kernel preemption before the start of the critical section and reenable it at the end, in addition to disabling/reenabling interrupts. For this, Thread A and Thread B use the <SPAN class=docEmphasis>irq</SPAN> variant of spinlocks:</FONT></P>
+<DIV class=docText><PRE><FONT class=clozed>unsigned long flags;
+
+Point A:
+  /* Save interrupt state.
+   * Disable interrupts - this implicitly disables preemption */
+  spin_lock_irqsave(&amp;mylock, flags);
+
+  /* ... Critical Section ... */
+
+  /* Restore interrupt state to what it was at Point A */
+  spin_unlock_irqrestore(&amp;mylock, flags);</FONT></PRE></DIV><BR>
+<P class=docText><A name="was at"></A><FONT class=clozed>Preemption state need not be explicitly restored to what it was at Point A because the kernel internally does that for you via a variable called the <SPAN class=docEmphasis><A name="preemption counter"></A>preemption counter.</SPAN></FONT><A name="gets incremented"></A><FONT class=clozed> The counter gets incremented whenever preemption is disabled (using <TT>preempt_disable()</TT></FONT><A name="gets decremented"></A><FONT class=clozed>) and gets decremented whenever preemption is enabled (using <TT>preempt_enable()</TT>). Preemption kicks in only if the counter value is zero.</FONT>

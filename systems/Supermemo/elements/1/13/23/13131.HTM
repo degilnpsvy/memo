@@ -1,0 +1,63 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>15.12.&nbsp;Other Architectures</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15s11.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;15.&nbsp;Exceptions</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15s13.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="15.12.&nbsp;Other Architectures" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286966716></A>15.12.&nbsp;Other Architectures</H2></DIV></DIV></DIV>
+<P>Exception handling varies widely Hardware or software identifies source of interrupt</P>
+<DIV class=section title="15.12.1.&nbsp;Exception Vectors">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966722></A>15.12.1.&nbsp;Exception Vectors</H3></DIV></DIV></DIV>
+<P>The MIPS processor has a single exception handler, installed at a fixed address. The exception handler is responsible for reading the cause and status registers in order to determine the source of the exception or interrupt.</P>
+<P>Older CISC architectures tend to have more sophisticated exception handling. A common feature is the use of<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>exception vectors</EM>.<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286966733></A>System that use exception vectors have separate exception handlers for different types of exceptions. At some fixed location in memory is a jump table<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=indexterm name=id286966738></A>containing the addresses of each exception handler. Each exception is assigned an index by the hardware. When exception 0 occurs, a branch occurs to the address in the first exception vector. When exception 1 occurs, a branch occurs to the address in the second vector, and so on. Each type of trap and each I/O device generates a different exception number, and as a result, and branch occurs directly to the handler for that type of trap or that device. For example, suppose the keyboard generates interrupt code 2. When a key is pressed, the address is taken from the 3rd entry in the exception vector table, and the PC is loaded with that address, which hopefully is the beginning of a handler to read keyboard input.</P><PRE class=screen>		    +-------+
+	    0000    | 0800  | vector 0
+	    0002    | 0846  | vector 1
+	    0006    | 08f2  | vector 2
+	    0008    |       |
+		    |       |
+		    ...
+	    08f2    |       | beginning of keyboard interrupt handler
+		    |       |
+		    ...
+		    +-------+
+	    </PRE>
+<P>The process or enabling exceptions in a system with vectors is much like the process for the MIPS, with one additional step: after loading the exception handler for a device, we must place the address of the handler in the appropriate vector before enabling interrupts.</P>
+<P>The Intel x86 and ARM architectures are examples of real architectures that use exception vectors.</P></DIV>
+<DIV class=section title="15.12.2.&nbsp;Priority Interrupts">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286966749></A>15.12.2.&nbsp;Priority Interrupts</H3></DIV></DIV></DIV>
+<P>Many real-time embedded processors use a simple scheme that gives priority to certain types of exceptions over others. As noted earlier, exception handlers are often not reentrant, so all exceptions are temporarily disabled until the handler returns to the interrupted program. This can pose a problem in real-time systems, since some devices require immediate action that cannot wait until the handler for another device completes. If all devices used the same exception handler, this handler would have to be reentrant, which would make programming difficult.</P>
+<P>One solution to this problem is to assign different priorities to different exceptions. This allows some exceptions to interrupt the exception handlers of others.</P>
+<P>One example of this scheme is used by the PIC 18f8520 microcontroller in the Vex robotics controller unit. The controller unit contains two PIC MCUs, called the master processor and the user processor. The master processor is dedicated to sending PWM (pulse width modulation) signals to the motor/servo ports, and to processing input from the radio control unit. These activities require a significant amount of the CPU cycles a PIC 18f8520 can provide, so it was decided to use a second processor just for this.</P>
+<P>The user processor runs the user's program. It reads sensor values directly from the I/O ports on the controller, but gets information about the radio control status (joystick and button positions) from the master processor. It also sends motor power level information to the master processor, which then generates the appropriate PWM signals.</P>
+<P>The communication link between the master and user processors is a<SPAN class=Apple-converted-space>&nbsp;</SPAN><A class=ulink href="http://en.wikipedia.org/wiki/Serial_Peripheral_Interface_Bus" target=_top>Serial Peripheral Interface (SPI) bus</A>. The SPI bus is a very simple and relatively high-speed link between components in the same device (often on the same circuit board).</P>
+<P>The Vex master processor sends 30-byte packets of information to the user processor every 18.5 milliseconds. Characters within a packet are transmitted every 16<SPAN class=Apple-converted-space>&nbsp;</SPAN><SPAN class=emphasis><EM>microseconds</EM></SPAN>, and each character generates a separate interrupt. Since the PIC MCU in the Vex controller executes about 10 million instructions per second, the user processor must complete processing of each character in the data packet within 160 instruction cycles. It is critical that every character in a packets is received correctly, otherwise bytes in the packet may be out of place, and misinterpreted, which could result in erratic robot behavior. This could in turn lead to property damage or injuries.</P>
+<P>The PIC processor has two interrupt levels, high and low. In order to ensure real-time processing of the SPI data, SPI interrupts are serviced by the high-priority interrupt handler. All other interrupts, such as those generated by the sonar sensor, shaft encoders, etc. are low-priority, and are handled by one large interrupt handler (which may well use more than 160 instruction cycles). Even if the user processor is in the process of handling a sonar sensor interrupt, if SPI data arrives, it will be immediately serviced since the high-priority interrupt can interrupt the low-priority handler.</P>
+<P>Nothing can interrupt the high-priority handler, so provided that it works properly, all packets will be received intact. It is possible, in theory, that the low-priority handler could miss an interrupt occasionally. Since devices like sonar sensors and shaft encoders don't generate interrupts nearly as fast as an SPI bus, this is very unlikely, however. Also, since it is not usually critical that the information from sensors is 100% accurate, missing one occasionally is generally acceptable. If one sonar echo is misread, the next one (which arrives milliseconds later) will probably correct the robot's response without the driver even noticing a glitch.</P></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15s11.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch15s13.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">15.11.&nbsp;Interrupts and Queues&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;15.13.&nbsp;Homework</TD></TR></TBODY></TABLE></DIV>

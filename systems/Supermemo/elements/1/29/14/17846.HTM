@@ -1,0 +1,179 @@
+<H4 class=subsection>9.1.5 Time Functions</H4><A name=index-time-functions></A><A name=index-timestamps></A><A name=index-log-files_002c-timestamps-in></A><A name=index-files_002c-log_002c-timestamps-in></A><A name=index-gawk_002c-timestamps></A><A name=index-POSIX-awk_002c-timestamps-and></A>
+<P><CODE>awk</CODE> programs are commonly used to process log files containing timestamp information, indicating when a particular log record was written. Many programs log their timestamp in the form returned by the <CODE>time()</CODE> system call, which is the number of seconds since a particular epoch. On POSIX-compliant systems, it is the number of seconds since 1970-01-01 00:00:00 UTC, not counting leap seconds.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT52" name=DOCF52><SUP>52</SUP></A> All known POSIX-compliant systems support timestamps from 0 through 2^31 - 1, which is sufficient to represent times through 2038-01-19 03:14:07 UTC. Many systems support a wider range of timestamps, including negative timestamps that represent times before the epoch. </P><A name=index-date-utility_002c-GNU></A><A name=index-time_002c-retrieving></A>
+<P>In order to make it easier to process such log files and to produce useful reports, <CODE>gawk</CODE> provides the following functions for working with timestamps. They are <CODE>gawk</CODE> extensions; they are not specified in the POSIX standard.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT53" name=DOCF53><SUP>53</SUP></A> However, recent versions of <CODE>mawk</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Other-Versions">Other Versions</A>) also support these functions. Optional parameters are enclosed in square brackets ([ ]): </P>
+<DL compact>
+<DT><CODE>mktime(<VAR>datespec</VAR>)</CODE> 
+<DD><A name=index-mktime_0028_0029-function-_0028gawk_0029></A><A name=index-generate-time-values></A>
+<P>Turn <VAR>datespec</VAR> into a timestamp in the same form as is returned by <CODE>systime()</CODE>. It is similar to the function of the same name in ISO C. The argument, <VAR>datespec</VAR>, is a string of the form <CODE>"<VAR>YYYY</VAR>&nbsp;<VAR>MM</VAR>&nbsp;<VAR>DD</VAR>&nbsp;<VAR>HH</VAR>&nbsp;<VAR>MM</VAR>&nbsp;<VAR>SS</VAR>&nbsp;[<VAR>DST</VAR>]"</CODE><!-- /@w -->. The string consists of six or seven numbers representing, respectively, the full year including century, the month from 1 to 12, the day of the month from 1 to 31, the hour of the day from 0 to 23, the minute from 0 to 59, the second from 0 to 60,<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT54" name=DOCF54><SUP>54</SUP></A> and an optional daylight-savings flag. </P>
+<P>The values of these numbers need not be within the ranges specified; for example, an hour of -1 means 1 hour before midnight. The origin-zero Gregorian calendar is assumed, with year 0 preceding year 1 and year -1 preceding year 0. The time is assumed to be in the local timezone. If the daylight-savings flag is positive, the time is assumed to be daylight savings time; if zero, the time is assumed to be standard time; and if negative (the default), <CODE>mktime()</CODE> attempts to determine whether daylight savings time is in effect for the specified time. </P>
+<P>If <VAR>datespec</VAR> does not contain enough elements or if the resulting time is out of range, <CODE>mktime()</CODE> returns -1. </P><A name=index-gawk_002c-PROCINFO-array-in-2></A><A name=index-PROCINFO-array-1></A>
+<DT><CODE>strftime(<SPAN class=roman><FONT face=Batang>[</FONT></SPAN><VAR>format</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>timestamp</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>utc-flag</VAR><SPAN class=roman><FONT face=Batang>]]]</FONT></SPAN>)</CODE> 
+<DD><A name=index-strftime_0028_0029-function-_0028gawk_0029></A><A name=index-format-time-string></A>
+<P>Format the time specified by <VAR>timestamp</VAR> based on the contents of the <VAR>format</VAR> string and return the result. It is similar to the function of the same name in ISO C. If <VAR>utc-flag</VAR> is present and is either nonzero or non-null, the value is formatted as UTC (Coordinated Universal Time, formerly GMT or Greenwich Mean Time). Otherwise, the value is formatted for the local time zone. The <VAR>timestamp</VAR> is in the same format as the value returned by the <CODE>systime()</CODE> function. If no <VAR>timestamp</VAR> argument is supplied, <CODE>gawk</CODE> uses the current time of day as the timestamp. If no <VAR>format</VAR> argument is supplied, <CODE>strftime()</CODE> uses the value of <CODE>PROCINFO["strftime"]</CODE> as the format string (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Built_002din-Variables">Built-in Variables</A>). The default string value is <CODE>"%a&nbsp;%b&nbsp;%e&nbsp;%H:%M:%S&nbsp;%Z&nbsp;%Y"<!-- /@w --></CODE>. This format string produces output that is equivalent to that of the <CODE>date</CODE> utility. You can assign a new value to <CODE>PROCINFO["strftime"]</CODE> to change the default format; see below for the various format directives. </P>
+<DT><CODE>systime()</CODE> 
+<DD><A name=index-systime_0028_0029-function-_0028gawk_0029></A><A name=index-timestamps-1></A><A name=index-current-system-time></A>
+<P>Return the current time as the number of seconds since the system epoch. On POSIX systems, this is the number of seconds since 1970-01-01 00:00:00 UTC, not counting leap seconds. It may be a different number on other systems. </P></DD></DL>
+<P>The <CODE>systime()</CODE> function allows you to compare a timestamp from a log file with the current time of day. In particular, it is easy to determine how long ago a particular record was logged. It also allows you to produce log records using the &#8220;seconds since the epoch&#8221; format. </P><A name=index-converting_002c-dates-to-timestamps></A><A name=index-dates_002c-converting-to-timestamps></A><A name=index-timestamps_002c-converting-dates-to></A>
+<P>The <CODE>mktime()</CODE> function allows you to convert a textual representation of a date and time into a timestamp. This makes it easy to do before/after comparisons of dates and times, particularly when dealing with date and time data coming from an external source, such as a log file. </P>
+<P>The <CODE>strftime()</CODE> function allows you to easily turn a timestamp into human-readable information. It is similar in nature to the <CODE>sprintf()</CODE> function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#String-Functions">String Functions</A>), in that it copies nonformat specification characters verbatim to the returned string, while substituting date and time values for format specifications in the <VAR>format</VAR> string. </P><A name=index-format-specifiers_002c-strftime_0028_0029-function-_0028gawk_0029></A>
+<P><CODE>strftime()</CODE> is guaranteed by the 1999 ISO C standard<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT55" name=DOCF55><SUP>55</SUP></A> to support the following date format specifications: </P>
+<DL compact>
+<DT><CODE>%a</CODE> 
+<DD>
+<P>The locale&#8217;s abbreviated weekday name. </P>
+<DT><CODE>%A</CODE> 
+<DD>
+<P>The locale&#8217;s full weekday name. </P>
+<DT><CODE>%b</CODE> 
+<DD>
+<P>The locale&#8217;s abbreviated month name. </P>
+<DT><CODE>%B</CODE> 
+<DD>
+<P>The locale&#8217;s full month name. </P>
+<DT><CODE>%c</CODE> 
+<DD>
+<P>The locale&#8217;s &#8220;appropriate&#8221; date and time representation. (This is &#8216;<SAMP>%A %B %d %T %Y</SAMP>&#8217; in the <CODE>"C"</CODE> locale.) </P>
+<DT><CODE>%C</CODE> 
+<DD>
+<P>The century part of the current year. This is the year divided by 100 and truncated to the next lower integer. </P>
+<DT><CODE>%d</CODE> 
+<DD>
+<P>The day of the month as a decimal number (01&#8211;31). </P>
+<DT><CODE>%D</CODE> 
+<DD>
+<P>Equivalent to specifying &#8216;<SAMP>%m/%d/%y</SAMP>&#8217;. </P>
+<DT><CODE>%e</CODE> 
+<DD>
+<P>The day of the month, padded with a space if it is only one digit. </P>
+<DT><CODE>%F</CODE> 
+<DD>
+<P>Equivalent to specifying &#8216;<SAMP>%Y-%m-%d</SAMP>&#8217;. This is the ISO 8601 date format. </P>
+<DT><CODE>%g</CODE> 
+<DD>
+<P>The year modulo 100 of the ISO 8601 week number, as a decimal number (00&#8211;99). For example, January 1, 1993 is in week 53 of 1992. Thus, the year of its ISO 8601 week number is 1992, even though its year is 1993. Similarly, December 31, 1973 is in week 1 of 1974. Thus, the year of its ISO week number is 1974, even though its year is 1973. </P>
+<DT><CODE>%G</CODE> 
+<DD>
+<P>The full year of the ISO week number, as a decimal number. </P>
+<DT><CODE>%h</CODE> 
+<DD>
+<P>Equivalent to &#8216;<SAMP>%b</SAMP>&#8217;. </P>
+<DT><CODE>%H</CODE> 
+<DD>
+<P>The hour (24-hour clock) as a decimal number (00&#8211;23). </P>
+<DT><CODE>%I</CODE> 
+<DD>
+<P>The hour (12-hour clock) as a decimal number (01&#8211;12). </P>
+<DT><CODE>%j</CODE> 
+<DD>
+<P>The day of the year as a decimal number (001&#8211;366). </P>
+<DT><CODE>%m</CODE> 
+<DD>
+<P>The month as a decimal number (01&#8211;12). </P>
+<DT><CODE>%M</CODE> 
+<DD>
+<P>The minute as a decimal number (00&#8211;59). </P>
+<DT><CODE>%n</CODE> 
+<DD>
+<P>A newline character (ASCII LF). </P>
+<DT><CODE>%p</CODE> 
+<DD>
+<P>The locale&#8217;s equivalent of the AM/PM designations associated with a 12-hour clock. </P>
+<DT><CODE>%r</CODE> 
+<DD>
+<P>The locale&#8217;s 12-hour clock time. (This is &#8216;<SAMP>%I:%M:%S %p</SAMP>&#8217; in the <CODE>"C"</CODE> locale.) </P>
+<DT><CODE>%R</CODE> 
+<DD>
+<P>Equivalent to specifying &#8216;<SAMP>%H:%M</SAMP>&#8217;. </P>
+<DT><CODE>%S</CODE> 
+<DD>
+<P>The second as a decimal number (00&#8211;60). </P>
+<DT><CODE>%t</CODE> 
+<DD>
+<P>A TAB character. </P>
+<DT><CODE>%T</CODE> 
+<DD>
+<P>Equivalent to specifying &#8216;<SAMP>%H:%M:%S</SAMP>&#8217;. </P>
+<DT><CODE>%u</CODE> 
+<DD>
+<P>The weekday as a decimal number (1&#8211;7). Monday is day one. </P>
+<DT><CODE>%U</CODE> 
+<DD>
+<P>The week number of the year (the first Sunday as the first day of week one) as a decimal number (00&#8211;53). </P>
+<DT><CODE>%V</CODE> 
+<DD>
+<P>The week number of the year (the first Monday as the first day of week one) as a decimal number (01&#8211;53). The method for determining the week number is as specified by ISO 8601. (To wit: if the week containing January 1 has four or more days in the new year, then it is week one; otherwise it is week 53 of the previous year and the next week is week one.) </P>
+<DT><CODE>%w</CODE> 
+<DD>
+<P>The weekday as a decimal number (0&#8211;6). Sunday is day zero. </P>
+<DT><CODE>%W</CODE> 
+<DD>
+<P>The week number of the year (the first Monday as the first day of week one) as a decimal number (00&#8211;53). </P>
+<DT><CODE>%x</CODE> 
+<DD>
+<P>The locale&#8217;s &#8220;appropriate&#8221; date representation. (This is &#8216;<SAMP>%A %B %d %Y</SAMP>&#8217; in the <CODE>"C"</CODE> locale.) </P>
+<DT><CODE>%X</CODE> 
+<DD>
+<P>The locale&#8217;s &#8220;appropriate&#8221; time representation. (This is &#8216;<SAMP>%T</SAMP>&#8217; in the <CODE>"C"</CODE> locale.) </P>
+<DT><CODE>%y</CODE> 
+<DD>
+<P>The year modulo 100 as a decimal number (00&#8211;99). </P>
+<DT><CODE>%Y</CODE> 
+<DD>
+<P>The full year as a decimal number (e.g., 2011). </P>
+<DT><CODE>%z</CODE> 
+<DD>
+<P>The timezone offset in a +HHMM format (e.g., the format necessary to produce RFC 822/RFC 1036 date headers). </P>
+<DT><CODE>%Z</CODE> 
+<DD>
+<P>The time zone name or abbreviation; no characters if no time zone is determinable. </P>
+<DT><CODE>%Ec %EC %Ex %EX %Ey %EY %Od %Oe %OH</CODE> 
+<DT><CODE>%OI %Om %OM %OS %Ou %OU %OV %Ow %OW %Oy</CODE> 
+<DD>
+<P>&#8220;Alternate representations&#8221; for the specifications that use only the second letter (&#8216;<SAMP>%c</SAMP>&#8217;, &#8216;<SAMP>%C</SAMP>&#8217;, and so on).<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT56" name=DOCF56><SUP>56</SUP></A> (These facilitate compliance with the POSIX <CODE>date</CODE> utility.) </P>
+<DT><CODE>%%</CODE> 
+<DD>
+<P>A literal &#8216;<SAMP>%</SAMP>&#8217;. </P></DD></DL>
+<P>If a conversion specifier is not one of the above, the behavior is undefined.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT57" name=DOCF57><SUP>57</SUP></A> </P>
+<P>Informally, a <EM>locale</EM> is the geographic place in which a program is meant to run. For example, a common way to abbreviate the date September 4, 2012 in the United States is &#8220;9/4/12.&#8221; In many countries in Europe, however, it is abbreviated &#8220;4.9.12.&#8221; Thus, the &#8216;<SAMP>%x</SAMP>&#8217; specification in a <CODE>"US"</CODE> locale might produce &#8216;<SAMP>9/4/12</SAMP>&#8217;, while in a <CODE>"EUROPE"</CODE> locale, it might produce &#8216;<SAMP>4.9.12</SAMP>&#8217;. The ISO C standard defines a default <CODE>"C"</CODE> locale, which is an environment that is typical of what many C programmers are used to. </P>
+<P>For systems that are not yet fully standards-compliant, <CODE>gawk</CODE> supplies a copy of <CODE>strftime()</CODE> from the GNU C Library. It supports all of the just-listed format specifications. If that version is used to compile <CODE>gawk</CODE> (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Installation">Installation</A>), then the following additional format specifications are available: </P>
+<DL compact>
+<DT><CODE>%k</CODE> 
+<DD>
+<P>The hour (24-hour clock) as a decimal number (0&#8211;23). Single-digit numbers are padded with a space. </P>
+<DT><CODE>%l</CODE> 
+<DD>
+<P>The hour (12-hour clock) as a decimal number (1&#8211;12). Single-digit numbers are padded with a space. </P>
+<DT><CODE>%s</CODE> 
+<DD>
+<P>The time as a decimal timestamp in seconds since the epoch. </P></DD></DL>
+<P>Additionally, the alternate representations are recognized but their normal representations are used. </P><A name=index-date-utility_002c-POSIX></A><A name=index-POSIX-awk_002c-date-utility-and></A>
+<P>The following example is an <CODE>awk</CODE> implementation of the POSIX <CODE>date</CODE> utility. Normally, the <CODE>date</CODE> utility prints the current date and time of day in a well-known format. However, if you provide an argument to it that begins with a &#8216;<SAMP>+</SAMP>&#8217;, <CODE>date</CODE> copies nonformat specifier characters to the standard output and interprets the current time according to the format specifiers in the string. For example: </P>
+<DIV class=example><PRE class=example>$ date '+Today is %A, %B %d, %Y.'
+-| Today is Wednesday, March 30, 2011.
+</PRE></DIV>
+<P>Here is the <CODE>gawk</CODE> version of the <CODE>date</CODE> utility. It has a shell &#8220;wrapper&#8221; to handle the <SAMP>-u</SAMP> option, which requires that <CODE>date</CODE> run as if the time zone is set to UTC: </P>
+<DIV class=example><PRE class=example>#! /bin/sh
+#
+# date --- approximate the POSIX 'date' command
+
+case $1 in
+-u)  TZ=UTC0     # use UTC
+     export TZ
+     shift ;;
+esac
+
+gawk 'BEGIN  {
+    format = "%a %b %e %H:%M:%S %Z %Y"
+    exitval = 0
+
+    if (ARGC &gt; 2)
+        exitval = 1
+    else if (ARGC == 2) {
+        format = ARGV[1]
+        if (format ~ /^\+/)
+            format = substr(format, 2)   # remove leading +
+    }
+    print strftime(format)
+    exit exitval
+}' "$@"
+</PRE></DIV>

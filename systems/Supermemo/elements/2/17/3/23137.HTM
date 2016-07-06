@@ -1,0 +1,137 @@
+<H3 id=-100000 class=docSection1Title>The Firmware Hub</H3>
+<P class=docText><A name="systems use"></A>PC-compatible systems use a NOR flash chip called the <SPAN class=docEmphasis>Firmware Hub</SPAN><A name="the BIOS"></A> (FWH) to hold the BIOS. The FWH is not directly connected to the processor's address and data bus. Instead, it's interfaced via the <SPAN class=docEmphasis>Low Pin Count</SPAN><A name="South Bridge"></A> (LPC) bus, which is part of South Bridge chipsets. The connection diagram is shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec10.html#ch17fig05">Figure 17.5</A>.</P><A name=ch17fig05></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle><A name="Hub on"></A>Figure 17.5. The Firmware Hub on a PC-compatible system.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/MjltNHJhaS9kNy8zY3JncDA4dHMvOTMxZTZhZzU1LjdpMWYvcGdoaWZjaXMwNWc-.jpg" width=250 height=225></P></CENTER>
+<P></P><BR>
+<P class=docText><A name="the FWH"></A>The MTD subsystem includes drivers to interface the processor with the FWH. FWHs are usually not compliant with the CFI specification. Instead, they conform to the JEDEC (<SPAN class=docEmphasis>Joint Electron Device Engineering Council</SPAN><A name="a yet"></A>) standard. To inform MTD about a yet unsupported JEDEC chip, add an entry to the <TT>jedec_table</TT> array in <SPAN class=docEmphasis>drivers/mtd/chips/jedec_probe.c</SPAN><A name="ID and"></A> with information such as the chip manufacturer ID and the command-set ID. Here is an example:</P>
+<DIV class=docText><PRE>static const struct amd_flash_info jedec_table[] = {
+  /* ... */
+  {
+    .mfr_id  = MANUFACTURER_ID, /* E.g.: MANUFACTURER_ST */
+    .dev_id  = DEVICE_ID,       /* E.g.: M50FW080 */
+    .name    = "MYNAME",        /* E.g.: "M50FW080" */
+    .uaddr   = {
+      [0] = MTD_UADDR_UNNECESSARY,
+    },
+    .DevSize  = SIZE_1MiB,    /* E.g.: 1MB */
+    .CmdSet   = CMDSET,       /* Command-set to communicate with the
+                                 flash chip e.g., P_ID_INTEL_EXT */
+    .NumEraseRegions = 1,     /* One region */
+    .regions = {
+      ERASEINFO (0x10000, 16),/* Sixteen 64K sectors */
+    }
+  },
+  /* ... */
+};</PRE></DIV><BR>
+<P class=docText><A name="details imprinted"></A>When you have your chip details imprinted in the <TT>jedec_table</TT><A name="have enabled"></A> as shown here, MTD should recognize your flash, provided you have enabled the right kernel configuration options. The following configuration makes the kernel aware of an FWH that interfaces to the processor via an Intel ICH2 or ICH4 South Bridge chipset:</P>
+<DIV class=docText><PRE>CONFIG_MTD=y                <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Enable the MTD subsystem
+CONFIG_MTD_GEN_PROBE=y      <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> Common routines for chip probing
+CONFIG_MTD_JEDECPROBE=y     <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> JEDEC chip driver
+CONFIG_MTD_CFI_INTELEXT=y   <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> The command-set for communicating
+                                 with the chip
+CONFIG_MTD_ICHXROM=y        <IMG alt="rightwards double arrow" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/U2192.GIF"> The map driver</PRE></DIV><BR>
+<P class=docText><TT>CONFIG_MTD_JEDECPROBE</TT> enables the JEDEC MTD chip driver, and <TT>CONFIG_MTD_ICH2ROM</TT><A name="the FWH"></A> adds the MTD map driver that maps the FWH to the processor's address space. In addition, you need to include the appropriate command-set implementation (for example, <TT>CONFIG_MTD_CFI_INTELEXT</TT><A name="for Intel"></A> for Intel Extension commands).</P>
+<P class=docText><A name="modules have"></A>After these modules have been loaded, you can talk to the FWH from user-space applications via device nodes exported by MTD. You can, for example, reprogram the BIOS from user space using a simple application, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec10.html#ch17ex05">Listing 17.5</A><A name="operating this"></A>. Be warned that incorrectly operating this program can corrupt the BIOS and render your system unbootable!</P>
+<P class=docText><A name=iddle1223></A><A name=iddle2924></A><A name=iddle2925></A><A name=iddle2976></A><A name=iddle4403></A><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch17lev1sec10.html#ch17ex05">Listing 17.5</A><A name="MTD char"></A> operates on the MTD char device associated with the FWH, which it assumes to be <SPAN class=docEmphasis>/dev/mtd/0</SPAN>. The program issues three MTD-specific <SPAN class=docEmphasis>ioctl</SPAN> commands:</P>
+<UL>
+<LI>
+<P class=docList>MEMUNLOCK to unlock the flash sectors prior to programming</P></LI>
+<LI>
+<P class=docList>MEMERASE to erase flash sectors prior to rewriting</P></LI>
+<LI>
+<P class=docList>MEMLOCK to relock the sectors after programming</P></LI></UL><A name=ch17ex05></A>
+<H5 id=title-ID0EYHAO class=docExampleTitle>Listing 17.5. Updating the BIOS</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX mtd="" mtd.h="">
+#include <STDIO.H>
+#include <FCNTL.H>
+#include <ASM ioctl.h="">
+#include <SIGNAL.H>
+#include <SYS stat.h="">
+
+#define BLOCK_SIZE    4096
+#define NUM_SECTORS   16
+#define SECTOR_SIZE   64*1024
+
+int
+main(int argc, char *argv[])
+{
+  int fwh_fd, image_fd;
+  int usect=0, lsect=0, ret;
+  struct erase_info_user fwh_erase_info;
+  char buffer[BLOCK_SIZE];
+  struct stat statb;
+  /* Ignore SIGINTR(^C) and SIGSTOP (^Z), lest
+     you end up with a corrupted flash and an
+     unbootable system */
+  sigignore(SIGINT);
+  sigignore(SIGTSTP);
+
+  /* Open MTD char device */
+  fwh_fd = open("/dev/mtd/0", O_RDWR);
+  if (fwh_fd &lt; 0) exit(1);
+
+  /* Open BIOS image */
+  image_fd = open("bios.img", O_RDONLY);
+  if (image_fd &lt; 0) exit(2);
+
+  /* Sanity check */
+  fstat(image_fd, &amp;statb);
+  if (statb.st_size != SECTOR_SIZE*NUM_SECTORS) {
+    printf("BIOS image looks bad, exiting.\n");
+    exit(3);
+  }
+
+  /* Unlock and erase all sectors */
+  while (usect &lt; NUM_SECTORS) {
+    printf("Unlocking &amp; Erasing Sector[%d]\r", usect+1);
+
+    fwh_erase_info.start = usect*SECTOR_SIZE;
+    fwh_erase_info.length = SECTOR_SIZE;
+
+    ret = ioctl(fwh_fd, MEMUNLOCK, &amp;fwh_erase_info);
+    if (ret != 0) goto bios_done;
+
+    ret = ioctl(fwh_fd, MEMERASE, &amp;fwh_erase_info);
+    if (ret != 0) goto bios_done;
+    usect++;
+  }
+
+   /* Read blocks from the BIOS image and dump it to the
+      Firmware Hub */
+  while ((ret = read(image_fd, buffer, BLOCK_SIZE)) != 0) {
+    if (ret &lt; 0) goto bios_done;
+    ret = write(fwh_fd, buffer, ret);
+    if (ret &lt;= 0) goto bios_done;
+  }
+  /* Verify by reading blocks from the BIOS flash and comparing
+     with the image file */
+
+  /* ... */
+
+ bios_done:
+
+  /* Lock back the unlocked sectors */
+  while (lsect &lt; usect) {
+    printf("Relocking Sector[%d]\r", lsect+1);
+
+    fwh_erase_info.start = lsect*SECTOR_SIZE;
+    fwh_erase_info.length = SECTOR_SIZE;
+
+    ret = ioctl(fwh_fd, MEMLOCK, &amp;fwh_erase_info);
+    if (ret != 0) printf("Relock failed on sector %d!\n", lsect);
+    lsect++;
+  }
+
+  close(image_fd);
+  close(fwh_fd);
+
+}
+
+					  </SYS></SIGNAL.H></ASM></FCNTL.H></STDIO.H></LINUX></PRE></TD></TR></TBODY></TABLE>

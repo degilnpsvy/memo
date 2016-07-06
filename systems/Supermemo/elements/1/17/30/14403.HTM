@@ -1,0 +1,39 @@
+<H4 class=subsection>5.1.1 Splitting Recipe Lines</H4>
+<P><A name=index-recipes_002c-splitting-297></A><A name=index-splitting-recipes-298></A><A name=index-recipes_002c-backslash-_0028_0040code_007b_005c_007d_0029-in-299></A><A name=index-recipes_002c-quoting-newlines-in-300></A><A name=index-backslash-_0028_0040code_007b_005c_007d_0029_002c-in-recipes-301></A><A name=index-g_t_0040code_007b_005c_007d-_0028backslash_0029_002c-in-recipes-302></A><A name=index-quoting-newline_002c-in-recipes-303></A><A name=index-newline_002c-quoting_002c-in-recipes-304></A>One of the few ways in which <CODE>make</CODE> does interpret recipes is checking for a backslash just before the newline. As in normal makefile syntax, a single logical recipe line can be split into multiple physical lines in the makefile by placing a backslash before each newline. A sequence of lines like this is considered a single recipe line, and one instance of the shell will be invoked to run it. 
+<P><FONT class=extract>However, in contrast to how they are treated in other places in a makefile (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Splitting-Lines"><FONT class=extract>Splitting Long Lines</FONT></A><FONT class=extract>), backslash/newline pairs are <EM>not</EM> removed from the recipe. Both the backslash and the newline characters are preserved and passed to the shell. How the backslash/newline is interpreted depends on your shell. If the first character of the next line after the backslash/newline is the recipe prefix character (a tab by default; see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Special-Variables"><FONT class=extract>Special Variables</FONT></A><FONT class=extract>), then that character (and only that character) is removed. Whitespace is never added to the recipe.</FONT> 
+<P><FONT class=extract>For example, the recipe for the all target in this makefile: </FONT><PRE class=example><FONT class=extract>     all :
+             @echo no\
+     space
+             @echo no\
+             space
+             @echo one \
+             space
+             @echo one\
+              space
+</FONT></PRE>
+<P class=noindent><FONT class=extract>consists of four separate shell commands where the output is: </FONT><PRE class=example><FONT class=extract>     nospace
+     nospace
+     one space
+     one space</FONT>
+</PRE>
+<P><FONT class=extract>As a more complex example, this makefile: </FONT><PRE class=example><FONT class=extract>     all : ; @echo 'hello \
+             world' ; echo "hello \
+         world"
+</FONT></PRE>
+<P class=noindent><FONT class=extract>will invoke one shell with a command of: </FONT><PRE class=example><FONT class=extract>     echo 'hello \
+     world' ; echo "hello \
+         world"
+</FONT></PRE>
+<P class=noindent><FONT class=extract>which, according to shell quoting rules, will yield the following output: </FONT><PRE class=example><FONT class=extract>     hello \
+     world
+     hello     world</FONT>
+</PRE>
+<P class=noindent>Notice how the backslash/newline pair was removed inside the string quoted with double quotes (<CODE>"..."</CODE>), but not from the string quoted with single quotes (<CODE>'...'</CODE>). This is the way the default shell (<SAMP><SPAN class=file>/bin/sh</SPAN></SAMP>) handles backslash/newline pairs. If you specify a different shell in your makefiles it may treat them differently. 
+<P><FONT class=extract>Sometimes you want to split a long line inside of single quotes, but you don't want the backslash/newline to appear in the quoted content. This is often the case when passing scripts to languages such as Perl, where extraneous backslashes inside the script can change its meaning or even be a syntax error. One simple way of handling this is to place the quoted string, or even the entire command, into a <CODE>make</CODE> variable then use the variable in the recipe. In this situation the newline quoting rules for makefiles will be used, and the backslash/newline will be removed. If we rewrite our example above using this method: </FONT><PRE class=example><FONT class=extract>     HELLO = 'hello \
+     world'
+     
+     all : ; @echo $(HELLO)
+</FONT></PRE>
+<P class=noindent><FONT class=extract>we will get output like this: </FONT><PRE class=example><FONT class=extract>     hello world
+</FONT></PRE>
+<P><FONT class=extract>If you like, you can also use target-specific variables (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Target_002dspecific"><FONT class=extract>Target-specific Variable Values</FONT></A><FONT class=extract>) to obtain a tighter correspondence between the variable and the recipe that uses it.</FONT>

@@ -1,0 +1,223 @@
+<H3 id=title-IDADNSSC class=docSection1Title>12.3. Hosting Target Boards</H3>
+<P class=docText>Referring back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec1.html#ch12fig01">Figure 12-1</A>, you will notice an Ethernet connection from the target-embedded board to the host-development system. This is not strictly necessary, and, indeed, some smaller embedded devices do not have an Ethernet interface. However, this is the exception rather than the rule. Having an Ethernet connection available on your target board is worth its cost in silicon!</P>
+<P class=docText>While developing the kernel, you will compile and download kernels to your embedded board many times. Many embedded development systems and bootloaders have support for TFTP and assume that the developer will use it. TFTP is a lightweight protocol for moving files between a TFTP server and TFTP client, similar to FTP.</P>
+<P class=docText>Using TFTP from your bootloader to load the kernel will save you countless hours waiting for serial downloads even at higher serial baud rates. And loading your ramdisk can take much longer because ramdisk images can grow to many tens of megabytes and more, depending on your requirements. The investment in your time to configure and use TFTP will surely pay off and is highly recommended. There are very few designs that can't afford the real estate to include an Ethernet port during development, even if it is depopulated for production.</P><A name=ch12lev2sec3></A>
+<H4 id=title-IDA0NSSC class=docSection2Title>12.3.1. TFTP Server</H4>
+<P class=docText>Configuring TFTP on your Linux development host is not difficult. Of course, the details might vary, depending on which Linux distribution you choose for your development workstation. The guidelines presented here are based on Red Hat and Fedora Core Linux distributions.</P>
+<P class=docText>TFTP is a TCP/IP service that must be enabled on your workstation. To enable TFTP service, you must instruct your server to respond to incoming TFTP <A name=iddle2027></A>packets and spawn your TFTP server. On many Linux distributions, this is done by editing a configuration file used by the <TT>xinetd</TT> Internet superserver. For example, on the Red Hat and Fedora desktop Linux distributions, this file is <TT>/etc/xinetd.d/tftp</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list04">Listing 12-4</A> contains a TFTP configuration from a Fedora Core 2 development workstation to enable the TFTP service. It has been slightly rearranged to fit the page.</P><A name=ch12list04></A>
+<H5 id=title-IDABPSSC class=docExampleTitle>Listing 12-4. TFTP Configuration</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>    # default: off
+    # description: The tftp server serves files using the trivial
+    # file transfer protocol. The tftp protocol is often used to
+    # boot diskless workstations, download configuration files to
+    # network-aware printers, and to start the installation process
+    # for some operating systems.
+
+    service tftp
+    {
+            socket_type            = dgram
+            protocol               = udp
+            wait                   = yes
+            user                   = root
+            server                 = /usr/sbin/in.tftpd
+            server_args            = -c -s /tftpboot
+            disable                = no
+            per_source             = 11
+            cps                    = 100 2
+            flags                  = IPv4
+    }</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>In this typical setup, the TFTP service has been enabled (<TT>disable = no</TT>) and configured to serve files located in this workstation's <TT>/tftpboot</TT> directory. When the <TT>xinetd</TT> Internet superserver receives an incoming TFTP request, it consults this configuration and spawns the server specified (<TT>/usr/sbin/in.tftpd</TT>). The command line arguments specified by <TT>server_args</TT> are passed to the <TT>in.tftpd</TT> process. In this case, the <TT>-s</TT> switch tells <TT>in.tftpd</TT> to switch to the specified directory (<TT>/tftpboot</TT>), and the <TT>-c</TT> flag allows the creation of new files. This is useful to write files to the server from the target.</P>
+<P class=docText>Consult the documentation that came with your desktop distribution for details specific to your environment.</P><A name=ch12lev2sec4></A>
+<H4 id=title-IDAQYSSC class=docSection2Title>12.3.2. BOOTP/DHCP Server</H4>
+<P class=docText><A name=iddle1130></A><A name=iddle1348></A><A name=iddle1595></A><A name=iddle1596></A><A name=iddle2030></A><A name=iddle2503></A><A name=iddle2504></A>Having a DHCP server on your development host simplifies the configuration management for your embedded target. We have already established the reasons why an Ethernet interface on your target hardware is a good idea. When Linux boots on your target board, it needs to configure the Ethernet interface before the interface will be useful. Moreover, if you are using an NFS root mount configuration on your target board, Linux needs to configure your target's Ethernet interface before the boot process can complete. We covered NFS in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, "File Systems."</P>
+<P class=docText>In general, Linux can use two methods to initialize its Ethernet/IP interface during boot:</P>
+<UL>
+<LI>
+<P class=docList>Hard-code the Ethernet interface parameters either on the Linux kernel command line or in the default configuration</P></LI>
+<LI>
+<P class=docList>Configure the kernel to automatically detect the network settings at boot time</P></LI></UL>
+<P class=docText>For obvious reasons, the latter choice is the most flexible. DHCP or BOOTP is the protocol your target and server use to accomplish the automatic detection of network settings. For details of the DHCP or BOOTP protocols, see <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec4.html#ch12lev2sec8">Section 12.4.1</A> at the end of this chapter.</P>
+<P class=docText>A DHCP server controls the IP address assignments for IP subnets for which it has been configured, and for DHCP or BOOTP clients that have been configured to participate. A DHCP server listens for requests from a DHCP client (such as your target board), and assigns addresses and other pertinent information to the client as part of the boot process. A typical DHCP exchange (see <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list05">Listing 12-5</A>) can be examined by starting your DHCP server with the <TT>-d</TT> debug switch and observing the output when a target machine requests configuration.</P><A name=ch12list05></A>
+<H5 id=title-IDAQ2SSC class=docExampleTitle>Listing 12-5. Typical DHCP Exchange</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>    tgt&gt; DHCPDISCOVER from 00:09:5b:65:1d:d5 via eth0
+    svr&gt; DHCPOFFER on 192.168.0.9 to 00:09:5b:65:1d:d5 via eth0
+    tgt&gt; DHCPREQUEST for 192.168.0.9 (192.168.0.1) from \
+              00:09:5b:65:1d:d5 via eth0
+    svr&gt; DHCPACK on 192.168.0.9 to 00:09:5b:65:1d:d5 via eth0</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1896></A>The sequence starts with the client (target) transmitting a broadcast frame attempting to discover a DHCP server. This is shown by the <TT>DHCPDISCOVER</TT> message shown. The server responds (if it has been so configured and enabled) by offering an IP address for the client. This is evidenced by the <TT>DHCPOFFER</TT> message. The client then responds by testing this IP address locally. The testing includes sending the <TT>DHCPREQUEST</TT> packet to the DHCP server, as shown. Finally, the server responds by acknowledging the IP address assignment to the client, thus completing the automatic target configuration.</P>
+<P class=docText>It is interesting to note that a properly configured client will remember the last address it was assigned by a DHCP server. The next time it boots, it will skip the <TT>DHCPDISCOVER</TT> stage and proceed directly to the <TT>DHCPREQUEST</TT> stage, assuming that it can reuse the same IP address that the server previously assigned. A booting Linux kernel does not have this capability and emits the same sequence every time it boots.</P>
+<P class=docText>Configuration of your host's DHCP server is not difficult. As usual, our advice is to consult the documentation that came with your desktop Linux distribution. On a Red Hat or Fedora Core distribution, the configuration entry for a single target might look like <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list06">Listing 12-6</A>.</P><A name=ch12list06></A>
+<H5 id=title-IDAG4SSC class=docExampleTitle>Listing 12-6. Example DHCP Server Configuration</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>    # Example DHCP Server configuration
+    allow bootp;
+
+    subnet 192.168.1.0 netmask 255.255.255.0 {
+     default-lease-time 1209600;     # two weeks
+      option routers 192.168.1.1;
+      option domain-name-servers 1.2.3.4;
+      group {
+        host pdna1 {
+          hardware ethernet 00:30:bd:2a:26:1f;
+          fixed-address 192.168.1.68;
+          filename "uImage-pdna";
+          option root-path "/home/chris/sandbox/pdna-target";
+        }
+      }
+    }</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1597></A><A name=iddle2154></A><A name=iddle2505></A>This is a simple example, meant only to show the kind of information you can pass to your target system. There is a one-to-one mapping of the target MAC address to its assigned IP address. In addition to its fixed IP address, you can pass other information to your target. In this example, the default router and DNS server addresses are passed to your target, along with the filename of a file of your choice, and a root path for your kernel to mount an NFS root mount from. The filename might be used by your bootloader to load a kernel image from your TFTP server. You can also configure your DHCP server to hand out IP addresses from a predefined range, but it is very convenient to use a fixed address such as that shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list06">Listing 12-6</A>.</P>
+<P class=docText>You must enable the DHCP server on your Linux development workstation. This is typically done through your main menu or via the command line. Consult the documentation for your own Linux distribution for details suitable for your environment. For example, to enable the DHCP server on a Fedora Core 2 Linux distribution, simply type the following command from a root command prompt:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>/etc/init.d/dhcpd start</SPAN> (or restart)</PRE></DIV><BR>
+<P class=docText>You must do this each time you start your development workstation, unless you configure it to start automatically.</P>
+<P class=docText>Many nuances are involved with installing a DHCP server, so unless your server is on a private network, it is advisable to check with your system administrator before going live with your own. If you coexist with a corporate LAN, it is very possible that you will interfere with its own DHCP service.</P><A name=ch12lev2sec5></A>
+<H4 id=title-IDAUATSC class=docSection2Title>12.3.3. NFS Server</H4>
+<P class=docText>Using an NFS root mount for your target board is a very powerful development tool. Some of the advantages of this configuration for development are:</P>
+<UL>
+<LI>
+<P class=docList>Your root file system is not size-restricted by your board's own limited resources, such as Flash memory.</P></LI>
+<LI>
+<P class=docList>Changes made to your application files during development are immediately available to your target system.</P></LI>
+<LI>
+<P class=docList>You can debug and boot your kernel before developing and debugging your root file system.</P></LI></UL>
+<P class=docText>Setting up an NFS server varies depending on the desktop Linux distribution you are using. As with the other services described in this chapter, you must consult the documentation for your own Linux distribution for the details appropriate to your configuration. The NFS service must be started from either your startup scripts, a graphical menu, or the command line. For example, the command to start NFS services from a root command prompt for a Fedora Core 2 Linux desktop is as follows:</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>/etc/init.d/nfs start</SPAN> (or restart)</PRE></DIV><BR>
+<P class=docText>You must do this each time you start your desktop Linux workstation. (This and other services can be started automatically on bootingconsult the documentation for your desktop Linux distribution.) In addition to enabling the service, your kernel must be compiled with support for NFS. Although DHCP and TFTP are both user space utilities, NFS requires kernel support. This is true on both your development workstation and your target board. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12fig02">Figure 12-2</A> illustrates the configuration options for NFS in the kernel. Notice that there are configuration options for both NFS server and client support. Note also the option for root file system on NFS. Your target kernel must have this option configured for NFS root mount operation.</P><A name=ch12fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 12-2. NFS kernel configuration</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/12elp02_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/12elp02.jpg" width=500 height=280>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText>The NFS server gets its instructions from an exports file located on your server. It is commonly found in <TT>/etc/exports</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list07">Listing 12-7</A> is an example of a simple <TT>exports</TT> entry.</P>
+<P class=docText></P><A name=ch12list07></A>
+<H5 id=title-IDAPDTSC class=docExampleTitle>Listing 12-7. Simple NFS exports File</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>    $ <SPAN class=docEmphStrong>cat /etc/exports</SPAN>
+    # /etc/exports
+    /home/chris/sandbox/coyote-target *(rw,sync,no_root_squash)
+    /home/chris/sandbox/pdna-target *(rw,sync,no_root_squash)
+    /home/chris/workspace *(rw,sync,no_root_squash)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1598></A><A name=iddle2014></A><A name=iddle2506></A><A name=iddle2511></A>These entries on my workstation allow a client to remotely mount any of the three directories shown. The attributes following the directory specification instruct the NFS server to allow connections from any IP address (*) and to mount the respective directories with the given attributes (read/write with <TT>no_root_squash</TT>). The latter attribute enables a client with root privileges to exercise those privileges on the given directory. It is usually required when working with embedded systems because they often have only root accounts.</P>
+<P class=docText>You can test your NFS configuration right from your workstation. Assuming that you have NFS services enabled (requires both NFS server and client components enabled), you can mount a local NFS export as you would mount any other file system:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>mount -t nfs localhost:/home/chris/workspace /mnt/remote</SPAN></PRE></DIV><BR>
+<P class=docText>If this command succeeds and the files in <TT>.../workspace</TT> are available on <TT>/mnt/remote</TT>, your NFS server configuration is working.</P><A name=ch12lev2sec6></A>
+<H4 id=title-IDAFGTSC class=docSection2Title>12.3.4. Target NFS Root Mount</H4>
+<P class=docText>Mounting your target via NFS root mount is not difficult, and, as mentioned elsewhere, it is a very useful development configuration. However, a set of details must be correct before it will work. The steps required are as follows:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Configure your NFS server and export a proper target file system for your architecture.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Configure your target kernel with NFS client services and root file system on NFS.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Enable kernel-level autoconfiguration of your target's Ethernet interface.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle1802></A>Provide your target Ethernet IP configuration via the kernel command line or static kernel configuration option.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Provide a kernel command line enabled for NFS.</P></DIV></LI></OL></DIV>
+<P class=docText>We presented the kernel configuration in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12fig02">Figure 12-2</A> when we explained the NFS server configuration. You must make sure that your target kernel configuration has NFS client services enabled, and, in particular, you must enable the option for Root file system on NFS. Specifically, make sure that your kernel has <TT>CONFIG_NFS_FS=y</TT> and <TT>CONFIG_ROOT_NFS=y</TT>. Obviously, you cannot configure NFS as loadable modules if you intend to boot NFS root mount.</P>
+<P class=docText>Kernel-level autoconfiguration is a TCP/IP configuration option found under the Networking tab in the kernel configuration utility. Enable <TT>CONFIG_IP_PNP</TT> on your target kernel. When selected, you are presented with several options for automatic configuration. Select either BOOTP or DHCP, as described earlier. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12fig03">Figure 12-3</A> illustrates the kernel configuration for kernel-level autoconfiguration.</P><A name=ch12fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 12-3. Kernel-level autoconfiguration</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/12elp03_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/12elp03.jpg" width=500 height=334>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1124></A><A name=iddle1600></A><A name=iddle1966></A><A name=iddle2508></A><A name=iddle2559></A><A name=iddle2567></A>When your server and target kernel are configured, you need to provide your target Ethernet configuration via one of the methods described earlier. If your bootloader supports a kernel command line, that is the easiest method. Here is what a kernel command line might look like to support NFS root mount:</P>
+<DIV class=docText><PRE>console=ttyS0,115200 root=/dev/nfs rw ip=dhcp \
+   nfsroot=192.168.1.9:/home/chris/sandbox/pdna-target</PRE></DIV><BR><A name=ch12lev2sec7></A>
+<H4 id=title-IDAQTTSC class=docSection2Title>12.3.5. U-Boot NFS Root Mount Example</H4>
+<P class=docText>U-Boot is a good example of a bootloader that supports a configurable kernel command line. Using U-Boot's nonvolatile environment feature, we can store our kernel command line in a parameter specially named for this purpose. To enable the NFS command line in U-Boot, we do the following (all on one line in our serial terminal):</P>
+<DIV class=docText><PRE>setenv bootargs console=ttyS0,115200 root=/dev/nfs rw \
+   ip=dhcp nfsroot=192.168.1.9:/home/chris/sandbox/pdna-target</PRE></DIV><BR>
+<P class=docText>Then we load a kernel via our TFTP server. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list08">Listing 12-8</A> shows what this might look like on a PowerPC embedded target.</P><A name=ch12list08></A>
+<H5 id=title-IDAPUTSC class=docExampleTitle>Listing 12-8. Loading Kernel via TFTP Server</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>    =&gt; <SPAN class=docEmphStrong>tftpboot 200000 uImage-pdna</SPAN>       &lt;&lt;&lt; Entered at U-Boot prompt
+    Using FEC ETHERNET device
+    TFTP from server 192.168.1.9; our IP address is 192.168.1.68
+    Filename 'uImage-pdna'.
+    Load address: 0x200000
+    Loading: ##################################################
+             ##################################################
+             #########################################
+    done
+    Bytes transferred = 911984 (dea70 hex)
+    =&gt;</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>When we boot the kernel, we see specific evidence of our NFS root mount configuration. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list09">Listing 12-9</A> reproduces selected output from the kernel boot messages to demonstrate this. This output has been formatted (many lines omitted and whitespace added) for readability.</P>
+<P class=docText></P><A name=ch12list09></A>
+<H5 id=title-IDAQVTSC class=docExampleTitle>Listing 12-9. Booting with NFS Root Mount</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><A name=PLID10></A>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#PLID10">[View full width]</A></DIV><PRE>    Uncompressing Kernel Image ... OK
+    Linux version 2.6.14 (chris@pluto) (gcc version 3.3.3 (DENX ELDK 3.1.1 3.3.3-10)) #1
+<IMG  src="" border=0 alt="" width=14 align=left height=9> Mon Jan 2 11:58:48 EST 2006
+    .
+    .
+    Kernel command line: console=ttyS0,115200 root=/dev/nfs rw nfsroot=192.168.1.9:/home
+<IMG  src="" border=0 alt="" width=14 align=left height=9>/chris/sandbox/pdna-target ip=dhcp
+    .
+    .
+    Sending DHCP requests ... OK
+    IP-Config: Got DHCP answer from 192.168.1.9, my address is 192.168.1.68
+    IP-Config: Complete:
+          device=eth0, addr=192.168.1.68, mask=255.255.255.0,
+          gw=255.255.255.255, host=192.168.1.68, domain=,
+          nis-domain=(none), bootserver=192.168.1.9,
+          rootserver=192.168.1.9,
+          rootpath=/home/chris/sandbox/pdna-target
+    .
+    .
+    Looking up port of RPC 100003/2 on 192.168.1.9
+    Looking up port of RPC 100005/1 on 192.168.1.9
+    VFS: Mounted root (nfs filesystem).
+    .
+    .
+
+
+    BusyBox v0.60.5 (2005.06.07-07:03+0000) Built-in shell (msh)
+    Enter 'help' for a list of built-in commands.
+
+    #</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1852></A>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list09">Listing 12-9</A>, first we see the kernel banner followed by the kernel command line. We specified four items in this kernel command line:</P>
+<UL>
+<LI>
+<P class=docList>Console device (<TT>/dev/console</TT>)</P></LI>
+<LI>
+<P class=docList>Root device (<TT>/dev/nfs</TT>)</P></LI>
+<LI>
+<P class=docList>NFS root path (<TT>/home/chris/sandbox/pdna-target</TT>)</P></LI>
+<LI>
+<P class=docList>IP kernel-level autoconfiguration method (<TT>dhcp</TT>)</P></LI></UL>
+<P class=docText>Shortly thereafter, we see the kernel attempting kernel-level autoconfiguration via DHCP. When the server responds and the DHCP exchange completes, the kernel displays the detected configuration in the following lines. You can see from this listing that the DHCP server has assigned the target the IP address 192.168.1.68. Compare the detected settings with those specified in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#ch12list06">Listing 12-6</A>. That was similar to the DHCP server configuration that resulted in this configuration.</P>
+<P class=docText>When the kernel has completed the IP autoconfiguration, it is capable of mounting the root file system using the supplied parameters. You can see this from the three lines ending with the VFS (virtual file subsystem) message announcing that it has mounted the root NFS file system. After the NFS root file system has been mounted, initialization completes as described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch05.html#ch05">Chapter 5</A>, "Kernel Initialization."</P>
+<P class=docText>It is also possible to pass target IP settings to the kernel in a static fashion instead of having the kernel obtain IP settings from a DHCP or BOOTP server. IP settings can be passed via the kernel command line directly. In this case, the kernel command line might look similar to this:</P>
+<DIV class=docText><PRE><A name=PLID11></A><DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12lev1sec3.html#PLID11">[View full width]</A></DIV>console=console=ttyS0,115200 \ ip=192.168.1.68:192.168.1.9::255.255.255.0:pdna:eth0:off \
+<IMG  src="" border=0 alt="" width=14 align=left height=9> root=/dev/nfs rw nfsroot=192.168.1.9:/home/chris/pdna-target</PRE></DIV>

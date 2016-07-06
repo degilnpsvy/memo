@@ -1,0 +1,162 @@
+<H3 id=-100000 class=docSection1Title>Driver Data Structures</H3>
+<P class=docText><A name="to operate"></A>When you write a device driver for a NIC, you have to operate on three classes of data structures:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the building"></A>Structures that form the building blocks of the network protocol stack. The socket buffer or <TT>struct sk_buff</TT> defined in <SPAN class=docEmphasis>include/linux/sk_buff.h</SPAN><A name="key structure"></A> is the key structure used by the kernel's TCP/IP stack.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="Structures that"></A>Structures that define the interface between the NIC driver and the protocol stack. <TT>struct net_device</TT> defined in <SPAN class=docEmphasis>include/linux/netdevice.h</SPAN><A name="core structure"></A> is the core structure that constitutes this interface.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="related to"></A>Structures related to the I/O bus. PCI and its derivatives are common buses used by today's NICs.</P></DIV></LI></OL></DIV>
+<P class=docText><A name=the></A>We take a detailed look at socket buffers and the <TT>net_device</TT><A name="We covered"></A> interface in the next two sections. We covered PCI data structures in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>, "Peripheral Component Interconnect," so we won't revisit them here.</P><A name=ch15lev2sec1></A>
+<H4 id=title-ID0ENRAO class=docSection2Title>Socket Buffers</H4>
+<P class=docText><A name=iddle1338></A><A name=iddle1660></A><A name=iddle1757></A><A name=iddle1769></A><A name=iddle1987></A><A name=iddle2192></A><A name=iddle2732></A><A name=iddle3228></A><A name=iddle3287></A><A name=iddle4011></A><A name=iddle4015></A><A name=iddle4018></A><A name=iddle4074></A><A name=iddle4211></A><TT>sk_buff</TT><A name="networking layers"></A>s provide efficient buffer handling and flow-control mechanisms to Linux networking layers. Like DMA descriptors that contain metadata on DMA buffers, <TT>sk_buff</TT><A name="buffers that"></A>s hold control information describing attached memory buffers that carry network packets (see <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15fig01">Figure 15.1</A>). <TT>sk_buff</TT><A name="chapter we"></A>s are enormous structures having dozens of elements, but in this chapter we confine ourselves to those that interest the network device driver writer. An <TT>sk_buff</TT><A name="its associated"></A> links itself to its associated packet buffer using five main fields:</P>
+<UL>
+<LI>
+<P class=docList><TT>head</TT><A name="to the"></A>, which points to the start of the packet</P></LI>
+<LI>
+<P class=docList><TT>data</TT><A name="which points"></A>, which points to the start of packet payload</P></LI>
+<LI>
+<P class=docList><TT>tail</TT><A name="to the"></A>, which points to the end of packet payload</P></LI>
+<LI>
+<P class=docList><TT>end</TT><A name="points to"></A>, which points to the end of the packet</P></LI>
+<LI>
+<P class=docList><TT>len</TT>, the amount of data that the packet contains</P></LI></UL><A name=ch15fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 15.1. <TT>sk_buff</TT> operations.</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/ZTVyMWQ5OHB0Z2lzMC8vbWMzNWE5NC9yMzZnMjdhZ3AuaWNzaTAxLzFmNWhpZ2Y-.jpg" width=500 height=608></P></CENTER>
+<P></P><BR>
+<P class=docText>Assume <TT>skb</TT> points to an <TT>sk_buff</TT>, <TT>skb-&gt;head</TT>, <TT>skb-&gt;data</TT>, <TT>skb-&gt;tail</TT>, and <TT>skb-&gt;end</TT><A name="traverses the"></A> slide over the associated packet buffer as the packet traverses the protocol stack in either direction. <TT>skb-&gt;data</TT><A name="of the"></A>, for example, points to the header of the protocol that is currently processing the packet. When a packet reaches the IP layer via the receive path, <TT>skb-&gt;data</TT><A name="to TCP"></A> points to the IP header; when the packet passes on to TCP, however, <TT>skb-&gt;data</TT><A name="And as"></A> moves to the start of the TCP header. And as the packet drives through various protocols adding or discarding header data, <TT>skb-&gt;len</TT> gets updated, too. <TT>sk_buff</TT><A name="previously mentioned"></A>s also contain pointers other than the four major ones previously mentioned. <TT>skb-&gt;nh</TT><A name="position of"></A>, for example, remembers the position of the network protocol header irrespective of the current position of <TT>skb-&gt;data</TT>.</P>
+<P class=docText><A name="how a"></A>To illustrate how a NIC driver works with <TT>sk_buff</TT>s, <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15fig01">Figure 15.1</A><A name="shows data"></A> shows data transitions on the receive data path. For convenience of illustration, the figure simplistically assumes that the operations shown are executed in sequence. However, for operational efficiency in the real world, the first two steps (<TT>dev_alloc_skb()</TT> and <TT>skb_reserve()</TT><A name="while initially"></A>) are performed while initially preallocating a ring of receive buffers; the third step is accomplished by the NIC hardware as it directly DMA's the received packet into a preallocated <TT>sk_buff;</TT><A name="the final"></A> and the final two steps (<TT>skb_put()</TT> and <TT>netif_rx()</TT>) are executed from the receive interrupt handler.</P>
+<P class=docText>To create an <TT>sk_buff</TT> to hold a received packet, <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15fig01">Figure 15.1</A> uses <TT>dev_alloc_skb()</TT>. This is an interrupt-safe routine that allocates memory for an <TT>sk_buff</TT> and associates it with a packet payload buffer. <TT>dev_kfree_skb()</TT> accomplishes the reverse <A name=iddle4013></A>of <TT>dev_alloc_skb()</TT>. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15fig01">Figure 15.1</A> next calls <TT>skb_reserve()</TT><A name="packet buffer"></A> to add a 2-byte padding between the start of the packet buffer and the beginning of the payload. This starts the IP header at a performance-friendly 16-byte boundary because the preceding Ethernet headers are 14 bytes long. The rest of the code statements in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15.html#ch15fig01">Figure 15.1</A><A name="the received"></A> fill the payload buffer with the received packet and move <TT>skb-&gt;data</TT>, <TT>skb-&gt;tail</TT>, and <TT>skb-&gt;len</TT> to reflect this operation.</P>
+<P class=docText>There are more <TT>sk_buff</TT> access routines relevant to some NIC drivers. <TT>skb_clone()</TT>, for example, creates a copy of a supplied <TT>skb_buff</TT><A name=inside></A> without copying the contents of the associated packet buffer. Look inside <SPAN class=docEmphasis>net/core/skbuff.c</SPAN> for the full list of <TT>sk_buff</TT> library functions.</P><A name=ch15lev2sec2></A>
+<H4 id=title-ID0ED2AO class=docSection2Title>The Net Device Interface</H4>
+<P class=docText><A name=iddle1056></A><A name=iddle1084></A><A name=iddle1086></A><A name=iddle1088></A><A name=iddle1090></A><A name=iddle2879></A><A name=iddle2921></A><A name=iddle3218></A><A name=iddle3768></A><A name=iddle3799></A><A name="interact with"></A>NIC drivers use a standard interface to interact with the TCP/IP stack. The <TT>net_device</TT> structure, which is even more gigantic than the <TT>sk_buff</TT><A name="of the"></A> structure, defines this communication interface. To prepare ourselves for exploring the innards of the <TT>net_device</TT><A name="steps traced"></A> structure, let's first follow the steps traced by a NIC driver during initialization. Refer to <TT>init_mycard()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec4.html#ch15ex01">Listing 15.1</A><A name="move along"></A> as we move along:</P><A name=ch15pro01></A>
+<UL class=doclist start="">
+<LI>The driver allocates a <TT>net_device</TT> structure using <TT>alloc_netdev()</TT>. More commonly, it uses a suitable wrapper around <TT>alloc_netdev()</TT>. An Ethernet NIC driver, for example, calls <TT>alloc_etherdev()</TT>. A WiFi driver (discussed in the next chapter) invokes <TT>alloc_ieee80211()</TT>, and an IrDa driver calls upon <TT>alloc_irdadev()</TT>. All these functions take the size of a private data area as argument and create this area in addition to the <TT>net_device</TT> itself:<BR><BR>
+<DIV class=docText><PRE>struct net_device  *netdev;
+struct priv_struct *mycard_priv;
+netdev      = alloc_etherdev(sizeof(struct
+                             priv_struct));
+mycard_priv = netdev-&gt;priv; /* Private area created
+                               by alloc_etherdev() */</PRE></DIV><BR></LI>
+<LI>Next, the driver populates various fields in the <TT>net_device</TT> that it allocated and registers the populated <TT>net_device</TT> with the network layer using <TT>register_netdev(netdev)</TT>.<BR><BR></LI>
+<LI>The driver reads the NIC's <SPAN class=docEmphasis>Media Access Control</SPAN> (MAC) address from an accompanying EEPROM and configures <SPAN class=docEmphasis>Wake-On-LAN</SPAN> (WOL) if required. Ethernet controllers usually have a companion nonvolatile EEPROM to hold information such as their MAC address and WOL pattern, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec5.html#ch15fig02">Figure 15.2</A>. The former is a unique 48-bit address that is globally assigned. The latter is a magic sequence; if found in received data, it rouses the NIC if it's in suspend mode.<BR><BR></LI>
+<LI>If the NIC needs on-card firmware to operate, the driver downloads it using <TT>request_firmware()</TT>, as discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec3.html#ch04lev2sec8">Microcode Download</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A>, "Laying the Groundwork."<BR><BR></LI></UL>
+<P class=docText><A name="now look"></A>Let's now look at the methods that define the <TT>net_device</TT><A name="them under"></A> interface. We categorize them under six heads for simplicity. Wherever relevant, this section points you to the example NIC driver developed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec4.html#ch15ex01">Listing 15.1</A><A name="the section"></A> of the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec4.html#ch15lev1sec4">Device Example: Ethernet NIC</A>."</P><A name=ch15lev2sec3></A>
+<H4 id=title-ID0EVBBO class=docSection2Title>Activation</H4>
+<P class=docText><A name=iddle1036></A><A name=iddle1037></A><A name=iddle1490></A><A name=iddle1666></A><A name=iddle1667></A><A name=iddle2175></A><A name=iddle2455></A><A name=iddle3195></A><A name=iddle3211></A><A name=iddle3214></A><A name=iddle3217></A><A name=iddle3247></A><A name=iddle3255></A><A name=iddle3259></A><A name=iddle3268></A><A name=iddle3269></A><A name=iddle3275></A><A name=iddle3326></A><A name=iddle3599></A><A name=iddle3803></A>The <TT>net_device</TT> interface requires conventional methods such as <TT>open()</TT>, <TT>close()</TT>, and <TT>ioctl()</TT><A name="using a"></A>. The kernel opens an interface when you activate it using a tool such as <SPAN class=docEmphasis>ifconfig:</SPAN></P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ifconfig eth0 up</SPAN></PRE></DIV><BR>
+<P class=docText><TT>open()</TT><A name="DMA descriptors"></A> sets up receive and transmit DMA descriptors and other driver data structures. It also registers the NIC's interrupt handler by calling <TT>request_irq()</TT>. The <TT>net_device</TT> structure is passed as the <TT>devid</TT> argument to <TT>request_irq()</TT><A name="the associated"></A> so that the interrupt handler gets direct access to the associated <TT>net_device</TT>. (See <TT>mycard_open()</TT> and <TT>mycard_interrupt()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec4.html#ch15ex01">Listing 15.1</A> to find out how this is done.)</P>
+<P class=docText>The kernel calls <TT>close()</TT><A name="This accomplishes"></A> when you pull down an active network interface. This accomplishes the reverse of <TT>open()</TT>.</P><A name=ch15lev2sec4></A>
+<H4 id=title-ID0EWJBO class=docSection2Title>Data Transfer</H4>
+<P class=docText>Data transfer methods form the crux of the <TT>net_device</TT> interface. In the transmit path, the driver supplies a method called <TT>hard_start_xmit</TT><A name="onward transmission"></A>, which the protocol layer invokes to pass packets down for onward transmission:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>netdev-&gt;hard_start_xmit = &amp;mycard_xmit_frame; /* Transmit Method. See Listing 15.1 */
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="provide a"></A>Until recently, network drivers didn't provide a <TT>net_device</TT><A name="collecting received"></A> method for collecting received data. Instead, they asynchronously interrupted the protocol layer with packet payload. This old interface has, however, given way to a <SPAN class=docEmphasis><A name="New API"></A>New API</SPAN><A name="a mixture"></A> (NAPI) that is a mixture of an interrupt-driven driver push and a poll-driver protocol pull. A NAPI-aware driver thus needs to supply a <TT>poll()</TT><A name="and an"></A> method and an associated <TT>weight</TT> that controls polling fairness:</P>
+<DIV class=docText><PRE>netdev-&gt;poll   = &amp;mycard_poll; /* Poll Method. See Listing 15.1 */
+netdev-&gt;weight = 64;</PRE></DIV><BR>
+<P class=docText>We elaborate on data-transfer methods in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch15lev1sec2.html#ch15lev1sec2">Talking with Protocol Layers</A>."</P><A name=ch15lev2sec5></A>
+<H4 id=title-ID0ELLBO class=docSection2Title>Watchdog</H4>
+<P class=docText><A name=iddle2140></A><A name=iddle3209></A><A name=iddle3219></A><A name=iddle3220></A><A name=iddle3289></A><A name=iddle3291></A><A name=iddle4626></A>The <TT>net_device</TT><A name="to operational"></A> interface provides a hook to return an unresponsive NIC to operational state. If the protocol layer senses no transmissions for a predetermined amount of time, it assumes that the NIC has hung and invokes a driver-supplied recovery method to reset the card. The driver sets the watchdog timeout through <TT>netdev-&gt;watchdog_timeo</TT><A name="the recovery"></A> and registers the address of the recovery function via <TT>netdev-&gt;tx_timeout</TT>:</P>
+<DIV class=docText><PRE>netdev-&gt;tx_timeout = &amp;mycard_timeout; /* Method to reset the NIC */
+netdev-&gt;watchdog_timeo = 8*HZ;        /* Reset if no response
+                                         detected for 8 seconds */</PRE></DIV><BR>
+<P class=docText><A name="a task"></A>Because the recovery method executes in timer-interrupt context, it usually schedules a task outside of that context to reset the NIC.</P><A name=ch15lev2sec6></A>
+<H4 id=title-ID0EHOBO class=docSection2Title>Statistics</H4>
+<P class=docText><A name="the NIC"></A>To enable user land to collect network statistics, the NIC driver populates a <TT>net_device_stats</TT> structure and provides a <TT>get_stats()</TT> method to retrieve it. Essentially the driver does the following:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Updates different types of statistics from relevant entry points:</P>
+<DIV class=docText><PRE>#include <LINUX netdevice.h="">
+struct net_device_stats mycard_stats;
+
+static irqreturn_t
+mycard_interrupt(int irq, void *dev_id)
+{
+  /* ... */
+  if (packet_received_without_errors) {
+    mycard_stats.rx_packets++;   /* One more received
+                                    packet */
+  }
+  /* ... */
+}</LINUX></PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Implements the <TT>get_stats()</TT> method to retrieve the statistics:</P>
+<DIV class=docText><PRE>static struct net_device_stats
+*mycard_get_stats(struct net_device *netdev)
+{
+   /* House keeping */
+   /* ... */
+   return(&amp;mycard_stats);
+}</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle1580></A><A name=iddle1581></A><A name=iddle2016></A><A name=iddle2017></A><A name=iddle2141></A><A name=iddle3155></A><A name=iddle3216></A><A name=iddle3273></A>Supplies the retrieve method to higher layers:</P>
+<DIV class=docText><PRE>netdev-&gt;get_stats = &amp;mycard_get_stats;
+/* ... */
+register_netdev(netdev);</PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText>To collect statistics from your NIC, trigger invocation of <TT>mycard_get_stats()</TT><A name="number of"></A> by executing an appropriate user mode command. For example, to find the number of packets received through the eth0 interface, do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; cat /sys/class/net/eth0/statistics/rx_packets</SPAN>
+<SPAN class=docEmphStrong>124664</SPAN></PRE></DIV><BR>
+<P class=docText><A name="to track"></A>WiFi drivers need to track several parameters not relevant to conventional NICs, so they implement a statistic collection method called <TT>get_wireless_stats()</TT><A name=to></A> in addition to <TT>get_stats()</TT><A name="The mechanism"></A>. The mechanism for registering <TT>get_wireless_stats()</TT><A name="benefit of"></A> for the benefit of WiFi-aware user space utilities is discussed in the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec3.html#ch16lev1sec3">WiFi</A><A name="the next"></A>" in the next chapter.</P><A name=ch15lev2sec7></A>
+<H4 id=title-ID0ELTBO class=docSection2Title>Configuration</H4>
+<P class=docText><A name="are responsible"></A>NIC drivers need to support user space tools that are responsible for setting and getting device parameters. <SPAN class=docEmphasis>Ethtool</SPAN><A name="support ethtool"></A> configures parameters for Ethernet NICs. To support ethtool, the underlying NIC driver does the following:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Populates an <TT>ethtool_ops</TT> structure, defined in <SPAN class=docEmphasis>include/linux/ethtool.h</SPAN> with prescribed entry points:</P>
+<DIV class=docText><PRE>#include <LINUX ethtool.h="">
+
+/* Ethtool_ops methods */
+struct ethtool_ops mycard_ethtool_ops = {
+  /* ... */
+  .get_eeprom = mycard_get_eeprom, /* Dump EEPROM
+                                      contents */
+  /* ... */
+};</LINUX></PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle1417></A><A name=iddle2912></A><A name=iddle3123></A><A name=iddle3153></A><A name=iddle3154></A><A name=iddle3278></A>Implements the methods that are part of <TT>ethtool_ops</TT>:</P>
+<DIV class=docText><PRE>static int
+mycard_get_eeprom(struct net_device *netdev,
+                  struct ethtool_eeprom *eeprom,
+                  uint8_t *bytes)
+{
+   /* Access the accompanying EEPROM and pull out data */
+   /* ... */
+}</PRE></DIV></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>Exports the address of its <TT>ethtool_ops</TT>:</P>
+<DIV class=docText><PRE>netdev-&gt;ethtool_ops = &amp;mycard_ethtool_ops;
+/* ... */
+register_netdev(netdev);</PRE></DIV></DIV></LI></OL></DIV>
+<P class=docText><A name="To dump"></A>After these are done, ethtool can operate over your Ethernet NIC. To dump EEPROM contents using ethtool, do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; ethtool -e eth0</SPAN>
+Offset          Values
+------          ------
+0x0000          00 0d 60 79 32 0a 00 0b ff ff 10 20 ff ff ff ff
+...</PRE></DIV><BR>
+<P class=docText><A name="you don"></A>Ethtool comes packaged with some distributions; but if you don't have it, download it from <A class=docLink href="http://sourceforge.net/projects/gkernel/" target=_blank>http://sourceforge.net/projects/gkernel/</A>. Refer to the man page for its full capabilities.</P>
+<P class=docText><A name="higher layers"></A>There are more configuration-related methods that a NIC driver provides to higher layers. An example is the method to change the MTU size of the network interface. To support this, supply the relevant method to <TT>net_device</TT>:</P>
+<DIV class=docText><PRE>netdev-&gt;change_mtu = &amp;mycard_change_mtu;
+/* ... */
+register_netdev(netdev);</PRE></DIV><BR>
+<P class=docText>The kernel invokes <TT>mycard_change_mtu()</TT><A name="a suitable"></A> when you execute a suitable user command to alter the MTU of your card:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; echo 1500 &gt; /sys/class/net/eth0/mtu</SPAN></PRE></DIV><BR><A name=ch15lev2sec8></A>
+<H4 id=title-ID0ENYBO class=docSection2Title>Bus Specific</H4>
+<P class=docText><A name=iddle3196></A><A name=iddle3215></A><A name=iddle3229></A><A name=iddle3285></A><A name=iddle3755></A><A name="details such"></A>Next come bus-specific details such as the start address and size of the NIC's on-card memory. For a PCI NIC driver, this configuration will look like this:</P>
+<DIV class=docText><PRE>netdev-&gt;mem_start = pci_resource_start(pdev, 0);
+netdev-&gt;mem_end   = netdev-&gt;mem_start + pci_resource_len(pdev, 0);</PRE></DIV><BR>
+<P class=docText><A name="We discussed"></A>We discussed PCI resource functions in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch10.html#ch10">Chapter 10</A>.

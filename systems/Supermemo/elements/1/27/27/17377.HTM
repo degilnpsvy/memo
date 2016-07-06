@@ -1,0 +1,781 @@
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=navheader>
+<TABLE summary="Navigation header" width="100%">
+<TBODY>
+<TR>
+<TH colSpan=3 align=middle>KMS Properties</TH></TR>
+<TR>
+<TD width="20%" align=left><A accessKey=p href="https://www.kernel.org/doc/htmldocs/drm/API-drm-crtc-init.html">Prev</A>&nbsp;</TD>
+<TH width="60%" align=middle>Chapter&nbsp;2.&nbsp;DRM Internals</TH>
+<TD width="20%" align=right>&nbsp;<A accessKey=n href="https://www.kernel.org/doc/htmldocs/drm/drm-vertical-blank.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=sect1 title="KMS Properties">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 style="CLEAR: both" class=title><A name=drm-kms-properties></A>KMS Properties</H2></DIV></DIV></DIV>
+<DIV class=toc>
+<DL>
+<DT><SPAN class=sect2><A href="https://www.kernel.org/doc/htmldocs/drm/drm-kms-properties.html#idp10539104">Existing KMS Properties</A></SPAN></DT></DL></DIV>
+<P>Drivers may need to expose additional parameters to applications than those described in the previous sections. KMS supports attaching properties to CRTCs, connectors and planes and offers a userspace API to list, get and set the property values.</P>
+<P>Properties are identified by a name that uniquely defines the property purpose, and store an associated value. For all property types except blob properties the value is a 64-bit unsigned integer.</P>
+<P>KMS differentiates between properties and property instances. Drivers first create properties and then create and associate individual instances of those properties to objects. A property can be instantiated multiple times and associated with different objects. Values are stored in property instances, and all other property information are stored in the property and shared between all instances of the property.</P>
+<P>Every property is created with a type that influences how the KMS core handles the property. Supported property types are</P>
+<DIV class=variablelist>
+<DL>
+<DT><SPAN class=term>DRM_MODE_PROP_RANGE</SPAN> 
+<DD>
+<P>Range properties report their minimum and maximum admissible values. The KMS core verifies that values set by application fit in that range.</P>
+<DT><SPAN class=term>DRM_MODE_PROP_ENUM</SPAN> 
+<DD>
+<P>Enumerated properties take a numerical value that ranges from 0 to the number of enumerated values defined by the property minus one, and associate a free-formed string name to each value. Applications can retrieve the list of defined value-name pairs and use the numerical value to get and set property instance values.</P>
+<DT><SPAN class=term>DRM_MODE_PROP_BITMASK</SPAN> 
+<DD>
+<P>Bitmask properties are enumeration properties that additionally restrict all enumerated values to the 0..63 range. Bitmask property instance values combine one or more of the enumerated bits defined by the property.</P>
+<DT><SPAN class=term>DRM_MODE_PROP_BLOB</SPAN> 
+<DD>
+<P>Blob properties store a binary blob without any format restriction. The binary blobs are created as KMS standalone objects, and blob property instance values store the ID of their associated blob object.</P>
+<P>Blob properties are only used for the connector EDID property and cannot be created by drivers.</P></DD></DL></DIV>
+<P></P>
+<P>To create a property drivers call one of the following functions depending on the property type. All property creation functions take property flags and name, as well as type-specific arguments.</P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist type=disc>
+<LI class=listitem><PRE class=synopsis>struct drm_property *drm_property_create_range(struct drm_device *dev, int flags,
+                                               const char *name,
+                                               uint64_t min, uint64_t max);</PRE>
+<P>Create a range property with the given minimum and maximum values.</P>
+<LI class=listitem><PRE class=synopsis>struct drm_property *drm_property_create_enum(struct drm_device *dev, int flags,
+                                              const char *name,
+                                              const struct drm_prop_enum_list *props,
+                                              int num_values);</PRE>
+<P>Create an enumerated property. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=parameter><CODE>props</CODE></EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>argument points to an array of<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=parameter><CODE>num_values</CODE></EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>value-name pairs.</P>
+<LI class=listitem><PRE class=synopsis>struct drm_property *drm_property_create_bitmask(struct drm_device *dev,
+                                                 int flags, const char *name,
+                                                 const struct drm_prop_enum_list *props,
+                                                 int num_values);</PRE>
+<P>Create a bitmask property. The<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=parameter><CODE>props</CODE></EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>argument points to an array of<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=parameter><CODE>num_values</CODE></EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>value-name pairs.</P></LI></UL></DIV>
+<P></P>
+<P>Properties can additionally be created as immutable, in which case they will be read-only for applications but can be modified by the driver. To create an immutable property drivers must set the DRM_MODE_PROP_IMMUTABLE flag at property creation time.</P>
+<P>When no array of value-name pairs is readily available at property creation time for enumerated or range properties, drivers can create the property using the<CODE class=function>drm_property_create</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function and manually add enumeration value-name pairs by calling the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_property_add_enum</CODE><SPAN class=Apple-converted-space>&nbsp;</SPAN>function. Care must be taken to properly specify the property type through the<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=parameter><CODE>flags</CODE></EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>argument.</P>
+<P>After creating properties drivers can attach property instances to CRTC, connector and plane objects by calling the<SPAN class=Apple-converted-space>&nbsp;</SPAN><CODE class=function>drm_object_attach_property</CODE>. The function takes a pointer to the target object, a pointer to the previously created property and an initial instance value.</P>
+<DIV class=sect2 title="Existing KMS Properties">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=idp10539104></A>Existing KMS Properties</H3></DIV></DIV></DIV>
+<P>The following table gives description of drm properties exposed by various modules/drivers.</P>
+<TABLE id=idp10540368 border=1 cellSpacing=0 cellPadding=0>
+<TBODY>
+<TR style="FONT-WEIGHT: bold">
+<TD vAlign=top>Owner Module/Drivers</TD>
+<TD vAlign=top>Group</TD>
+<TD vAlign=top>Property Name</TD>
+<TD vAlign=top>Type</TD>
+<TD vAlign=top>Property Values</TD>
+<TD vAlign=top>Object attached</TD>
+<TD vAlign=top>Description/Restrictions</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=21>DRM</TD>
+<TD vAlign=top rowSpan=2>Generic</TD>
+<TD vAlign=top>&#8220;EDID&#8221;</TD>
+<TD vAlign=top>BLOB | IMMUTABLE</TD>
+<TD vAlign=top>0</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>Contains id of edid blob ptr object.</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;DPMS&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ &#8220;On&#8221;, &#8220;Standby&#8221;, &#8220;Suspend&#8221;, &#8220;Off&#8221; }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>Contains DPMS operation mode value.</TD></TR>
+<TR>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>&#8220;type&#8221;</TD>
+<TD vAlign=top>ENUM | IMMUTABLE</TD>
+<TD vAlign=top>{ "Overlay", "Primary", "Cursor" }</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>Plane type</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=2>DVI-I</TD>
+<TD vAlign=top>&#8220;subconnector&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ &#8220;Unknown&#8221;, &#8220;DVI-D&#8221;, &#8220;DVI-A&#8221; }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;select subconnector&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ &#8220;Automatic&#8221;, &#8220;DVI-D&#8221;, &#8220;DVI-A&#8221; }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=13>TV</TD>
+<TD vAlign=top>&#8220;subconnector&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "Unknown", "Composite", "SVIDEO", "Component", "SCART" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;select subconnector&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "Automatic", "Composite", "SVIDEO", "Component", "SCART" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;mode&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "NTSC_M", "NTSC_J", "NTSC_443", "PAL_B" } etc.</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;left margin&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;right margin&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;top margin&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;bottom margin&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;brightness&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;contrast&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;flicker reduction&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;overscan&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;saturation&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;hue&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=3>Optional</TD>
+<TD vAlign=top>&#8220;scaling mode&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "None", "Full", "Center", "Full aspect" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"aspect ratio"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "None", "4:3", "16:9" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>DRM property to set aspect ratio from user space app. This enum is made generic to allow addition of custom aspect ratios.</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;dirty&#8221;</TD>
+<TD vAlign=top>ENUM | IMMUTABLE</TD>
+<TD vAlign=top>{ "Off", "On", "Annotate" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=21>i915</TD>
+<TD vAlign=top rowSpan=2>Generic</TD>
+<TD vAlign=top>"Broadcast RGB"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "Automatic", "Full", "Limited 16:235" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;audio&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "force-dvi", "off", "auto", "on" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>&#8220;rotation&#8221;</TD>
+<TD vAlign=top>BITMASK</TD>
+<TD vAlign=top>{ 0, "rotate-0" }, { 2, "rotate-180" }</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=17>SDVO-TV</TD>
+<TD vAlign=top>&#8220;mode&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "NTSC_M", "NTSC_J", "NTSC_443", "PAL_B" } etc.</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"left_margin"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"right_margin"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"top_margin"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"bottom_margin"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;hpos&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;vpos&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;contrast&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;saturation&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;hue&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;sharpness&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;flicker_filter&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;flicker_filter_adaptive&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;flicker_filter_2d&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;tv_chroma_filter&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;tv_luma_filter&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;dot_crawl&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=1</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>SDVO-TV/LVDS</TD>
+<TD vAlign=top>&#8220;brightness&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=2>CDV gma-500</TD>
+<TD vAlign=top rowSpan=2>Generic</TD>
+<TD vAlign=top>"Broadcast RGB"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ &#8220;Full&#8221;, &#8220;Limited 16:235&#8221; }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"Broadcast RGB"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ &#8220;off&#8221;, &#8220;auto&#8221;, &#8220;on&#8221; }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=19>Poulsbo</TD>
+<TD vAlign=top>Generic</TD>
+<TD vAlign=top>&#8220;backlight&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=100</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=17>SDVO-TV</TD>
+<TD vAlign=top>&#8220;mode&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "NTSC_M", "NTSC_J", "NTSC_443", "PAL_B" } etc.</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"left_margin"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"right_margin"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"top_margin"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"bottom_margin"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;hpos&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;vpos&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;contrast&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;saturation&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;hue&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;sharpness&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;flicker_filter&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;flicker_filter_adaptive&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;flicker_filter_2d&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;tv_chroma_filter&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;tv_luma_filter&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;dot_crawl&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=1</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>SDVO-TV/LVDS</TD>
+<TD vAlign=top>&#8220;brightness&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max= SDVO dependent</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=11>armada</TD>
+<TD vAlign=top rowSpan=2>CRTC</TD>
+<TD vAlign=top>"CSC_YUV"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "Auto" , "CCIR601", "CCIR709" }</TD>
+<TD vAlign=top>CRTC</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"CSC_RGB"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "Auto", "Computer system", "Studio" }</TD>
+<TD vAlign=top>CRTC</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=9>Overlay</TD>
+<TD vAlign=top>"colorkey"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0xffffff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"colorkey_min"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0xffffff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"colorkey_max"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0xffffff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"colorkey_val"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0xffffff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"colorkey_alpha"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0xffffff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"colorkey_mode"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "disabled", "Y component", "U component" , "V component", "RGB", &#8220;R component", "G component", "B component" }</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"brightness"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=256 + 255</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"contrast"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0x7fff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"saturation"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0x7fff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=2>exynos</TD>
+<TD vAlign=top>CRTC</TD>
+<TD vAlign=top>&#8220;mode&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "normal", "blank" }</TD>
+<TD vAlign=top>CRTC</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>Overlay</TD>
+<TD vAlign=top>&#8220;zpos&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=MAX_PLANE-1</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=2>i2c/ch7006_drv</TD>
+<TD vAlign=top>Generic</TD>
+<TD vAlign=top>&#8220;scale&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=2</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>TV</TD>
+<TD vAlign=top>&#8220;mode&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "PAL", "PAL-M","PAL-N"}, &#8221;PAL-Nc" , "PAL-60", "NTSC-M", "NTSC-J" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=15>nouveau</TD>
+<TD vAlign=top rowSpan=6>NV10 Overlay</TD>
+<TD vAlign=top>"colorkey"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0x01ffffff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;contrast&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=8192-1</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;brightness&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=1024</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;hue&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=359</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;saturation&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=8192-1</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;iturbt_709&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=1</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=2>Nv04 Overlay</TD>
+<TD vAlign=top>&#8220;colorkey&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0x01ffffff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;brightness&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=1024</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=7>Display</TD>
+<TD vAlign=top>&#8220;dithering mode&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "auto", "off", "on" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;dithering depth&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "auto", "off", "on", "static 2x2", "dynamic 2x2", "temporal" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;underscan&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "auto", "6 bpc", "8 bpc" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;underscan hborder&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=128</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;underscan vborder&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=128</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;vibrant hue&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=180</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;color vibrance&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=200</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=2>omap</TD>
+<TD vAlign=top rowSpan=2>Generic</TD>
+<TD vAlign=top>&#8220;rotation&#8221;</TD>
+<TD vAlign=top>BITMASK</TD>
+<TD vAlign=top>{ 0, "rotate-0" }, { 1, "rotate-90" }, { 2, "rotate-180" }, { 3, "rotate-270" }, { 4, "reflect-x" }, { 5, "reflect-y" }</TD>
+<TD vAlign=top>CRTC, Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>&#8220;zorder&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=3</TD>
+<TD vAlign=top>CRTC, Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>qxl</TD>
+<TD vAlign=top>Generic</TD>
+<TD vAlign=top>&#8220;hotplug_mode_update"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=1</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=9>radeon</TD>
+<TD vAlign=top>DVI-I</TD>
+<TD vAlign=top>&#8220;coherent&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=1</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>DAC enable load detect</TD>
+<TD vAlign=top>&#8220;load detection&#8221;</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=1</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>TV Standard</TD>
+<TD vAlign=top>"tv standard"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "ntsc", "pal", "pal-m", "pal-60", "ntsc-j" , "scart-pal", "pal-cn", "secam" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>legacy TMDS PLL detect</TD>
+<TD vAlign=top>"tmds_pll"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "driver", "bios" }</TD>
+<TD vAlign=top>-</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=3>Underscan</TD>
+<TD vAlign=top>"underscan"</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "off", "on", "auto" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"underscan hborder"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=128</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"underscan vborder"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=128</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>Audio</TD>
+<TD vAlign=top>&#8220;audio&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "off", "on", "auto" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>FMT Dithering</TD>
+<TD vAlign=top>&#8220;dither&#8221;</TD>
+<TD vAlign=top>ENUM</TD>
+<TD vAlign=top>{ "off", "on" }</TD>
+<TD vAlign=top>Connector</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top rowSpan=3>rcar-du</TD>
+<TD vAlign=top rowSpan=3>Generic</TD>
+<TD vAlign=top>"alpha"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=255</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"colorkey"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=0, Max=0x01ffffff</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR>
+<TR>
+<TD vAlign=top>"zpos"</TD>
+<TD vAlign=top>RANGE</TD>
+<TD vAlign=top>Min=1, Max=7</TD>
+<TD vAlign=top>Plane</TD>
+<TD vAlign=top>TBD</TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV style="TEXT-TRANSFORM: none; TEXT-INDENT: 0px; FONT: medium Simsun; WHITE-SPACE: normal; LETTER-SPACING: normal; COLOR: rgb(0,0,0); WORD-SPACING: 0px; -webkit-text-stroke-width: 0px" class=navfooter>
+<HR>
+
+<TABLE summary="Navigation footer" width="100%">
+<TBODY>
+<TR>
+<TD width="40%" align=left><A accessKey=p href="https://www.kernel.org/doc/htmldocs/drm/API-drm-crtc-init.html">Prev</A>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=u href="https://www.kernel.org/doc/htmldocs/drm/drmInternals.html">Up</A></TD>
+<TD width="40%" align=right>&nbsp;<A accessKey=n href="https://www.kernel.org/doc/htmldocs/drm/drm-vertical-blank.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top width="40%" align=left><SPAN>drm_crtc_init</SPAN>&nbsp;</TD>
+<TD width="20%" align=middle><A accessKey=h href="https://www.kernel.org/doc/htmldocs/drm/index.html">Home</A></TD>
+<TD vAlign=top width="40%" align=right>&nbsp;Vertical Blanking</TD></TR></TBODY></TABLE></DIV>

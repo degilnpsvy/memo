@@ -1,0 +1,59 @@
+<H4 id=title-ID0E4UAO class=docSection2Title>Error-Handling Aids</H4>
+<P class=docText><A name="for failure"></A>Several kernel functions return pointer values. Whereas callers usually check for failure by comparing the return value with <TT>NULL</TT><A name="decipher the"></A>, they typically need more information to decipher the exact nature of the error that has occurred. Because kernel addresses have redundant bits, they can be overloaded to encode error semantics. This is done with the help of a set of helper routines. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex09">Listing 3.9</A> implements a simple usage example.</P><A name=ch03ex09></A>
+<H5 id=title-ID0EUVAO class=docExampleTitle>Listing 3.9. Using Error-Handling Aids</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX err.h="">
+
+char *
+collect_data(char *userbuffer)
+{
+
+<FONT class=extract>  char *buffer;
+
+  /* ... */
+  buffer = kmalloc(100, GFP_KERNEL);
+  if (!buffer) { /* Out of memory */
+    return ERR_PTR(-ENOMEM);
+  }
+</FONT>
+<FONT class=extract>  /* ... */
+  if (copy_from_user(buffer, userbuffer, 100)) {
+    return ERR_PTR(-EFAULT);
+  }
+  /* ... */
+</FONT>
+  return(buffer);
+}
+
+
+int
+my_function(char *userbuffer)
+{
+  char *buf;
+
+  /* ... */
+  buf = collect_data(userbuffer);
+  if (IS_ERR(buf)) {
+    printk("Error returned is %d!\n", PTR_ERR(buf));
+  }
+  /* ... */
+
+}
+
+					  </LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1520></A><A name=iddle2490></A><A name=iddle2667></A><A name=iddle3682></A>If <TT>kmalloc()</TT> fails inside <TT>collect_data()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex09">Listing 3.9</A>, you will get the following message:</P>
+<DIV class=docText><PRE>Error returned is -12!</PRE></DIV><BR>
+<P class=docText>However, if <TT>collect_data()</TT><A name="data buffer"></A> is successful, it returns a valid pointer to a data buffer. <FONT class=extract>As another example, let's add error handling using <TT>IS_ERR()</TT> and <TT>PTR_ERR()</TT></FONT><A name="the thread"></A><FONT class=extract> to the thread creation code in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex08"><FONT class=extract>Listing 3.8</FONT></A><FONT class=extract>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>   my_task = kthread_create(my_thread, NULL, "%s", "mydrv");
+
+<SPAN class=docEmphStrong>+  if (!IS_ERR(my_task)) {</SPAN>
+<SPAN class=docEmphStrong>+    /* Success */</SPAN>
+     wake_up_process(my_task);
+<SPAN class=docEmphStrong>+  } else {</SPAN>
+<SPAN class=docEmphStrong>+    /* Failure */</SPAN>
+<SPAN class=docEmphStrong>+    printk("Error value returned=%d\n", PTR_ERR(my_task));</SPAN></FONT>
+<SPAN class=docEmphStrong>+  }</SPAN></PRE></DIV>

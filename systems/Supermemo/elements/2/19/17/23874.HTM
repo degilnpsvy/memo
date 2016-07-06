@@ -1,0 +1,28 @@
+<H4 id=title-ID0EKDAO class=docSection2Title>INIT: Version 2.85 Booting</H4>
+<P class=docText><SPAN class=docEmphasis><FONT class=extract>Init</FONT></SPAN><A name="is the"></A><FONT class=extract>, the parent of all Linux processes, is the first program to run after the kernel finishes its boot sequence. In the last few lines of <SPAN class=docEmphasis>init/main.c</SPAN></FONT><A name="locate init"></A><FONT class=extract>, the kernel searches different locations in its attempt to locate init:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>if (ramdisk_execute_command) { /* Look for <SPAN class=docEmphasis>/init</SPAN> in <SPAN class=docEmphasis>initramfs</SPAN> */
+  run_init_process(ramdisk_execute_command);
+}
+
+if (execute_command) { /* You may override init and ask the kernel
+                          to execute a custom program using the
+                          "init=" kernel command-line argument. If
+                          you do that, <SPAN class=docEmphasis>execute_command</SPAN> points to the
+                          specified program */
+  run_init_process(execute_command);
+}
+
+/* Else search for <SPAN class=docEmphasis>init</SPAN> or <SPAN class=docEmphasis>sh</SPAN> in the usual places .. */
+run_init_process("/sbin/init");
+run_init_process("/etc/init");
+run_init_process("/bin/init");
+run_init_process("/bin/sh");
+panic("No init found. Try passing init= option to kernel.");</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle2000></A><A name=iddle2001></A><A name=iddle2364></A><A name=iddle3390></A><A name=iddle3718></A><A name=iddle4181></A><FONT class=extract>Init receives directions from <SPAN class=docEmphasis>/etc/inittab</SPAN></FONT><A name="present in"></A><FONT class=extract>. It first executes system initialization scripts present in <SPAN class=docEmphasis>/etc/rc.sysinit.</SPAN></FONT><A name="is to"></A><FONT class=extract> One of the important responsibilities of this script is to activate the swap partition, which triggers a boot message such as this:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>Adding 1552384k swap on /dev/hda6</FONT></PRE></DIV><BR>
+<P class=docText><A name="a closer"></A><FONT class=extract>Let's take a closer look at what this means. Linux user processes own a virtual address space of 3GB (see the section "</FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec7.html#ch02lev1sec7"><FONT class=extract>Allocating Memory</FONT></A><A name="there are"></A><FONT class=extract>"). Out of this, the pages constituting the "working set" are kept in RAM. However, when there are too many programs demanding memory resources, the kernel frees up some used RAM pages by storing them in a disk partition called <SPAN class=docEmphasis><A name="swap space"></A>swap space.</SPAN></FONT><A name="a rule"></A><FONT class=extract> According to a rule of thumb, the size of the swap partition should be twice the amount of RAM. In this case, the swap space lives in the disk partition <SPAN class=docEmphasis>/dev/hda6</SPAN></FONT><A name="has a"></A><FONT class=extract> and has a size of 1552384K bytes.</FONT></P>
+<P class=docText><A name=the></A><FONT class=extract>Init then goes on to run scripts present in the <SPAN class=docEmphasis>/etc/rc.d/rcX.d/</SPAN> directory, where <SPAN class=docEmphasis>X</SPAN></FONT><A name="A runlevel"></A><FONT class=extract> is the runlevel specified in inittab. A runlevel is an execution state corresponding to the desired boot mode. For example, multiuser text mode corresponds to a runlevel of 3, while X Windows associates with a runlevel of 5. So, if you see the message, <TT>INIT: Entering runlevel 3</TT>, init has started executing scripts in the <SPAN class=docEmphasis>/etc/rc.d/rc3.d/</SPAN> directory. These scripts start the dynamic device-naming subsystem udev (which we discuss </FONT><A name=iddle2421></A><A name=iddle2535></A><A name=iddle2576></A><A name=iddle2579></A><A name=iddle2585></A><A name=iddle2618></A><A name=iddle3025></A><A name=iddle3028></A><A name=iddle3649></A><A name=iddle4533></A><A name=iddle4560></A><FONT class=extract>in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04"><FONT class=extract>Chapter 4</FONT></A><A name="so on"></A><FONT class=extract>, "Laying the Groundwork") and load kernel modules responsible for driving networking, audio, storage, and so on:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>Starting udev: [ OK ]
+Initializing hardware... network audio storage [Done]
+...</FONT></PRE></DIV><BR>
+<P class=docText><A name="You can"></A><FONT class=extract>Init finally spawns terminals on virtual consoles. You can now log in.</FONT>

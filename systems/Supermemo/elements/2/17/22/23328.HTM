@@ -1,0 +1,231 @@
+<H3 id=title-IDALH31C class=docSection1Title>D.3. SDRAM Setup</H3>
+<P class=docText>After the clocks have been configured, the next step is to configure the SDRAM controller. Controllers vary widely from processor to processor, but the end result is always the same: You must provide the correct clocking and timing values to enable and optimize the performance of the SDRAM subsystem.</P>
+<P class=docText>As with other material in this book, there is no substitute for detailed knowledge of the hardware you are trying to configure. This is especially so for SDRAM. It is beyond the scope of this appendix to explore the design of SDRAM, but some basics must be understood. Many manufacturers' data sheets on SDRAM devices contain helpful technical descriptions. You are urged to familiarize yourself with the <A name=iddle1996></A>content of these data sheets. You don't need a degree in hardware engineering to understand what must be done to properly configure your SDRAM subsystem, but you need to invest in some level of understanding.</P>
+<P class=docText>Here we examine how the SDRAM controller is configured on the 405GP processor as configured by the U-Boot bootloader we covered in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>, "Bootloaders." Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A> that U-Boot provides a hook for SDRAM initialization from the assembly language startup code found in <TT>start.S</TT> in the 4xx-specific <TT>cpu</TT> directory. Refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec4.html#ch07lev2sec13">Section 7.4.4</A> "Board-Specific Initialization" in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07.html#ch07">Chapter 7</A>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app04lev1sec3.html#appDlist01">Listing D-1</A> reproduces the <TT>sdram_init()</TT> function from U-Boot's <TT>.../cpu/ppc4xx/sdram.c</TT> file.</P><A name=appDlist01></A>
+<H5 id=title-IDA1R31C class=docExampleTitle>Listing D. <TT>ppc4xx sdram_init()</TT> from U-Boot</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>01 void sdram_init(void)
+02
+{
+03
+            ulong sdtr1;
+04
+            ulong rtr;
+05
+            int i;
+06
+
+07
+            /*
+08
+             * Support for 100MHz and 133MHz SDRAM
+09
+             */
+10
+            if (get_bus_freq(0) &gt; 100000000) {
+11
+                     /*
+12
+                      * 133 MHz SDRAM
+13
+                      */
+14
+                     sdtr1 = 0x01074015;
+15
+                     rtr = 0x07f00000;
+16
+            } else {
+17
+                     /*
+18
+                      * default: 100 MHz SDRAM
+19
+                      */
+20
+                     sdtr1 = 0x0086400d;
+21
+                     rtr = 0x05f00000;
+22
+           }
+23
+
+24
+            for (i=0; i&lt;N_MB0CF; i++) {
+25
+                     /*
+26
+                      * Disable memory controller.
+27
+                      */
+28
+                     mtsdram0(mem_mcopt1, 0x00000000);
+29
+
+30
+                     /*
+31
+                      * Set MB0CF for bank 0.
+32
+                      */
+33
+                     mtsdram0(mem_mb0cf, mb0cf[i].reg);
+34
+                     mtsdram0(mem_sdtr1, sdtr1);
+35
+                     mtsdram0(mem_rtr, rtr);
+36
+
+37
+                     udelay(200);
+38
+
+39
+                     /*
+40
+                      * Set memory controller options reg, MCOPT1.
+41
+                      * Set DC_EN to '1' and BRD_PRF to '01' for 16 byte PLB Burst
+42
+                      * read/prefetch.
+43
+                      */
+44
+                     mtsdram0(mem_mcopt1, 0x80800000);
+45
+
+46
+                     udelay(10000);
+47
+
+48
+                     if (get_ram_size(0, mb0cf[i].size) == mb0cf[i].size) {
+49
+                              /*
+50
+                               * OK, size detected -&gt; all done
+51
+                               */
+52
+                              return;
+53
+                    }
+54
+           }
+55}</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The first action reads the pin strapping on the 405GP processor to determine the design value for the SDRAM clock. In this case, we can see that two possible values are accommodated: 100MHz and 133MHz. Based on this choice, constants are chosen that will be used later in the function to set the appropriate register bits in the SDRAM controller.</P>
+<P class=docText>Starting on line 24, a loop is used to set the parameters for each of up to five predefined memory sizes. Currently, U-Boot has logic to support a single bank of memory sized at 4MB, 16MB, 32MB, 64MB, or 128MB. These sizes are defined in a table called <TT>mb0cf</TT> in <TT>.../cpu/ppc4xx/sdram.c</TT>. The table associates a constant with each of these memory sizes, based on the value required in the 405GP memory bank configuration register. The loop does this:</P>
+<DIV class=docText><PRE>for (i = each possible memory bank size, largest first) {
+    select timing constant based on SDRAM clock speed;
+    disable SDRAM memory controller;
+    configure bank 0 with size[i], timing constants[i]
+    re-enable SDRAM memory controller;
+
+    run simple memory test to dynamically determine size;
+      /* This is done using get_ram_size() */
+    if ( tested size == configured size )
+        done;
+}</PRE></DIV><BR>
+<P class=docText>This simple logic simply plugs in the correct timing constants in the SDRAM controller based on SDRAM clock speed and configured memory bank size from the hard-coded table in U-Boot. Using this explanation, you can easily correlate the bank configuration values using the 405GP reference manual. For a 64MB DRAM size, the memory bank control register is set as follows:</P>
+<DIV class=docText><PRE>Memory Bank 0 Control Register = 0x000a4001</PRE></DIV><BR>
+<P class=docText>The PowerPC 405GP User's Manual describes the fields in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app04lev1sec3.html#app04table02">Table D-2</A> for the memory bank 0 control register.</P><A name=app04table02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table D-2. 405GP Memory Bank 0-3 Configuration Register Fields</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=175>
+<COL width=75>
+<COL width=300></COLGROUP>
+<THEAD>
+<TR>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Field</P></TH>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Value</P></TH>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Comments</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Bank Address (BA)</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>0x00</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Starting memory address of this bank.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Size (SZ)</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>0x4</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Size of this memory bankin this case, 64MB.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Addressing Mode (AM)</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>0x2</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Determines the organization of memory, including the number of row and column bits. In this case, Mode 2 <TT>=</TT> 12 row address bits, and either 9 or 10 column address bits, and up to four internal SDRAM banks. This data is provided in a table in the 405GP user's manual.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Bank Enable (BE)</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>0x1</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Enable bit for the bank configured by this register. There are four of these memory bank configuration registers in the 405GP.</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>The values in this table must be determined by the designer, based on the choice of memory module in use on the board.</P>
+<P class=docText>Let's look at a timing example for more detail on the timing requirements of a typical SDRAM controller. Assuming a 100MHz SDRAM clock speed and 64MB memory size, the timing constants selected by the <TT>sdram_init()</TT> function in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app04lev1sec3.html#appDlist01">Listing D-1</A> are selected as follows:</P>
+<DIV class=docText><PRE>SDRAM Timing Register          = 0x0086400d
+Refresh Timing Register        = 0x05f00000</PRE></DIV><BR>
+<P class=docText>The PowerPC 405GP User's Manual describes the fields in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app04lev1sec3.html#app04table03">Table D-3</A> for the SDRAM Timing Register.</P>
+<P class=docText></P><A name=app04table03></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table D-3. 405GP SDRAM Timing Register Fields</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=150>
+<COL width=75>
+<COL width=300></COLGROUP>
+<THEAD>
+<TR>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText><A name=iddle2528></A>Field</P></TH>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Value</P></TH>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Comments</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>CAS Latency (CASL)</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>0x1</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>SDRAM CAS Latency. This value comes directly from the SDRAM chip specifications. It is the delay in clock cycles required by the chip between issuance of the read command (CAS signal) until the data is available on the data bus. In this case, the <TT>0x1</TT> represents two clock cycles, as seen from the 405GP user's manual.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Precharge Command to Next Activate (PTA)</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>0x1</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>The SDRAM <TT>Precharge</TT> command deactivates a given row. In contrast, the <TT>Activate</TT> command enables a given row for subsequent access, such as during a burst cycle. This timing parameter enforces the minimum time between <TT>Precharge</TT> to a subsequent <TT>Activate</TT> cycle and is dictated by the SDRAM chip. The correct value must be obtained from the SDRAM chip specification. In this case, <TT>0x1</TT> represents two clock cycles, as determined from the 405GP user's manual.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Read/Write to Precharge Command Minimum (CTP)</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>0x2</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>This timing parameter enforces the minimum time delay between a given SDRAM read or write command to a subsequent <TT>Precharge</TT> command. The correct value must be obtained from the SDRAM chip specification. In this case, <TT>0x2</TT> represents three clock cycles, as determined from the 405GP user's manual.</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>SDRAM Command Leadoff (LDF)</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>0x1</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>This timing parameter enforces the minimum time delay between assertion of address or command cycle to bank select cycle. The correct value must be obtained from the SDRAM chip specification. In this case, <TT>0x1</TT> represents two clock cycles, as determined from the 405GP user's manual.</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>The final timing parameter configured by the U-Boot example in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app04lev1sec3.html#appDlist01">Listing D-1</A> is the refresh timing register value. This register requires a single field that determines the refresh interval enforced by the SDRAM controller. The field representing the interval is treated as a simple counter running at the SDRAM clock frequency. In the example here, we assumed 100MHz as the SDRAM clock frequency. The value programmed into this register in our example is 0x05f0_0000. From the PowerPC 405GP User's Manual, we determine that this will produce a refresh request every 15.2 microseconds. As with the other timing parameters, this value is dictated by the SDRAM chip specifications.</P>
+<P class=docText>A typical SDRAM chip requires one refresh cycle for each row. Each row must be refreshed in the minimum time specified by the manufacturer. In the chip referenced in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app04lev1sec4.html#app04lev2sec2">Section D.4.1</A>, "Suggestions for Additional Reading," the manufacturer specifies that 8,192 rows must be refreshed every 64 milliseconds. This requires generating a refresh cycle every 7.8 microseconds to meet the specifications for this particular device.

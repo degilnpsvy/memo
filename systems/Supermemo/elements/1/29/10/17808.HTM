@@ -1,0 +1,17 @@
+<H3 class=section>7.2 Using Shell Variables in Programs</H3><A name=index-shells_002c-variables></A><A name=index-awk-programs_002c-shell-variables-in></A>
+<P><CODE>awk</CODE> programs are often used as components in larger programs written in shell. For example, it is very common to use a shell variable to hold a pattern that the <CODE>awk</CODE> program searches for. There are two ways to get the value of the shell variable into the body of the <CODE>awk</CODE> program. </P><A name=index-shells_002c-quoting></A>
+<P>The most common method is to use shell quoting to substitute the variable&#8217;s value into the program inside the script. For example, in the following program: </P>
+<DIV class=example><PRE class=example>printf "Enter search pattern: "
+read pattern
+awk "/$pattern/ "'{ nmatches++ }
+     END { print nmatches, "found" }' /path/to/data
+</PRE></DIV>
+<P>the <CODE>awk</CODE> program consists of two pieces of quoted text that are concatenated together to form the program. The first part is double-quoted, which allows substitution of the <CODE>pattern</CODE> shell variable inside the quotes. The second part is single-quoted. </P>
+<P>Variable substitution via quoting works, but can be potentially messy. It requires a good understanding of the shell&#8217;s quoting rules (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Quoting">Quoting</A>), and it&#8217;s often difficult to correctly match up the quotes when reading the program. </P>
+<P>A better method is to use <CODE>awk</CODE>&#8217;s variable assignment feature (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Assignment-Options">Assignment Options</A>) to assign the shell variable&#8217;s value to an <CODE>awk</CODE> variable&#8217;s value. Then use dynamic regexps to match the pattern (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Computed-Regexps">Computed Regexps</A>). The following shows how to redo the previous example using this technique: </P>
+<DIV class=example><PRE class=example>printf "Enter search pattern: "
+read pattern
+awk -v pat="$pattern" '$0 ~ pat { nmatches++ }
+       END { print nmatches, "found" }' /path/to/data
+</PRE></DIV>
+<P>Now, the <CODE>awk</CODE> program is just one single-quoted string. The assignment &#8216;<SAMP>-v pat="$pattern"</SAMP>&#8217; still requires double quotes, in case there is whitespace in the value of <CODE>$pattern</CODE>. The <CODE>awk</CODE> variable <CODE>pat</CODE> could be named <CODE>pattern</CODE> too, but that would be more confusing. Using a variable also provides more flexibility, since the variable can be used anywhere inside the program&#8212;for printing, as an array subscript, or for any other use&#8212;without requiring the quoting tricks at every point in the program.

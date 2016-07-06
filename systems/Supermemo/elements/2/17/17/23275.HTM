@@ -1,0 +1,274 @@
+<H3 id=title-IDAFUYKH class=docSection1Title>10.3. MTD Partitions</H3>
+<P class=docText>Most Flash devices on a given hardware platform are divided into several sections, called partitions, similar to the partitions found on a typical desktop workstation hard drive. The MTD subsystem provides support for such Flash partitions. The MTD subsystem must be configured for MTD partitioning support. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10fig02">Figure 10-2</A> illustrates the configuration options for MTD partitioning support.</P>
+<P class=docText></P><A name=ch10fig02></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 10-2. Kernel configuration for MTD partitioning support</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/10elp02_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/10elp02.jpg" width=500 height=533>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText>Several methods exist for communicating the partition data to the Linux kernel. The following methods are currently supported. You can see the configuration options for each in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10fig02">Figure 10-2</A> under MTD Partitioning Support.</P>
+<UL>
+<LI>
+<P class=docList>Redboot partition table parsing</P></LI>
+<LI>
+<P class=docList>Kernel command-line partition table definition</P></LI>
+<LI>
+<P class=docList>Board-specific mapping drivers</P></LI></UL>
+<P class=docText>MTD also allows configurations without partition data. In this case, MTD simply treats the entire Flash memory as a single device.</P><A name=ch10lev2sec3></A>
+<H4 id=title-IDAMWYKH class=docSection2Title>10.3.1. Redboot Partition Table Partitioning</H4>
+<P class=docText><A name=iddle1191></A><A name=iddle1501></A><A name=iddle1504></A><A name=iddle2005></A><A name=iddle2135></A><A name=iddle2136></A><A name=iddle2137></A><A name=iddle2193></A><A name=iddle2357></A><A name=iddle2361></A><A name=iddle2363></A>One of the more common methods of defining and detecting MTD partitions stems from one of the original implementations: Redboot partitions. Redboot is a bootloader found on many embedded boards, especially ARM XScale boards such as the ADI Engineering Coyote Reference Platform.</P>
+<P class=docText>The MTD subsystem defines a method for storing partition information on the Flash device itself, similar in concept to a partition table on a hard disk. In the case of the Redboot partitions, the developer reserves and specifies a Flash erase block that holds the partition definitions. A mapping driver is selected that calls the partition parsing functions during boot to detect the partitions on the Flash device. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10fig02">Figure 10-2</A> shows the mapping driver for our example board; it is the final highlighted entry defining <TT>CONFIG_MTD_IXP4xx</TT>.</P>
+<P class=docText>As usual, taking a detailed look at an example helps to illustrate these concepts. We start by looking at the information provided by the Redboot bootloader for the Coyote platform. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list04">Listing 10-4</A> captures some of the output of the Redboot bootloader upon power-up.</P><A name=ch10list04></A>
+<H5 id=title-IDAD1YKH class=docExampleTitle>Listing 10-4. Redboot Messages on Power-Up</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>Platform: ADI Coyote (XScale)
+IDE/Parallel Port CPLD Version: 1.0
+Copyright (C) 2000, 2001, 2002, Red Hat, Inc.
+
+RAM: 0x00000000-0x04000000, 0x0001f960-0x03fd1000 available
+FLASH: 0x50000000 - 0x51000000, 128 blocks of 0x00020000 bytes each.
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This tells us that RAM on this board is physically mapped starting at address 0x00000000 and that Flash is mapped at physical address 0x50000000 through 0x51000000. We can also see that the Flash has 128 blocks of 0x00020000 (128KB) each.</P>
+<P class=docText>Redboot contains a command to create and display partition information on the Flash. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list05">Listing 10-5</A> contains the output of the <TT>fis list</TT> command, part of the Flash Image System family of commands available in the Redboot bootloader.</P>
+<P class=docText></P><A name=ch10list05></A>
+<H5 id=title-IDAE2YKH class=docExampleTitle>Listing 10-5. Redboot Flash Partition List</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>RedBoot&gt; <SPAN class=docEmphStrong>fis list</SPAN>
+Name                 FLASH addr  Mem addr    Length      Entry point
+RedBoot              0x50000000  0x50000000  0x00060000  0x00000000
+RedBoot config       0x50FC0000  0x50FC0000  0x00001000  0x00000000
+FIS directory        0x50FE0000  0x50FE0000  0x00020000  0x00000000
+RedBoot&gt;</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1177></A><A name=iddle1200></A><A name=iddle1320></A><A name=iddle1364></A><A name=iddle1882></A><A name=iddle2004></A><A name=iddle2123></A><A name=iddle2126></A><A name=iddle2358></A><A name=iddle2360></A>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list05">Listing 10-5</A>, we see that the Coyote board has three partitions defined on the Flash. The partition named <TT>RedBoot</TT> contains the executable Redboot bootloader image. The partition named <TT>RedBoot config</TT> contains the configuration parameters maintained by the bootloader. The final partition named <TT>FIS directory</TT> holds information about the partition table itself.</P>
+<P class=docText>When properly configured, the Linux kernel can detect and parse this partition table and create MTD partitions representing the physical partitions on Flash. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list06">Listing 10-6</A> reproduces a portion of the boot messages that are output from the aforementioned ADI Engineering Coyote board, booting a Linux kernel configured with support for detecting Redboot partitions.</P><A name=ch10list06></A>
+<H5 id=title-IDATAZKH class=docExampleTitle>Listing 10-6. Detecting Redboot Partitions on Linux Boot</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+IXP4XX-Flash0: Found 1 x16 devices at 0x0 in 16-bit bank
+ Intel/Sharp Extended Query Table at 0x0031
+Using buffer write method
+cfi_cmdset_0001: Erase suspend on write enabled
+Searching for RedBoot partition table in IXP4XX-Flash0 at offset 0xfe0000
+3 RedBoot partitions found on MTD device IXP4XX-Flash0
+Creating 3 MTD partitions on "IXP4XX-Flash0":
+0x00000000-0x00060000: "RedBoot"
+0x00fc0000-0x00fc1000: "RedBoot config"
+0x00fe0000-0x01000000: "FIS directory"
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>The first message in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list06">Listing 10-6</A> is printed when the Flash chip is detected, via the Common Flash Interface (CFI) driver, enabled via <TT>CONFIG_MTD_CFI</TT>. CFI is an industry-standard method for determining the Flash chip's characteristics, such as manufacturer, device type, total size, and erase block size. See <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec5.html#ch10lev2sec9">Section 10.5.1</A>, "Suggestions for Additional Reading," at the end of this chapter for a pointer to the CFI specification.</P>
+<P class=docText><A name=iddle2129></A><A name=iddle2362></A>CFI is enabled via the kernel-configuration utility under the Memory Technology Devices (MTD) top-level menu. Select <TT>Detect flash chips by Common Flash Interface (CFI) probe</TT> under <TT>RAM/ROM/Flash chip drivers</TT>, as illustrated in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10fig03">Figure 10-3</A>.</P><A name=ch10fig03></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 10-3. Kernel configuration for MTD CFI support</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/10elp03_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/10elp03.jpg" width=500 height=432>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText>As shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list06">Listing 10-6</A>, the Flash chip is detected via the CFI interface. Because we also enabled <TT>CONFIG_MTD_REDBOOT_PARTS</TT> (see <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10fig02">Figure 10-2</A>), MTD scans for the Redboot partition table on the Flash chip. Notice also that the chip has been enumerated with the device name <TT>IXP4XX-Flash0</TT>. You can see from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list06">Listing 10-6</A> that the Linux kernel has detected three partitions on the Flash chip, as enumerated previously using the <TT>fis list</TT> command in Redboot.</P>
+<P class=docText>When the infrastructure is in place as described here, the Linux kernel automatically detects and creates kernel data structures representing the three Flash partitions. Evidence of these can be found in the <TT>/proc</TT> file system when the kernel has completed initialization, as shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list07">Listing 10-7</A>.</P>
+<P class=docText></P><A name=ch10list07></A>
+<H5 id=title-IDAYEZKH class=docExampleTitle>Listing 10-7. Kernel MTD Flash Partitions</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote:~# <SPAN class=docEmphStrong>cat /proc/mtd</SPAN>
+dev:    size   erasesize  name
+mtd0: 00060000 00020000 "RedBoot"
+mtd1: 00001000 00020000 "RedBoot config"
+mtd2: 00020000 00020000 "FIS directory"
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1948></A><A name=iddle2006></A><A name=iddle2125></A><A name=iddle2359></A>We can easily create a new Redboot partition. We use the Redboot FIS commands for this example, but we do not detail the Redboot commands in this book. However, the interested reader can consult the Redboot user documentation listed in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec5.html#ch10lev2sec9">Section 10.5.1</A> at the end of this chapter. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list08">Listing 10-8</A> shows the details of creating a new Redboot partition.</P><A name=ch10list08></A>
+<H5 id=title-IDAGHZKH class=docExampleTitle>Listing 10-8. Creating a New Redboot Partition</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>RedBoot&gt; <SPAN class=docEmphStrong>load -r -v -b 0x01008000 coyote-40-zImage</SPAN>
+Using default protocol (TFTP)
+Raw file loaded 0x01008000-0x0114dccb, assumed entry at 0x01008000
+RedBoot&gt; <SPAN class=docEmphStrong>fis create -b 0x01008000 -l 0x145cd0 -f 0x50100000 MyKernel</SPAN>
+... Erase from 0x50100000-0x50260000: ...........
+... Program from 0x01008000-0x0114dcd0 at 0x50100000: ...........
+... Unlock from 0x50fe0000-0x51000000: .
+... Erase from 0x50fe0000-0x51000000: .
+... Program from 0x03fdf000-0x03fff000 at 0x50fe0000: .
+... Lock from 0x50fe0000-0x51000000: .</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>First, we load the image we will use to create the new partition. We will use our kernel image for the example. We load it to memory address 0x01008000. Then we create the new partition using the Redboot <TT>fis create</TT> command. We have instructed Redboot to create the new partition in an area of Flash starting at 0x50100000. You can see the action as Redboot first erases this area of Flash and then programs the kernel image. In the final sequence, Redboot unlocks its directory area and updates the FIS Directory with the new partition information. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list09">Listing 10-9</A> shows the output of <TT>fis list</TT> with the new partition. Compare this with the output in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list05">Listing 10-5</A>.</P>
+<P class=docText></P><A name=ch10list09></A>
+<H5 id=title-IDAYIZKH class=docExampleTitle>Listing 10-9. New Redboot Partition List</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>RedBoot&gt; <SPAN class=docEmphStrong>fis list</SPAN>
+Name                 FLASH addr  Mem addr    Length     Entry point
+RedBoot              0x50000000  0x50000000  0x00060000  0x00000000
+RedBoot config       0x50FC0000  0x50FC0000  0x00001000  0x00000000
+FIS directory        0x50FE0000  0x50FE0000  0x00020000  0x00000000
+MyKernel             0x50100000  0x50100000  0x00160000  0x01008000</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1184></A><A name=iddle1988></A><A name=iddle2131></A><A name=iddle2190></A>Of course, when we boot the Linux kernel, it discovers the new partition and we can operate on it as we see fit. The astute reader might have realized the other benefit of this new partition: We can now boot the kernel from Flash instead of having to load it via <TT>tftp</TT> every time. The command is illustrated next. Simply pass the Redboot <TT>exec</TT> command the Flash starting address of the partition and the length of the image to transfer into RAM.</P>
+<DIV class=docText><PRE>RedBoot&gt; <SPAN class=docEmphStrong>exec -b 0x50100000 -l 0x145cd0</SPAN>
+   Uncompressing Linux........... done, booting the kernel.
+...</PRE></DIV><BR><A name=ch10lev2sec4></A>
+<H4 id=title-IDAILZKH class=docSection2Title>10.3.2. Kernel Command Line Partitioning</H4>
+<P class=docText>As detailed in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10lev1sec3">Section 10.3</A>, "MTD Partitions," the raw Flash partition information can be communicated to the kernel using other methods. Indeed, possibly the most straightforward, though perhaps not the simplest method is to manually pass the partition information directly on the kernel command line. Of course, as we have already learned, some bootloaders make that easy (for example U-Boot), whereas others do not have a facility to pass a kernel command line to the kernel upon boot. In these cases, the kernel command line must be configured at compile time and, therefore, is more difficult to change, requiring a recompile of the kernel itself each time the partitions are modified.</P>
+<P class=docText>To enable command-line partitioning in the MTD subsystem, your kernel must be configured for this support. You can see this configuration option in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10fig02">Figure 10-2</A> under <TT>MTD partitioning support</TT>. Select the option for command-line partition table parsing, which defines the <TT>CONFIG_MTD_CMDLINE_PARTS</TT> option.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list10">Listing 10-10</A> shows the format for defining a partition on the kernel command line (taken from <TT>.../drivers/mtd/cmdlinepart.c</TT>).</P>
+<P class=docText></P><A name=ch10list10></A>
+<H5 id=title-IDAWMZKH class=docExampleTitle>Listing 10-10. Kernel Command-Line MTD Partition Format</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>mtdparts=&lt;mtddef&gt;[;&lt;mtddef]
+ *&lt;mtddef&gt;  := &lt;mtd-id&gt;:&lt;partdef&gt;[,&lt;partdef&gt;]
+ *&lt;partdef&gt; := &lt;size&gt;[@offset][&lt;name&gt;][ro]
+ *&lt;mtd-id&gt;  := unique name used in mapping driver/device (mtd-&gt;name)
+ *&lt;size&gt;    := std linux memsize OR "-" to denote all remaining space
+ *&lt;name&gt;    := '(' NAME ')'</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1366></A><A name=iddle1944></A><A name=iddle2072></A><A name=iddle2132></A><A name=iddle2191></A><A name=iddle2228></A>Each <TT>mtddef</TT> parameter passed on the kernel command line defines a separate partition. As shown is <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list10">Listing 10-10</A>, each <TT>mtddef</TT> definition contains multiple parts. You can specify a unique ID, partition size, and offset from the start of the Flash. You can also pass the partition a name and, optionally, the read-only attribute. Referring back to our Redboot partition definitions in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list05">Listing 10-5</A>, we could statically define these on the kernel command line as follows:</P>
+<DIV class=docText><PRE>mtdparts=MainFlash:384K(Redboot),4K(config),128K(FIS),-(unused)</PRE></DIV><BR>
+<P class=docText>With this definition, the kernel would instantiate four MTD partitions, with an MTD ID of <TT>MainFlash</TT>, containing the sizes and layout matching that found in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list05">Listing 10-5</A>.</P><A name=ch10lev2sec5></A>
+<H4 id=title-IDAKQZKH class=docSection2Title>10.3.3. Mapping Driver</H4>
+<P class=docText>The final method for defining your board-specific Flash layout is to use a dedicated board-specific mapping driver. The Linux kernel source tree contains many examples of mapping drivers, located in <TT>.../drivers/mtd/maps</TT>. Any one of these will provide good examples for how to create your own. The implementation details vary by architecture.</P>
+<P class=docText><A name=iddle1997></A>The mapping driver is a proper kernel module, complete with <TT>module_init()</TT> and <TT>module_exit()</TT> calls, as described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08.html#ch08">Chapter 8</A>, "Device Driver Basics." A typical mapping driver is small and easy to navigate, often containing fewer than a couple dozen lines of C.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list11">Listing 10-11</A> reproduces a section of <TT>.../drivers/mtd/maps/pq2fads</TT>. This mapping driver defines the Flash device on a Freescale PQ2FADS evaluation board that supports the MPC8272 and other processors.</P>
+<P class=docText></P><A name=ch10list11></A>
+<H5 id=title-IDACSZKH class=docExampleTitle>Listing 10-11. PQ2FADs Flash Mapping Driver</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+static struct mtd_partition pq2fads_partitions[] = {
+       {
+#ifdef CONFIG_ADS8272
+             .name      = "HRCW",
+             .size      = 0x40000,
+             .offset      = 0,
+             .mask_flags= MTD_WRITEABLE,  /* force read-only */
+     }, {
+            .name       = "User FS",
+            .size       = 0x5c0000,
+            .offset       = 0x40000,
+#else
+            .name       = "User FS",
+            .size       = 0x600000,
+            .offset       = 0,
+#endif
+     }, {
+            .name       = "uImage",
+            .size       = 0x100000,
+            .offset       = 0x600000,
+            .mask_flags = MTD_WRITEABLE,  /* force read-only */
+     }, {
+            .name       = "bootloader",
+            .size       = 0x40000,
+            .offset     = 0x700000,
+            .mask_flags = MTD_WRITEABLE,  /* force read-only */
+     }, {
+            .name       = "bootloader env",
+            .size       = 0x40000,
+            .offset            = 0x740000,
+            .mask_flags = MTD_WRITEABLE,  /* force read-only */
+     }
+};
+/* pointer to MPC885ADS board info data */
+extern unsigned char __res[];
+
+static int __init init_pq2fads_mtd(void)
+{
+      bd_t *bd = (bd_t *)__res;
+      physmap_configure(bd-&gt;bi_flashstart, bd-&gt;bi_flashsize,
+                        PQ2FADS_BANK_WIDTH, NULL);
+
+      physmap_set_partitions(pq2fads_partitions,
+                       sizeof (pq2fads_partitions) /
+                       sizeof (pq2fads_partitions[0]));
+       return 0;
+}
+
+static void __exit cleanup_pq2fads_mtd(void)
+{
+}
+module_init(init_pq2fads_mtd);
+module_exit(cleanup_pq2fads_mtd);
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1198></A><A name=iddle1365></A><A name=iddle1502></A><A name=iddle1527></A><A name=iddle1530></A><A name=iddle1649></A><A name=iddle1689></A><A name=iddle2062></A><A name=iddle2103></A><A name=iddle2128></A><A name=iddle2189></A><A name=iddle2198></A>This simple but complete Linux device driver communicates the PQ2FADS Flash mapping to the MTD subsystem. Recall from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08.html#ch08">Chapter 8</A> that when a function in a device driver is declared with the <TT>module_init()</TT> macro, it is automatically invoked during Linux kernel boot at the appropriate time. In this PQ2FADS mapping driver, the module initialization function <TT>init_pq2fads_mtd()</TT> performs just two simple calls:</P>
+<BLOCKQUOTE>
+<UL>
+<LI>
+<P class=docList><TT>physmap_configure()</TT> passes to the MTD subsystem the Flash chip's physical address, size, and bank width, along with any special setup function required to access the Flash.</P></LI>
+<LI>
+<P class=docList><TT>physmap_set_partitions()</TT> passes the board's unique partition information to the MTD subsystem from the partition table defined in the <TT>pq2fads_partitions[]</TT> array found at the start of this mapping driver.</P></LI></UL></BLOCKQUOTE>
+<P class=docText>Following this simple example, you can derive a mapping driver for your own board.</P><A name=ch10lev2sec6></A>
+<H4 id=title-IDAOXZKH class=docSection2Title>10.3.4. Flash Chip Drivers</H4>
+<P class=docText>MTD has support for a wide variety of Flash chips and devices. Chances are very good that your chosen chip has also been supported. The most common Flash chips support the Common Flash Interface (CFI) mentioned earlier. Older Flash chips might have JEDEC support, which is an older Flash compatibility standard. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10fig04">Figure 10-4</A> shows the kernel configuration from a recent Linux kernel snapshot. This version supports many Flash types.</P>
+<P class=docText></P><A name=ch10fig04></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 10-4. Flash device support</H5>
+<P class=docText>
+<DIV class=v1><A href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/10elp04_alt.jpg" target=_self>[View full size image]</A></DIV><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/10elp04.jpg" width=500 height=549>
+<P></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1078></A><A name=iddle1079></A><A name=iddle1572></A><A name=iddle1573></A><A name=iddle2121></A><A name=iddle2188></A>If your Flash chip is not supported, you must provide a device file yourself. Using one of the many examples in <TT>.../drivers/mtd/chips</TT> as a starting point, customize or create your own Flash device driver. Better yet, unless the chip was just introduced with some newfangled interface, chances are good that someone has already produced a driver.</P><A name=ch10lev2sec7></A>
+<H4 id=title-IDAE1ZKH class=docSection2Title>10.3.5. Board-Specific Initialization</H4>
+<P class=docText>Along with a mapping driver, your board-specific (platform) setup must provide the underlying definitions for proper MTD Flash system operation. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list12">Listing 10-12</A> reproduces the relevant portions of <TT>.../arch/arm/mach-ixp4xx/coyote-setup.c</TT>.</P>
+<P class=docText></P><A name=ch10list12></A>
+<H5 id=title-IDA31ZKH class=docExampleTitle>Listing 10-12. Coyote-Specific Board Setup</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>static struct flash_platform_data coyote_flash_data = {
+      .map_name  = "cfi_probe",
+      .width     = 2,
+};
+
+static struct resource coyote_flash_resource = {
+      .start             = COYOTE_FLASH_BASE,
+      .end             = COYOTE_FLASH_BASE + COYOTE_FLASH_SIZE - 1,
+      .flags             = IORESOURCE_MEM,
+};
+
+static struct platform_device coyote_flash = {
+      .name        = "IXP4XX-Flash",
+      .id          = 0,
+      .dev         = {
+             .platform_data = &amp;coyote_flash_data,
+      },
+      .num_resources       = 1,
+      .resource   = &amp;coyote_flash_resource,
+};
+
+...
+
+static struct platform_device *coyote_devices[] __initdata = {
+       &amp;coyote_flash,
+       &amp;coyote_uart
+};
+
+static void __init coyote_init(void)
+{
+      ...
+
+      platform_add_devices(coyote_devices,
+                               ARRAY_SIZE(coyote_devices));
+}
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1242></A><A name=iddle1243></A><A name=iddle1525></A><A name=iddle1526></A><A name=iddle1874></A>In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list12">Listing 10-12</A>, only the relevant portions of the <TT>coyote-setup.c</TT> platform initialization file are reproduced. Starting from the bottom, the <TT>coyote_init()</TT> function calls <TT>platform_add_devices()</TT>, specifying the Coyote-specific devices defined earlier in this file. You'll notice that two devices are defined just above the <TT>coyote_init()</TT> routine. The one we're interested in for this discussion is <TT>coyote_flash</TT>. This structure of type <TT>struct platform_device</TT> contains all the important details needed by the Linux kernel and MTD subsystem.</P>
+<P class=docText><A name=iddle1511></A><A name=iddle1512></A><A name=iddle2138></A><A name=iddle2607></A>The <TT>.name</TT> member of the <TT>coyote_flash</TT> structure binds our platform-specific Flash resource to a mapping driver with the same name. You can see this in the mapping driver file <TT>.../drivers/mtd/maps/ixp4xx.c</TT>. The <TT>.resource</TT> member communicates the base address of the Flash on the board. The <TT>.dev</TT> member, which contains a <TT>.platform_data</TT> member, ties our Flash setup to a chip driver. In this case, we have specified that our board will use the CFI probe method, specified in the kernel configuration as <TT>CONFIG_MTD_CFI</TT>. You can see this configuration selection in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10fig04">Figure 10-4</A>.</P>
+<P class=docText>Depending on your own architecture and board, you can use a method similar to this to define the Flash support for your own board.

@@ -1,0 +1,85 @@
+<H4 class=subsection>9.1.4 Input/Output Functions</H4><A name=index-input_002foutput-functions></A>
+<P>The following functions relate to input/output (I/O). Optional parameters are enclosed in square brackets ([ ]): </P>
+<DL compact>
+<DT><CODE>close(<VAR>filename</VAR> <SPAN class=roman><FONT face=Batang>[</FONT></SPAN>, <VAR>how</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>)</CODE></DT>
+<DD><A name=index-close_0028_0029-function-1></A><A name=index-files_002c-closing></A><A name=index-close-file-or-coprocess></A>
+<P>Close the file <VAR>filename</VAR> for input or output. Alternatively, the argument may be a shell command that was used for creating a coprocess, or for redirecting to or from a pipe; then the coprocess or pipe is closed. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Close-Files-And-Pipes">Close Files And Pipes</A>, for more information. </P>
+<P>When closing a coprocess, it is occasionally useful to first close one end of the two-way pipe and then to close the other. This is done by providing a second argument to <CODE>close()</CODE>. This second argument should be one of the two string values <CODE>"to"</CODE> or <CODE>"from"</CODE>, indicating which end of the pipe to close. Case in the string does not matter. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Two_002dway-I_002fO">Two-way I/O</A>, which discusses this feature in more detail and gives an example. </P></DD>
+<DT><CODE>fflush(<SPAN class=roman><FONT face=Batang>[</FONT></SPAN><VAR>filename</VAR><SPAN class=roman><FONT face=Batang>]</FONT></SPAN>)</CODE></DT>
+<DD><A name=index-fflush_0028_0029-function></A><A name=index-flush-buffered-output></A>
+<P>Flush any buffered output associated with <VAR>filename</VAR>, which is either a file opened for writing or a shell command for redirecting output to a pipe or coprocess. </P><A name=index-buffers_002c-flushing></A><A name=index-output_002c-buffering></A>
+<P>Many utility programs <EM>buffer</EM> their output; i.e., they save information to write to a disk file or the screen in memory until there is enough for it to be worthwhile to send the data to the output device. This is often more efficient than writing every little bit of information as soon as it is ready. However, sometimes it is necessary to force a program to <EM>flush</EM> its buffers; that is, write the information to its destination, even if a buffer is not full. This is the purpose of the <CODE>fflush()</CODE> function&#8212;<CODE>gawk</CODE> also buffers its output and the <CODE>fflush()</CODE> function forces <CODE>gawk</CODE> to flush its buffers. </P><A name=index-extensions_002c-common_002c-fflush_0028_0029-function></A><A name=index-Brian-Kernighan_0027s-awk-14></A>
+<P><CODE>fflush()</CODE> was added to Brian Kernighan&#8217;s version of <CODE>awk</CODE> in April of 1992. For two decades, it was not part of the POSIX standard. As of December, 2012, it was accepted for inclusion into the POSIX standard. See <A href="http://austingroupbugs.net/view.php?id=634">the Austin Group website</A>. </P>
+<P>POSIX standardizes <CODE>fflush()</CODE> as follows: If there is no argument, or if the argument is the null string (<CODE>""</CODE><!-- /@w -->), then <CODE>awk</CODE> flushes the buffers for <EM>all</EM> open output files and pipes. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Prior to version 4.0.2, <CODE>gawk</CODE> would flush only the standard output if there was no argument, and flush all output files and pipes if the argument was the null string. This was changed in order to be compatible with Brian Kernighan&#8217;s <CODE>awk</CODE>, in the hope that standardizing this feature in POSIX would then be easier (which indeed helped). </P>
+<P>With <CODE>gawk</CODE>, you can use &#8216;<SAMP>fflush("/dev/stdout")</SAMP>&#8217; if you wish to flush only the standard output. </P></BLOCKQUOTE><A name=index-troubleshooting_002c-fflush_0028_0029-function></A>
+<P><CODE>fflush()</CODE> returns zero if the buffer is successfully flushed; otherwise, it returns non-zero (<CODE>gawk</CODE> returns -1). In the case where all buffers are flushed, the return value is zero only if all buffers were flushed successfully. Otherwise, it is -1, and <CODE>gawk</CODE> warns about the problem <VAR>filename</VAR>. </P>
+<P><CODE>gawk</CODE> also issues a warning message if you attempt to flush a file or pipe that was opened for reading (such as with <CODE>getline</CODE>), or if <VAR>filename</VAR> is not an open file, pipe, or coprocess. In such a case, <CODE>fflush()</CODE> returns -1, as well. </P></DD>
+<DT><CODE>system(<VAR>command</VAR>)</CODE></DT>
+<DD><A name=index-system_0028_0029-function></A><A name=index-invoke-shell-command></A><A name=index-interacting-with-other-programs></A>
+<P>Execute the operating-system command <VAR>command</VAR> and then return to the <CODE>awk</CODE> program. Return <VAR>command</VAR>&#8217;s exit status. </P>
+<P>For example, if the following fragment of code is put in your <CODE>awk</CODE> program: </P>
+<DIV class=example><PRE class=example>END {
+     system("date | mail -s 'awk run done' root")
+}
+</PRE></DIV>
+<P>the system administrator is sent mail when the <CODE>awk</CODE> program finishes processing input and begins its end-of-input processing. </P>
+<P>Note that redirecting <CODE>print</CODE> or <CODE>printf</CODE> into a pipe is often enough to accomplish your task. If you need to run many commands, it is more efficient to simply print them down a pipeline to the shell: </P>
+<DIV class=example><PRE class=example>while (<VAR>more stuff to do</VAR>)
+    print <VAR>command</VAR> | "/bin/sh"
+close("/bin/sh")
+</PRE></DIV><A name=index-troubleshooting_002c-system_0028_0029-function></A><A name=index-_002d_002dsandbox-option_002c-disabling-system_0028_0029-function></A>
+<P>However, if your <CODE>awk</CODE> program is interactive, <CODE>system()</CODE> is useful for running large self-contained programs, such as a shell or an editor. Some operating systems cannot implement the <CODE>system()</CODE> function. <CODE>system()</CODE> causes a fatal error if it is not supported. </P>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> When <SAMP>--sandbox</SAMP> is specified, the <CODE>system()</CODE> function is disabled (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). </P></BLOCKQUOTE></DD></DL><A name=index-sidebar_002c-Interactive-Versus-Noninteractive-Buffering></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B>Interactive Versus Noninteractive Buffering</B> </DIV><A name=index-buffering_002c-interactive-vs_002e-noninteractive></A>
+<P>As a side point, buffering issues can be even more confusing, depending upon whether your program is <EM>interactive</EM>, i.e., communicating with a user sitting at a keyboard.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT51" name=DOCF51><SUP>51</SUP></A> </P>
+<P>Interactive programs generally <EM>line buffer</EM> their output; i.e., they write out every line. Noninteractive programs wait until they have a full buffer, which may be many lines of output. Here is an example of the difference: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk '{ print $1 + $2 }'</EM></KBD>
+<KBD><EM>1 1</EM></KBD>
+-| 2
+<KBD><EM>2 3</EM></KBD>
+-| 5
+<KBD><EM>Ctrl-d</EM></KBD>
+</PRE></DIV>
+<P>Each line of output is printed immediately. Compare that behavior with this example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>awk '{ print $1 + $2 }' | cat</EM></KBD>
+<KBD><EM>1 1</EM></KBD>
+<KBD><EM>2 3</EM></KBD>
+<KBD><EM>Ctrl-d</EM></KBD>
+-| 2
+-| 5
+</PRE></DIV>
+<P>Here, no output is printed until after the <KBD><EM>Ctrl-d</EM></KBD> is typed, because it is all buffered and sent down the pipe to <CODE>cat</CODE> in one shot. </P></TD></TR></TBODY></TABLE><A name=index-sidebar_002c-Controlling-Output-Buffering-with-system_0028_0029></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B>Controlling Output Buffering with <CODE>system()</CODE></B> </DIV><A name=index-buffers_002c-flushing-1></A><A name=index-buffering_002c-input_002foutput></A><A name=index-output_002c-buffering-1></A>
+<P>The <CODE>fflush()</CODE> function provides explicit control over output buffering for individual files and pipes. However, its use is not portable to many older <CODE>awk</CODE> implementations. An alternative method to flush output buffers is to call <CODE>system()</CODE> with a null string as its argument: </P>
+<DIV class=example><PRE class=example>system("")   # flush output
+</PRE></DIV>
+<P><CODE>gawk</CODE> treats this use of the <CODE>system()</CODE> function as a special case and is smart enough not to run a shell (or other command interpreter) with the empty command. Therefore, with <CODE>gawk</CODE>, this idiom is not only useful, it is also efficient. While this method should work with other <CODE>awk</CODE> implementations, it does not necessarily avoid starting an unnecessary shell. (Other implementations may only flush the buffer associated with the standard output and not necessarily all buffered output.) </P>
+<P>If you think about what a programmer expects, it makes sense that <CODE>system()</CODE> should flush any pending output. The following program: </P>
+<DIV class=example><PRE class=example>BEGIN {
+     print "first print"
+     system("echo system echo")
+     print "second print"
+}
+</PRE></DIV>
+<P>must print: </P>
+<DIV class=example><PRE class=example>first print
+system echo
+second print
+</PRE></DIV>
+<P>and not: </P>
+<DIV class=example><PRE class=example>system echo
+first print
+second print
+</PRE></DIV>
+<P>If <CODE>awk</CODE> did not flush its buffers before calling <CODE>system()</CODE>, you would see the latter (undesirable) output. </P></TD></TR></TBODY></TABLE>

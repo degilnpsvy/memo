@@ -1,0 +1,27 @@
+<H4 id=title-ID0EMZOM class=docSection2Title><FONT class=extract>Short Delays</FONT></H4>
+<P class=docText><A name="commonly requested"></A><FONT class=extract>In kernel terms, sub-jiffy delays qualify as short durations. Such delays are commonly requested from both process and interrupt contexts. Because it is not possible to use jiffy-based methods to implement sub-jiffy delays, the methods discussed in the previous section to sleep-wait cannot be used for small timeouts. The only solution is to busy-wait.</FONT></P>
+<P class=docText><A name=are></A><FONT class=extract>Kernel APIs that implement short delays are <TT>mdelay()</TT>, <TT>udelay()</TT>, and <TT>ndelay()</TT></FONT><A name="these functions"></A><FONT class=extract>, which support millisecond, microsecond, and nanosecond delays, respectively. The actual implementations of these functions are architecture-specific and may not be available on all platforms.</FONT></P>
+<P class=docText><A name="short durations"></A><FONT class=extract>Busy-waiting for short durations is accomplished by measuring the time the processor takes to execute an instruction and looping for the necessary number of iterations. As discussed earlier in this chapter, the kernel performs this measurement during boot and stores the value in a variable called <TT>loops_per_jiffy</TT>. The short-delay APIs use <TT>loops_per_jiffy</TT></FONT><A name="achieve a"></A><FONT class=extract> to decide the number of times they need to busy-loop. To achieve a 1-microsecond delay during a handshake process, the USB host controller driver, <SPAN class=docEmphasis>drivers/usb/host/ehci-hcd.c</SPAN></FONT><A name=calls></A><FONT class=extract>, calls <TT>udelay()</TT></FONT><A name=uses></A><FONT class=extract>, which internally uses <TT>loops_per_jiffy</TT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>do {
+  result = ehci_readl(ehci, ptr);
+  /* ... */
+  if (result == done) return 0;
+  <SPAN class=docEmphStrong>udelay(1);     /* Internally uses loops_per_jiffy */</SPAN>
+  usec--;
+} while (usec &gt; 0);</FONT></PRE></DIV><BR><A name=ch02lev2sec15></A>
+<H4 id=title-ID0EY1OM class=docSection2Title><FONT class=extract>Pentium Time Stamp Counter</FONT></H4>
+<P class=docText><FONT class=extract>The <SPAN class=docEmphasis><A name="Stamp Counter"></A>Time Stamp Counter</SPAN></FONT><A name="number of"></A><FONT class=extract> (TSC) is a 64-bit register present in Pentium-compatible processors that counts the number of clock cycles consumed by the processor since startup. Because the TSC gets incremented at the rate of the processor cycle speed, it provides a high-resolution timer. The TSC is commonly used for profiling and </FONT><A name=iddle2614></A><A name=iddle2642></A><A name=iddle2930></A><A name=iddle3194></A><A name=iddle3751></A><A name=iddle3851></A><A name=iddle4270></A><A name=the></A><FONT class=extract>instrumenting code. It is accessed using the <TT>rdtsc</TT></FONT><A name="microsecond precision"></A><FONT class=extract> instruction to measure execution time of intervening code with microsecond precision. TSC ticks can be converted to seconds by dividing by the CPU clock speed, which can be read from the kernel variable, <TT>cpu_khz</TT>.</FONT></P>
+<P class=docText><FONT class=extract>In the following snippet, <TT>low_tsc_ticks</TT></FONT><A name=while></A><FONT class=extract> contains the lower 32 bits of the TSC, while <TT>high_tsc_ticks</TT></FONT><A name="a few"></A><FONT class=extract> contains the higher 32 bits. The lower 32 bits overflow in a few seconds depending on your processor speed but is sufficient for many code instrumentation purposes as shown here:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long low_tsc_ticks0, high_tsc_ticks0;
+unsigned long low_tsc_ticks1, high_tsc_ticks1;
+unsigned long exec_time;
+rdtsc(low_tsc_ticks0, high_tsc_ticks0); /* Timestamp
+                                           before */
+printk("Hello World\n");                /* Code to be
+                                           profiled */
+rdtsc(low_tsc_ticks1, high_tsc_ticks1); /* Timestamp after */
+exec_time = low_tsc_ticks1 - low_tsc_ticks0;</FONT></PRE></DIV><BR>
+<P class=docText><TT><FONT class=extract>exec_time</FONT></TT><A name="half a"></A><FONT class=extract> measured 871 (or half a microsecond) on a 1.8GHz Pentium box.</FONT></P><A name=ch02note02></A>
+<DIV class=docNote>
+<P><FONT class=extract></FONT>
+<P class=docText><FONT class=extract>Support for high-resolution timers (<TT>CONFIG_HIGH_RES_TIMERS</TT></FONT><A name="to provide"></A><FONT class=extract>) has been merged with the 2.6.21 kernel. It makes use of hardware-specific high-speed timers to provide high-precision capabilities to APIs such as <TT>nanosleep()</TT></FONT><A name="On Pentium"></A><FONT class=extract>. On Pentium-class machines, the kernel leverages the TSC to offer this capability.</FONT></P></DIV>

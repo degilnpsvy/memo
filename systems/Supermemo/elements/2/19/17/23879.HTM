@@ -1,0 +1,11 @@
+<P class=docText>To better understand <TT>HZ</TT> and <TT>jiffies</TT>, consider the following code snippet from the IDE driver (<SPAN class=docEmphasis>drivers/ide/ide.c</SPAN>) that polls disk drives for busy status:</P>
+<DIV class=docText><PRE><FONT class=extract>unsigned long timeout = jiffies + (3*HZ);
+while (hwgroup-&gt;busy) {
+  /* ... */
+  if (time_after(jiffies, timeout)) {
+    return -EBUSY;
+  }
+  /* ... */
+}
+return SUCCESS;</FONT></PRE></DIV><BR>
+<P class=docText>The preceding code returns <TT>SUCCESS</TT><A name=and></A> if the busy condition gets cleared in less than 3 seconds, and <TT>-EBUSY</TT> otherwise. <TT>3*HZ</TT> is the number of <TT>jiffies</TT> present in 3 seconds. The calculated timeout, (<TT>jiffies + 3*HZ</TT><A name=of></A>), is thus the new value of <TT>jiffies</TT> after the 3-second timeout elapses. The <TT>time_after()</TT> macro compares the current value of <TT>jiffies</TT><A name="due to"></A> with the requested timeout, taking care to account for wraparound due to overflows. <FONT class=extract>Related functions available for doing similar comparisons are <TT>time_before()</TT>, <TT>time_before_eq()</TT>, and <TT>time_after_eq()</TT>.</FONT>

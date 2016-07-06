@@ -1,0 +1,161 @@
+<DIV class=navheader style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<TABLE width="100%" summary="Navigation header">
+<TBODY>
+<TR>
+<TH align=middle colSpan=3>5.7.&nbsp;MIPS Instruction Code Formats</TH></TR>
+<TR>
+<TD align=left width="20%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s06.html">Prev</A>&nbsp;</TD>
+<TH align=middle width="60%">Chapter&nbsp;5.&nbsp;The MIPS Architecture</TH>
+<TD align=right width="20%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s08.html">Next</A></TD></TR></TBODY></TABLE>
+<HR>
+</DIV>
+<DIV class=section title="5.7.&nbsp;MIPS Instruction Code Formats" style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=id286959864></A>5.7.&nbsp;MIPS Instruction Code Formats</H2></DIV></DIV></DIV>
+<P>On some processors, particularly CISC processors, the size of an instruction code varies with the instruction and its operands.</P>
+<P>The MIPS processor, like many RISC processors, uses a fixed-length instruction code. All MIPS instruction codes are exactly 32 bits. Fixed-length instruction codes offer the advantage of simpler instruction fetching, which means a smaller, cheaper processor. Smaller can mean faster, since the distance electricity has to travel determines how long an operation will take. Smaller also means lower power consumption, and lower manufacturing cost.</P>
+<P>The MIPS processor has four different instruction code formats.</P>
+<DIV class=section title="5.7.1.&nbsp;Register Instructions">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286959874></A>5.7.1.&nbsp;Register Instructions</H3></DIV></DIV></DIV>
+<P>Register instructions have two source registers and one destination register.</P>
+<DIV class=table><A name=register_instruction></A>
+<P class=title><B>Table&nbsp;5.7.&nbsp;Register Instruction Format</B></P>
+<DIV class=table-contents>
+<TABLE summary="Register Instruction Format" border=1>
+<COLGROUP>
+<COL>
+<COL>
+<COL>
+<COL>
+<COL>
+<COL></COLGROUP>
+<THEAD>
+<TR>
+<TH align=left>Opcode</TH>
+<TH align=left>Source 1</TH>
+<TH align=left>Source 2</TH>
+<TH align=left>Destination</TH>
+<TH align=left>Shift Amount</TH>
+<TH align=left>Function</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD align=left>000000</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>6 bits</TD></TR></TBODY></TABLE></DIV></DIV><BR class=table-break>
+<P>Zeroes in the leftmost six bits indicates to the control unit that this is a register instruction. It then uses the rightmost six bits to distinguish the operation codes. Note that the operands are not necessarily in the same order in assembly language and machine language.</P><PRE class=programlisting>	    add     $t3, $t4, $t1   # Destination first in assembly!
+				    # $t3 = $11, $t4 = $12, $t1 = $9
+	    
+	    000000 01100 01001 01011 00000 100000
+	    ^^^^^^ ^^^^^ ^^^^^ ^^^^^ ^^^^^ ^^^^^^
+	      RI    $t4   $t1   $t3  unused add
+	    </PRE></DIV>
+<DIV class=section title=5.7.2.&nbsp;Jump>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286959959></A>5.7.2.&nbsp;Jump</H3></DIV></DIV></DIV>
+<DIV class=table><A name=jump_instruction></A>
+<P class=title><B>Table&nbsp;5.8.&nbsp;Jump Instruction Format</B></P>
+<DIV class=table-contents>
+<TABLE summary="Jump Instruction Format" border=1>
+<COLGROUP>
+<COL>
+<COL></COLGROUP>
+<THEAD>
+<TR>
+<TH align=left>Opcode</TH>
+<TH align=left>Target Offset</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD align=left>0001xx</TD>
+<TD align=left>26 bits</TD></TR></TBODY></TABLE></DIV></DIV><BR class=table-break><PRE class=programlisting>	    000010 tttttttttttttttttttttttttt   j       label
+	    000011 tttttttttttttttttttttttttt   jal     label
+	    </PRE>
+<P>If the leftmost 6 bits are 00001x, the instruction is an unconditional jump, and the remaining bits represent an offset from the PC.</P>
+<P>The MIPS uses 32-bit addresses, but only allows 26 bits to specify an offset in the jump instruction. The 26-bit target is extended to 28 bits by adding two 0's on the right. This works because all MIPS instructions are 32-bits, and must begin at a<SPAN class=Apple-converted-space>&nbsp;</SPAN><EM class=glossterm>word boundary</EM><SPAN class=Apple-converted-space>&nbsp;</SPAN>(an address which is a multiple of 4). Such an address always ends in 00. Hence, the jump instruction offset is limited to 2<SUP>28</SUP><SPAN class=Apple-converted-space>&nbsp;</SPAN>(268,435,456) bytes, or 2<SUP>26</SUP><SPAN class=Apple-converted-space>&nbsp;</SPAN>(67,108,864) instructions. This is not a problem, since most programs are nowhere near this large. Most memory is used for data, not code. If such a huge program were created, it could simply use multiple jumps to get from one end to the other.</P>
+<P>Note that conditional branch instructions use the immediate instruction format, and are limited to 16 bit branch distances (-32,768 to +32,767 instructions).</P>
+<P>Note also that there are jr and jalr instructions, but they use the register instruction format.</P></DIV>
+<DIV class=section title="5.7.3.&nbsp;Coprocessor Instructions">
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286960112></A>5.7.3.&nbsp;Coprocessor Instructions</H3></DIV></DIV></DIV>
+<P>If the leftmost six bits are 0100xx, the instruction is is handled by a coprocessor (an extension to the basic MIPS CPU). The last two bits represent the coprocessor. How many coprocessors can there be?</P>
+<DIV class=table><A name=coprocessor_instruction></A>
+<P class=title><B>Table&nbsp;5.9.&nbsp;Coprocessor Instruction Code Format</B></P>
+<DIV class=table-contents>
+<TABLE summary="Coprocessor Instruction Code Format" border=1>
+<COLGROUP>
+<COL>
+<COL></COLGROUP>
+<THEAD>
+<TR>
+<TH align=left>Opcode</TH>
+<TH align=left>Format</TH>
+<TH align=left>Source 1</TH>
+<TH align=left>Source 2</TH>
+<TH align=left>Destination</TH>
+<TH align=left>Function</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD align=left>0100xx</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>6 bits</TD></TR></TBODY></TABLE></DIV></DIV><BR class=table-break>
+<P>Floating point instructions are handled by a coprocessor.</P></DIV>
+<DIV class=section title=5.7.4.&nbsp;Immediate>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=id286960160></A>5.7.4.&nbsp;Immediate</H3></DIV></DIV></DIV>
+<P>If the leftmost six bits fit none of the above patterns, then the instruction is assumed to use the immediate format.</P>
+<P>Immediate instructions use one source register, one destination register, and one 16-bit immediate source operand. Since the immediate operand is limited to 16 bits, it has a range of 0 to 65,535 if unsigned or -32,768 to +32,767 if signed (The MIPS processor uses two's complement for signed immediate operands).</P>
+<DIV class=table><A name=immediate_instruction></A>
+<P class=title><B>Table&nbsp;5.10.&nbsp;Immediate Instruction Code Format</B></P>
+<DIV class=table-contents>
+<TABLE summary="Immediate Instruction Code Format" border=1>
+<COLGROUP>
+<COL>
+<COL>
+<COL>
+<COL></COLGROUP>
+<THEAD>
+<TR>
+<TH align=left>Opcode</TH>
+<TH align=left>Source</TH>
+<TH align=left>Destination</TH>
+<TH align=left>Immediate Operand</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD align=left>6 bits</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>5 bits</TD>
+<TD align=left>16 bits</TD></TR></TBODY></TABLE></DIV></DIV><BR class=table-break><PRE class=programlisting>	    addi    $t1, $t5, 7  
+	    
+	    001000 01101 01001 0000000000000111
+	     addi   $t5   $t1         7
+	    </PRE>
+<P>The leftmost six bits are the (non-zero) opcode.</P></DIV></DIV>
+<DIV class=navfooter style="WORD-SPACING: 0px; FONT: medium Simsun; TEXT-TRANSFORM: none; COLOR: rgb(0,0,0); TEXT-INDENT: 0px; WHITE-SPACE: normal; LETTER-SPACING: normal; orphans: auto; widows: auto; -webkit-text-stroke-width: 0px">
+<HR>
+
+<TABLE width="100%" summary="Navigation footer">
+<TBODY>
+<TR>
+<TD align=left width="40%"><A accessKey=p href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s06.html">Prev</A>&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=u href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05.html">Up</A></TD>
+<TD align=right width="40%">&nbsp;<A accessKey=n href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/ch05s08.html">Next</A></TD></TR>
+<TR>
+<TD vAlign=top align=left width="40%">5.6.&nbsp;The Instruction Cycle&nbsp;</TD>
+<TD align=middle width="20%"><A accessKey=h href="http://www.cs.uwm.edu/classes/cs315/Bacon/Lecture/HTML/index.html">Home</A></TD>
+<TD vAlign=top align=right width="40%">&nbsp;5.8.&nbsp;Homework</TD></TR></TBODY></TABLE></DIV>

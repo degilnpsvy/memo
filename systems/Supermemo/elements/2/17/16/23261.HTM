@@ -1,0 +1,33 @@
+<H3 id=title-IDAERD3D class=docSection1Title>9.1. Linux File System Concepts</H3>
+<P class=docText>Before delving into the details of the individual file systems, let's look at the big picture of how data is stored on a Linux system. In our study of device drivers in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch08.html#ch08">Chapter 8</A>, "Device Driver Basics," we looked at the structure of a character device. In general, character devices store and retrieve data in serial streams. The most basic example of a character device is a serial port or magnetic tape drive. In contrast, block devices store and retrieve data in equal-sized chucks of data at a time. For example, a typical IDE hard disk controller can transfer 512 bytes of data at a time to and from a specific, addressable location on the physical media. File systems are based on block devices.</P><A name=ch09lev2sec1></A>
+<H4 id=title-IDAXRD3D class=docSection2Title>9.1.1. Partitions</H4>
+<P class=docText>Before we begin our discussion of file systems, we start by introducing partitions, the logical division of a physical device upon which a file system exists. At the <A name=iddle1435></A><A name=iddle1457></A><A name=iddle1459></A><A name=iddle1563></A><A name=iddle1565></A><A name=iddle2185></A><A name=iddle2194></A><A name=iddle2597></A>highest level, data is stored on physical devices in partitions. A partition is a logical division of the physical medium (hard disk, Flash memory) whose data is organized following the specifications of a given partition type. A physical device can have a single partition covering all its available space, or it can be divided into multiple partitions to suit a particular task. A partition can be thought of as a logical disk onto which a complete file system can be written.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec1.html#ch09fig01">Figure 9-1</A> shows the relationship between partitions and file systems.</P><A name=ch09fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 9-1. Partitions and file systems</H5>
+<P class=docText><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/09elp01.jpg" width=337 height=283></P></CENTER>
+<P></P><BR>
+<P class=docText>Linux uses a utility called fdisk to manipulate partitions on block devices. A recent fdisk utility found on many Linux distributions has knowledge of more than 90 different partition types. In practice, only a few are commonly used on Linux systems. Some common partition types include Linux, FAT32, and Linux Swap.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec1.html#ch09list01">Listing 9-1</A> displays the output of the fdisk utility targeting a CompactFlash device connected to a USB port. On this particular target system, the USB subsystem assigned the CompactFlash physical device to the device node <TT>/dev/sdb</TT>.</P>
+<P class=docText></P><A name=ch09list01></A>
+<H5 id=title-IDAQWD3D class=docExampleTitle>Listing 9-1. Displaying Partition Information Using fdisk</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>fdisk /dev/sdb</SPAN>
+Command (m for help): p
+Disk /dev/sdb: 49 MB, 49349120 bytes
+4 heads, 32 sectors/track, 753 cylinders
+Units = cylinders of 128 * 512 = 65536 bytes
+
+   Device Boot      Start         End      Blocks   Id  System
+/dev/sdb1   *           1         180       11504   83  Linux
+/dev/sdb2             181         360       11520   83  Linux
+/dev/sdb3             361         540       11520   83  Linux
+/dev/sdb4             541         753       13632   83  Linux</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1264></A><A name=iddle1421></A><A name=iddle1429></A><A name=iddle1443></A><A name=iddle1448></A><A name=iddle1458></A><A name=iddle1518></A><A name=iddle1558></A><A name=iddle1559></A><A name=iddle1564></A><A name=iddle1887></A><A name=iddle2092></A><A name=iddle2186></A><A name=iddle2406></A><A name=iddle2600></A>For this discussion, we have created four partitions on the device using the fdisk utility. One of them is marked bootable, as indicated by the asterisk in the column labeled <TT>Boot</TT>. This is simply the setting of a flag in the data structure that represents the partition table on the device. As you can see from the listing, the logical unit of storage used by fdisk is a cylinder.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec1.html#ch091">[1]</A></SUP> On this device, a cylinder contains 64KB. On the other hand, Linux represents the smallest unit of storage as a logical block. You can deduce from this listing that a block is a unit of 1024 bytes.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch091>[1]</A></SUP> The term <SPAN class=docEmphasis>cylinder</SPAN> was borrowed from the unit of storage on a rotational media. It consists of the data under a group of heads on a given sector of a disk device. Here it is used for compatibility purposes with the existing file system utilities.</P></BLOCKQUOTE>
+<P class=docText>After the CompactFlash has been partitioned in this manner, each device representing a partition can be formatted with a file system of your choice. When a partition is formatted with a given file system type, Linux can mount the corresponding file system from that partition.

@@ -1,0 +1,83 @@
+<H3 id=-100000 class=docSection1Title>Cellular Networking</H3>
+<P class=docText><SPAN class=docEmphasis><A name="Global System"></A>Global System for Mobile Communications</SPAN><A name="prominent digital"></A> (GSM) is a prominent digital cellular standard. GSM networks are called 2G or second-generation networks. GPRS represents the evolution from 2G to 2.5G. Unlike 2G networks, 2.5G networks are "always on." Compared to GSM's 9.6Kbps throughput, GPRS supports theoretical speeds of up to 170Kbps. 2.5G GPRS has given way to 3G networks based on technologies such as CDMA that offer higher speeds.</P>
+<P class=docText><A name="this section"></A>In this section, let's look at GPRS and CDMA.</P><A name=ch16lev2sec21></A>
+<H4 id=title-ID0E1MAO class=docSection2Title>GPRS</H4>
+<P class=docText><A name="interface to"></A>Because GPRS chips are cellular modems, they present a UART interface to the system and usually don't require specialized Linux drivers. Here's how Linux supports common GPRS hardware:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="a board"></A>For a system with built-in GPRS support, say, a board having a Siemens MC-45 module wired to the microcontroller's UART channel, the conventional Linux serial driver can drive the link.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name=iddle1023></A><A name=iddle1118></A><A name=iddle3207></A><A name=iddle3245></A>For a PCMCIA/CF GPRS device such as an Options GPRS card, <SPAN class=docEmphasis>serial_cs</SPAN><A name="of the"></A>, the generic serial Card Services driver allows the rest of the operating system to see the card as a serial device. The first unused serial device (<SPAN class=docEmphasis>/dev/ttySX</SPAN>) gets allotted to the card. Look at <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09lev1sec9.html#ch09fig05">Figure 9.5</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09.html#ch09">Chapter 9</A>, for an illustration.</P></DIV></LI>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><A name="the USB"></A>For USB GPRS modems, a USB-to-serial converter typically converts the USB port to a virtual serial port. The <SPAN class=docEmphasis>usbserial</SPAN><A name="modem as"></A> driver lets the rest of the system see the USB modem as a serial device (<SPAN class=docEmphasis>/dev/ttyUSBX</SPAN>). The section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11lev1sec6.html#ch11lev2sec13">USB-Serial</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch11.html#ch11">Chapter 11</A> discussed USB-to-serial converters.</P></DIV></LI></OL></DIV>
+<P class=docText><A name="descriptions also"></A>The above driver descriptions also hold for driving <SPAN class=docEmphasis>Global Positioning System</SPAN><A name="networking over"></A> (GPS) receivers and networking over GSM.</P>
+<P class=docText><A name="After the"></A>After the serial link is up, you may establish a network connection via <TT>AT</TT><A name="language to"></A> commands, a standard language to talk to modems. Cellular devices support an extended <TT>AT</TT><A name="The exact"></A> command set. The exact command sequence depends on the particular cellular technology in use. Consider for example, the <TT>AT</TT><A name="connecting to"></A> string to connect over GPRS. Before entering data mode and connecting to an external network via a <SPAN class=docEmphasis>gateway GPRS support node</SPAN><A name="a context"></A> (GGSN), a GPRS device must define a context using an <TT>AT</TT> command. Here's an example context string:</P>
+<DIV class=docText><PRE>'AT+CGDCONT=1,"IP","internet1.voicestream.com","0.0.0.0",0,0'</PRE></DIV><BR>
+<P class=docText>where 1 stands for a context number, <TT>IP</TT> is the packet type, <TT>internet1.-voicestream.com</TT> is an <SPAN class=docEmphasis>access point name</SPAN> (APN) specific to the service provider, and <TT>0.0.0.0</TT><A name="last two"></A> asks the service provider to choose the IP address. The last two parameters pertain to data and header compression. A username and password are usually not needed.</P>
+<P class=docText>As you saw in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch09.html#ch09">Chapter 9</A><A name="carry TCP"></A>, PPP is used as the vehicle to carry TCP/IP payload over GPRS. A common syntax for invoking the PPP daemon, <SPAN class=docEmphasis>pppd</SPAN>, is this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; pppd ttySX call connection-script</SPAN></PRE></DIV><BR>
+<P class=docText>where <TT>ttySX</TT> is the serial port over which PPP runs, and <TT>connection-script</TT> is a file in <SPAN class=docEmphasis>/etc/ppp/peers</SPAN>/<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch16lev1sec4.html#ch16fn05">[5]</A></SUP> that contains the <TT>AT</TT><A name="PPP starts"></A> command sequence to establish the link. After establishing connection and completing authentication, PPP starts a <SPAN class=docEmphasis>Network Control Protocol</SPAN> (NCP) such as <SPAN class=docEmphasis>Internet Protocol Control Protocol</SPAN><A name="negotiates IP"></A> (IPCP). When IPCP successfully negotiates IP addresses, PPP starts talking with the TCP/IP stack.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch16fn05>[5]</A></SUP><A name="name might"></A> The path name might vary depending on the distribution you use.</P></BLOCKQUOTE>
+<P class=docText><A name=iddle1384></A><A name=iddle1398></A><A name=iddle1515></A><A name="Here is"></A>Here is an example PPP connection script (<SPAN class=docEmphasis>/etc/ppp/peer/gprs-seq</SPAN><A name="to a"></A>) for connecting to a GPRS service provider at 57600 baud. For the semantics of all constituent lines in the script, refer to the man pages of <SPAN class=docEmphasis>pppd</SPAN>:</P>
+<DIV class=docText><PRE>57600
+connect "/usr/sbin/chat -s -v "" AT+CGDCONT=1,"IP",
+"internet2.voicestream.com","0.0.0.0",0,0 OK AT+CGDATA="PPP",1"
+crtscts
+noipdefault
+modem
+usepeerdns
+defaultroute
+connect-delay 3000</PRE></DIV><BR><A name=ch16lev2sec22></A>
+<H4 id=title-ID0ERTAO class=docSection2Title>CDMA</H4>
+<P class=docText><A name="performance reasons"></A>For performance reasons, many CDMA PC Cards have an internal USB controller through which a CDMA modem is connected. When such cards are inserted, the system sees one or more new PCI-to-USB bridges on the PCI bus. Let's take the example of a Huawei CDMA CardBus card. Look at the additional entries in the <SPAN class=docEmphasis>lspci</SPAN><A name="of a"></A> output after inserting this card into the CardBus slot of a laptop:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; lspci -v</SPAN>
+...
+07:00:0 USB Controller: NEC Corporation USB (rev 43) (prog-if 10 [OHCI])
+07:00:1 USB Controller: NEC Corporation USB (rev 43) (prog-if 10 [OHCI])
+07:00:2 USB Controller: NEC Corporation USB 2.0 (rev 04) (prog-if 20 [EHCI])
+
+					  </PRE></DIV><BR>
+<P class=docText><A name="EHCI controllers"></A>These are standard OHCI and EHCI controllers, so the host controller drivers on Linux seamlessly talk to them. If a CDMA card, however, uses a host controller unsupported by the kernel, you will have the unenviable task of writing a new USB host controller driver. Let's take a closer look at the new USB buses in the above <SPAN class=docEmphasis>lspci</SPAN><A name="connected to"></A> output and see whether we can find any devices connected to them:</P>
+<DIV class=docText>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE><SPAN class=docEmphStrong>bash&gt; cat /proc/bus/usb/devices</SPAN>
+T:  <SPAN class=docEmphStrong>Bus=07</SPAN> Lev=00 Prnt=00 Port=00 Cnt=00 Dev#=  1 Spd=480 MxCh= 2
+B:  Alloc=  0/800 us ( 0%), #Int=  0, #Iso=  0
+D:  Ver= 2.00 Cls=09(hub  ) Sub=00 Prot=01 MxPS=64 #Cfgs=  1
+...
+T:  <SPAN class=docEmphStrong>Bus=06</SPAN> Lev=00 Prnt=00 Port=00 Cnt=00 Dev#=  1 Spd=12  MxCh= 1
+B:  Alloc=  0/900 us ( 0%), #Int=  0, #Iso=  0
+D:  Ver= 1.10 Cls=09(hub  ) Sub=00 Prot=00 MxPS=64 #Cfgs=  1
+...
+T:  <SPAN class=docEmphStrong>Bus=05</SPAN> Lev=00 Prnt=00 Port=00 Cnt=00 Dev#=  1 Spd=12  MxCh= 1
+B:  Alloc=  0/900 us ( 0%), #Int=  1, #Iso=  0
+D:  Ver= 1.10 Cls=09(hub  ) Sub=00 Prot=00 MxPS=64 #Cfgs=  1
+...
+T:  <SPAN class=docEmphStrong>Bus=05</SPAN> Lev=01 Prnt=01 Port=00 Cnt=01 Dev#=  3 Spd=12  MxCh= 0
+D:  Ver= 1.01 Cls=00(&gt;ifc ) Sub=00 Prot=00 MxPS=16 #Cfgs=  1
+P:  <SPAN class=docEmphStrong>Vendor=12d1 ProdID=1001</SPAN> Rev= 0.00
+S:  Manufacturer=Huawei Technologies
+S:  Product=Huawei Mobile
+C:* #Ifs= 2 Cfg#= 1 Atr=e0 MxPwr=100mA
+I:  If#= 0 Alt= 0 #EPs= 3 Cls=ff(vend.) Sub=ff Prot=ff <SPAN class=docEmphStrong>Driver=pl2303</SPAN>
+E:  Ad=81(I) Atr=03(Int.) MxPS=  16 Ivl=128ms
+E:  Ad=8a(I) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+E:  Ad=0b(O) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+I:  If#= 1 Alt= 0 #EPs= 2 Cls=ff(vend.) Sub=ff Prot=ff <SPAN class=docEmphStrong>Driver=pl2303</SPAN>
+E:  Ad=83(I) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+E:  Ad=06(O) Atr=02(Bulk) MxPS=  64 Ivl=0ms
+...
+
+					  </PRE></DIV><BR>
+<P class=docText>The top three entries (<TT>bus7</TT>, <TT>bus6</TT>, and <TT>bus5</TT><A name="in the"></A>) correspond to the three host controllers present in the CDMA card. The last entry shows that a full-speed (12Mbps) USB device is connected to bus 5. This device has a <TT>vendorID</TT> of <TT>0x12d1</TT> and a <TT>productID</TT> of <TT>0x1001</TT><A name="bound this"></A>. As is evident from the preceding output, the USB core has bound this device to the <SPAN class=docEmphasis>pl2303</SPAN><A name="at the"></A> driver. If you look at the source file of the PL2303 Prolific USB-to-serial adapter driver (<SPAN class=docEmphasis>drivers/usb/serial/pl2303.c</SPAN><A name="find the"></A>), you will find the following member in the <TT>usb_device_id</TT> table:</P>
+<DIV class=docText><PRE>static struct usb_device_id id_table [] = {
+  /* ... */
+  {USB_DEVICE(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_ID)},
+  /* ... */
+};</PRE></DIV><BR>
+<P class=docText><A name="A quick"></A>A quick peek at <SPAN class=docEmphasis>pl2303.h</SPAN><A name="the same"></A> living in the same directory confirms that <TT>HUAWEI_VENDOR_ID</TT> and <TT>HUAWEI_PRODUCT_ID</TT><A name="the values"></A> match the values that you just gleaned from <SPAN class=docEmphasis>/proc/bus/usb/devices.</SPAN> The pl2303 driver presents a serial interface, <SPAN class=docEmphasis>/dev/ttyUSB0</SPAN>, over the <A name=iddle1004></A><A name=iddle2894></A><A name=iddle2978></A><A name=iddle2979></A><A name=iddle2995></A><A name=iddle3127></A><A name=iddle4634></A><A name=iddle4675></A>detected USB-to-serial converter. You can send <TT>AT</TT> commands to the CDMA modem over this interface. Attach <SPAN class=docEmphasis>pppd</SPAN><A name="now a"></A> over this device and connect to the net. You are now a 3G surfer!

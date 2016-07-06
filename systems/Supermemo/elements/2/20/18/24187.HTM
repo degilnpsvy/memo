@@ -1,0 +1,29 @@
+# Documentation/RCU/arrayRCU.txt
+<P></P>
+<P>Using RCU to Protect Read-Mostly Arrays</P>
+<P></P>
+<P><BR>Although RCU is more commonly used to protect linked lists, it can<BR>also be used to protect arrays.&nbsp; Three situations are as follows:</P>
+<P>1.&nbsp; Hash Tables</P>
+<P>2.&nbsp; Static Arrays</P>
+<P>3.&nbsp; Resizeable Arrays</P>
+<P>Each of these situations are discussed below.</P>
+<P><BR>Situation 1: Hash Tables</P>
+<P>Hash tables are often implemented as an array, where each array entry<BR>has a linked-list hash chain.&nbsp; Each hash chain can be protected by RCU<BR>as described in the listRCU.txt document.&nbsp; This approach also applies<BR>to other array-of-list situations, such as radix trees.</P>
+<P><BR>Situation 2: Static Arrays</P>
+<P>Static arrays, where the data (rather than a pointer to the data) is<BR>located in each array element, and where the array is never resized,<BR>have not been used with RCU.&nbsp; Rik van Riel recommends using seqlock in<BR>this situation, which would also have minimal read-side overhead as long<BR>as updates are rare.</P>
+<P>Quick Quiz:&nbsp; Why is it so important that updates be rare when<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; using seqlock?</P>
+<P><BR>Situation 3: Resizeable Arrays</P>
+<P>Use of RCU for resizeable arrays is demonstrated by the grow_ary()<BR>function used by the System V IPC code.&nbsp; The array is used to map from<BR>semaphore, message-queue, and shared-memory IDs to the data structure<BR>that represents the corresponding IPC construct.&nbsp; The grow_ary()<BR>function does not acquire any locks; instead its caller must hold the<BR>ids-&gt;sem semaphore.</P>
+<P>The grow_ary() function, shown below, does some limit checks, allocates a<BR>new ipc_id_ary, copies the old to the new portion of the new, initializes<BR>the remainder of the new, updates the ids-&gt;entries pointer to point to<BR>the new array, and invokes ipc_rcu_putref() to free up the old array.<BR>Note that rcu_assign_pointer() is used to update the ids-&gt;entries pointer,<BR>which includes any memory barriers required on whatever architecture<BR>you are running on.</P>
+<P>&nbsp;static int grow_ary(struct ipc_ids* ids, int newsize)<BR>&nbsp;{<BR>&nbsp;&nbsp;struct ipc_id_ary* new;<BR>&nbsp;&nbsp;struct ipc_id_ary* old;<BR>&nbsp;&nbsp;int i;<BR>&nbsp;&nbsp;int size = ids-&gt;entries-&gt;size;</P>
+<P>&nbsp;&nbsp;if(newsize &gt; IPCMNI)<BR>&nbsp;&nbsp;&nbsp;newsize = IPCMNI;<BR>&nbsp;&nbsp;if(newsize &lt;= size)<BR>&nbsp;&nbsp;&nbsp;return newsize;</P>
+<P>&nbsp;&nbsp;new = ipc_rcu_alloc(sizeof(struct kern_ipc_perm *)*newsize +<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; sizeof(struct ipc_id_ary));<BR>&nbsp;&nbsp;if(new == NULL)<BR>&nbsp;&nbsp;&nbsp;return size;<BR>&nbsp;&nbsp;new-&gt;size = newsize;<BR>&nbsp;&nbsp;memcpy(new-&gt;p, ids-&gt;entries-&gt;p,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; sizeof(struct kern_ipc_perm *)*size +<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; sizeof(struct ipc_id_ary));<BR>&nbsp;&nbsp;for(i=size;i&lt;newsize;i++) {<BR>&nbsp;&nbsp;&nbsp;new-&gt;p[i] = NULL;<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;old = ids-&gt;entries;</P>
+<P>&nbsp;&nbsp;/*<BR>&nbsp;&nbsp; * Use rcu_assign_pointer() to make sure the memcpyed<BR>&nbsp;&nbsp; * contents of the new array are visible before the new<BR>&nbsp;&nbsp; * array becomes visible.<BR>&nbsp;&nbsp; */<BR>&nbsp;&nbsp;rcu_assign_pointer(ids-&gt;entries, new);</P>
+<P>&nbsp;&nbsp;ipc_rcu_putref(old);<BR>&nbsp;&nbsp;return newsize;<BR>&nbsp;}</P>
+<P>The ipc_rcu_putref() function decrements the array's reference count<BR>and then, if the reference count has dropped to zero, uses call_rcu()<BR>to free the array after a grace period has elapsed.</P>
+<P>The array is traversed by the ipc_lock() function.&nbsp; This function<BR>indexes into the array under the protection of rcu_read_lock(),<BR>using rcu_dereference() to pick up the pointer to the array so<BR>that it may later safely be dereferenced -- memory barriers are<BR>required on the Alpha CPU.&nbsp; Since the size of the array is stored<BR>with the array itself, there can be no array-size mismatches, so<BR>a simple check suffices.&nbsp; The pointer to the structure corresponding<BR>to the desired IPC object is placed in "out", with NULL indicating<BR>a non-existent entry.&nbsp; After acquiring "out-&gt;lock", the "out-&gt;deleted"<BR>flag indicates whether the IPC object is in the process of being<BR>deleted, and, if not, the pointer is returned.</P>
+<P>&nbsp;struct kern_ipc_perm* ipc_lock(struct ipc_ids* ids, int id)<BR>&nbsp;{<BR>&nbsp;&nbsp;struct kern_ipc_perm* out;<BR>&nbsp;&nbsp;int lid = id % SEQ_MULTIPLIER;<BR>&nbsp;&nbsp;struct ipc_id_ary* entries;</P>
+<P>&nbsp;&nbsp;rcu_read_lock();<BR>&nbsp;&nbsp;entries = rcu_dereference(ids-&gt;entries);<BR>&nbsp;&nbsp;if(lid &gt;= entries-&gt;size) {<BR>&nbsp;&nbsp;&nbsp;rcu_read_unlock();<BR>&nbsp;&nbsp;&nbsp;return NULL;<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;out = entries-&gt;p[lid];<BR>&nbsp;&nbsp;if(out == NULL) {<BR>&nbsp;&nbsp;&nbsp;rcu_read_unlock();<BR>&nbsp;&nbsp;&nbsp;return NULL;<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;spin_lock(&amp;out-&gt;lock);</P>
+<P>&nbsp;&nbsp;/* ipc_rmid() may have already freed the ID while ipc_lock<BR>&nbsp;&nbsp; * was spinning: here verify that the structure is still valid<BR>&nbsp;&nbsp; */<BR>&nbsp;&nbsp;if (out-&gt;deleted) {<BR>&nbsp;&nbsp;&nbsp;spin_unlock(&amp;out-&gt;lock);<BR>&nbsp;&nbsp;&nbsp;rcu_read_unlock();<BR>&nbsp;&nbsp;&nbsp;return NULL;<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;return out;<BR>&nbsp;}</P>
+<P><BR>Answer to Quick Quiz:</P>
+<P>&nbsp;The reason that it is important that updates be rare when<BR>&nbsp;using seqlock is that frequent updates can livelock readers.<BR>&nbsp;One way to avoid this problem is to assign a seqlock for<BR>&nbsp;each array entry rather than to the entire array.

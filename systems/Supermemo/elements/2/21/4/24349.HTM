@@ -1,0 +1,71 @@
+<H4 id=title-ID0ETPAO class=docSection2Title>Kthread Helpers</H4>
+<P class=docText><SPAN class=docEmphasis>Kthread helpers</SPAN><A name="a coating"></A> add a coating over the raw thread creation routines and simplify the task of thread management.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex08">Listing 3.8</A> rewrites <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex07">Listing 3.7</A> using the kthread helper interface. <TT>my_init()</TT> now uses <TT>kthread_create()</TT> rather than <TT>kernel_thread()</TT>. You can pass the thread's name to <TT>kthread_create()</TT> rather than explicitly call <TT>daemonize()</TT> within the thread.</P>
+<P class=docText><A name="exit synchronization"></A><FONT class=extract>The kthread interface provides you free access to a built-in exit synchronization mechanism implemented using the completion interface. So, as <TT>my_release()</TT> does in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex08"><FONT class=extract>Listing 3.8</FONT></A><FONT class=extract>, you may directly call <TT>kthread_stop()</TT> instead of laboriously setting <TT>pink_slip</TT>, waking up <TT>my_thread()</TT></FONT><A name="complete using"></A><FONT class=extract>, and waiting for it to complete using <TT>wait_for_completion()</TT>. Similarly, <TT>my_thread()</TT> can make a neat call to <TT>kthread_should_stop()</TT> to check whether it ought to call it a day.</FONT></P><A name=ch03ex08></A>
+<H5 id=title-ID0EQRAO class=docExampleTitle>Listing 3.8. Synchronizing Using Kthread Helpers</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><FONT class=extract>Code View:</FONT></DIV><PRE><FONT class=extract>/* '<SPAN class=docEmphStrong>+</SPAN>' and '-' show the differences from Listing 3.7 */
+
+#include <LINUX kthread.h="">
+
+/* Assistant Thread */
+static int
+my_thread(void *unused)
+{
+   DECLARE_WAITQUEUE(wait, current);
+-   daemonize("my_thread");
+
+-   while (1) {
+<SPAN class=docEmphStrong>+   /* Continue work if no other thread has</SPAN>
+<SPAN class=docEmphStrong>+    * invoked kthread_stop() */</SPAN>
+<SPAN class=docEmphStrong>+   while (!kthread_should_stop()) {</SPAN>
+      /* ... */
+-     /* Quit if let go */
+-     if (pink_slip) {
+-       break;
+-     }
+      /* ... */
+    }
+    __set_current_state(TASK_RUNNING);
+    remove_wait_queue(&amp;my_thread_wait, &amp;wait);
+
+-   complete_and_exit(&amp;my_thread_exit, 0);
+<SPAN class=docEmphStrong>+   return 0;</SPAN>
+ }
+
+<SPAN class=docEmphStrong>+   struct task_struct *my_task;</SPAN>
+
+ /* Module Initialization */
+ static int __init
+ my_init(void)
+ {
+    /* ... */
+-   kernel_thread(my_thread, NULL,
+-                 CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
+                  SIGCHLD);
+<SPAN class=docEmphStrong>+   my_task = kthread_create(my_thread, NULL, "%s", "my_thread");</SPAN>
+<SPAN class=docEmphStrong>+   if (my_task) wake_up_process(my_task);</SPAN>
+
+    /* ... */
+ }
+
+ /* Module Release */
+ static void __exit
+ my_release(void)
+ {
+    /* ... */
+-   pink_slip = 1;
+-   wake_up(&amp;my_thread_wait);
+-   wait_for_completion(&amp;my_thread_exit);
+<SPAN class=docEmphStrong>+   kthread_stop(my_task);</SPAN>
+
+    /* ... */
+ }
+
+</FONT>					  </LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1886></A><A name=iddle2194></A><A name=iddle2569></A><A name=iddle2702></A><FONT class=extract>Instead of creating the thread using <TT>kthread_create()</TT> and activating it via <TT>wake_up_process()</TT> as done in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch03lev1sec2.html#ch03ex08"><FONT class=extract>Listing 3.8</FONT></A><FONT class=extract>, you may use the following single call:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>kthread_run(my_thread, NULL, "%s", "my_thread");</FONT></PRE></DIV>

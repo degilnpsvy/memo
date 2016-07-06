@@ -1,0 +1,188 @@
+<H3 id=700181-973 class=docSection1Title>7.3. A Universal Bootloader: Das U-Boot</H3>
+<P class=docText>Many open-source and commercial bootloaders are available, and many more one-of-a-kind home-grown designs are in widespread use today. Most of these have some level of commonality of features. For example, all of them have some capability to load and execute other programs, particularly an operating system. Most interact with the user through a serial port. Support for various networking subsystems (such as Ethernet) is less common but a very powerful feature.</P>
+<P class=docText>Many bootloaders are specific to a particular architecture. The capability of a bootloader to support a wide variety of architectures and processors can be an important feature to larger development organizations. It is not uncommon for a single development organization to have multiple processors spanning more than one architecture. Investing in a single bootloader across multiple platforms ultimately results in lower development costs.</P>
+<P class=docText>In this section, we study an existing bootloader that has become very popular in the embedded Linux community. The official name for this bootloader is Das U-Boot. It is maintained by Wolfgang Denk and hosted on SourceForge at <A class=docLink href="http://u-boot.sourceforge.net/" target=_blank>http://u-boot.sourceforge.net/</A>. U-Boot has support for multiple architectures and has a large following of embedded developers and hardware manufacturers who have adopted it for use in their projects and have contributed to its development.</P><A name=ch07lev2sec5></A>
+<H4 id=title-IDABZNWC class=docSection2Title>7.3.1. System Configuration: U-Boot</H4>
+<P class=docText>For a bootloader to be useful across many processors and architectures, some method of configuring the bootloader is necessary. As with the Linux kernel itself, configuration of a bootloader is done at compile time. This method significantly reduces the complexity of the bootloader, which, in itself, is an important characteristic.</P>
+<P class=docText>In the case of U-Boot, board-specific configuration is driven by a single header file specific to the target platform, and a few soft links in the source tree that select the correct subdirectories based on target board, architecture, and CPU. When configuring U-Boot for one of its supported platforms, issue this command:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>$ make &lt;platform&gt;_config</SPAN>
+</PRE></DIV><BR>
+<P class=docText>Here, <TT>platform</TT> is one of the many platforms supported by U-Boot. These platform-configuration targets are listed in the top level U-Boot makefile. For example, to configure for the Spectrum Digital OSK, which contains a TI OMAP 5912 processor, issue this command:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>$ make omap5912osk_config</SPAN></PRE></DIV><BR>
+<P class=docText>This configures the U-Boot source tree with the appropriate soft links to select ARM as the target architecture, the ARM926 core, and the 5912 OSK as the target platform.</P>
+<P class=docText>The next step in configuring U-Boot for this platform is to edit the configuration file specific to this board. This file is found in the U-Boot <TT>../include/configs</TT> subdirectory and is called <TT>omap5912osk.h</TT>. The README file that comes with the U-Boot distribution describes the details of configuration and is the best source for this information.</P>
+<P class=docText>Configuration of U-Boot is done using configuration variables defined in a board-specific header file. Configuration variables have two forms. Configuration <SPAN class=docEmphasis>options</SPAN> are selected using macros in the form of <TT>CONFIG_XXXX</TT>. Configuration <SPAN class=docEmphasis>settings</SPAN> are selected using macros in the form of <TT>CFG_XXXX</TT>. In general, configuration options (<TT>CONFIG_XXX</TT>) are user configurable and enable specific U-Boot operational features. Configuration settings (<TT>CFG_XXX</TT>) are usually hardware specific and require detailed knowledge of the underlying processor and/or hardware platform. Board-specific U-Boot configuration is driven by a header file dedicated to that specific platform that contains configuration options and settings appropriate for the underlying platform. The U-Boot source tree includes a directory where these board-specific configuration header files reside. They can be found in <TT>.../include/configs</TT> from the top-level U-Boot source directory.</P>
+<P class=docText>Numerous features and modes of operation can be selected by adding definitions to the board-configuration file. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07list04">Listing 7-4</A> contains a partial configuration header file for a fictitious board based on the PPC 405GP processor.</P>
+<P class=docText></P><A name=ch07list04></A>
+<H5 id=title-IDAS1NWC class=docExampleTitle>Listing 7-4. Partial U-Boot Board-Configuration Header File</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>#define CONFIG_405GP        /* Processor definition */
+#define CONFIG_4XX          /* Sub-arch specification, 4xx family */
+
+#define CONFIG_SYS_CLK_FREQ   33333333 /* PLL Frequency  */
+#define CONFIG_BAUDRATE       9600
+#define CONFIG_PCI          /* Enable support for PCI */
+...
+#define CONFIG_COMMANDS      (CONFIG_CMD_DFL | CFG_CMD_DHCP)
+...
+#define CFG_BASE_BAUD        691200
+
+/* The following table includes the supported baudrates */
+#define CFG_BAUDRATE_TABLE  \
+    {1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400}
+
+#define CFG_LOAD_ADDR        0x100000    /* default load address */
+...
+/* Memory Bank 0 (Flash Bank 0) initialization */
+#define CFG_EBC_PB0AP         0x9B015480
+#define CFG_EBC_PB0CR         0xFFF18000
+
+#define CFG_EBC_PB1AP         0x02815480
+#define CFG_EBC_PB1CR         0xF0018000
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1992></A><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07list04">Listing 7-4</A> gives an idea of how U-Boot itself is configured for a given board. An actual board-configuration file can contain hundreds of lines similar to those found here. In this example, you can see the definitions for the CPU, CPU family (4xx), PLL clock frequency, serial port baud rate, and PCI support. We have included examples of configuration variables (<TT>CONFIG_XXX</TT>) and configuration settings (<TT>CFG_XXX</TT>). The last few lines are actual processor register values required to initialize the external bus controller for memory banks 0 and 1. You can see that these values can come only from a detailed knowledge of the board and processor.</P>
+<P class=docText>Many aspects of U-Boot can be configured using these mechanisms, including what functionality will be compiled into U-Boot (support for DHCP, memory tests, debugging support, and so on). This mechanism can be used to tell U-Boot how much and what kind of memory is on a given board, and where that memory is mapped. The interested reader can learn much more by looking at the U-Boot code directly, especially the excellent README file.</P><A name=ch07lev2sec6></A>
+<H4 id=title-IDA32NWC class=docSection2Title>7.3.2. U-Boot Command Sets</H4>
+<P class=docText><A name=iddle1116></A><A name=iddle1123></A><A name=iddle1129></A><A name=iddle1183></A><A name=iddle1347></A><A name=iddle1367></A><A name=iddle2148></A><A name=iddle2516></A><A name=iddle2545></A><A name=iddle2551></A><A name=iddle2558></A>U-Boot supports more than 60 standard command sets that enable more than 150 unique commands using <TT>CFG_*</TT> macros. A command set is enabled in U-Boot through the use of configuration setting (<TT>CFG_*</TT>) macros. For a complete list from a recent U-Boot snapshot, consult <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/app02.html#app02">Appendix B</A>, "U-Boot Configurable Commands." Here are just a few, to give you an idea of the capabilities available:</P>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<COLGROUP span=2 align=left>
+<COL width=150>
+<COL width=300></COLGROUP>
+<THEAD>
+<TR>
+<TH class="bottomBorder thead" vAlign=top scope=col align=left>
+<P class=docText>Command Set</P></TH>
+<TH class="bottomBorder thead" vAlign=top scope=col align=left>
+<P class=docText>Commands</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>CFG_CMD_FLASH</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Flash memory commands</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>CFG_CMD_MEMORY</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Memory dump, fill, copy, compare, and so on</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>CFG_CMD_DHCP</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>DHCP Support</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>CFG_CMD_PING</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Ping support</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>CFG_CMD_EXT2</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>EXT2 File system support</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>The following line of <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07list04">Listing 7-4</A> defines the commands enabled in a given U-Boot configuration, as driven by the board-specific header file:</P>
+<DIV class=docText><PRE>#define CONFIG_COMMANDS        (CONFIG_CMD_DFL | CFG_CMD_DHCP)</PRE></DIV><BR>
+<P class=docText>Instead of typing out each individual <TT>CFG_*</TT> macro in your own board-specific configuration header, you can start from a default set of commands predefined in the U-Boot source. The macro <TT>CONFIG_CMD_DFL</TT> defines this default set of commands. <TT>CONFIG_CMD_DFL</TT> specifies a list of default U-Boot command sets such as <TT>tftpboot</TT> (boot an image from a tftpserver), <TT>bootm</TT> (boot an image from memory), memory utilities such as <TT>md</TT> (display memory), and so on. To enable your specific combination of commands, you can start with the default and add and subtract as necessary. The example from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07list04">Listing 7-4</A> adds the DHCP command set to the default. You can subtract in a similar fashion:</P>
+<DIV class=docText><PRE>#define CONFIG_COMMANDS    (CONFIG_CMD_DFL &amp; ~CFG_CMD_NFS)</PRE></DIV><BR>
+<P class=docText>Take a look at any board-configuration header file in <TT>.../include/configs/</TT> for examples.</P><A name=ch07lev2sec7></A>
+<H4 id=title-IDA4FOWC class=docSection2Title>7.3.3. Network Operations</H4>
+<P class=docText>Many bootloaders include support for Ethernet interfaces. In a development environment, this is a huge time saver. Loading even a modest kernel image over a serial port can take minutes versus a few seconds over a 10Mbps Ethernet link. Furthermore, serial links are more prone to errors from poorly behaved serial terminals.</P>
+<P class=docText>Some of the more important features to look for in a bootloader include support for the BOOTP, DHCP, and TFTP protocols. For those unfamiliar with these, BOOTP (Bootstrap Protocol) and DHCP (Dynamic Host Control Protocol) are protocols that enable a target device with an Ethernet port to obtain an IP address and other network-related configuration information from a central server. TFTP (Trivial File Transfer Protocol) allows the target device to download files (such as a Linux kernel image) from a TFTP server. References to these protocol specifications are listed at the end of this chapter. Servers for these services are described in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch12.html#ch12">Chapter 12</A>", "Embedded Development Environment."</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07fig01">Figure 7-1</A> illustrates the flow of information between the target device and a BOOTP server. The client (U-Boot, in this case) initiates a broadcast packet searching for a BOOTP server. The server responds with a reply packet that includes the client's IP address and other information. The most useful data includes a filename used to download a kernel image.</P><A name=ch07fig01></A>
+<P>
+<CENTER>
+<H5 class=docFigureTitle>Figure 7-1. BOOTP client/server handshake</H5>
+<P class=docText><IMG id=195131084204 border=0 alt="" src="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/images/07elp01.jpg" width=451 height=331></P></CENTER>
+<P></P><BR>
+<P class=docText><A name=iddle1883></A>In practice, dedicated BOOTP servers no longer exist as stand-alone servers. DHCP servers included with your favorite Linux distribution also support BOOTP protocol packets.</P>
+<P class=docText>The DHCP protocol builds upon BOOTP. It can supply the target with a wide variety of configuration information. In practice, the information exchange is often limited by the target/bootloader DHCP client implementation. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07list05">Listing 7-5</A> contains an example of a DHCP server configuration block identifying a single target device. This is a snippet from a DHCP configuration file from the Fedora Core 2 DHCP implementation.</P><A name=ch07list05></A>
+<H5 id=title-IDATIOWC class=docExampleTitle>Listing 7-5. DHCP Target Specification</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>host coyote {
+      hardware ethernet 00:0e:0c:00:82:f8;
+      netmask 255.255.255.0;
+      fixed-address 192.168.1.21;
+      server-name 192.168.1.9;
+      filename "coyote-zImage";
+      option root-path "/home/chris/sandbox/coyote-target";
+}
+...</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>When this DHCP server receives a packet from a device matching the hardware Ethernet address contained in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07list05">Listing 7-5</A>, it responds by sending that device the parameters in this target specification. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07table01">Table 7-1</A> describes the fields in the target specification.</P><A name=ch07table01></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 7-1. DHCP Target Parameters</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=140>
+<COL width=150>
+<COL width=200></COLGROUP>
+<THEAD>
+<TR>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>DHCP Target Parameter</P></TH>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Purpose</P></TH>
+<TH class="bottomBorder thead" vAlign=bottom scope=col align=left>
+<P class=docText>Comments</P></TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>host</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Hostname</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Symbolic label from DHCP configuration file</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>hardware ethernet</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Ethernet hardware address</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Low-level Ethernet hardware address of the target's Ethernet interface</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>fixed-address</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Target IP address</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>The IP address that the target will assume</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><A name=iddle1125></A><A name=iddle2159></A><A name=iddle2452></A><A name=iddle2560></A><TT>netmask</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>Target netmask</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>The IP netmask that the target will assume</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>server-name</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>TFTP server IP address</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>The IP address to which the target will direct requests for file transfers, root file system, and so on</P></TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText><TT>filename</TT></P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>TFTP filename</P></TD>
+<TD class=docTableCell vAlign=top align=left>
+<P class=docText>The filename that the bootloader can use to boot a secondary image (usually a Linux kernel)</P></TD></TR></TBODY></TABLE></P><BR>
+<P class=docText>When the bootloader on the target board has completed the BOOTP or DHCP exchange, the parameters described previously are used for further configuration. For example, the bootloader uses the target IP address to bind its Ethernet port with this IP address. The bootloader then uses the <TT>server-name</TT> field as a destination IP address to request the file contained in the <TT>filename</TT> field, which, in most cases, represents a Linux kernel image. Although this is the most common use, this same scenario could be used to download and execute manufacturing test and diagnostics firmware.</P>
+<P class=docText>It should be noted that the DHCP protocol supports many more parameters than those detailed in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec3.html#ch07table01">Table 7-1</A>. These are simply the more common parameters you might encounter for embedded systems. See the DHCP specification referenced at the end of this chapter for complete details.</P><A name=ch07lev2sec8></A>
+<H4 id=title-IDAJQOWC class=docSection2Title>7.3.4. Storage Subsystems</H4>
+<P class=docText>Many bootloaders support the capability of booting images from a variety of nonvolatile storage devices in addition to the usual Flash memory. The difficulty in supporting these types of devices is the relative complexity in both hardware and software. To access data on a hard drive, for example, the bootloader must have device driver code for the IDE controller interface, as well as knowledge of the underlying <A name=iddle1089></A><A name=iddle1114></A><A name=iddle1353></A><A name=iddle2549></A>partition scheme and file system. This is not trivial and is one of the tasks more suited to full-blown operating systems.</P>
+<P class=docText>Even with the underlying complexity, methods exist for loading images from this class of device. The simplest method is to support the hardware only. In this scheme, no knowledge of the file system is assumed. The bootloader simply raw-loads from absolute sectors on the device. This scheme can be used by dedicating an unformatted partition from sector 0 on an IDE-compatible device (such as CompactFlash) and loading the data found there without any structure imposed on the data. This is an ideal configuration for loading a kernel image or other binary image. Additional partitions on the device can be formatted for a given file system and can contain complete file systems. After the kernel boots, device drivers can be used to access the additional partitions.</P>
+<P class=docText>U-Boot can load an image from a specified raw partition or from a partition with a file system structure. Of course, the board must have a supported hardware device (an IDE subsystem) and U-Boot must be so configured. Adding <TT>CFG_CMD_IDE</TT> to the board-specific configuration file enables support for an IDE interface, and adding <TT>CFG_CMD_BOOTD</TT> enables support for booting from a raw partition. If you are porting U-Boot to a custom board, you will have to modify U-Boot to understand your particular hardware.</P><A name=ch07lev2sec9></A>
+<H4 id=title-IDAKSOWC class=docSection2Title>7.3.5. Booting from Disk: U-Boot</H4>
+<P class=docText>As described in the previous section, U-Boot supports several methods for booting a kernel image from a disk subsystem. This simple command illustrates one of the supported methods:</P>
+<DIV class=docText><PRE>=&gt; <SPAN class=docEmphStrong>diskboot 0x400000 0:0</SPAN></PRE></DIV><BR>
+<P class=docText>To understand this syntax, you must first understand how U-Boot numbers disk devices. The <TT>0:0</TT> in this example specifies the device and partition. In this simple example, U-Boot performs a raw binary load of the image found on the first IDE device (IDE device 0) from the first partition found on this device. The image is loaded into system memory at physical address 0x400000.</P>
+<P class=docText>After the kernel image has been loaded into memory, the U-Boot <TT>bootm</TT> command (boot from memory) is used to boot the kernel:</P>
+<DIV class=docText><PRE>=&gt; <SPAN class=docEmphStrong>bootm 0x400000</SPAN></PRE></DIV>

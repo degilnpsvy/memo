@@ -1,0 +1,45 @@
+# Documentation/fb/vesafb.txt </P>
+<P>What is vesafb?<BR>===============</P>
+<P></P>
+<P>This is a generic driver for a graphic framebuffer on intel boxes.</P>
+<P>The idea is simple:&nbsp; Turn on graphics mode at boot time with the help<BR>of the BIOS, and use this as framebuffer device /dev/fb0, like the m68k<BR>(and other) ports do.</P>
+<P>This means we decide at boot time whenever we want to run in text or<BR>graphics mode.&nbsp; Switching mode later on (in protected mode) is<BR>impossible; BIOS calls work in real mode only.&nbsp; VESA BIOS Extensions<BR>Version 2.0 are required, because we need a linear frame buffer.</P>
+<P>Advantages:</P>
+<P>&nbsp;* It provides a nice large console (128 cols + 48 lines with 1024x768)<BR>&nbsp;&nbsp; without using tiny, unreadable fonts.<BR>&nbsp;* You can run XF68_FBDev on top of /dev/fb0 (=&gt; non-accelerated X11<BR>&nbsp;&nbsp; support for every VBE 2.0 compliant graphics board).<BR>&nbsp;* Most important: boot logo :-)</P>
+<P>Disadvantages:</P>
+<P>&nbsp;* graphic mode is slower than text mode...</P>
+<P><BR>How to use it?<BR>==============</P>
+<P>Switching modes is done using the vga=... boot parameter.&nbsp; Read<BR>Documentation/svga.txt for details.</P>
+<P>You should compile in both vgacon (for text mode) and vesafb (for<BR>graphics mode). Which of them takes over the console depends on<BR>whenever the specified mode is text or graphics.</P>
+<P>The graphic modes are NOT in the list which you get if you boot with<BR>vga=ask and hit return. The mode you wish to use is derived from the<BR>VESA mode number. Here are those VESA mode numbers:</P>
+<P>&nbsp;&nbsp;&nbsp; | 640x480&nbsp; 800x600&nbsp; 1024x768 1280x1024<BR>----+-------------------------------------<BR>256 |&nbsp; 0x101&nbsp;&nbsp;&nbsp; 0x103&nbsp;&nbsp;&nbsp; 0x105&nbsp;&nbsp;&nbsp; 0x107&nbsp;&nbsp; <BR>32k |&nbsp; 0x110&nbsp;&nbsp;&nbsp; 0x113&nbsp;&nbsp;&nbsp; 0x116&nbsp;&nbsp;&nbsp; 0x119&nbsp;&nbsp; <BR>64k |&nbsp; 0x111&nbsp;&nbsp;&nbsp; 0x114&nbsp;&nbsp;&nbsp; 0x117&nbsp;&nbsp;&nbsp; 0x11A&nbsp;&nbsp; <BR>16M |&nbsp; 0x112&nbsp;&nbsp;&nbsp; 0x115&nbsp;&nbsp;&nbsp; 0x118&nbsp;&nbsp;&nbsp; 0x11B&nbsp;&nbsp; </P>
+<P>The video mode number of the Linux kernel is the VESA mode number plus<BR>0x200.<BR>&nbsp;<BR>&nbsp;Linux_kernel_mode_number = VESA_mode_number + 0x200</P>
+<P>So the table for the Kernel mode numbers are:</P>
+<P>&nbsp;&nbsp;&nbsp; | 640x480&nbsp; 800x600&nbsp; 1024x768 1280x1024<BR>----+-------------------------------------<BR>256 |&nbsp; 0x301&nbsp;&nbsp;&nbsp; 0x303&nbsp;&nbsp;&nbsp; 0x305&nbsp;&nbsp;&nbsp; 0x307&nbsp;&nbsp; <BR>32k |&nbsp; 0x310&nbsp;&nbsp;&nbsp; 0x313&nbsp;&nbsp;&nbsp; 0x316&nbsp;&nbsp;&nbsp; 0x319&nbsp;&nbsp; <BR>64k |&nbsp; 0x311&nbsp;&nbsp;&nbsp; 0x314&nbsp;&nbsp;&nbsp; 0x317&nbsp;&nbsp;&nbsp; 0x31A&nbsp;&nbsp; <BR>16M |&nbsp; 0x312&nbsp;&nbsp;&nbsp; 0x315&nbsp;&nbsp;&nbsp; 0x318&nbsp;&nbsp;&nbsp; 0x31B&nbsp;&nbsp; </P>
+<P>To enable one of those modes you have to specify "vga=ask" in the<BR>lilo.conf file and rerun LILO. Then you can type in the desired<BR>mode at the "vga=ask" prompt. For example if you like to use <BR>1024x768x256 colors you have to say "305" at this prompt.</P>
+<P>If this does not work, this might be because your BIOS does not support<BR>linear framebuffers or because it does not support this mode at all.<BR>Even if your board does, it might be the BIOS which does not.&nbsp; VESA BIOS<BR>Extensions v2.0 are required, 1.2 is NOT sufficient.&nbsp; You will get a<BR>"bad mode number" message if something goes wrong.</P>
+<P>1. Note: LILO cannot handle hex, for booting directly with <BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "vga=mode-number" you have to transform the numbers to decimal.<BR>2. Note: Some newer versions of LILO appear to work with those hex values,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if you set the 0x in front of the numbers.</P>
+<P>X11<BR>===</P>
+<P>XF68_FBDev should work just fine, but it is non-accelerated.&nbsp; Running<BR>another (accelerated) X-Server like XF86_SVGA might or might not work.<BR>It depends on X-Server and graphics board.</P>
+<P>The X-Server must restore the video mode correctly, else you end up<BR>with a broken console (and vesafb cannot do anything about this).</P>
+<P><BR>Refresh rates<BR>=============</P>
+<P>There is no way to change the vesafb video mode and/or timings after<BR>booting linux.&nbsp; If you are not happy with the 60 Hz refresh rate, you<BR>have these options:</P>
+<P>&nbsp;* configure and load the DOS-Tools for the graphics board (if<BR>&nbsp;&nbsp; available) and boot linux with loadlin.<BR>&nbsp;* use a native driver (matroxfb/atyfb) instead if vesafb.&nbsp; If none<BR>&nbsp;&nbsp; is available, write a new one!<BR>&nbsp;* VBE 3.0 might work too.&nbsp; I have neither a gfx board with VBE 3.0<BR>&nbsp;&nbsp; support nor the specs, so I have not checked this yet.</P>
+<P><BR>Configuration<BR>=============</P>
+<P>The VESA BIOS provides protected mode interface for changing<BR>some parameters.&nbsp; vesafb can use it for palette changes and<BR>to pan the display.&nbsp; It is turned off by default because it<BR>seems not to work with some BIOS versions, but there are options<BR>to turn it on.</P>
+<P>You can pass options to vesafb using "video=vesafb:option" on<BR>the kernel command line.&nbsp; Multiple options should be separated<BR>by comma, like this: "video=vesafb:ypan,invers"</P>
+<P>Accepted options:</P>
+<P>invers&nbsp;no comment...</P>
+<P>ypan&nbsp;enable display panning using the VESA protected mode <BR>&nbsp;interface.&nbsp; The visible screen is just a window of the<BR>&nbsp;video memory, console scrolling is done by changing the<BR>&nbsp;start of the window.<BR>&nbsp;pro:&nbsp;* scrolling (fullscreen) is fast, because there is<BR>&nbsp;&nbsp;&nbsp; no need to copy around data.<BR>&nbsp;&nbsp;* You'll get scrollback (the Shift-PgUp thing),<BR>&nbsp;&nbsp;&nbsp; the video memory can be used as scrollback buffer<BR>&nbsp;kontra: * scrolling only parts of the screen causes some<BR>&nbsp;&nbsp;&nbsp; ugly flicker effects (boot logo flickers for<BR>&nbsp;&nbsp;&nbsp; example).</P>
+<P>ywrap&nbsp;Same as ypan, but assumes your gfx board can wrap-around <BR>&nbsp;the video memory (i.e. starts reading from top if it<BR>&nbsp;reaches the end of video memory).&nbsp; Faster than ypan.</P>
+<P>redraw&nbsp;scroll by redrawing the affected part of the screen, this<BR>&nbsp;is the safe (and slow) default.</P>
+<P><BR>vgapal&nbsp;Use the standard vga registers for palette changes.<BR>&nbsp;This is the default.<BR>pmipal&nbsp;Use the protected mode interface for palette changes.</P>
+<P>mtrr:n&nbsp;setup memory type range registers for the vesafb framebuffer<BR>&nbsp;where n:<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 - disabled (equivalent to nomtrr) (default)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1 - uncachable<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 - write-back<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 3 - write-combining<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 4 - write-through</P>
+<P>&nbsp;If you see the following in dmesg, choose the type that matches the<BR>&nbsp;old one. In this example, use "mtrr:2".<BR>...<BR>mtrr: type mismatch for e0000000,8000000 old: write-back new: write-combining<BR>...</P>
+<P>nomtrr&nbsp; disable mtrr</P>
+<P>vremap:n<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; remap 'n' MiB of video RAM. If 0 or not specified, remap memory<BR>&nbsp;according to video mode. (2.5.66 patch/idea by Antonino Daplas<BR>&nbsp;reversed to give override possibility (allocate more fb memory<BR>&nbsp;than the kernel would) to 2.4 by <A href="mailto:tmb@iki.fi">tmb@iki.fi</A>)</P>
+<P>vtotal:n<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if the video BIOS of your card incorrectly determines the total<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; amount of video RAM, use this option to override the BIOS (in MiB).</P>
+<P>Have fun!</P>
+<P>&nbsp; Gerd</P>
+<P>--<BR>Gerd Knorr &lt;<A href="mailto:kraxel@goldbach.in-berlin.de">kraxel@goldbach.in-berlin.de</A>&gt;</P>
+<P>Minor (mostly typo) changes <BR>by Nico Schmoigl &lt;<A href="mailto:schmoigl@rumms.uni-mannheim.de">schmoigl@rumms.uni-mannheim.de</A>&gt;

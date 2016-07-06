@@ -1,0 +1,36 @@
+<H4 class=subsection>4.9.5 Using <CODE>getline</CODE> from a Pipe</H4><A name=index-Kernighan_002c-Brian-3></A>
+<BLOCKQUOTE>
+<P><I>Omniscience has much to recommend it. Failing that, attention to details would be useful.</I> </P></BLOCKQUOTE>
+<DIV align=center>&#8212; <EM>Brian Kernighan</EM> </DIV><A name=index-_007c-_0028vertical-bar_0029_002c-_007c-operator-_0028I_002fO_0029></A><A name=index-vertical-bar-_0028_007c_0029_002c-_007c-operator-_0028I_002fO_0029></A><A name=index-input-pipeline></A><A name=index-pipe_002c-input></A><A name=index-operators_002c-input_002foutput-1></A>
+<P>The output of a command can also be piped into <CODE>getline</CODE>, using &#8216;<SAMP><VAR>command</VAR> | getline</SAMP>&#8217;. In this case, the string <VAR>command</VAR> is run as a shell command and its output is piped into <CODE>awk</CODE> to be used as input. This form of <CODE>getline</CODE> reads one record at a time from the pipe. For example, the following program copies its input to its output, except for lines that begin with &#8216;<SAMP>@execute</SAMP>&#8217;, which are replaced by the output produced by running the rest of the line as a shell command: </P>
+<DIV class=example><PRE class=example>{
+     if ($1 == "@execute") {
+          tmp = substr($0, 10)        # Remove "@execute"
+          while ((tmp | getline) &gt; 0)
+               print
+          close(tmp)
+     } else
+          print
+}
+</PRE></DIV>
+<P>The <CODE>close()</CODE> function is called to ensure that if two identical &#8216;<SAMP>@execute</SAMP>&#8217; lines appear in the input, the command is run for each one. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Close-Files-And-Pipes">Close Files And Pipes</A>. Given the input: </P>
+<DIV class=example><PRE class=example>foo
+bar
+baz
+@execute who
+bletch
+</PRE></DIV>
+<P>the program might produce: </P><A name=index-Robbins_002c-Bill></A><A name=index-Robbins_002c-Miriam-1></A><A name=index-Robbins_002c-Arnold-1></A>
+<DIV class=example><PRE class=example>foo
+bar
+baz
+arnold     ttyv0   Jul 13 14:22
+miriam     ttyp0   Jul 13 14:23     (murphy:0)
+bill       ttyp1   Jul 13 14:23     (murphy:0)
+bletch
+</PRE></DIV>
+<P>Notice that this program ran the command <CODE>who</CODE> and printed the previous result. (If you try this program yourself, you will of course get different results, depending upon who is logged in on your system.) </P>
+<P>This variation of <CODE>getline</CODE> splits the record into fields, sets the value of <CODE>NF</CODE>, and recomputes the value of <CODE>$0</CODE>. The values of <CODE>NR</CODE> and <CODE>FNR</CODE> are not changed. <CODE>RT</CODE> is set. </P><A name=index-POSIX-awk_002c-_007c-I_002fO-operator-and></A>
+<P>According to POSIX, &#8216;<SAMP><VAR>expression</VAR> | getline</SAMP>&#8217; is ambiguous if <VAR>expression</VAR> contains unparenthesized operators other than &#8216;<SAMP>$</SAMP>&#8217;&#8212;for example, &#8216;<SAMP>"echo&nbsp;"<!-- /@w --> "date" | getline</SAMP>&#8217; is ambiguous because the concatenation operator is not parenthesized. You should write it as &#8216;<SAMP>("echo&nbsp;"<!-- /@w --> "date") | getline</SAMP>&#8217; if you want your program to be portable to all <CODE>awk</CODE> implementations. </P><A name=index-Brian-Kernighan_0027s-awk-5></A><A name=index-mawk-utility-1></A>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Unfortunately, <CODE>gawk</CODE> has not been consistent in its treatment of a construct like &#8216;<SAMP>"echo&nbsp;"<!-- /@w --> "date" | getline</SAMP>&#8217;. Most versions, including the current version, treat it at as &#8216;<SAMP>("echo&nbsp;"<!-- /@w --> "date") | getline</SAMP>&#8217;. (This how Brian Kernighan&#8217;s <CODE>awk</CODE> behaves.) Some versions changed and treated it as &#8216;<SAMP>"echo&nbsp;"<!-- /@w --> ("date" | getline)</SAMP>&#8217;. (This is how <CODE>mawk</CODE> behaves.) In short, <EM>always</EM> use explicit parentheses, and then you won&#8217;t have to worry. </P></BLOCKQUOTE>

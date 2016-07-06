@@ -1,0 +1,25 @@
+4.9.5 Initialization Routines 
+<P></P>
+<P>Here&#8217;s one good way to do it: </P>
+<P><FONT class=clozed>1. Set up some memory you can fill the cache from&#8212;it doesn&#8217;t matter what data you store in it, but it needs to have correct check bits if your system uses parity or ECC. A good trick is to reserve the bottom 32 K of system memory for this purpose, at least until after the cache has been initialized. </FONT></P>
+<P><FONT class=clozed>If you fill it with data using uncached writes, it will contain correct parity. A buffer that size is not going to be big enough to initialize a large L2 cache, and you may need to do something more complicated.</FONT></P>
+<P><FONT class=clozed>2. Set TagLo to zero, which makes sure that the valid bit is unset and the tag parity is consistent (we&#8217;d set TagHi on a CPU that needed it). The TagLo register will be used by the cache IndexStoreTag cache instructions to forcibly invalidate a line and clear the tag parity. </FONT></P>
+<P><FONT class=clozed>3. Disable interrupts if they might otherwise happen.</FONT></P>
+<P><FONT class=clozed>4. Initialize the I-cache first, then the D-cache. Following is C code for I-cache initialization. (You have to believe in the functions or macros like Index Store Tag I(),which do low-level functions; they&#8217;re either trivial assembly code subroutines that run the appropriate machine instructions or&#8212;for the brave GNU C user&#8212;macros invoking a C asm statement.)</FONT></P>
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize) /* clear tag to invalidate */ </FONT></P>
+<P><FONT class=clozed>Index_Store_Tag_I (addr); </FONT></P>
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize) /* fill once, so data field parity is correct */ </FONT></P>
+<P><FONT class=clozed>Fill_I (addr); </FONT></P>
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize) /* invalidate again---prudent but not strictly necessary */ Index_Store_Tag_I (addr);</FONT></P>
+<P><FONT class=clozed>We did the fill operation because some CPUs may detect and trap on parity errors, even on apparently invalid cache lines. Unfortunately the Fill I operation is not mandated by MIPS32/64. You can reasonably expect that any CPU that implements parity or ECC protection will include it: CPUs that don&#8217;t protect cache data need only the first store tag loop.</FONT></P>
+<P><FONT class=clozed>Moreover, we use three separate loops rather than combining them, because you have to be careful about the tags; with a two-way cache, a single loop would initialize half the cache twice, since the &#8220;index store tag&#8221; with a zero tag register will reset the LRU bit, which determines which set of the cache line is to be used on the next cachemiss.</FONT></P>
+<P><FONT class=clozed>5. D-cache initialization is slightly more awkward, because there is no D-side equivalent of the &#8220;fill&#8221; operation; we have to load through the cache and rely on normal miss processing. Here&#8217;s how it&#8217;s done:</FONT></P>
+<P><FONT class=clozed>/* clear all tags */ </FONT></P>
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize) </FONT></P>
+<P><FONT class=clozed>Index_Store_Tag_D (addr); </FONT></P>
+<P><FONT class=clozed>/* load from each line (in cached space) */ </FONT></P>
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize)</FONT></P>
+<P><FONT class=clozed>junk = *addr; </FONT></P>
+<P><FONT class=clozed>/* clear all tags */ </FONT></P>
+<P><FONT class=clozed>for (addr = KSEG0; addr &lt; KSEG0 + size; addr += lnsize) </FONT></P>
+<P><FONT class=clozed>Index_Store_Tag_D (addr);</FONT>

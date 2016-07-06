@@ -1,0 +1,103 @@
+<H4 class=subsection>6.2.3 Assignment Expressions</H4><A name=index-assignment-operators></A><A name=index-operators_002c-assignment></A><A name=index-expressions_002c-assignment></A><A name=index-_003d-_0028equals-sign_0029_002c-_003d-operator></A><A name=index-equals-sign-_0028_003d_0029_002c-_003d-operator></A>
+<P>An <EM>assignment</EM> is an expression that stores a (usually different) value into a variable. For example, let&#8217;s assign the value one to the variable <CODE>z</CODE>: </P>
+<DIV class=example><PRE class=example>z = 1
+</PRE></DIV>
+<P>After this expression is executed, the variable <CODE>z</CODE> has the value one. Whatever old value <CODE>z</CODE> had before the assignment is forgotten. </P>
+<P>Assignments can also store string values. For example, the following stores the value <CODE>"this food is good"</CODE> in the variable <CODE>message</CODE>: </P>
+<DIV class=example><PRE class=example>thing = "food"
+predicate = "good"
+message = "this " thing " is " predicate
+</PRE></DIV><A name=index-side-effects_002c-assignment-expressions></A>
+<P>This also illustrates string concatenation. The &#8216;<SAMP>=</SAMP>&#8217; sign is called an <EM>assignment operator</EM>. It is the simplest assignment operator because the value of the righthand operand is stored unchanged. Most operators (addition, concatenation, and so on) have no effect except to compute a value. If the value isn&#8217;t used, there&#8217;s no reason to use the operator. An assignment operator is different; it does produce a value, but even if you ignore it, the assignment still makes itself felt through the alteration of the variable. We call this a <EM>side effect</EM>. </P><A name=index-lvalues_002frvalues></A><A name=index-rvalues_002flvalues></A><A name=index-assignment-operators_002c-lvalues_002frvalues></A><A name=index-operators_002c-assignment-1></A>
+<P>The lefthand operand of an assignment need not be a variable (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Variables">Variables</A>); it can also be a field (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Changing-Fields">Changing Fields</A>) or an array element (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Arrays">Arrays</A>). These are all called <EM>lvalues</EM>, which means they can appear on the lefthand side of an assignment operator. The righthand operand may be any expression; it produces the new value that the assignment stores in the specified variable, field, or array element. (Such values are called <EM>rvalues</EM>.) </P><A name=index-variables_002c-types-of></A>
+<P>It is important to note that variables do <EM>not</EM> have permanent types. A variable&#8217;s type is simply the type of whatever value it happens to hold at the moment. In the following program fragment, the variable <CODE>foo</CODE> has a numeric value at first, and a string value later on: </P>
+<DIV class=example><PRE class=example>foo = 1
+print foo
+foo = "bar"
+print foo
+</PRE></DIV>
+<P>When the second assignment gives <CODE>foo</CODE> a string value, the fact that it previously had a numeric value is forgotten. </P>
+<P>String values that do not begin with a digit have a numeric value of zero. After executing the following code, the value of <CODE>foo</CODE> is five: </P>
+<DIV class=example><PRE class=example>foo = "a string"
+foo = foo + 5
+</PRE></DIV>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Using a variable as a number and then later as a string can be confusing and is poor programming style. The previous two examples illustrate how <CODE>awk</CODE> works, <EM>not</EM> how you should write your programs! </P></BLOCKQUOTE>
+<P>An assignment is an expression, so it has a value&#8212;the same value that is assigned. Thus, &#8216;<SAMP>z = 1</SAMP>&#8217; is an expression with the value one. One consequence of this is that you can write multiple assignments together, such as: </P>
+<DIV class=example><PRE class=example>x = y = z = 5
+</PRE></DIV>
+<P>This example stores the value five in all three variables (<CODE>x</CODE>, <CODE>y</CODE>, and <CODE>z</CODE>). It does so because the value of &#8216;<SAMP>z = 5</SAMP>&#8217;, which is five, is stored into <CODE>y</CODE> and then the value of &#8216;<SAMP>y = z = 5</SAMP>&#8217;, which is five, is stored into <CODE>x</CODE>. </P>
+<P>Assignments may be used anywhere an expression is called for. For example, it is valid to write &#8216;<SAMP>x != (y = 1)</SAMP>&#8217; to set <CODE>y</CODE> to one, and then test whether <CODE>x</CODE> equals one. But this style tends to make programs hard to read; such nesting of assignments should be avoided, except perhaps in a one-shot program. </P><A name=index-_002b-_0028plus-sign_0029_002c-_002b_003d-operator></A><A name=index-plus-sign-_0028_002b_0029_002c-_002b_003d-operator></A>
+<P>Aside from &#8216;<SAMP>=</SAMP>&#8217;, there are several other assignment operators that do arithmetic with the old value of the variable. For example, the operator &#8216;<SAMP>+=</SAMP>&#8217; computes a new value by adding the righthand value to the old value of the variable. Thus, the following assignment adds five to the value of <CODE>foo</CODE>: </P>
+<DIV class=example><PRE class=example>foo += 5
+</PRE></DIV>
+<P>This is equivalent to the following: </P>
+<DIV class=example><PRE class=example>foo = foo + 5
+</PRE></DIV>
+<P>Use whichever makes the meaning of your program clearer. </P>
+<P>There are situations where using &#8216;<SAMP>+=</SAMP>&#8217; (or any assignment operator) is <EM>not</EM> the same as simply repeating the lefthand operand in the righthand expression. For example: </P><A name=index-Rankin_002c-Pat-1></A>
+<DIV class=example><PRE class=example># Thanks to Pat Rankin for this example
+BEGIN  {
+    foo[rand()] += 5
+    for (x in foo)
+       print x, foo[x]
+
+    bar[rand()] = bar[rand()] + 5
+    for (x in bar)
+       print x, bar[x]
+}
+</PRE></DIV><A name=index-operators_002c-assignment_002c-evaluation-order></A><A name=index-assignment-operators_002c-evaluation-order></A>
+<P>The indices of <CODE>bar</CODE> are practically guaranteed to be different, because <CODE>rand()</CODE> returns different values each time it is called. (Arrays and the <CODE>rand()</CODE> function haven&#8217;t been covered yet. See <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Arrays">Arrays</A>, and see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Numeric-Functions">Numeric Functions</A>, for more information). This example illustrates an important fact about assignment operators: the lefthand expression is only evaluated <EM>once</EM>. It is up to the implementation as to which expression is evaluated first, the lefthand or the righthand. Consider this example: </P>
+<DIV class=example><PRE class=example>i = 1
+a[i += 2] = i + 1
+</PRE></DIV>
+<P>The value of <CODE>a[3]</CODE> could be either two or four. </P>
+<P><A href="http://www.gnu.org/software/gawk/manual/gawk.html#table_002dassign_002dops">Table 6.2</A> lists the arithmetic assignment operators. In each case, the righthand operand is an expression whose value is converted to a number. </P><A name=index-_002d-_0028hyphen_0029_002c-_002d_003d-operator></A><A name=index-hyphen-_0028_002d_0029_002c-_002d_003d-operator></A><A name=index-_002a-_0028asterisk_0029_002c-_002a_003d-operator></A><A name=index-asterisk-_0028_002a_0029_002c-_002a_003d-operator></A><A name=index-_002f-_0028forward-slash_0029_002c-_002f_003d-operator></A><A name=index-forward-slash-_0028_002f_0029_002c-_002f_003d-operator></A><A name=index-_0025-_0028percent-sign_0029_002c-_0025_003d-operator></A><A name=index-percent-sign-_0028_0025_0029_002c-_0025_003d-operator></A><A name=index-_005e-_0028caret_0029_002c-_005e_003d-operator></A><A name=index-caret-_0028_005e_0029_002c-_005e_003d-operator></A><A name=index-_002a-_0028asterisk_0029_002c-_002a_002a_003d-operator></A><A name=index-asterisk-_0028_002a_0029_002c-_002a_002a_003d-operator></A>
+<DIV class=float><A name=table_002dassign_002dops></A>
+<TABLE>
+<THEAD>
+<TR>
+<TH width="30%">Operator</TH>
+<TH width="70%">Effect</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD width="30%"><VAR>lvalue</VAR> <CODE>+=</CODE> <VAR>increment</VAR></TD>
+<TD width="70%">Adds <VAR>increment</VAR> to the value of <VAR>lvalue</VAR>.</TD></TR>
+<TR>
+<TD width="30%"><VAR>lvalue</VAR> <CODE>-=</CODE> <VAR>decrement</VAR></TD>
+<TD width="70%">Subtracts <VAR>decrement</VAR> from the value of <VAR>lvalue</VAR>.</TD></TR>
+<TR>
+<TD width="30%"><VAR>lvalue</VAR> <CODE>*=</CODE> <VAR>coefficient</VAR></TD>
+<TD width="70%">Multiplies the value of <VAR>lvalue</VAR> by <VAR>coefficient</VAR>.</TD></TR>
+<TR>
+<TD width="30%"><VAR>lvalue</VAR> <CODE>/=</CODE> <VAR>divisor</VAR></TD>
+<TD width="70%">Divides the value of <VAR>lvalue</VAR> by <VAR>divisor</VAR>.</TD></TR>
+<TR>
+<TD width="30%"><VAR>lvalue</VAR> <CODE>%=</CODE> <VAR>modulus</VAR></TD>
+<TD width="70%">Sets <VAR>lvalue</VAR> to its remainder by <VAR>modulus</VAR>. <A name=index-common-extensions_002c-_002a_002a_003d-operator></A><A name=index-extensions_002c-common_002c-_002a_002a_003d-operator></A><A name=index-awk-language_002c-POSIX-version></A><A name=index-POSIX-awk-1></A></TD></TR>
+<TR>
+<TD width="30%"><VAR>lvalue</VAR> <CODE>^=</CODE> <VAR>power</VAR></TD>
+<TD width="70%"></TD></TR>
+<TR>
+<TD width="30%"><VAR>lvalue</VAR> <CODE>**=</CODE> <VAR>power</VAR></TD>
+<TD width="70%">Raises <VAR>lvalue</VAR> to the power <VAR>power</VAR>. (c.e.)</TD></TR></TBODY></TABLE>
+<DIV class=float-caption>
+<P><STRONG>Table 6.2: </STRONG>Arithmetic Assignment Operators</P></DIV></DIV><A name=index-POSIX-awk_002c-_002a_002a_003d-operator-and></A><A name=index-portability_002c-_002a_002a_003d-operator-and></A>
+<BLOCKQUOTE>
+<P><B>NOTE:</B> Only the &#8216;<SAMP>^=</SAMP>&#8217; operator is specified by POSIX. For maximum portability, do not use the &#8216;<SAMP>**=</SAMP>&#8217; operator. </P></BLOCKQUOTE><A name=index-sidebar_002c-Syntactic-Ambiguities-Between-_002f_003d-and-Regular-Expressions></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B>Syntactic Ambiguities Between &#8216;<SAMP>/=</SAMP>&#8217; and Regular Expressions</B> </DIV><A name=index-dark-corner_002c-regexp-constants_002c-_002f_003d-operator-and></A><A name=index-_002f-_0028forward-slash_0029_002c-_002f_003d-operator_002c-vs_002e-_002f_003d_2026_002f-regexp-constant></A><A name=index-forward-slash-_0028_002f_0029_002c-_002f_003d-operator_002c-vs_002e-_002f_003d_2026_002f-regexp-constant></A><A name=index-regexp-constants_002c-_002f_003d_2026_002f_002c-_002f_003d-operator-and></A><A name=index-dark-corner_002c-_002f_003d-operator-vs_002e-_002f_003d_2026_002f-regexp-constant></A><A name=index-ambiguity_002c-syntactic_003a-_002f_003d-operator-vs_002e-_002f_003d_2026_002f-regexp-constant></A><A name=index-syntactic-ambiguity_003a-_002f_003d-operator-vs_002e-_002f_003d_2026_002f-regexp-constant></A><A name=index-_002f_003d-operator-vs_002e-_002f_003d_2026_002f-regexp-constant></A>
+<P>There is a syntactic ambiguity between the <CODE>/=</CODE> assignment operator and regexp constants whose first character is an &#8216;<SAMP>=</SAMP>&#8217;. (d.c.) This is most notable in some commercial <CODE>awk</CODE> versions. For example: </P>
+<DIV class=example><PRE class=example>$ awk /==/ /dev/null
+error&#8594; awk: syntax error at source line 1
+error&#8594;  context is
+error&#8594;         &gt;&gt;&gt; /= &lt;&lt;&lt;
+error&#8594; awk: bailing out at source line 1
+</PRE></DIV>
+<P>A workaround is: </P>
+<DIV class=example><PRE class=example>awk '/[=]=/' /dev/null
+</PRE></DIV>
+<P><CODE>gawk</CODE> does not have this problem, nor do the other freely available versions described in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Other-Versions">Other Versions</A>. </P></TD></TR></TBODY></TABLE>

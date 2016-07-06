@@ -1,0 +1,36 @@
+mod_timer()
+<P></P><PRE><A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#886" name=886>886</A><SPAN class=c>/**
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#887" name=887>887</A> * mod_timer - modify a timer's timeout
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#888" name=888>888</A> * @timer: the timer to be modified
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#889" name=889>889</A> * @expires: new timeout in jiffies
+<A class=hl href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#890" name=890>890</A> *
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#891" name=891>891</A> * mod_timer() is a more efficient way to update the expire field of an
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#892" name=892>892</A> * active timer (if the timer is inactive it will be activated)
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#893" name=893>893</A> *
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#894" name=894>894</A> * mod_timer(timer, expires) is equivalent to:
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#895" name=895>895</A> *
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#896" name=896>896</A> *     del_timer(timer); timer-&gt;expires = expires; add_timer(timer);
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#897" name=897>897</A> *
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#898" name=898>898</A> * Note that if there are multiple unserialized concurrent users of the
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#899" name=899>899</A> * same timer, then mod_timer() is the only safe way to modify the timeout,
+<A class=hl href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#900" name=900>900</A> * since add_timer() cannot modify an already running timer.
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#901" name=901>901</A> *
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#902" name=902>902</A> * The function returns whether it has modified a pending timer or not.
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#903" name=903>903</A> * (ie. mod_timer() of an inactive timer returns 0, mod_timer() of an
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#904" name=904>904</A> * active timer returns 1.)
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#905" name=905>905</A> */</SPAN>
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#906" name=906>906</A><B>int</B> <A class=xf name=mod_timer></A><A class=xf href="http://172.21.12.145:8080/source/s?refs=mod_timer&amp;project=linux-4.5">mod_timer</A>(<B>struct</B> <A href="http://172.21.12.145:8080/source/s?defs=timer_list&amp;project=linux-4.5">timer_list</A> *<A class=xa name=timer></A><A class=xa href="http://172.21.12.145:8080/source/s?refs=timer&amp;project=linux-4.5">timer</A>, <B>unsigned</B> <B>long</B> <A class=xa name=expires></A><A class=xa href="http://172.21.12.145:8080/source/s?refs=expires&amp;project=linux-4.5">expires</A>)
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#907" name=907>907</A>{
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#908" name=908>908</A>	<A href="http://172.21.12.145:8080/source/s?defs=expires&amp;project=linux-4.5">expires</A> = <A class=d href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#apply_slack">apply_slack</A>(<A href="http://172.21.12.145:8080/source/s?defs=timer&amp;project=linux-4.5">timer</A>, <A href="http://172.21.12.145:8080/source/s?defs=expires&amp;project=linux-4.5">expires</A>);
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#909" name=909>909</A>
+<A class=hl href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#910" name=910>910</A>	<SPAN class=c>/*
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#911" name=911>911</A>	 * This is a common optimization triggered by the
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#912" name=912>912</A>	 * networking code - if the timer is re-modified
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#913" name=913>913</A>	 * to be the same thing then just return:
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#914" name=914>914</A>	 */</SPAN>
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#915" name=915>915</A>	<B>if</B> (<A href="http://172.21.12.145:8080/source/s?defs=timer_pending&amp;project=linux-4.5">timer_pending</A>(<A href="http://172.21.12.145:8080/source/s?defs=timer&amp;project=linux-4.5">timer</A>) &amp;&amp; <A href="http://172.21.12.145:8080/source/s?defs=timer&amp;project=linux-4.5">timer</A>-&gt;<A href="http://172.21.12.145:8080/source/s?defs=expires&amp;project=linux-4.5">expires</A> == <A href="http://172.21.12.145:8080/source/s?defs=expires&amp;project=linux-4.5">expires</A>)
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#916" name=916>916</A>		<B>return</B> <SPAN class=n>1</SPAN>;
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#917" name=917>917</A>
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#918" name=918>918</A>	<B>return</B> <A class=d href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#__mod_timer">__mod_timer</A>(<A href="http://172.21.12.145:8080/source/s?defs=timer&amp;project=linux-4.5">timer</A>, <A href="http://172.21.12.145:8080/source/s?defs=expires&amp;project=linux-4.5">expires</A>, <B>false</B>, <A href="http://172.21.12.145:8080/source/s?defs=TIMER_NOT_PINNED&amp;project=linux-4.5">TIMER_NOT_PINNED</A>);
+<A class=l href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#919" name=919>919</A>}
+<A class=hl href="http://172.21.12.145:8080/source/xref/linux-4.5/kernel/time/timer.c#920" name=920>920</A><A href="http://172.21.12.145:8080/source/s?defs=EXPORT_SYMBOL&amp;project=linux-4.5">EXPORT_SYMBOL</A>(<A class=xv name=mod_timer></A><A class=xv href="http://172.21.12.145:8080/source/s?refs=mod_timer&amp;project=linux-4.5">mod_timer</A>);</PRE></TT>

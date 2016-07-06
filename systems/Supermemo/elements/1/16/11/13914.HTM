@@ -1,0 +1,71 @@
+<H3 class=section>7.2 Syntax of Conditionals</H3>
+<P><A name=index-ifdef-560></A><A name=index-ifeq-561></A><A name=index-ifndef-562></A><A name=index-ifneq-563></A><A name=index-else-564></A><A name=index-endif-565></A><FONT class=extract>The syntax of a simple conditional with no <CODE>else</CODE> is as follows: </FONT><PRE class=example><FONT class=extract>     <VAR><FONT class=extract>conditional-directive</FONT></VAR>
+     <VAR>text-if-true</VAR>
+     endif
+</FONT></PRE>
+<P class=noindent>The <VAR>text-if-true</VAR> may be any lines of text, to be considered as part of the makefile if the condition is true. If the condition is false, no text is used instead. 
+<P><FONT class=extract>The syntax of a complex conditional is as follows: </FONT><PRE class=example><FONT class=extract>     <VAR>conditional-directive</VAR>
+     <VAR>text-if-true</VAR>
+     else
+     <VAR>text-if-false</VAR>
+     endif
+</FONT></PRE>
+<P><FONT class=extract>or: </FONT><PRE class=example><FONT class=extract>     <VAR>conditional-directive-one</VAR>
+     <VAR>text-if-one-is-true</VAR>
+     else <VAR>conditional-directive-two</VAR>
+     <VAR>text-if-two-is-true</VAR>
+     else
+     <VAR>text-if-one-and-two-are-false</VAR>
+     endif
+</FONT></PRE>
+<P class=noindent>There can be as many &#8220;<CODE>else</CODE> <VAR>conditional-directive</VAR>&#8221; clauses as necessary. Once a given condition is true, <VAR>text-if-true</VAR> is used and no other clause is used; if no condition is true then <VAR>text-if-false</VAR> is used. The <VAR>text-if-true</VAR> and <VAR>text-if-false</VAR> can be any number of lines of text. 
+<P>The syntax of the <VAR>conditional-directive</VAR> is the same whether the conditional is simple or complex; after an <CODE>else</CODE> or not. There are four different directives that test different conditions. Here is a table of them: 
+<DL>
+<DT><CODE>ifeq (</CODE><VAR>arg1</VAR><CODE>, </CODE><VAR>arg2</VAR><CODE>)</CODE> 
+<DT><CODE>ifeq '</CODE><VAR>arg1</VAR><CODE>' '</CODE><VAR>arg2</VAR><CODE>'</CODE> 
+<DT><CODE>ifeq "</CODE><VAR>arg1</VAR><CODE>" "</CODE><VAR>arg2</VAR><CODE>"</CODE> 
+<DT><CODE>ifeq "</CODE><VAR>arg1</VAR><CODE>" '</CODE><VAR>arg2</VAR><CODE>'</CODE> 
+<DT><CODE>ifeq '</CODE><VAR>arg1</VAR><CODE>' "</CODE><VAR>arg2</VAR><CODE>"</CODE> 
+<DD>Expand all variable references in <VAR>arg1</VAR> and <VAR>arg2</VAR> and compare them. If they are identical, the <VAR>text-if-true</VAR> is effective; otherwise, the <VAR>text-if-false</VAR>, if any, is effective. 
+<P><FONT class=extract>Often you want to test if a variable has a non-empty value. When the value results from complex expansions of variables and functions, expansions you would consider empty may actually contain whitespace characters and thus are not seen as empty. However, you can use the <CODE>strip</CODE> function (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Text-Functions"><FONT class=extract>Text Functions</FONT></A><FONT class=extract>) to avoid interpreting whitespace as a non-empty value. For example: </FONT><PRE class=example><FONT class=extract>          ifeq ($(strip $(foo)),)
+          <VAR>text-if-empty</VAR>
+          endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>will evaluate <VAR>text-if-empty</VAR> even if the expansion of <CODE>$(foo)</CODE> contains whitespace characters. <BR></FONT></P>
+<DT><CODE>ifneq (</CODE><VAR>arg1</VAR><CODE>, </CODE><VAR>arg2</VAR><CODE>)</CODE> 
+<DT><CODE>ifneq '</CODE><VAR>arg1</VAR><CODE>' '</CODE><VAR>arg2</VAR><CODE>'</CODE> 
+<DT><CODE>ifneq "</CODE><VAR>arg1</VAR><CODE>" "</CODE><VAR>arg2</VAR><CODE>"</CODE> 
+<DT><CODE>ifneq "</CODE><VAR>arg1</VAR><CODE>" '</CODE><VAR>arg2</VAR><CODE>'</CODE> 
+<DT><CODE>ifneq '</CODE><VAR>arg1</VAR><CODE>' "</CODE><VAR>arg2</VAR><CODE>"</CODE> 
+<DD>Expand all variable references in <VAR>arg1</VAR> and <VAR>arg2</VAR> and compare them. If they are different, the <VAR>text-if-true</VAR> is effective; otherwise, the <VAR>text-if-false</VAR>, if any, is effective. <BR>
+<DT><CODE>ifdef </CODE><VAR>variable-name</VAR> 
+<DD>The <CODE>ifdef</CODE> form takes the <EM>name</EM> of a variable as its argument, not a reference to a variable. The value of that variable has a non-empty value, the <VAR>text-if-true</VAR> is effective; otherwise, the <VAR>text-if-false</VAR>, if any, is effective. Variables that have never been defined have an empty value. The text <VAR>variable-name</VAR> is expanded, so it could be a variable or function that expands to the name of a variable. For example: <PRE class=example>          bar = true
+          foo = bar
+          ifdef $(foo)
+          frobozz = yes
+          endif
+</PRE>
+<P>The variable reference <CODE>$(foo)</CODE> is expanded, yielding <CODE>bar</CODE>, which is considered to be the name of a variable. The variable <CODE>bar</CODE> is not expanded, but its value is examined to determine if it is non-empty. 
+<P><FONT class=extract>Note that <CODE>ifdef</CODE> only tests whether a variable has a value. It does not expand the variable to see if that value is nonempty. Consequently, tests using <CODE>ifdef</CODE> return true for all definitions except those like <CODE>foo =</CODE>. To test for an empty value, use <CODE>ifeq&nbsp;($(foo),)</CODE><!-- /@w -->. For example, </FONT><PRE class=example><FONT class=extract>          bar =
+          foo = $(bar)
+          ifdef foo
+          frobozz = yes
+          else
+          frobozz = no
+          endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>sets &#8216;<SAMP><SPAN class=samp>frobozz</SPAN></SAMP>&#8217; to &#8216;<SAMP><SPAN class=samp>yes</SPAN></SAMP>&#8217;, while: </FONT><PRE class=example><FONT class=extract>          foo =
+          ifdef foo
+          frobozz = yes
+          else
+          frobozz = no
+          endif
+</FONT></PRE>
+<P class=noindent><FONT class=extract>sets &#8216;<SAMP><SPAN class=samp>frobozz</SPAN></SAMP>&#8217; to &#8216;<SAMP><SPAN class=samp>no</SPAN></SAMP>&#8217;. <BR></FONT></P>
+<DT><CODE>ifndef </CODE><VAR>variable-name</VAR> 
+<DD>If the variable <VAR>variable-name</VAR> has an empty value, the <VAR>text-if-true</VAR> is effective; otherwise, the <VAR>text-if-false</VAR>, if any, is effective. The rules for expansion and testing of <VAR>variable-name</VAR> are identical to the <CODE>ifdef</CODE> directive. </DD></DL>
+<P>Extra spaces are allowed and ignored at the beginning of the conditional directive line, but a tab is not allowed. (If the line begins with a tab, it will be considered part of a recipe for a rule.) Aside from this, extra spaces or tabs may be inserted with no effect anywhere except within the directive name or within an argument. A comment starting with &#8216;<SAMP><SPAN class=samp>#</SPAN></SAMP>&#8217; may appear at the end of the line. 
+<P>The other two directives that play a part in a conditional are <CODE>else</CODE> and <CODE>endif</CODE>. Each of these directives is written as one word, with no arguments. Extra spaces are allowed and ignored at the beginning of the line, and spaces or tabs at the end. A comment starting with &#8216;<SAMP><SPAN class=samp>#</SPAN></SAMP>&#8217; may appear at the end of the line. 
+<P>Conditionals affect which lines of the makefile <CODE>make</CODE> uses. If the condition is true, <CODE>make</CODE> reads the lines of the <VAR>text-if-true</VAR> as part of the makefile; if the condition is false, <CODE>make</CODE> ignores those lines completely. It follows that syntactic units of the makefile, such as rules, may safely be split across the beginning or the end of the conditional. 
+<P><FONT class=extract><CODE>make</CODE> evaluates conditionals when it reads a makefile. Consequently, you cannot use automatic variables in the tests of conditionals because they are not defined until recipes are run (see </FONT><A href="https://www.gnu.org/software/make/manual/make.html#Automatic-Variables"><FONT class=extract>Automatic Variables</FONT></A><FONT class=extract>).</FONT> 
+<P>To prevent intolerable confusion, it is not permitted to start a conditional in one makefile and end it in another. However, you may write an <CODE>include</CODE> directive within a conditional, provided you do not attempt to terminate the conditional inside the included file.

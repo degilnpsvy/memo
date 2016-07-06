@@ -1,0 +1,28 @@
+# Documentation/RCU/rcu.txt
+<P></P>
+<P>RCU Concepts</P>
+<P></P>
+<P><BR>The basic idea behind RCU (read-copy update) is to split destructive<BR>operations into two parts, one that prevents anyone from seeing the data<BR>item being destroyed, and one that actually carries out the destruction.<BR>A "grace period" must elapse between the two parts, and this grace period<BR>must be long enough that any readers accessing the item being deleted have<BR>since dropped their references.&nbsp; For example, an RCU-protected deletion<BR>from a linked list would first remove the item from the list, wait for<BR>a grace period to elapse, then free the element.&nbsp; See the listRCU.txt<BR>file for more information on using RCU with linked lists.</P>
+<P><BR>Frequently Asked Questions</P>
+<P>o&nbsp;Why would anyone want to use RCU?</P>
+<P>&nbsp;The advantage of RCU's two-part approach is that RCU readers need<BR>&nbsp;not acquire any locks, perform any atomic instructions, write to<BR>&nbsp;shared memory, or (on CPUs other than Alpha) execute any memory<BR>&nbsp;barriers.&nbsp; The fact that these operations are quite expensive<BR>&nbsp;on modern CPUs is what gives RCU its performance advantages<BR>&nbsp;in read-mostly situations.&nbsp; The fact that RCU readers need not<BR>&nbsp;acquire locks can also greatly simplify deadlock-avoidance code.</P>
+<P>o&nbsp;How can the updater tell when a grace period has completed<BR>&nbsp;if the RCU readers give no indication when they are done?</P>
+<P>&nbsp;Just as with spinlocks, RCU readers are not permitted to<BR>&nbsp;block, switch to user-mode execution, or enter the idle loop.<BR>&nbsp;Therefore, as soon as a CPU is seen passing through any of these<BR>&nbsp;three states, we know that that CPU has exited any previous RCU<BR>&nbsp;read-side critical sections.&nbsp; So, if we remove an item from a<BR>&nbsp;linked list, and then wait until all CPUs have switched context,<BR>&nbsp;executed in user mode, or executed in the idle loop, we can<BR>&nbsp;safely free up that item.</P>
+<P>&nbsp;Preemptible variants of RCU (CONFIG_TREE_PREEMPT_RCU) get the<BR>&nbsp;same effect, but require that the readers manipulate CPU-local<BR>&nbsp;counters.&nbsp; These counters allow limited types of blocking within<BR>&nbsp;RCU read-side critical sections.&nbsp; SRCU also uses CPU-local<BR>&nbsp;counters, and permits general blocking within RCU read-side<BR>&nbsp;critical sections.&nbsp; These variants of RCU detect grace periods<BR>&nbsp;by sampling these counters.</P>
+<P>o&nbsp;If I am running on a uniprocessor kernel, which can only do one<BR>&nbsp;thing at a time, why should I wait for a grace period?</P>
+<P>&nbsp;See the UP.txt file in this directory.</P>
+<P>o&nbsp;How can I see where RCU is currently used in the Linux kernel?</P>
+<P>&nbsp;Search for "rcu_read_lock", "rcu_read_unlock", "call_rcu",<BR>&nbsp;"rcu_read_lock_bh", "rcu_read_unlock_bh", "call_rcu_bh",<BR>&nbsp;"srcu_read_lock", "srcu_read_unlock", "synchronize_rcu",<BR>&nbsp;"synchronize_net", "synchronize_srcu", and the other RCU<BR>&nbsp;primitives.&nbsp; Or grab one of the cscope databases from:</P>
+<P>&nbsp;<A href="http://www.rdrop.com/users/paulmck/RCU/linuxusage/rculocktab.html">http://www.rdrop.com/users/paulmck/RCU/linuxusage/rculocktab.html</A></P>
+<P>o&nbsp;What guidelines should I follow when writing code that uses RCU?</P>
+<P>&nbsp;See the checklist.txt file in this directory.</P>
+<P>o&nbsp;Why the name "RCU"?</P>
+<P>&nbsp;"RCU" stands for "read-copy update".&nbsp; The file listRCU.txt has<BR>&nbsp;more information on where this name came from, search for<BR>&nbsp;"read-copy update" to find it.</P>
+<P>o&nbsp;I hear that RCU is patented?&nbsp; What is with that?</P>
+<P>&nbsp;Yes, it is.&nbsp; There are several known patents related to RCU,<BR>&nbsp;search for the string "Patent" in RTFP.txt to find them.<BR>&nbsp;Of these, one was allowed to lapse by the assignee, and the<BR>&nbsp;others have been contributed to the Linux kernel under GPL.<BR>&nbsp;There are now also LGPL implementations of user-level RCU<BR>&nbsp;available (<A href="http://lttng.org/?q=node/18">http://lttng.org/?q=node/18</A>).</P>
+<P>o&nbsp;I hear that RCU needs work in order to support realtime kernels?</P>
+<P>&nbsp;This work is largely completed.&nbsp; Realtime-friendly RCU can be<BR>&nbsp;enabled via the CONFIG_TREE_PREEMPT_RCU kernel configuration<BR>&nbsp;parameter.&nbsp; However, work is in progress for enabling priority<BR>&nbsp;boosting of preempted RCU read-side critical sections.&nbsp;This is<BR>&nbsp;needed if you have CPU-bound realtime threads.</P>
+<P>o&nbsp;Where can I find more information on RCU?</P>
+<P>&nbsp;See the RTFP.txt file in this directory.<BR>&nbsp;Or point your browser at <A href="http://www.rdrop.com/users/paulmck/RCU/">http://www.rdrop.com/users/paulmck/RCU/</A>.</P>
+<P>o&nbsp;What are all these files in this directory?</P>
+<P>&nbsp;See 00-INDEX for the list.

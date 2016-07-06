@@ -1,0 +1,17 @@
+<H3 id=-100000 class=docSection1Title>Protected Mode Calls</H3>
+<P class=docText><A name="To see"></A>To see how the kernel makes protected mode BIOS calls, let's look at the APM implementation.</P>
+<P class=docText><A name="a BIOS"></A>APM is a BIOS interface specification, which is now almost obsolete (see the section "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec5.html#ch04lev1sec5">Power Management</A>" in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="are defined"></A>, "Laying the Groundwork"). Power management policies are defined in the BIOS, and a kernel thread called <SPAN class=docEmphasis>kapmd</SPAN> polls it <A name=iddle1114></A><A name=iddle1115></A><A name=iddle1116></A><A name=iddle1117></A><A name=iddle1220></A><A name=iddle2514></A><A name=iddle2597></A><A name=iddle2625></A><A name=iddle2730></A><A name="figure out"></A>every second to figure out the course of action. The polling is done using protected mode BIOS calls. To do this, <SPAN class=docEmphasis>kapmd</SPAN><A name="These are"></A> needs to know the protected mode entry segment address and offset. These are obtained from the real mode kernel during boot using the <TT>int 0x15</TT>, function <TT>0x5303</TT> BIOS service.</P>
+<P class=docText><A name="BIOS call"></A>The actual protected mode BIOS call is invoked using inline assembly from <TT>apm_bios_call_simple_asm()</TT>, defined in <SPAN class=docEmphasis>include/asm-x86/mach-default/apm.h</SPAN>:</P>
+<DIV class=docText><PRE>__asm__ __volatile__(APM_DO_ZERO_SEGS
+    "pushl %%edi\n\t"
+    "pushl %%ebp\n\t"
+    "lcall *%%cs:apm_bios_entry\n\t"
+    "setc %%bl\n\t"
+    "popl %%ebp\n\t"
+    "popl %%edi\n\t"
+    APM_DO_POP_SEGS
+        : "=a" (*eax), "=b" (error), "=c" (cx), "=d" (dx),
+          "=S" (si)
+        : "a" (func), "b" (ebx_in), "c" (ecx_in)
+        : "memory", "cc");</PRE></DIV><BR>
+<P class=docText><TT>APM_DO_ZERO_SEGS</TT> zeros out segment registers. <TT>apm_bios_entry</TT><A name=constraint></A> contains the protected mode entry address. The input constraint <TT>"a"</TT>(<TT>func</TT><A name="number to"></A>) copies the desired BIOS function number to the <TT>EAX</TT> register before invocation. For example, function number <TT>APM_FUNC_GET_EVENT</TT> (<TT>0x530b</TT><A name=number></A>) elicits an APM event from the BIOS, and function number <TT>APM_FUNC_IDLE</TT> (<TT>0x5305</TT><A name="Results are"></A>) notifies the BIOS that the processor is idle. Results are returned by the BIOS in registers <TT>EAX</TT>, <TT>EBX</TT>, <TT>ECX</TT><A name=and></A>, and <TT>EDX</TT><A name="the previous"></A>. As per the previous output operand constraints, these are propagated to the caller in variables <TT>*eax</TT>, <TT>error</TT>, <TT>cx</TT>, and <TT>dx</TT><A name="are saved"></A>, respectively. In the assembly body, registers are saved onto the kernel stack before the BIOS call and restored afterward to prevent the BIOS from trampling on them.

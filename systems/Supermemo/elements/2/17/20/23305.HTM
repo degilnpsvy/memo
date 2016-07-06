@@ -1,0 +1,127 @@
+<H3 id=title-IDAIWB3D class=docSection1Title>15.2. Remote (Cross) Debugging</H3>
+<P class=docText>Cross-development tools were developed primarily to overcome the resource limitations of embedded platforms. A modest-size application compiled with symbolic debug information can easily exceed several megabytes. With cross-debugging, the heavy lifting can be done on your development host. When you invoke your cross-version of GDB on your development host, you pass it an ELF file compiled with symbolic debug information. On your target, there is no reason you can't strip <SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15fn1">[1]</A></SUP> the <A name=iddle1892></A>ELF file of all unnecessary debugging info to keep the resulting image to its minimum size.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch15fn1>[1]</A></SUP> Remember to use your cross-version of strip, for example ppc_82xx-strip.</P></BLOCKQUOTE>
+<P class=docText>We introduced the <TT>readelf</TT> utility in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch13.html#ch13">Chapter 13</A>. In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14.html#ch14">Chapter 14</A>, "Kernel Debugging Techniques," we used it to examine the debug information in an ELF file compiled with symbolic debugging information. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list01">Listing 15-1</A> contains the output of <TT>readelf</TT> for a relatively small web server application compiled for the ARM architecture.</P><A name=ch15list01></A>
+<H5 id=title-IDAJYB3D class=docExampleTitle>Listing 15-1. ELF File Debug Info for Example Program</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>xscale_be-readelf -S websdemo</SPAN>
+There are 39 section headers, starting at offset 0x3dfd0:
+
+Section Headers:
+[Nr] Name              Type        Addr     Off    Size   ES Flg Lk Inf Al
+[ 0]                   NULL        00000000 000000 000000 00      0  0  0
+[ 1] .interp           PROGBITS    00008154 000154 000013 00   A  0  0  1
+[ 2] .note.ABI-tag     NOTE        00008168 000168 000020 00   A  0  0  4
+[ 3] .note.numapolicy  NOTE        00008188 000188 000074 00   A  0  0  4
+[ 4] .hash             HASH        000081fc 0001fc 00022c 04   A  5  0  4
+[ 5] .dynsym           DYNSYM      00008428 000428 000460 10   A  6  1  4
+[ 6] .dynstr           STRTAB      00008888 000888 000211 00   A  0  0  1
+[ 7] .gnu.version      VERSYM      00008a9a 000a9a 00008c 02   A  5  0  2
+[ 8] .gnu.version_r    VERNEED     00008b28 000b28 000020 00   A  6  1  4
+[ 9] .rel.plt          REL         00008b48 000b48 000218 08   A  5 11  4
+[10] .init             PROGBITS    00008d60 000d60 000018 00  AX  0  0  4
+[11] .plt              PROGBITS    00008d78 000d78 000338 04  AX  0  0  4
+[12] .text             PROGBITS    000090b0 0010b0 019fe4 00  AX  0  0  4
+[13] .fini             PROGBITS    00023094 01b094 000018 00  AX  0  0  4
+[14] .rodata           PROGBITS    000230b0 01b0b0 0023d0 00   A  0  0  8
+[15] .ARM.extab        PROGBITS    00025480 01d480 000000 00   A  0  0  1
+[16] .ARM.exidx        ARM_EXIDX   00025480 01d480 000008 00  AL 12  0  4
+[17] .eh_frame_hdr     PROGBITS    00025488 01d488 00002c 00   A  0  0  4
+[18] .eh_frame         PROGBITS    000254b4 01d4b4 00007c 00   A  0  0  4
+[19] .init_array       INIT_ARRAY  0002d530 01d530 000004 00  WA  0  0  4
+[20] .fini_array       FINI_ARRAY  0002d534 01d534 000004 00  WA  0  0  4
+[21] .jcr              PROGBITS    0002d538 01d538 000004 00  WA  0  0  4
+[22] .dynamic          DYNAMIC     0002d53c 01d53c 0000d0 08  WA  6  0  4
+[23] .got              PROGBITS    0002d60c 01d60c 000118 04  WA  0  0  4
+[24] .data             PROGBITS    0002d728 01d728 0003c0 00  WA  0  0  8
+[25] .bss              NOBITS      0002dae8 01dae8 0001c8 00  WA  0  0  4
+[26] .comment          PROGBITS    00000000 01dae8 000940 00      0  0  1
+[27] .debug_aranges    PROGBITS    00000000 01e428 0004a0 00      0  0  8
+[28] .debug_pubnames   PROGBITS    00000000 01e8c8 001aae 00      0  0  1
+[29] .debug_info       PROGBITS    00000000 020376 013d27 00      0  0  1
+[30] .debug_abbrev     PROGBITS    00000000 03409d 002ede 00      0  0  1
+[31] .debug_line       PROGBITS    00000000 036f7b 0034a2 00      0  0  1
+[32] .debug_frame      PROGBITS    00000000 03a420 003380 00      0  0  4
+[33] .debug_str        PROGBITS    00000000 03d7a0 000679 00      0  0  1
+[34] .note.gnu.arm.ide NOTE        00000000 03de19 00001c 00      0  0  1
+[35] .debug_ranges     PROGBITS    00000000 03de35 000018 00      0  0  1
+[36] .shstrtab         STRTAB      00000000 03de4d 000183 00      0  0  1
+[37] .symtab           SYMTAB      00000000 03e5e8 004bd0 10     38 773 4
+[38] .strtab           STRTAB      00000000 0431b8 0021bf 00      0  0  1
+Key to Flags:
+W (write), A (alloc), X (execute), M (merge), S (strings)
+I (info), L (link order), G (group), x (unknown)
+O (extra OS processing required) o (OS specific), p (processor specific)
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2022></A>You can see from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list01">Listing 15-1</A> that there are many sections containing debug information. There is also a <TT>.comment</TT> section that contains more than 2KB (0x940) of information that is not necessary for the application to function. The size of this example file, including debug information, is more than 275KB.</P>
+<DIV class=docText><PRE>$ <SPAN class=docEmphStrong>ls -l websdemo</SPAN>
+-rwxrwxr-x  1 chris chris 283511 Nov 8 18:48 websdemo</PRE></DIV><BR>
+<P class=docText>If we strip this file using the <TT>strip</TT> utility, we can minimize its size to preserve resources on our target system. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list02">Listing 15-2</A> shows the results.</P><A name=ch15list02></A>
+<H5 id=title-IDAN0B3D class=docExampleTitle>Listing 15-2. Strip Target Application</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>xscale_be-strip -s -R .comment -o websdemo-stripped websdemo</SPAN>
+$ <SPAN class=docEmphStrong>ls -l websdemo*</SPAN>
+-rwxrwxr-x  1 chris chris 283491 Apr  9 09:19 websdemo
+-rwxrwxr-x  1 chris chris 123156 Apr  9 09:21 websdemo-stripped
+$</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Here we strip both the symbolic debug information and the <TT>.comment</TT> section from the executable file. We specify the name of the stripped binary using the <TT>-o</TT> command line switch. You can see that the resulting size of the stripped binary is less than half of its original size. Of course, for larger applications, this space savings can be even more significant. A recent Linux kernel compiled with debug information was larger than 18MB. After stripping as in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list02">Listing 15-2</A>, the resulting binary was slightly larger than 2MB!</P>
+<P class=docText><A name=iddle1040></A><A name=iddle1548></A><A name=iddle2018></A><A name=iddle2370></A><A name=iddle2499></A>For debugging in this fashion, you place the stripped version of the binary on your target system and keep a local unstripped copy on your development workstation containing symbolic information needed for debugging. You use <TT>gdbserver</TT> on your target board to provide an interface back to your development host where you run the full-blown version of GDB on your nonstripped binary.</P><A name=ch15lev2sec1></A>
+<H4 id=title-IDAP3B3D class=docSection2Title>15.2.1. gdbserver</H4>
+<P class=docText>Using <TT>gdbserver</TT> allows you to run GDB from a development workstation rather than on the target embedded Linux platform. This configuration has obvious benefits. For starters, it is common that your development workstation has far more CPU power, memory, and hard-drive storage than the embedded platform. In addition, it is common for the source code for your application under debug to exist on the development workstation and not on the embedded platform.</P>
+<P class=docText><TT>gdbserver</TT> is a small program that runs on the target board and allows remote debugging of a process on the board. It is invoked on the target board specifying the program to be debugged, as well as an IP address and port number on which it will listen for connection requests from GDB. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list03">Listing 15-3</A> shows the startup sequence on the target board.</P><A name=ch15list03></A>
+<H5 id=title-IDAK4B3D class=docExampleTitle>Listing 15-3. Starting gdbserver on Target Board</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>gdbserver localhost:2001 websdemo-stripped</SPAN>
+Process websdemo-stripped created; pid = 197
+Listening on port 2001</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>This particular example starts <TT>gdbserver</TT> configured to listen for an Ethernet TCP/IP connection on port 2001, ready to debug our stripped binary program called <TT>websdemo-stripped.</TT></P>
+<P class=docText>From our development workstation, we launch GDB, passing it the name of the binary executable containing symbolic debug information that we want to debug as an argument. After GDB starts up, we issue a command to connect to the remote target board. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list04">Listing 15-4</A> shows this sequence.</P>
+<P class=docText></P><A name=ch15list04></A>
+<H5 id=title-IDAR5B3D class=docExampleTitle>Listing 15-4. Starting Remote GDB Session</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>xscale_be-gdb -q websdemo</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote 192.168.1.141:2001</SPAN>
+Remote debugging using 192.168.1.141:2001
+0x40000790 in ?? ()
+(gdb) <SPAN class=docEmphStrong>p main</SPAN>       &lt;&lt;&lt;&lt; display address of main function
+$1 = {int (int, char **)} 0x12b68 &lt;main&gt;
+(gdb) <SPAN class=docEmphStrong>b main</SPAN>       &lt;&lt;&lt;&lt; Place breakpoint at main()
+Breakpoint 1 at 0x12b80: file main.c, line 72.
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1535></A><A name=iddle2369></A><A name=iddle2441></A>The sequence in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list04">Listing 15-4</A> invokes <TT>cross-gdb</TT> on your development host. When GDB is running, we issue the <TT>gdb target remote</TT> command. This command causes GDB to initiate a TCP/IP connection from your development workstation to your target board, with the indicated IP address on port 2001. When <TT>gdbserver</TT> accepts the connection request, it prints a line similar to this:</P>
+<P class=docText><TT>Remote debugging from host 192.168.0.10</TT></P>
+<P class=docText>Now GDB is connected to the target board's <TT>gdbserver</TT> process, ready to accept commands from GDB. The rest of the session is exactly the same as if you were debugging an application locally. This is a powerful tool, allowing you to use the power of your development workstation for the debug session, leaving only a small, relatively unobtrusive GDB stub and your program being debugged on the target board. In case you were wondering, <TT>gdbserver</TT> for this particular ARM target is only 54KB.</P>
+<DIV class=docText><PRE>root@coyote:~# <SPAN class=docEmphStrong>ls -l /usr/bin/gdbserver</SPAN>
+-rwxr-xr-x  1 root root 54344 Jul 23  2005 /usr/bin/gdbserver</PRE></DIV><BR>
+<P class=docText>There is one caveat, and it is the subject of a frequently asked question (FAQ) on many mailing lists. You must be using a GDB on your development host that was configured as a <SPAN class=docEmphasis>cross-debugger.</SPAN> It is a binary program that runs on your development workstation but understands binary executable images compiled for another architecture. This is an important and frequently overlooked fact. You cannot debug a PowerPC target with a native GDB such as that found in a typical Red Hat Linux installation. You must have a GDB configured for your host and target combination.</P>
+<P class=docText>When GDB is invoked, it displays a banner consisting of several lines of information and then displays its compiled configuration. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec2.html#ch15list05">Listing 15-5</A> is an example of <A name=iddle1037></A><A name=iddle1282></A><A name=iddle1818></A><A name=iddle1940></A><A name=iddle2414></A>the GDB used for some examples in this book, which is part of an embedded Linux distribution provided by MontaVista Software configured for PowerPC cross-development.</P><A name=ch15list05></A>
+<H5 id=title-IDA3EC3D class=docExampleTitle>Listing 15-5. Invocation of cross-gdb</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>ppc_82xx-gdb</SPAN>
+GNU gdb 6.0 (MontaVista 6.0-8.0.4.0300532 2003-12-24)
+Copyright 2003 Free Software Foundation, Inc.
+GDB is free software, covered by the GNU General Public License, and
+you are welcome to change it and/or distribute copies of it under
+certain conditions.  Type "show copying" to see the conditions.
+There is absolutely no warranty for GDB. Type "show warranty" for
+details.
+This GDB was configured as "--host=i686-pc-linux-gnu
+--target=powerpc-hardhat-linux".
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice the last lines of this GDB startup message. This is the configuration compiled into this version of GDB. It was compiled to execute on a Pentium (i686) PC host running GNU/Linux and to debug binary programs compiled for a PowerPC processor running GNU/Linux. This is specified by the <TT>--host</TT> and <TT>--target</TT> variables displayed by the banner text, and is also a part of the configuration string passed to <TT>./configure</TT> when building GDB.

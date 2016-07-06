@@ -1,0 +1,38 @@
+<H3 id=-100000 class=docSection1Title>I/O Schedulers</H3>
+<P class=docText><A name=iddle1248></A><A name=iddle1675></A><A name=iddle2248></A><A name=iddle3887></A><A name=iddle3917></A><A name="Block devices"></A>Block devices suffer <SPAN class=docEmphasis>seek</SPAN> <SPAN class=docEmphasis>times</SPAN><A name="to move"></A>, the latency to move the disk head from its existing position to the disk sector of interest. The main goal of an I/O scheduler is to increase system throughput by minimizing these seek times. To achieve this, I/O schedulers maintain the request queue in sorted order according to the disk sectors associated with the constituent requests. New requests are inserted into the queue such that this order is maintained. If an existing request in the queue is associated with an adjacent disk sector, the new request is merged with it. Because of these properties, I/O schedulers bear an operational resemblance to elevators&#37413;&#25878;hey schedule requests in a single direction until the last requester in the line is serviced.</P>
+<P class=docText><A name="scheduler in"></A>The I/O scheduler in 2.4 kernels implemented a straightforward version of this algorithm and was called the <SPAN class=docEmphasis>Linus elevator.</SPAN><A name="replaced in"></A> This turned out to be inadequate under real-world conditions, however, and was replaced in the 2.6 kernel by a suite of four schedulers: <SPAN class=docEmphasis>Deadline</SPAN>, <SPAN class=docEmphasis>Anticipatory</SPAN>, <SPAN class=docEmphasis>Complete Fair Queuing</SPAN>, and <SPAN class=docEmphasis>Noop.</SPAN><A name="is Anticipatory"></A> The scheduler used by default is Anticipatory, but this can be changed during kernel configuration or by changing the value of <SPAN class=docEmphasis>/sys/block/[disk]/queue/scheduler</SPAN>. (Replace <SPAN class=docEmphasis>[disk]</SPAN> with <SPAN class=docEmphasis>hda</SPAN> if you are using an IDE disk, for example.) <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch14lev1sec3.html#ch14tab02">Table 14.2</A> briefly describes Linux I/O schedulers.</P><A name=ch14tab02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 rules=groups frame=hsides>
+<CAPTION>
+<H5 class=docTableTitle>Table 14.2. Linux I/O Schedulers</H5></CAPTION>
+<COLGROUP span=3 align=left>
+<COL width=150>
+<COL width=250>
+<COL width=150></COLGROUP>
+<THEAD>
+<TR>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>I/O Scheduler</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Description</TH>
+<TH class="docTableCell bottomBorder thead" style="TEXT-ALIGN: left" vAlign=top scope=col align=left>Source File</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Linus elevator</TD>
+<TD class=docTableCell vAlign=top align=left>Straightforward implementation of the standard merge-and-sort I/O scheduling algorithm.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>drivers/block/elevator.c</SPAN> (in the 2.4 kernel tree)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Deadline</TD>
+<TD class=docTableCell vAlign=top align=left><A name="scheduler associates"></A>In addition to what the Linus elevator does, the Deadline scheduler associates expiration times with each request in order to ensure that a burst of requests to the same disk region do not starve requests to regions that are farther away. Moreover, read operations are granted more priority than write operations because user processes usually block until their read requests complete. The Deadline scheduler thus ensures that each I/O request is serviced within a time limit, which is important for some database loads.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>block/deadline-iosched.c</SPAN> (in the 2.6 kernel tree)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Anticipatory</TD>
+<TD class=docTableCell vAlign=top align=left><A name="servicing read"></A>Similar to the Deadline scheduler, except that after servicing read requests, the Anticipatory scheduler waits for a predetermined amount of time anticipating further requests. This scheduling technique is suited for workstation/interactive loads.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>block/as-iosched.c</SPAN> (in the 2.6 kernel tree)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Complete Fair Queuing (CFQ)</TD>
+<TD class=docTableCell vAlign=top align=left><A name="one request"></A>Similar to the Linus elevator, except that the CFQ scheduler maintains one request queue per originating process, rather than one generic queue. This ensures that each process (or process group) gets a fair portion of the I/O and prevents one process from starving others.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>block/cfq-iosched.c</SPAN> (in the 2.6 kernel tree)</TD></TR>
+<TR>
+<TD class=docTableCell vAlign=top align=left>Noop</TD>
+<TD class=docTableCell vAlign=top align=left><A name="spend time"></A>The Noop scheduler doesn't spend time traversing the request queue searching for optimal insertion points. Instead, it simply adds new requests to the tail of the request queue. This scheduler is thus ideal for semiconductor storage media that have no moving parts and, hence, no seek latencies. An example is a <SPAN class=docEmphasis>Disk-On-Module</SPAN><A name="uses flash"></A> (DOM), which internally uses flash memory.</TD>
+<TD class=docTableCell vAlign=top align=left><SPAN class=docEmphasis>block/noop-iosched.c</SPAN><A name="the "></A> (in the 2.6 kernel tree)</TD></TR></TBODY></TABLE></P><BR>
+<P class=docText><A name=iddle1110></A><A name=iddle1242></A><A name=iddle1412></A><A name=iddle1541></A><A name=iddle2129></A><A name=iddle3293></A><A name="conceptual level"></A>At a conceptual level, I/O scheduling resembles process scheduling. Whereas I/O scheduling provides an illusion to processes that they own the disk, process scheduling gives processes the illusion that they own the CPU. Both I/O and process schedulers on Linux have undergone extensive changes in recent times. Process scheduling is discussed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A>.

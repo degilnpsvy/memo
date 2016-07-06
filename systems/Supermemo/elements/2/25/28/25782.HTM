@@ -1,0 +1,23 @@
+include/linux/kdev_t.h 
+<P></P>
+<P>#ifndef _LINUX_KDEV_T_H<BR>#define _LINUX_KDEV_T_H</P>
+<P></P>
+<P>#include &lt;uapi/linux/kdev_t.h&gt;</P>
+<P><FONT class=extract>#define MINORBITS&nbsp;20<BR>#define MINORMASK&nbsp;((1U &lt;&lt; MINORBITS) - 1)</FONT></P>
+<P><FONT class=extract>#define MAJOR(dev)&nbsp;((unsigned int) ((dev) &gt;&gt; MINORBITS))<BR>#define MINOR(dev)&nbsp;((unsigned int) ((dev) &amp; MINORMASK))<BR>#define MKDEV(ma,mi)&nbsp;(((ma) &lt;&lt; MINORBITS) | (mi))</FONT></P>
+<P><FONT class=extract>#define print_dev_t(buffer, dev)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;sprintf((buffer), "%u:%u\n", MAJOR(dev), MINOR(dev))</FONT></P>
+<P><FONT class=extract>#define format_dev_t(buffer, dev)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;({&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp;sprintf(buffer, "%u:%u", MAJOR(dev), MINOR(dev));&nbsp;\<BR>&nbsp;&nbsp;buffer;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;})</FONT></P>
+<P>/* acceptable for old filesystems */<BR>static inline int old_valid_dev(dev_t dev)<BR>{<BR>&nbsp;return MAJOR(dev) &lt; 256 &amp;&amp; MINOR(dev) &lt; 256;<BR>}</P>
+<P>static inline u16 old_encode_dev(dev_t dev)<BR>{<BR>&nbsp;return (MAJOR(dev) &lt;&lt; 8) | MINOR(dev);<BR>}</P>
+<P>static inline dev_t old_decode_dev(u16 val)<BR>{<BR>&nbsp;return MKDEV((val &gt;&gt; 8) &amp; 255, val &amp; 255);<BR>}</P>
+<P>static inline int new_valid_dev(dev_t dev)<BR>{<BR>&nbsp;return 1;<BR>}</P>
+<P>static inline u32 new_encode_dev(dev_t dev)<BR>{<BR>&nbsp;unsigned major = MAJOR(dev);<BR>&nbsp;unsigned minor = MINOR(dev);<BR>&nbsp;return (minor &amp; 0xff) | (major &lt;&lt; 8) | ((minor &amp; ~0xff) &lt;&lt; 12);<BR>}</P>
+<P>static inline dev_t new_decode_dev(u32 dev)<BR>{<BR>&nbsp;unsigned major = (dev &amp; 0xfff00) &gt;&gt; 8;<BR>&nbsp;unsigned minor = (dev &amp; 0xff) | ((dev &gt;&gt; 12) &amp; 0xfff00);<BR>&nbsp;return MKDEV(major, minor);<BR>}</P>
+<P>static inline int huge_valid_dev(dev_t dev)<BR>{<BR>&nbsp;return 1;<BR>}</P>
+<P>static inline u64 huge_encode_dev(dev_t dev)<BR>{<BR>&nbsp;return new_encode_dev(dev);<BR>}</P>
+<P>static inline dev_t huge_decode_dev(u64 dev)<BR>{<BR>&nbsp;return new_decode_dev(dev);<BR>}</P>
+<P>static inline int sysv_valid_dev(dev_t dev)<BR>{<BR>&nbsp;return MAJOR(dev) &lt; (1&lt;&lt;14) &amp;&amp; MINOR(dev) &lt; (1&lt;&lt;18);<BR>}</P>
+<P>static inline u32 sysv_encode_dev(dev_t dev)<BR>{<BR>&nbsp;return MINOR(dev) | (MAJOR(dev) &lt;&lt; 18);<BR>}</P>
+<P>static inline unsigned sysv_major(u32 dev)<BR>{<BR>&nbsp;return (dev &gt;&gt; 18) &amp; 0x3fff;<BR>}</P>
+<P>static inline unsigned sysv_minor(u32 dev)<BR>{<BR>&nbsp;return dev &amp; 0x3ffff;<BR>}</P>
+<P>#endif

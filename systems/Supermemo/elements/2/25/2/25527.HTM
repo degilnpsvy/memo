@@ -1,0 +1,16 @@
+/**<BR>&nbsp;* platform_device_add - add a platform device to device hierarchy<BR>&nbsp;* @pdev: platform device we're adding<BR>&nbsp;*<BR>&nbsp;* This is part 2 of platform_device_register(), though may be called<BR>&nbsp;* separately _iff_ pdev was allocated by platform_device_alloc().<BR>&nbsp;*/<BR>int platform_device_add(struct platform_device *pdev)<BR>{<BR>&nbsp;int i, ret; 
+<P></P>
+<P>&nbsp;if (!pdev)<BR>&nbsp;&nbsp;return -EINVAL;</P>
+<P>&nbsp;if (!pdev-&gt;dev.parent)<BR>&nbsp;&nbsp;pdev-&gt;dev.parent = &amp;platform_bus;</P>
+<P>&nbsp;pdev-&gt;dev.bus = &amp;platform_bus_type;</P>
+<P>&nbsp;switch (pdev-&gt;id) {<BR>&nbsp;default:<BR>&nbsp;&nbsp;dev_set_name(&amp;pdev-&gt;dev, "%s.%d", pdev-&gt;name,&nbsp; pdev-&gt;id);<BR>&nbsp;&nbsp;break;<BR>&nbsp;case PLATFORM_DEVID_NONE:<BR>&nbsp;&nbsp;dev_set_name(&amp;pdev-&gt;dev, "%s", pdev-&gt;name);<BR>&nbsp;&nbsp;break;<BR>&nbsp;case PLATFORM_DEVID_AUTO:<BR>&nbsp;&nbsp;/*<BR>&nbsp;&nbsp; * Automatically allocated device ID. We mark it as such so<BR>&nbsp;&nbsp; * that we remember it must be freed, and we append a suffix<BR>&nbsp;&nbsp; * to avoid namespace collision with explicit IDs.<BR>&nbsp;&nbsp; */<BR>&nbsp;&nbsp;ret = ida_simple_get(&amp;platform_devid_ida, 0, 0, GFP_KERNEL);<BR>&nbsp;&nbsp;if (ret &lt; 0)<BR>&nbsp;&nbsp;&nbsp;goto err_out;<BR>&nbsp;&nbsp;pdev-&gt;id = ret;<BR>&nbsp;&nbsp;pdev-&gt;id_auto = true;<BR>&nbsp;&nbsp;dev_set_name(&amp;pdev-&gt;dev, "%s.%d.auto", pdev-&gt;name, pdev-&gt;id);<BR>&nbsp;&nbsp;break;<BR>&nbsp;}</P>
+<P>&nbsp;for (i = 0; i &lt; pdev-&gt;num_resources; i++) {<BR>&nbsp;&nbsp;struct resource *p, *r = &amp;pdev-&gt;resource[i];</P>
+<P>&nbsp;&nbsp;if (r-&gt;name == NULL)<BR>&nbsp;&nbsp;&nbsp;r-&gt;name = dev_name(&amp;pdev-&gt;dev);</P>
+<P>&nbsp;&nbsp;p = r-&gt;parent;<BR>&nbsp;&nbsp;if (!p) {<BR>&nbsp;&nbsp;&nbsp;if (resource_type(r) == IORESOURCE_MEM)<BR>&nbsp;&nbsp;&nbsp;&nbsp;p = &amp;iomem_resource;<BR>&nbsp;&nbsp;&nbsp;else if (resource_type(r) == IORESOURCE_IO)<BR>&nbsp;&nbsp;&nbsp;&nbsp;p = &amp;ioport_resource;<BR>&nbsp;&nbsp;}</P>
+<P>&nbsp;&nbsp;if (p &amp;&amp; insert_resource(p, r)) {<BR>&nbsp;&nbsp;&nbsp;dev_err(&amp;pdev-&gt;dev, "failed to claim resource %d\n", i);<BR>&nbsp;&nbsp;&nbsp;ret = -EBUSY;<BR>&nbsp;&nbsp;&nbsp;goto failed;<BR>&nbsp;&nbsp;}<BR>&nbsp;}</P>
+<P>&nbsp;pr_debug("Registering platform device '%s'. Parent at %s\n",<BR>&nbsp;&nbsp; dev_name(&amp;pdev-&gt;dev), dev_name(pdev-&gt;dev.parent));</P>
+<P>&nbsp;ret = device_add(&amp;pdev-&gt;dev);<BR>&nbsp;if (ret == 0)<BR>&nbsp;&nbsp;return ret;</P>
+<P>&nbsp;failed:<BR>&nbsp;if (pdev-&gt;id_auto) {<BR>&nbsp;&nbsp;ida_simple_remove(&amp;platform_devid_ida, pdev-&gt;id);<BR>&nbsp;&nbsp;pdev-&gt;id = PLATFORM_DEVID_AUTO;<BR>&nbsp;}</P>
+<P>&nbsp;while (--i &gt;= 0) {<BR>&nbsp;&nbsp;struct resource *r = &amp;pdev-&gt;resource[i];<BR>&nbsp;&nbsp;unsigned long type = resource_type(r);</P>
+<P>&nbsp;&nbsp;if (type == IORESOURCE_MEM || type == IORESOURCE_IO)<BR>&nbsp;&nbsp;&nbsp;release_resource(r);<BR>&nbsp;}</P>
+<P>&nbsp;err_out:<BR>&nbsp;return ret;<BR>}<BR>EXPORT_SYMBOL_GPL(platform_device_add);

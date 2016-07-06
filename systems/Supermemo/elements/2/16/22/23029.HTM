@@ -1,0 +1,408 @@
+<H3 id=-100000 class=docSection1Title>Talking to the Parallel Port</H3>
+<P class=docText><A name="The parallel"></A>The parallel port is a ubiquitous 25-pin interface popularly found on PC-compatible systems. The capability of a parallel port (whether it's unidirectional, bidirectional, supports DMA, and so on) depends on the underlying chipset. Look at <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04lev1sec1.html#ch04fig01">Figure 4.1</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A><A name="out how"></A> to find out how the PC architecture supports parallel ports.</P>
+<P class=docText>The <SPAN class=docEmphasis>drivers/parport/</SPAN><A name="contains code"></A> directory contains code (called parport) that implements IEEE 1284 parallel port communication. Several devices that connect to the parallel port such as printers and scanners use parport's services. Parport has an architecture-independent module called <SPAN class=docEmphasis>parport.ko</SPAN> and an architecture-dependent one (<SPAN class=docEmphasis>parport_pc.ko</SPAN> for the PC <A name=iddle1437></A><A name=iddle1530></A><A name=iddle1642></A><A name=iddle2729></A><A name=iddle2859></A><A name=iddle2860></A><A name=iddle3372></A><A name=iddle3376></A><A name=iddle3614></A><A name=iddle3626></A><A name="interface via"></A>architecture) that provide programming interfaces to drivers of devices that interface via the parallel port.</P>
+<P class=docText><A name="parallel printer"></A>Let's take the example of the parallel printer driver, <SPAN class=docEmphasis>drivers/char/</SPAN><SPAN class=docEmphasis>lp.c.</SPAN> These are the high-level steps needed to print a file:</P><A name=ch05pro02></A>
+<TABLE class=docText border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>1. </B></DIV></TD>
+<TD>
+<DIV class=docText>The printer driver creates char device nodes <SPAN class=docEmphasis>/dev/lp0</SPAN> to <SPAN class=docEmphasis>/dev/lpN</SPAN>, one per connected printer.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>2. </B></DIV></TD>
+<TD>
+<DIV class=docText>The <SPAN class=docEmphasis>Common UNIX Printing System</SPAN> (CUPS) is the framework that provides print capabilities on Linux. The CUPS configuration file (<SPAN class=docEmphasis>/etc/printers.conf</SPAN> on some distributions) maps printers with their char device nodes (<SPAN class=docEmphasis>/dev/lpX</SPAN>).<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>3. </B></DIV></TD>
+<TD>
+<DIV class=docText>CUPS utilities consult this file and stream data to the corresponding device node. So, if you have a printer connected to the first parallel port on your system and you issue the command, <SPAN class=docEmphasis>lpr myfile</SPAN>, it's streamed via <SPAN class=docEmphasis>/dev/lp0</SPAN> to the printer's <TT>write()</TT> method, <TT>lp_write()</TT>, defined in <SPAN class=docEmphasis>drivers/char/lp.c</SPAN>.<BR><BR></DIV></TD></TR>
+<TR>
+<TD vAlign=top width=25>
+<DIV class=docText><B>4. </B></DIV></TD>
+<TD>
+<DIV class=docText><TT>lp_write()</TT> uses the services of parport to send the data to the printer.<BR><BR></DIV></TD></TR></TBODY></TABLE><A name=ch05note03></A>
+<DIV class=docNote>
+<P>
+<P class=docText><A name="to be"></A>Apple Inc. has acquired ownership of CUPS software. The code continues to be licensed under GPLv2.</P>
+<P></P></DIV><BR>
+<P class=docText>A char driver called <SPAN class=docEmphasis>ppdev</SPAN>(<SPAN class=docEmphasis>drivers/char/ppdev.c</SPAN>) exports the <SPAN class=docEmphasis>/dev/parportX</SPAN><A name="directly communicate"></A> device nodes that let user applications directly communicate with the parallel port. (We talk more about ppdev in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19">Chapter 19</A>.)</P><A name=ch05lev2sec8></A>
+<H4 id=title-ID0EG1OM class=docSection2Title>Device Example: Parallel Port LED Board</H4>
+<P class=docText><A name="by parport"></A>To learn how to use the services offered by parport, let's write a simple driver. Consider a board that has eight light-emitting diodes (LEDs) interfaced to a standard 25-pin parallel port connector. Because the 8-bit parallel port data register on the PC is directly mapped to pins 2 to 9 of the parallel port connector, those pins are wired to the LEDs on the board. Writing to the parallel port data register controls the voltage levels of these pins and turns the LEDs on or off. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05ex06">Listing 5.6</A><A name="a char"></A> implements a char driver that communicates with this board over the system parallel port. Embedded comments explain the parport service routines that <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05ex06">Listing 5.6</A> uses.</P>
+<P class=docText></P><A name=ch05ex06></A>
+<H5 id=title-ID0EC2OM class=docExampleTitle>Listing 5.6. Driver for the Parallel LED Board (led.c)</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX fs.h="">
+#include <LINUX cdev.h="">
+#include <LINUX parport.h="">
+#include <ASM uaccess.h="">
+#include <LINUX platform_device.h="">
+
+#define DEVICE_NAME    "led"
+
+static dev_t dev_number;          /* Allotted device number */
+static struct class *led_class;   /* Class to which this device
+                                     belongs */
+struct cdev led_cdev;             /* Associated cdev */
+struct pardevice *pdev;           /* Parallel port device */
+
+/* LED open */
+int
+led_open(struct inode *inode, struct file *file)
+{
+  return 0;
+}
+
+/* Write to the LED */
+ssize_t
+led_write(struct file *file, const char *buf,
+          size_t count, loff_t *ppos)
+{
+  char kbuf;
+
+  if (copy_from_user(&amp;kbuf, buf, 1)) return -EFAULT;
+
+  /* Claim the port */
+  parport_claim_or_block(pdev);
+
+  /* Write to the device */
+  parport_write_data(pdev-&gt;port, kbuf);
+
+  /* Release the port */
+  parport_release(pdev);
+
+  return count;
+}
+/* Release the device */
+int
+led_release(struct inode *inode, struct file *file)
+{
+  return 0;
+}
+
+/* File Operations */
+static struct file_operations led_fops = {
+  .owner = THIS_MODULE,
+  .open = led_open,
+  .write = led_write,
+  .release = led_release,
+};
+
+static int
+led_preempt(void *handle)
+{
+  return 1;
+}
+
+/* <SPAN class=docEmphasis>Parport</SPAN> attach method */
+static void
+led_attach(struct parport *port)
+{
+  /* Register the parallel LED device with <SPAN class=docEmphasis>parport</SPAN> */
+  pdev = parport_register_device(port, DEVICE_NAME,
+                                 led_preempt, NULL,
+                                 NULL, 0, NULL);
+  if (pdev == NULL) printk("Bad register\n");
+}
+
+/* <SPAN class=docEmphasis>Parport</SPAN> detach method */
+static void
+led_detach(struct parport *port)
+{
+  /* Do nothing */
+}
+
+/* <SPAN class=docEmphasis>Parport</SPAN> driver operations */
+static struct parport_driver led_driver = {
+  .name   = "led",
+  .attach = led_attach,
+  .detach = led_detach,
+};
+/* Driver Initialization */
+int __init
+led_init(void)
+{
+  /* Request dynamic allocation of a device major number */
+  if (alloc_chrdev_region(&amp;dev_number, 0, 1, DEVICE_NAME)
+                          &lt; 0) {
+    printk(KERN_DEBUG "Can't register device\n");
+    return -1;
+  }
+
+  /* Create the led class */
+  led_class = class_create(THIS_MODULE, DEVICE_NAME);
+  if (IS_ERR(led_class)) printk("Bad class create\n");
+
+  /* Connect the file operations with the cdev */
+  cdev_init(&amp;led_cdev, &amp;led_fops);
+
+  led_cdev.owner = THIS_MODULE;
+
+  /* Connect the major/minor number to the cdev */
+  if (cdev_add(&amp;led_cdev, dev_number, 1)) {
+    printk("Bad cdev add\n");
+    return 1;
+  }
+
+  class_device_create(led_class, NULL, dev_number,
+                                 NULL, DEVICE_NAME);
+
+  /* Register this driver with <SPAN class=docEmphasis>parport</SPAN> */
+  if (parport_register_driver(&amp;led_driver)) {
+    printk(KERN_ERR "Bad Parport Register\n");
+    return -EIO;
+  }
+
+  printk("LED Driver Initialized.\n");
+  return 0;
+}
+
+/* Driver Exit */
+void __exit
+led_cleanup(void)
+{
+  unregister_chrdev_region(MAJOR(dev_number), 1);
+  class_device_destroy(led_class, MKDEV(MAJOR(dev_number), 0));
+  class_destroy(led_class);
+  return;
+}
+
+module_init(led_init);
+module_exit(led_cleanup);
+
+MODULE_LICENSE("GPL");
+
+					  </LINUX></ASM></LINUX></LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;<A name=iddle1439></A><A name=iddle2726></A><A name=iddle3375></A><A name=iddle3616></A></P>
+<P class=docText><A name=iddle1614></A><A name=iddle2727></A><A name=iddle2728></A><A name=iddle3381></A><A name=iddle3383></A><TT>led_init()</TT> is similar to <TT>cmos_init()</TT> developed in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec2.html#ch05ex01">Listing 5.1</A>, but for a couple of things:</P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList>As you saw in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch04.html#ch04">Chapter 4</A>, the new device model distinguishes between drivers and devices. <TT>led_init()</TT> registers the LED driver with parport via a call to <TT>parport_register_</TT><SPAN class=docEmphStrong><TT>driver</TT></SPAN><TT>()</TT>.When the kernel finds the LED board during <TT>led_attach()</TT>, it registers the device by invoking <TT>parport_register_</TT><SPAN class=docEmphStrong><TT>device</TT></SPAN><TT>()</TT>.</P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT>led_init()</TT> creates the device node <SPAN class=docEmphasis>/dev/led</SPAN>, which you can use to control the state of individual LEDs.</P></DIV></LI></OL></DIV>
+<P class=docText>Compile and insert the driver module into the kernel:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; make &#37413;&#25541; /path/to/kerneltree/ M=$PWD modules</SPAN>
+<SPAN class=docEmphStrong>bash&gt; insmod ./led.ko</SPAN>
+LED Driver Initialized</PRE></DIV><BR>
+<P class=docText><A name="corresponding LEDs"></A>To selectively drive some parallel port pins and glow the corresponding LEDs, echo the appropriate value to <SPAN class=docEmphasis>/dev/led</SPAN>:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; echo 1 &gt; /dev/led</SPAN></PRE></DIV><BR>
+<P class=docText><A name="Because ASCII"></A>Because ASCII for <TT>1</TT> is <TT>31</TT> (or <TT>00110001</TT><A name="sixth LEDs"></A>), the first, fifth, and sixth LEDs should turn on.</P>
+<P class=docText><A name="preceding command"></A>The preceding command triggers invocation of <TT>led_write()</TT><A name="this case"></A>. This driver method first copies user memory (the value 31 in this case) to kernel buffers via <TT>copy_from_user()</TT><A name="writes data"></A>. It then claims the parallel port, writes data, and releases the port, all using parport interfaces.</P>
+<P class=docText>Sysfs is a better place than <SPAN class=docEmphasis>/dev</SPAN><A name="LED control"></A> to control device state, so it's a good idea to entrust LED control to sysfs files. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05ex07">Listing 5.7</A> contains the driver implementation that achieves <A name=iddle1438></A><A name=iddle3374></A><A name=iddle3615></A><A name=iddle4195></A><A name="listing can"></A>this. The sysfs manipulation code in the listing can serve as a template to achieve device control from other drivers, too.</P><A name=ch05ex07></A>
+<H5 id=title-ID0EZDPM class=docExampleTitle>Listing 5.7. Using Sysfs to Control the Parallel LED Board</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks>Code View:</DIV><PRE>#include <LINUX fs.h="">
+#include <LINUX cdev.h="">
+#include <LINUX parport.h="">
+#include <ASM uaccess.h="">
+#include <LINUX pci.h="">
+
+static dev_t dev_number;         /* Allotted Device Number */
+static struct class *led_class;  /* Class Device Model */
+struct cdev led_cdev;            /* Character dev struct */
+struct pardevice *pdev;          /* Parallel Port device */
+
+struct kobject kobj;             /* Sysfs directory object */
+
+/* Sysfs attribute of the leds */
+struct led_attr {
+  struct attribute attr;
+  ssize_t (*show)(char *);
+  ssize_t (*store)(const char *, size_t count);
+};
+
+#define glow_show_led(number)                             \
+static ssize_t                                            \
+glow_led_##number(const char *buffer, size_t count)       \
+{                                                         \
+  unsigned char buf;                                      \
+  int value;                                              \
+                                                          \
+  sscanf(buffer, "%d", &amp;value);                           \
+                                                          \
+  parport_claim_or_block(pdev);                           \
+  buf = parport_read_data(pdev-&gt;port);                    \
+  if (value) {                                            \
+    parport_write_data(pdev-&gt;port, buf | (1&lt;<NUMBER)); }="" {="" parport_write_data(pdev-="" \="" else="">port, buf &amp; ~(1&lt;<NUMBER)); }="" {="" \="" return="" buf="parport_read_data(pdev-" parport_claim_or_block(pdev);="" buf;="" char="" unsigned="" *buffer)="" show_led_##number(char="" ssize_t="" static="" count;="" parport_release(pdev);="">port);                    \
+  parport_release(pdev);                                  \
+                                                          \
+  if (buf &amp; (1 &lt;&lt; number)) {                              \
+    return sprintf(buffer, "ON\n");                       \
+  } else {                                                \
+    return sprintf(buffer, "OFF\n");                      \
+  }                                                       \
+}                                                         \
+                                                          \
+static struct led_attr led##number =                      \
+__ATTR(led##number, 0644, show_led_##number, glow_led_##number);
+
+glow_show_led(0); glow_show_led(1); glow_show_led(2);
+glow_show_led(3); glow_show_led(4); glow_show_led(5);
+glow_show_led(6); glow_show_led(7);
+
+#define DEVICE_NAME "led"
+
+static int
+led_preempt(void *handle)
+{
+  return 1;
+}
+
+/* Parport attach method */
+static void
+led_attach(struct parport *port)
+{
+  pdev = parport_register_device(port, DEVICE_NAME,
+                                       led_preempt, NULL, NULL, 0,
+                                       NULL);
+  if (pdev == NULL) printk("Bad register\n");
+}
+/* Parent sysfs show() method. Calls the show() method
+   corresponding to the individual sysfs file */
+static ssize_t
+l_show(struct kobject *kobj, struct attribute *a, char *buf)
+{
+  int ret;
+  struct led_attr *lattr = container_of(a, struct led_attr,attr);
+
+  ret = lattr-&gt;show ? lattr-&gt;show(buf) : -EIO;
+  return ret;
+}
+
+
+/* Sysfs store() method. Calls the store() method
+   corresponding to the individual sysfs file */
+static ssize_t
+l_store(struct kobject *kobj, struct attribute *a,
+        const char *buf, size_t count)
+{
+  int ret;
+  struct led_attr *lattr = container_of(a, struct led_attr, attr);
+
+  ret = lattr-&gt;store ? lattr-&gt;store(buf, count) : -EIO;
+  return ret;
+}
+
+/* Sysfs operations structure */
+static struct sysfs_ops sysfs_ops = {
+  .show  = l_show,
+  .store = l_store,
+};
+
+/* Attributes of the <SPAN class=docEmphasis>/sys/class/pardevice/led/control/</SPAN> kobject.
+   Each file in this directory corresponds to one LED. Control
+   each LED by writing or reading the associated sysfs file */
+static struct attribute *led_attrs[] = {
+  &amp;led0.attr,
+  &amp;led1.attr,
+  &amp;led2.attr,
+  &amp;led3.attr,
+  &amp;led4.attr,
+  &amp;led5.attr,
+  &amp;led6.attr,
+  &amp;led7.attr,
+  NULL
+};
+
+/* This describes the kobject. The kobject has 8 files, one
+   corresponding to each LED. This representation is called the
+   <SPAN class=docEmphasis>ktype</SPAN> of the kobject */
+static struct kobj_type ktype_led = {
+  .sysfs_ops = &amp;sysfs_ops,
+  .default_attrs = led_attrs,
+};
+
+/* Parport methods. We don't have a detach method */
+static struct parport_driver led_driver = {
+  .name = "led",
+  .attach = led_attach,
+};
+
+/* Driver Initialization */
+int __init
+led_init(void)
+{
+  struct class_device *c_d;
+
+  /* Create the pardevice class - <SPAN class=docEmphasis>/sys/class/pardevice</SPAN> */
+  led_class = class_create(THIS_MODULE, "pardevice");
+  if (IS_ERR(led_class)) printk("Bad class create\n");
+
+  /* Create the led class device - <SPAN class=docEmphasis>/sys/class/pardevice/led/</SPAN> */
+  c_d = class_device_create(led_class, NULL, dev_number,
+                                   NULL, DEVICE_NAME);
+
+  /* Register this driver with parport */
+  if (parport_register_driver(&amp;led_driver)) {
+    printk(KERN_ERR "Bad Parport Register\n");
+    return -EIO;
+  }
+
+  /* Instantiate a kobject to control each LED
+     on the board */
+
+  /* Parent is <SPAN class=docEmphasis>/sys/class/pardevice/led/</SPAN> */
+  kobj.parent = &amp;c_d-&gt;kobj;
+  /* The sysfs file corresponding to kobj is
+     <SPAN class=docEmphasis>/sys/class/pardevice/led/control/</SPAN> */
+  strlcpy(kobj.name, "control", KOBJ_NAME_LEN);
+
+  /* Description of the kobject. Specifies the list of attribute
+     files in <SPAN class=docEmphasis>/sys/class/pardevice/led/control/</SPAN> */
+  kobj.ktype = &amp;ktype_led;
+
+  /* Register the kobject */
+  kobject_register(&amp;kobj);
+
+  printk("LED Driver Initialized.\n");
+  return 0;
+}
+
+/* Driver Exit */
+void
+led_cleanup(void)
+{
+  /* Unregister kobject corresponding to
+     <SPAN class=docEmphasis>/sys/class/pardevice/led/control</SPAN> */
+  kobject_unregister(&amp;kobj);
+
+  /* Destroy class device corresponding to
+     <SPAN class=docEmphasis>/sys/class/pardevice/led/</SPAN> */
+  class_device_destroy(led_class, MKDEV(MAJOR(dev_number), 0));
+
+  /* Destroy <SPAN class=docEmphasis>/sys/class/pardevice</SPAN> */
+  class_destroy(led_class);
+
+  return;
+}
+
+module_init(led_init);
+module_exit(led_cleanup);
+
+MODULE_LICENSE("GPL");
+
+					  </NUMBER));></NUMBER));></LINUX></ASM></LINUX></LINUX></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A name=iddle2147></A>The macro definition of <TT>glow_show_led()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05ex07">Listing 5.7</A><A name="to compactly"></A> uses a technique popular in kernel source files to compactly define several similar functions. The definition produces <TT>read()</TT> and <TT>write()</TT> methods (called <TT>show()</TT> and <TT>store()</TT><A name="sysfs terminology"></A> in sysfs terminology) attached to eight <SPAN class=docEmphasis>/sys</SPAN> files, one per LED on the board. Thus, <TT>glow_show_led(0)</TT> <A name=iddle1441></A><A name=iddle1465></A><A name=iddle1471></A><A name=iddle2148></A><A name=iddle2672></A><A name=iddle2675></A><A name=iddle2708></A><A name=iddle3852></A>attaches <TT>glow_led_0()</TT> and <TT>show_led_0()</TT> to the <SPAN class=docEmphasis>/sys</SPAN><A name="for glowing"></A> file corresponding to the first LED. These functions are respectively responsible for glowing/extinguishing the first LED and reading its status. <TT>##</TT><A name="glues a"></A> glues a value to a string, so <TT>glow_led_##number</TT> translates to <TT>glow_led_0()</TT><A name="compiler processes"></A> when the compiler processes the statement, <TT>glow_show_led(0)</TT>.</P>
+<P class=docText><A name="version of"></A>This sysfs-aware version of the driver uses a kobject to represent a "control" abstraction, which emulates a software knob to control the LEDs. Each kobject is represented by a directory name in sysfs, so <TT>kobject_register()</TT> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch05lev1sec4.html#ch05ex07">Listing 5.7</A> results in the creation of the <SPAN class=docEmphasis>/sys/class/pardevice/led/control/</SPAN> directory.</P>
+<P class=docText><A name=the></A>A ktype describes a kobject. The "control" kobject is described via the <TT>ktype_led</TT><A name="the attribute"></A> structure, which contains a pointer to the attribute array, <TT>led_attrs[]</TT><A name="of each"></A>. This array contains the addresses of the device attributes of each LED. The attributes of each LED are tied together by the statement:</P>
+<DIV class=docText><PRE>static struct led_attr led##number =
+__ATTR(led##number, 0644, show_led_##number, glow_led_##number);</PRE></DIV><BR>
+<P class=docText><A name="file for"></A>This results in instantiating the control file for each LED, <SPAN class=docEmphasis>/sys/class/pardevice/led/control/ledX</SPAN>, where <SPAN class=docEmphasis>X</SPAN> is the LED number. To change the state of <SPAN class=docEmphasis>ledX</SPAN>, echo a <TT>1</TT> (or a <TT>0</TT><A name="LED on"></A>) to the corresponding control file. To glow the first LED on the board, do this:</P>
+<DIV class=docText><PRE><SPAN class=docEmphStrong>bash&gt; echo 1 &gt; /sys/class/pardevice/led/control/led0</SPAN></PRE></DIV><BR>
+<P class=docText><A name="module exit"></A>During module exit, the driver unregisters the kobjects and classes using <TT>kobject_unregister()</TT>, <TT>class_device_destroy()</TT>, and <TT>class_destroy()</TT>.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07lev1sec1.html#ch07ex02">Listing 7.2</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch07.html#ch07">Chapter 7</A>, "Input Drivers," uses another route to create files in sysfs.</P>
+<P class=docText><A name="it used"></A>Writing a char driver is no longer as simple as it used to be in the days of the 2.4 kernel. To develop the simple LED driver above, we used half a dozen abstractions: cdev, sysfs, kobjects, classes, class device, and parport. The abstractions, however, bring several advantages to the table such as bug-free building blocks, code reuse, and elegant design.

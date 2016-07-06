@@ -1,0 +1,48 @@
+<H3 id=title-IDASRD3D class=docSection1Title>10.2. MTD Basics</H3>
+<P class=docText>Now that we have enabled a simple MTD configuration in our kernel, we can examine how this subsystem works on our Linux development workstation. Using the test RAM driver we just configured in the previous section, we can mount a JFFS2 image using an MTD device. Assuming that you created a JFFS2 image as detailed in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, "File Systems," you might want to mount it and examine it. The Linux kernel does not support mounting a JFFS2 file system image directly on a loopback device, such as is possible with ext2 and other file system images. So we must use a different method. This can be achieved using the MTD RAM test driver on our development Linux workstation with MTD enabled, as in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec1.html#ch10fig01">Figure 10-1</A>. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec2.html#ch10list03">Listing 10-3</A> illustrates the steps.</P><A name=ch10list03></A>
+<H5 id=title-IDAVSD3D class=docExampleTitle>Listing 10-3. Mounting JFFS2 on an MTD RAM Device</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>modprobe jffs2</SPAN>
+# <SPAN class=docEmphStrong>modprobe mtdblock</SPAN>
+# <SPAN class=docEmphStrong>modprobe mtdram</SPAN>
+# <SPAN class=docEmphStrong>dd if=jffs2.bin of=/dev/mtdblock0</SPAN>
+ 4690+1 records in
+ 4690+1 records out
+# <SPAN class=docEmphStrong>mkdir /mnt/flash</SPAN>
+# <SPAN class=docEmphStrong>mount -t jffs2 /dev/mtdblock0/mnt/flash</SPAN>
+# <SPAN class=docEmphStrong>ls -l /mnt/flash</SPAN>
+total 0
+drwxr-xr-x  2 root root 0 Sep 17 22:02 bin
+drwxr-xr-x  2 root root 0 Sep 17 21:59 dev
+drwxr-xr-x  7 root root 0 Sep 17 15:31 etc
+drwxr-xr-x  2 root root 0 Sep 17 15:31 home
+drwxr-xr-x  2 root root 0 Sep 17 22:02 lib
+drwxr-xr-x  2 root root 0 Sep 17 15:31 proc
+drws------  2 root root 0 Sep 17 15:31 root
+drwxr-xr-x  2 root root 0 Sep 17 22:02 sbin
+drwxrwxrwt  2 root root 0 Sep 17 15:31 tmp
+drwxr-xr-x  9 root root 0 Sep 17 15:31 usr
+drwxr-xr-x 14 root root 0 Sep 17 15:31 var
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>From <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec2.html#ch10list03">Listing 10-3</A>, first we install the loadable modules that the Linux kernel requires to support JFFS2 and the MTD subsystem. We load the JFFS2 module followed by the <TT>mTDblock</TT> and <TT>mtdram</TT> modules. After the necessary device drivers are loaded, we use the Linux <TT>dd</TT> command to copy our JFFS2 file system image into the MTD RAM test driver using the <TT>mTDblock</TT> device. In essence, we are using system RAM as a backing device to emulate an MTD block device.</P>
+<P class=docText>After we have copied our JFFS2 file system image into the MTD block device, we can mount it using the <TT>mount</TT> command, in the manner shown in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec2.html#ch10list03">Listing 10-3</A>. After the MTD pseudo-device has been mounted, we can work with the JFFS2 file system image in any way we choose. The only limitation using this method is that we can't enlarge the image. The size of the image is limited by two factors. First, when we configured the MTD RAM test device, we gave it a maximum size of 8MB.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec2.html#ch1fn01">[1]</A></SUP> Second, when we created the JFFS2 image, we fixed the size of the image using the mkfs.jffs2 utility. The image size was determined by the contents of the directory we specified when we created it. Refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec5.html#ch09list09">Listing 9-9</A>, in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, to recall how our <TT>jffs2.bin</TT> image was built.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch1fn01>[1]</A></SUP> The size was fixed in the kernel configuration when we enabled the MTD RAM test device in the Linux kernel configuration.</P></BLOCKQUOTE>
+<P class=docText>It is important to realize the limitations of using this method to examine the contents of a JFFS2 file system. Consider what we did: We copied the contents of a file (the JFFS2 file system binary image) into a kernel block device (<TT>/dev/mtdblock0</TT>). Then we mounted the kernel block device (<TT>/dev/mtdblock</TT>) as a JFFS2 file system. After we did this, we could use all the traditional file system utilities to examine and even modify the file system. Tools such as <TT>ls</TT>,<TT>df</TT>,<TT>dh</TT>,<TT>mv</TT>,<TT>rm</TT>, and <TT>cp</TT> can all be used to examine and modify the file system. However, unlike the loopback device, there is no connection between the file we copied and the mounted JFFS2 file system image. Therefore, if we unmount the file system after making changes, the changes will be lost. If you want to save the changes, you must copy them back into a file. One such method is the following:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>dd if=/dev/mtdblock0 of=./your-modified-fs-image.bin</SPAN></PRE></DIV><BR>
+<P class=docText>This command creates a file called <TT>your-modified-fs-image.bin</TT> that is the same size as the <TT>mtdblock0</TT> device which was specified during configuration. In our <A name=iddle1221></A><A name=iddle2124></A><A name=iddle2187></A>example, it would be 8MB. Lacking suitable JFFS2 editing facilities, this is a perfectly valid way to examine and modify a JFFS2 file system. More important, it illustrates the basics of the MTD subsystem on our development system without real Flash memory. Now let's look at some hardware that contains Flash physical devices.</P><A name=ch10lev2sec2></A>
+<H4 id=title-IDAXXD3D class=docSection2Title>10.2.1. Configuring MTD</H4>
+<P class=docText>To use MTD with the Flash memory on your board, you must have MTD configured correctly. The following list contains the requirements that must be satisfied to configure MTD for your board, Flash, and Flash layout.</P>
+<UL>
+<LI>
+<P class=docList>Specify the partitioning on your Flash device</P></LI>
+<LI>
+<P class=docList>Specify the type of Flash and location</P></LI>
+<LI>
+<P class=docList>Configure the proper Flash driver for your chosen chip</P></LI>
+<LI>
+<P class=docList>Configure the kernel with the appropriate driver(s)</P></LI></UL>
+<P class=docText>Each of these steps is explored in the following sections.

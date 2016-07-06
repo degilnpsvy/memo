@@ -1,0 +1,17 @@
+include/linux/klist.h 
+<P></P>
+<P>/*<BR>&nbsp;*&nbsp;klist.h - Some generic list helpers, extending struct list_head a bit.<BR>&nbsp;*<BR>&nbsp;*&nbsp;Implementations are found in lib/klist.c<BR>&nbsp;*<BR>&nbsp;*<BR>&nbsp;*&nbsp;Copyright (C) 2005 Patrick Mochel<BR>&nbsp;*<BR>&nbsp;*&nbsp;This file is rleased under the GPL v2.<BR>&nbsp;*/</P>
+<P></P>
+<P>#ifndef _LINUX_KLIST_H<BR>#define _LINUX_KLIST_H</P>
+<P>#include &lt;linux/spinlock.h&gt;<BR>#include &lt;linux/kref.h&gt;<BR>#include &lt;linux/list.h&gt;</P>
+<P><FONT class=extract>struct klist_node;<BR>struct klist {<BR>&nbsp;spinlock_t&nbsp;&nbsp;k_lock;<BR>&nbsp;struct list_head&nbsp;k_list;<BR>&nbsp;void&nbsp;&nbsp;&nbsp;(*get)(struct klist_node *);<BR>&nbsp;void&nbsp;&nbsp;&nbsp;(*put)(struct klist_node *);<BR>} __attribute__ ((aligned (sizeof(void *))));</FONT></P>
+<P><FONT class=extract>#define KLIST_INIT(_name, _get, _put)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;{ .k_lock&nbsp;= __SPIN_LOCK_UNLOCKED(_name.k_lock),&nbsp;&nbsp;\<BR>&nbsp;&nbsp; .k_list&nbsp;= LIST_HEAD_INIT(_name.k_list),&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp; .get&nbsp;&nbsp;= _get,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;&nbsp; .put&nbsp;&nbsp;= _put, }</FONT></P>
+<P><FONT class=extract>#define DEFINE_KLIST(_name, _get, _put)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\<BR>&nbsp;struct klist _name = KLIST_INIT(_name, _get, _put)</FONT></P>
+<P><FONT class=extract>extern void klist_init(struct klist *k, void (*get)(struct klist_node *),<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; void (*put)(struct klist_node *));</FONT></P>
+<P><FONT class=extract>struct klist_node {<BR>&nbsp;void&nbsp;&nbsp;&nbsp;*n_klist;&nbsp;/* never access directly */<BR>&nbsp;struct list_head&nbsp;n_node;<BR>&nbsp;struct kref&nbsp;&nbsp;n_ref;<BR>};</FONT></P>
+<P><FONT class=extract>extern void klist_add_tail(struct klist_node *n, struct klist *k);<BR>extern void klist_add_head(struct klist_node *n, struct klist *k);<BR>extern void klist_add_behind(struct klist_node *n, struct klist_node *pos);<BR>extern void klist_add_before(struct klist_node *n, struct klist_node *pos);</FONT></P>
+<P><FONT class=extract>extern void klist_del(struct klist_node *n);<BR>extern void klist_remove(struct klist_node *n);</FONT></P>
+<P><FONT class=extract>extern int klist_node_attached(struct klist_node *n);</FONT></P>
+<P><BR><FONT class=extract>struct klist_iter {<BR>&nbsp;struct klist&nbsp;&nbsp;*i_klist;<BR>&nbsp;struct klist_node&nbsp;*i_cur;<BR>};</FONT></P>
+<P><BR><FONT class=extract>extern void klist_iter_init(struct klist *k, struct klist_iter *i);<BR>extern void klist_iter_init_node(struct klist *k, struct klist_iter *i,<BR>&nbsp;&nbsp;&nbsp;&nbsp; struct klist_node *n);<BR>extern void klist_iter_exit(struct klist_iter *i);<BR>extern struct klist_node *klist_next(struct klist_iter *i);</FONT></P>
+<P>#endif

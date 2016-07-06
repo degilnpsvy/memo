@@ -1,0 +1,124 @@
+<H3 id=-100000 class=docSection1Title>Process Scheduling and Response Times</H3>
+<P class=docText><A name=iddle3309></A><A name=iddle3658></A><A name=iddle3659></A><A name=iddle3660></A><A name=iddle4540></A><A name=iddle4541></A><A name=iddle4542></A><A name="drivers need"></A>Many user mode drivers need to perform some work in a time-bound manner. In user space, indeterminism due to scheduling and paging often come in the way of fast response times, however. To see how you can minimize the impact of the former hurdle, let's dip into recent Linux schedulers and understand their underlying philosophy.</P><A name=ch19lev2sec1></A>
+<H4 id=title-ID0E3XAO class=docSection2Title>The Original Scheduler</H4>
+<P class=docText><A name="parameters of"></A>In the 2.4 and earlier days, the scheduler used to recalculate scheduling parameters of each task before taking its pick. The time consumed by the algorithm thus increased linearly with the number of contending tasks in the system. In other words, it used <TT>O(n)</TT> time, where <TT>n</TT><A name="active tasks"></A> is the number of active tasks. On a system running at high loads, this translated to significant overhead. The 2.4 algorithm also didn't work very well on SMP systems.</P><A name=ch19lev2sec2></A>
+<H4 id=title-ID0EMYAO class=docSection2Title>The O(1) Scheduler</H4>
+<P class=docText>Time consumed by an <TT>O(n)</TT><A name="its input"></A> algorithm depends linearly on the size of its input, and an <TT>O(n<SUP>2</SUP>)</TT><A name="length of"></A> solution depends quadratically on the length of its input, but an <TT>O(1)</TT><A name="scales well"></A> technique is independent of the input and thus scales well. The 2.6 scheduler replaced the <TT>O(n)</TT> algorithm with an <TT>O(1)</TT><A name="heuristics to"></A> method. In addition to being super-scalable, the scheduler has built-in heuristics to improve user responsiveness by providing preferential treatment to tasks involved in I/O activity. Processes are of two kinds: I/O bound <A name=iddle1038></A><A name=iddle2033></A><A name=iddle3267></A><A name=iddle3696></A><A name=iddle3697></A><A name=iddle3698></A><A name=iddle3700></A><A name=iddle3868></A><A name=iddle4621></A><A name="and CPU"></A>and CPU bound. I/O-bound tasks are often sleep-waiting for device I/O, while CPU-bound ones are workaholics addicted to the processor. Paradoxically, to achieve fast response times, lazy tasks get incentives from the <TT>O(1)</TT><A name="ones draw"></A> scheduler, while studious ones draw flak. Look at the sidebar "<A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19sb02">Highlights of the <TT>O(1)</TT> Scheduler</A><A name="of its"></A>" to find out some of its important features.</P><A name=ch19sb02></A>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD>
+<H2 class=docSidebarTitle>Highlights of the <TT>O(1)</TT> Scheduler</H2>
+<P class=docText><A name="some of"></A>The following are some of the important features of the <TT>O(1)</TT> scheduler:</P>
+<UL>
+<LI>
+<P class=docList>The algorithm uses two <SPAN class=docEmphasis>run queues</SPAN> made up of 140 priority lists: an <SPAN class=docEmphasis>active</SPAN><A name=an></A> queue that holds tasks that have time slices left and an <SPAN class=docEmphasis>expired</SPAN><A name="whose time"></A> queue that contains processes whose time slices have expired. When a task finishes its time slice, it's inserted into the expired queue in sorted order of priority. The active and expired queues are swapped when the former becomes empty. To decide which process to run next, the scheduler does not navigate through the entire queue. Instead, it picks that task from the active queue having the highest priority. The overhead of picking the task thus depends not on the number of active tasks, but on the number of priorities. This makes it a constant-time or an <TT>O(1)</TT> algorithm.</P></LI>
+<LI>
+<P class=docList>The scheduler supports two priority ranges: standard <SPAN class=docEmphasis>nice</SPAN><A name="The former"></A>values supported on UNIX systems and internal priorities. The former range from &#37413;?to +19, while the latter extend from 0 to 139. In both cases, lower values correspond to higher priorities. The top 100 (0 to 99) internal priorities are reserved for real time (RT) tasks, and the bottom 40 (100 to 139) are assigned to normal tasks. The 40 <SPAN class=docEmphasis>nice</SPAN><A name="internal priorities"></A> values map to the bottom 40 internal priorities. Internal priorities of normal tasks can be dynamically varied by the scheduler, whereas <SPAN class=docEmphasis>nice</SPAN><A name="priority gets"></A> values are statistically set by the user. Each internal priority gets an associated run list.</P></LI>
+<LI>
+<P class=docList><A name="out whether"></A>The scheduler uses a heuristic to figure out whether the nature of a process is I/O-intensive or CPU-intensive. In simple terms, if a task sleeps often, it's likely to be I/O-intensive, but if it uses its time slice fast, it's CPU-intensive. Whenever the scheduler finds that a task has demonstrated I/O-bound characteristics, it rewards it by dynamically increasing its internal priority. CPU-bound characteristics, on the other hand, are punished with negative marks.</P></LI>
+<LI>
+<P class=docList><A name="The allotted"></A>The allotted time slice is directly proportional to the priority. A higher priority task gets a bigger time slice.</P></LI>
+<LI>
+<P class=docList><A name="will not"></A>A task will not be preempted by the scheduler as long as it has time slice credit. If it yields the processor before using up its time slice quota, it can roll over the reminder of its slice when it's run next. Because I/O-bound processes are the ones that often yield the CPU, this improves interactive performance.</P></LI>
+<LI>
+<P class=docList><A name="scheduling policies"></A>The scheduler supports RT scheduling policies. RT tasks preempt normal (<TT>SCHED_OTHER</TT><A name="policies can"></A>) tasks. Users of RT policies can override the scheduler's dynamic priority assignments. Unlike <TT>SCHED_OTHER</TT><A name="comes in"></A> tasks, their priorities are not recalculated by the kernel on-the-fly. RT scheduling comes in two flavors: <TT>SCHED_FIFO</TT> and <TT>SCHED_RR</TT><A name="producing "></A>. They are used for producing "soft" real-time behavior, rather than stringent "hard" RT guarantees. <TT>SCHED_FIFO</TT> has no concept of time slices; <TT>SCHED_FIFO</TT><A name="the processor"></A> tasks run until they sleep-wait for I/O or yield the processor. <TT>SCHED_RR</TT> is a round-robin variant of <TT>SCHED_FIFO</TT><A name="to RT"></A> that also assigns time slices to RT tasks. <TT>SCHED_RR</TT><A name="end of"></A> tasks with expired slices are appended to the end of the corresponding priority list.</P></LI>
+<LI>
+<P class=docList><A name="run queues"></A>The scheduler improves SMP performance by using per-CPU run queues and per-CPU synchronization.</P></LI></UL></TD></TR></TBODY></TABLE></P><BR><A name=ch19lev2sec3></A>
+<H4 id=title-ID0E55AO class=docSection2Title>The CFS Scheduler</H4>
+<P class=docText><A name=iddle1413></A><A name=iddle1542></A><A name=iddle3656></A><A name=iddle3657></A><A name=iddle3815></A><A name=iddle3881></A><A name=iddle3888></A><A name=iddle4539></A><A name=iddle4543></A><A name="The Linux"></A>The Linux scheduler has undergone another rewrite with the 2.6.23 kernel. The <SPAN class=docEmphasis>Completely Fair Scheduler</SPAN> (CFS) for the <TT>SCHED_OTHER</TT><A name="much of"></A> class removes much of the complexities associated with the <TT>O(1)</TT><A name="time slices"></A> scheduler by abandoning priority arrays, time slices, interactivity heuristics, and the dependency on <TT>HZ</TT><A name="implement fairness"></A>. CFS's goal is to implement fairness for all scheduling entities by providing each task the total CPU power divided by the number of running tasks. Dissecting CFS is beyond the scope of this chapter. Have a look at <SPAN class=docEmphasis>Documentation/sched-design-CFS.txt</SPAN> for a brief tutorial.</P><A name=ch19lev2sec4></A>
+<H4 id=title-ID0EMCBO class=docSection2Title>Response Times</H4>
+<P class=docText><A name="improve your"></A>As a user mode driver developer, you have several options to improve your application's response time:</P>
+<UL>
+<LI>
+<P class=docList><A name="that give"></A>Use RT scheduling policies that give you a finer grain of control than usual. Look at the man pages of <TT>sched_setscheduler()</TT><A name="soft RT"></A> and its relatives for insights into achieving soft RT response times.</P></LI>
+<LI>
+<P class=docList><A name=the></A>If you are using non-RT scheduling, tune the <SPAN class=docEmphasis>nice</SPAN><A name="performance balance"></A> values of different processes to achieve the required performance balance.</P></LI>
+<LI>
+<P class=docList><A name="kernel enabled"></A>If you are using a 2.6.23 or later kernel enabled with the CFS scheduler, you may fine-tune <SPAN class=docEmphasis>/proc/sys/kernel/sched_granularity_ns.</SPAN><A name="If you"></A> If you are using a pre-2.6.23 kernel, modify <TT>#defines</TT> in <SPAN class=docEmphasis>kernel/sched.c</SPAN> and <SPAN class=docEmphasis>include/linux/sched.h</SPAN><A name="your application"></A> to suit your application. Change these values cautiously to satisfy the needs of your application suite. Usage scenarios of the scheduler are complex. Settings that delight certain load conditions can depress others, so you may have to experiment by trial and error.</P></LI>
+<LI>
+<P class=docList><A name=iddle3012></A><A name=iddle4275></A><A name=iddle4311></A><A name="solely the"></A>Response times are not solely the domain of the scheduler; they also depend on the solution architecture. For example, if you mark a busy interrupt handler as <SPAN class=docEmphasis>fast</SPAN><A name="local interrupts"></A>, it disables other local interrupts frequently and that can potentially slow down data acquisition and transmission on other IRQs.</P></LI></UL>
+<P class=docText><A name="can achieve"></A>Let's implement an example and see how a user mode driver can achieve fast response times by guarding against indeterminism introduced by scheduling and paging. As you learned in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02.html#ch02">Chapter 2</A><A name="RTC is"></A>, "A Peek Inside the Kernel," the RTC is a timer source that can generate periodic interrupts with high precision. <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19ex01">Listing 19.1</A><A name=from></A> implements an example that uses interrupt reports from <SPAN class=docEmphasis>/dev/rtc</SPAN><A name="microsecond precision"></A> to perform periodic work with microsecond precision. The Pentium <SPAN class=docEmphasis>Time Stamp Counter</SPAN> (TSC) is used to measure response times.</P>
+<P class=docText>The program in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19ex01">Listing 19.1</A> first changes its scheduling policy to <TT>SCHED_FIFO</TT> using <TT>sched_setscheduler()</TT>. Next, it invokes <TT>mlockall()</TT><A name="ensure that"></A> to lock all mapped pages in memory to ensure that swapping won't come in the way of deterministic timing. Only the super-user is allowed to call <TT>sched_setscheduler()</TT>and <TT>mlockall()</TT><A name="than "></A> and request RTC interrupts at frequencies greater than 64Hz.</P><A name=ch19ex01></A>
+<H5 id=title-ID0E3FBO class=docExampleTitle>Listing 19.1. Periodic Work with Microsecond Precision</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV class=codeSegmentsExpansionLinks><A name="Code View"></A>Code View:</DIV><PRE>#include <LINUX rtc.h="">
+#include <SYS ioctl.h="">
+#include <SYS time.h="">
+#include <FCNTL.H>
+#include <PTHREAD.H>
+#include <LINUX mman.h="">
+
+/* Read the lower half of the Pentium Time Stamp Counter
+   using the rdtsc instruction */
+#define rdtscl(val) __asm__ __volatile__ ("rdtsc" : "=A" (val))
+
+
+main()
+{
+  unsigned long ts0, ts1, now, worst; /* Store TSC ticks */
+  struct sched_param sched_p;         /* Information related to
+                                         scheduling priority */
+  int fd, i=0;
+  unsigned long data;
+ /* Change the scheduling policy to SCHED_FIFO */
+ sched_getparam(getpid(), &amp;sched_p);
+ sched_p.sched_priority = 50; /* RT Priority */
+ sched_setscheduler(getpid(), SCHED_FIFO, &amp;sched_p);
+
+ /* Avoid paging and related indeterminism */
+ mlockall(MCL_CURRENT);
+
+ /* Open the RTC */
+ fd = open("/dev/rtc", O_RDONLY);
+
+ /* Set the periodic interrupt frequency to 8192Hz
+    This should give an interrupt rate of 122uS */
+ ioctl(fd, RTC_IRQP_SET, 8192);
+
+ /* Enable periodic interrupts */
+ ioctl(fd, RTC_PIE_ON, 0);
+ rdtscl(ts0);
+ worst = 0;
+
+ while (i++ &lt; 10000) {
+
+   /* Block until the next periodic interrupt */
+   read(fd, &amp;data, sizeof(unsigned long));
+
+   /* Use the TSC to precisely measure the time consumed.
+      Reading the lower half of the TSC is sufficient */
+   rdtscl(ts1);
+   now = (ts1-ts0);
+
+   /* Update the worst case latency */
+   if (now &gt; worst) worst = now;
+   ts0 = ts1;
+
+   /* Do work that is to be done periodically */
+   do_work(); /* NOP for the purpose of this measurement */
+ }
+
+ printf("Worst latency was %8ld\n", worst);
+
+ /* Disable periodic interrupts */
+ ioctl(fd, RTC_PIE_OFF, 0);
+}
+
+					  </LINUX></PTHREAD.H></FCNTL.H></SYS></SYS></LINUX></PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>&nbsp;</P>
+<P class=docText><A name=iddle1017></A><A name=iddle2245></A><A name=iddle2457></A><A name=iddle2459></A><A name=iddle4535></A><A name=in></A>The code in <A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch19.html#ch19ex01">Listing 19.1</A><A name="prints out"></A> loops for 10,000 iterations and prints out the worst-case latency that occurred during execution. The output was 240899 on a Pentium 1.8GHz box, which roughly corresponds to 133 microseconds. According to the data sheet of the RTC chipset, a timer frequency of 8192Hz should result in a periodic interrupt rate of 122 microseconds. That's close. Rerun the code under varying loads using <TT>SCHED_OTHER</TT> instead of <TT>SCHED_FIFO</TT><A name="resultant drift"></A> and observe the resultant drift.</P>
+<P class=docText><A name="do the"></A>You may also run kernel threads in the RT mode. For that, do the following when you start the thread:</P>
+<DIV class=docText><PRE>static int
+my_kernel_thread(void *i)
+{
+  daemonize();
+  current-&gt;policy = SCHED_FIFO;
+  current-&gt;rt_priority = 1;
+  /* ... */
+}</PRE></DIV>

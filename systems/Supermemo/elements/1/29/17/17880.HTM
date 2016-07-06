@@ -1,0 +1,36 @@
+<H3 class=section>10.7 Traversing Arrays of Arrays</H3>
+<P><A href="http://www.gnu.org/software/gawk/manual/gawk.html#Arrays-of-Arrays">Arrays of Arrays</A>, described how <CODE>gawk</CODE> provides arrays of arrays. In particular, any element of an array may be either a scalar, or another array. The <CODE>isarray()</CODE> function (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Type-Functions">Type Functions</A>) lets you distinguish an array from a scalar. The following function, <CODE>walk_array()</CODE>, recursively traverses an array, printing each element&#8217;s indices and value. You call it with the array and a string representing the name of the array: </P><A name=index-walk_005farray_0028_0029-user_002ddefined-function></A>
+<DIV class=example><PRE class=example>function walk_array(arr, name,      i)
+{
+    for (i in arr) {
+        if (isarray(arr[i]))
+            walk_array(arr[i], (name "[" i "]"))
+        else
+            printf("%s[%s] = %s\n", name, i, arr[i])
+    }
+}
+</PRE></DIV>
+<P>It works by looping over each element of the array. If any given element is itself an array, the function calls itself recursively, passing the subarray and a new string representing the current index. Otherwise, the function simply prints the element&#8217;s name, index, and value. Here is a main program to demonstrate: </P>
+<DIV class=example><PRE class=example>BEGIN {
+    a[1] = 1
+    a[2][1] = 21
+    a[2][2] = 22
+    a[3] = 3
+    a[4][1][1] = 411
+    a[4][2] = 42
+
+    walk_array(a, "a")
+}
+</PRE></DIV>
+<P>When run, the program produces the following output: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk -f walk_array.awk</EM></KBD>
+-| a[4][1][1] = 411
+-| a[4][2] = 42
+-| a[1] = 1
+-| a[2][1] = 21
+-| a[2][2] = 22
+-| a[3] = 3
+</PRE></DIV>
+<P>Walking an array and processing each element is a general-purpose operation. You might want to consider generalizing the <CODE>walk_array()</CODE> function by adding an additional parameter named <CODE>process</CODE>. </P>
+<P>Then, inside the loop, instead of simply printing the array element&#8217;s index and value, use the indirect function call syntax (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Indirect-Calls">Indirect Calls</A>) on <CODE>process</CODE>, passing it the index and the value. </P>
+<P>When calling <CODE>walk_array()</CODE>, you would pass the name of a user-defined function that expects to receive an index and a value, and then processes the element.

@@ -1,0 +1,19 @@
+# The ``scripts/Makefile.modbuiltin''</P>
+<P># ==========================================================================<BR># Generating modules.builtin<BR># ==========================================================================</P>
+<P></P>
+<P>src := $(obj)</P>
+<P>PHONY := __modbuiltin<BR>__modbuiltin:</P>
+<P>-include include/config/auto.conf<BR># tristate.conf sets tristate variables to uppercase 'Y' or 'M'<BR># That way, we get the list of built-in modules in obj-Y<BR>-include include/config/tristate.conf</P>
+<P>include scripts/Kbuild.include</P>
+<P>ifneq ($(KBUILD_SRC),)<BR># Create output directory if not already present<BR>_dummy := $(shell [ -d $(obj) ] || mkdir -p $(obj))<BR>endif</P>
+<P># The filename Kbuild has precedence over Makefile<BR>kbuild-dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))<BR>kbuild-file := $(if $(wildcard $(kbuild-dir)/Kbuild),$(kbuild-dir)/Kbuild,$(kbuild-dir)/Makefile)<BR>include $(kbuild-file)</P>
+<P>include scripts/Makefile.lib<BR>__subdir-Y&nbsp;&nbsp;&nbsp;&nbsp; := $(patsubst %/,%,$(filter %/, $(obj-Y)))<BR>subdir-Y&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; += $(__subdir-Y)<BR>subdir-ym&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; := $(sort $(subdir-y) $(subdir-Y) $(subdir-m))<BR>subdir-ym&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; := $(addprefix $(obj)/,$(subdir-ym))<BR>obj-Y&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; := $(addprefix $(obj)/,$(obj-Y))</P>
+<P>modbuiltin-subdirs := $(patsubst %,%/modules.builtin, $(subdir-ym))<BR>modbuiltin-mods&nbsp;&nbsp;&nbsp; := $(filter %.ko, $(obj-Y:.o=.ko))<BR>modbuiltin-target&nbsp; := $(obj)/modules.builtin</P>
+<P>__modbuiltin: $(modbuiltin-target) $(subdir-ym)<BR>&nbsp;@:</P>
+<P>$(modbuiltin-target): $(subdir-ym) FORCE<BR>&nbsp;$(Q)(for m in $(modbuiltin-mods); do echo kernel/$$m; done;&nbsp;\<BR>&nbsp;cat /dev/null $(modbuiltin-subdirs)) &gt; $@</P>
+<P>PHONY += FORCE</P>
+<P>FORCE:</P>
+<P># Descending<BR># ---------------------------------------------------------------------------</P>
+<P>PHONY += $(subdir-ym)<BR>$(subdir-ym):<BR>&nbsp;$(Q)$(MAKE) $(modbuiltin)=$@</P>
+<P><BR># Declare the contents of the .PHONY variable as phony.&nbsp; We keep that<BR># information in a variable se we can use it in if_changed and friends.</P>
+<P>.PHONY: $(PHONY)

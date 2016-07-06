@@ -1,0 +1,8 @@
+1.2 dev-&gt;open() and dev-&gt;close()<BR>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+<P></P>
+<P>In case the driver has to repeatedly poll the device, because it doesn't<BR>have an interrupt coming from it and the polling is too expensive to be done<BR>all the time, or if the device uses a valuable resource (eg. interrupt), it<BR>can use the open and close callback to know when it can stop polling or<BR>release the interrupt and when it must resume polling or grab the interrupt<BR>again. To do that, we would add this to our example driver:</P>
+<P>static int button_open(struct input_dev *dev)<BR>{<BR><SPAN class=cloze>[...]</SPAN><BR>}</P>
+<P>static void button_close(struct input_dev *dev)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; free_irq(IRQ_AMIGA_VERTB, button_interrupt);<BR>}</P>
+<P>static int __init button_init(void)<BR>{<BR>&nbsp;...<BR>&nbsp;button_dev-&gt;open = button_open;<BR>&nbsp;button_dev-&gt;close = button_close;<BR>&nbsp;...<BR>}</P>
+<P>Note that input core keeps track of number of users for the device and<BR>makes sure that dev-&gt;open() is called only when the first user connects<BR>to the device and that dev-&gt;close() is called when the very last user<BR>disconnects. Calls to both callbacks are serialized.</P>
+<P>The open() callback should return a 0 in case of success or any nonzero value<BR>in case of failure. The close() callback (which is void) must always succeed.

@@ -1,0 +1,68 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">8.6.&nbsp;</SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">How do I allocate memory dynamically?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">A laconic answer from H-Peter Recktenwald:</SPAN></P>
+<TABLE class=MsoNormalTable style="BACKGROUND: #e0e0e0; WIDTH: 100%; mso-cellspacing: 1.5pt" cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes; mso-yfti-lastrow: yes">
+<TD style="BORDER-RIGHT: #ffffff; PADDING-RIGHT: 0.75pt; BORDER-TOP: #ffffff; PADDING-LEFT: 0.75pt; PADDING-BOTTOM: 0.75pt; BORDER-LEFT: #ffffff; PADDING-TOP: 0.75pt; BORDER-BOTTOM: #ffffff; BACKGROUND-COLOR: transparent">
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>ebx := 0<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>(in fact, any value below .bss seems to do)</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>sys_brk</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>eax := current top (of .bss section)</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>ebx := [ current top &lt; ebx &lt; (esp - 16K) ]</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>sys_brk</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>eax := new top of .bss</SPAN></P></TD></TR></TBODY></TABLE>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">An extensive answer from Tiago Gasiba:</SPAN></P>
+<TABLE class=MsoNormalTable style="BACKGROUND: #e0e0e0; WIDTH: 100%; mso-cellspacing: 1.5pt" cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR style="mso-yfti-irow: 0; mso-yfti-firstrow: yes; mso-yfti-lastrow: yes">
+<TD style="BORDER-RIGHT: #ffffff; PADDING-RIGHT: 0.75pt; BORDER-TOP: #ffffff; PADDING-LEFT: 0.75pt; PADDING-BOTTOM: 0.75pt; BORDER-LEFT: #ffffff; PADDING-TOP: 0.75pt; BORDER-BOTTOM: #ffffff; BACKGROUND-COLOR: transparent">
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">section<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>.bss</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">var1<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>resb<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>1</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">section<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>.text</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;allocate memory</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">%define<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>LIMIT<SPAN style="mso-tab-count: 1"> </SPAN>0x4000000<SPAN style="mso-tab-count: 3">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; about 100Megs</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>mov<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>ebx,0<SPAN style="mso-tab-count: 4">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; get bottom of data segment</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>call<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>sys_brk</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>cmp<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>eax,-1<SPAN style="mso-tab-count: 4">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; ok?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>je<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>erro1</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>add<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>eax,LIMIT<SPAN style="mso-tab-count: 3">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; allocate +LIMIT memory</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>mov<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>ebx,eax</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>call<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>sys_brk</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>cmp<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>eax,-1<SPAN style="mso-tab-count: 4">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; ok?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>je<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>erro1</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>cmp<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>eax,var1+1<SPAN style="mso-tab-count: 3">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; has the data segment grown?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>je<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>erro1</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;use allocated memory</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 6">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; now eax contains bottom of</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 6">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; data segment</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>mov<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>ebx,eax<SPAN style="mso-tab-count: 4">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; save bottom</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>mov<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>eax,var1<SPAN style="mso-tab-count: 3">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; eax=beginning of data segment</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">repeat:<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>mov<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>word<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>[eax],1<SPAN style="mso-tab-count: 3">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; fill up with 1's</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>inc<SPAN style="mso-tab-count: 1"> </SPAN>eax</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>cmp<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>ebx,eax<SPAN style="mso-tab-count: 4">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; current pos = bottom?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>jne<SPAN style="mso-tab-count: 1"> </SPAN>repeat</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;free memory</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>mov<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>ebx,var1<SPAN style="mso-tab-count: 3">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; deallocate memory</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>call<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>sys_brk<SPAN style="mso-tab-count: 4">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; by forcing its beginning=var1</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt">&nbsp;</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>cmp<SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp; </SPAN>eax,-1<SPAN style="mso-tab-count: 4">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>; ok?</SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 16pt; mso-bidi-font-size: 12.0pt"><SPAN style="mso-tab-count: 1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </SPAN>je<SPAN style="mso-tab-count: 1">&nbsp;&nbsp; </SPAN>erro2</SPAN></P></TD></TR></TBODY></TABLE>

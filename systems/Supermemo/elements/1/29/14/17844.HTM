@@ -1,0 +1,88 @@
+<H4 class=subsubsection>9.1.3.1 More About &#8216;<SAMP>\</SAMP>&#8217; and &#8216;<SAMP>&amp;</SAMP>&#8217; with <CODE>sub()</CODE>, <CODE>gsub()</CODE>, and <CODE>gensub()</CODE></H4><A name=index-escape-processing_002c-gsub_0028_0029_002fgensub_0028_0029_002fsub_0028_0029-functions></A><A name=index-sub_0028_0029-function_002c-escape-processing></A><A name=index-gsub_0028_0029-function_002c-escape-processing></A><A name=index-gensub_0028_0029-function-_0028gawk_0029_002c-escape-processing></A><A name=index-_005c-_0028backslash_0029_002c-gsub_0028_0029_002fgensub_0028_0029_002fsub_0028_0029-functions-and></A><A name=index-backslash-_0028_005c_0029_002c-gsub_0028_0029_002fgensub_0028_0029_002fsub_0028_0029-functions-and></A><A name=index-_0026-_0028ampersand_0029_002c-gsub_0028_0029_002fgensub_0028_0029_002fsub_0028_0029-functions-and></A><A name=index-ampersand-_0028_0026_0029_002c-gsub_0028_0029_002fgensub_0028_0029_002fsub_0028_0029-functions-and></A>
+<P>When using <CODE>sub()</CODE>, <CODE>gsub()</CODE>, or <CODE>gensub()</CODE>, and trying to get literal backslashes and ampersands into the replacement text, you need to remember that there are several levels of <EM>escape processing</EM> going on. </P>
+<P>First, there is the <EM>lexical</EM> level, which is when <CODE>awk</CODE> reads your program and builds an internal copy of it that can be executed. Then there is the runtime level, which is when <CODE>awk</CODE> actually scans the replacement string to determine what to generate. </P><A name=index-Brian-Kernighan_0027s-awk-13></A>
+<P>At both levels, <CODE>awk</CODE> looks for a defined set of characters that can come after a backslash. At the lexical level, it looks for the escape sequences listed in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Escape-Sequences">Escape Sequences</A>. Thus, for every &#8216;<SAMP>\</SAMP>&#8217; that <CODE>awk</CODE> processes at the runtime level, you must type two backslashes at the lexical level. When a character that is not valid for an escape sequence follows the &#8216;<SAMP>\</SAMP>&#8217;, Brian Kernighan&#8217;s <CODE>awk</CODE> and <CODE>gawk</CODE> both simply remove the initial &#8216;<SAMP>\</SAMP>&#8217; and put the next character into the string. Thus, for example, <CODE>"a\qb"</CODE> is treated as <CODE>"aqb"</CODE>. </P>
+<P>At the runtime level, the various functions handle sequences of &#8216;<SAMP>\</SAMP>&#8217; and &#8216;<SAMP>&amp;</SAMP>&#8217; differently. The situation is (sadly) somewhat complex. Historically, the <CODE>sub()</CODE> and <CODE>gsub()</CODE> functions treated the two character sequence &#8216;<SAMP>\&amp;</SAMP>&#8217; specially; this sequence was replaced in the generated text with a single &#8216;<SAMP>&amp;</SAMP>&#8217;. Any other &#8216;<SAMP>\</SAMP>&#8217; within the <VAR>replacement</VAR> string that did not precede an &#8216;<SAMP>&amp;</SAMP>&#8217; was passed through unchanged. This is illustrated in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#table_002dsub_002descapes">Table 9.1</A>. </P>
+<DIV class=float><A name=table_002dsub_002descapes></A>
+<DIV class=display><PRE class=display> You type         <CODE>sub()</CODE> sees          <CODE>sub()</CODE> generates
+ &#8212;&#8212;&#8211;         &#8212;&#8212;&#8212;-          &#8212;&#8212;&#8212;&#8212;&#8212;
+     <CODE>\&amp;</CODE>              <CODE>&amp;</CODE>            the matched text
+    <CODE>\\&amp;</CODE>             <CODE>\&amp;</CODE>            a literal &#8216;<SAMP>&amp;</SAMP>&#8217;
+   <CODE>\\\&amp;</CODE>             <CODE>\&amp;</CODE>            a literal &#8216;<SAMP>&amp;</SAMP>&#8217;
+  <CODE>\\\\&amp;</CODE>            <CODE>\\&amp;</CODE>            a literal &#8216;<SAMP>\&amp;</SAMP>&#8217;
+ <CODE>\\\\\&amp;</CODE>            <CODE>\\&amp;</CODE>            a literal &#8216;<SAMP>\&amp;</SAMP>&#8217;
+<CODE>\\\\\\&amp;</CODE>           <CODE>\\\&amp;</CODE>            a literal &#8216;<SAMP>\\&amp;</SAMP>&#8217;
+    <CODE>\\q</CODE>             <CODE>\q</CODE>            a literal &#8216;<SAMP>\q</SAMP>&#8217;
+</PRE></DIV>
+<DIV class=float-caption>
+<P><STRONG>Table 9.1: </STRONG>Historical Escape Sequence Processing for <CODE>sub()</CODE> and <CODE>gsub()</CODE></P></DIV></DIV>
+<P>This table shows both the lexical-level processing, where an odd number of backslashes becomes an even number at the runtime level, as well as the runtime processing done by <CODE>sub()</CODE>. (For the sake of simplicity, the rest of the following tables only show the case of even numbers of backslashes entered at the lexical level.) </P>
+<P>The problem with the historical approach is that there is no way to get a literal &#8216;<SAMP>\</SAMP>&#8217; followed by the matched text. </P><A name=index-POSIX-awk_002c-functions-and_002c-gsub_0028_0029_002fsub_0028_0029></A>
+<P>The 1992 POSIX standard attempted to fix this problem. That standard says that <CODE>sub()</CODE> and <CODE>gsub()</CODE> look for either a &#8216;<SAMP>\</SAMP>&#8217; or an &#8216;<SAMP>&amp;</SAMP>&#8217; after the &#8216;<SAMP>\</SAMP>&#8217;. If either one follows a &#8216;<SAMP>\</SAMP>&#8217;, that character is output literally. The interpretation of &#8216;<SAMP>\</SAMP>&#8217; and &#8216;<SAMP>&amp;</SAMP>&#8217; then becomes as shown in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#table_002dsub_002dposix_002d92">Table 9.2</A>. </P>
+<DIV class=float><A name=table_002dsub_002dposix_002d92></A>
+<DIV class=display><PRE class=display> You type         <CODE>sub()</CODE> sees          <CODE>sub()</CODE> generates
+ &#8212;&#8212;&#8211;         &#8212;&#8212;&#8212;-          &#8212;&#8212;&#8212;&#8212;&#8212;
+      <CODE>&amp;</CODE>              <CODE>&amp;</CODE>            the matched text
+    <CODE>\\&amp;</CODE>             <CODE>\&amp;</CODE>            a literal &#8216;<SAMP>&amp;</SAMP>&#8217;
+  <CODE>\\\\&amp;</CODE>            <CODE>\\&amp;</CODE>            a literal &#8216;<SAMP>\</SAMP>&#8217;, then the matched text
+<CODE>\\\\\\&amp;</CODE>           <CODE>\\\&amp;</CODE>            a literal &#8216;<SAMP>\&amp;</SAMP>&#8217;
+</PRE></DIV>
+<DIV class=float-caption>
+<P><STRONG>Table 9.2: </STRONG>1992 POSIX Rules for <CODE>sub()</CODE> and <CODE>gsub()</CODE> Escape Sequence Processing</P></DIV></DIV>
+<P>This appears to solve the problem. Unfortunately, the phrasing of the standard is unusual. It says, in effect, that &#8216;<SAMP>\</SAMP>&#8217; turns off the special meaning of any following character, but for anything other than &#8216;<SAMP>\</SAMP>&#8217; and &#8216;<SAMP>&amp;</SAMP>&#8217;, such special meaning is undefined. This wording leads to two problems: </P>
+<UL>
+<LI>Backslashes must now be doubled in the <VAR>replacement</VAR> string, breaking historical <CODE>awk</CODE> programs. </LI>
+<LI>To make sure that an <CODE>awk</CODE> program is portable, <EM>every</EM> character in the <VAR>replacement</VAR> string must be preceded with a backslash.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT49" name=DOCF49><SUP>49</SUP></A> </LI></UL>
+<P>Because of the problems just listed, in 1996, the <CODE>gawk</CODE> maintainer submitted proposed text for a revised standard that reverts to rules that correspond more closely to the original existing practice. The proposed rules have special cases that make it possible to produce a &#8216;<SAMP>\</SAMP>&#8217; preceding the matched text. This is shown in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#table_002dsub_002dproposed">Table 9.3</A>. </P>
+<DIV class=float><A name=table_002dsub_002dproposed></A>
+<DIV class=display><PRE class=display> You type         <CODE>sub()</CODE> sees         <CODE>sub()</CODE> generates
+ &#8212;&#8212;&#8211;         &#8212;&#8212;&#8212;-         &#8212;&#8212;&#8212;&#8212;&#8212;
+<CODE>\\\\\\&amp;</CODE>           <CODE>\\\&amp;</CODE>            a literal &#8216;<SAMP>\&amp;</SAMP>&#8217;
+  <CODE>\\\\&amp;</CODE>            <CODE>\\&amp;</CODE>            a literal &#8216;<SAMP>\</SAMP>&#8217;, followed by the matched text
+    <CODE>\\&amp;</CODE>             <CODE>\&amp;</CODE>            a literal &#8216;<SAMP>&amp;</SAMP>&#8217;
+    <CODE>\\q</CODE>             <CODE>\q</CODE>            a literal &#8216;<SAMP>\q</SAMP>&#8217;
+   <CODE>\\\\</CODE>             <CODE>\\</CODE>            <CODE>\\</CODE>
+</PRE></DIV>
+<DIV class=float-caption>
+<P><STRONG>Table 9.3: </STRONG>Proposed Rules For <CODE>sub()</CODE> And Backslash</P></DIV></DIV>
+<P>In a nutshell, at the runtime level, there are now three special sequences of characters (&#8216;<SAMP>\\\&amp;</SAMP>&#8217;, &#8216;<SAMP>\\&amp;</SAMP>&#8217; and &#8216;<SAMP>\&amp;</SAMP>&#8217;) whereas historically there was only one. However, as in the historical case, any &#8216;<SAMP>\</SAMP>&#8217; that is not part of one of these three sequences is not special and appears in the output literally. </P>
+<P><CODE>gawk</CODE> 3.0 and 3.1 follow these proposed POSIX rules for <CODE>sub()</CODE> and <CODE>gsub()</CODE>. The POSIX standard took much longer to be revised than was expected in 1996. The 2001 standard does not follow the above rules. Instead, the rules there are somewhat simpler. The results are similar except for one case. </P>
+<P>The POSIX rules state that &#8216;<SAMP>\&amp;</SAMP>&#8217; in the replacement string produces a literal &#8216;<SAMP>&amp;</SAMP>&#8217;, &#8216;<SAMP>\\</SAMP>&#8217; produces a literal &#8216;<SAMP>\</SAMP>&#8217;, and &#8216;<SAMP>\</SAMP>&#8217; followed by anything else is not special; the &#8216;<SAMP>\</SAMP>&#8217; is placed straight into the output. These rules are presented in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#table_002dposix_002dsub">Table 9.4</A>. </P>
+<DIV class=float><A name=table_002dposix_002dsub></A>
+<DIV class=display><PRE class=display> You type         <CODE>sub()</CODE> sees         <CODE>sub()</CODE> generates
+ &#8212;&#8212;&#8211;         &#8212;&#8212;&#8212;-         &#8212;&#8212;&#8212;&#8212;&#8212;
+<CODE>\\\\\\&amp;</CODE>           <CODE>\\\&amp;</CODE>            a literal &#8216;<SAMP>\&amp;</SAMP>&#8217;
+  <CODE>\\\\&amp;</CODE>            <CODE>\\&amp;</CODE>            a literal &#8216;<SAMP>\</SAMP>&#8217;, followed by the matched text
+    <CODE>\\&amp;</CODE>             <CODE>\&amp;</CODE>            a literal &#8216;<SAMP>&amp;</SAMP>&#8217;
+    <CODE>\\q</CODE>             <CODE>\q</CODE>            a literal &#8216;<SAMP>\q</SAMP>&#8217;
+   <CODE>\\\\</CODE>             <CODE>\\</CODE>            <CODE>\</CODE>
+</PRE></DIV>
+<DIV class=float-caption>
+<P><STRONG>Table 9.4: </STRONG>POSIX Rules For <CODE>sub()</CODE> And <CODE>gsub()</CODE></P></DIV></DIV>
+<P>The only case where the difference is noticeable is the last one: &#8216;<SAMP>\\\\</SAMP>&#8217; is seen as &#8216;<SAMP>\\</SAMP>&#8217; and produces &#8216;<SAMP>\</SAMP>&#8217; instead of &#8216;<SAMP>\\</SAMP>&#8217;. </P>
+<P>Starting with version 3.1.4, <CODE>gawk</CODE> followed the POSIX rules when <SAMP>--posix</SAMP> is specified (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>). Otherwise, it continued to follow the 1996 proposed rules, since that had been its behavior for many years. </P>
+<P>When version 4.0.0 was released, the <CODE>gawk</CODE> maintainer made the POSIX rules the default, breaking well over a decade&#8217;s worth of backwards compatibility.<A href="http://www.gnu.org/software/gawk/manual/gawk.html#FOOT50" name=DOCF50><SUP>50</SUP></A> Needless to say, this was a bad idea, and as of version 4.0.1, <CODE>gawk</CODE> resumed its historical behavior, and only follows the POSIX rules when <SAMP>--posix</SAMP> is given. </P>
+<P>The rules for <CODE>gensub()</CODE> are considerably simpler. At the runtime level, whenever <CODE>gawk</CODE> sees a &#8216;<SAMP>\</SAMP>&#8217;, if the following character is a digit, then the text that matched the corresponding parenthesized subexpression is placed in the generated output. Otherwise, no matter what character follows the &#8216;<SAMP>\</SAMP>&#8217;, it appears in the generated text and the &#8216;<SAMP>\</SAMP>&#8217; does not, as shown in <A href="http://www.gnu.org/software/gawk/manual/gawk.html#table_002dgensub_002descapes">Table 9.5</A>. </P>
+<DIV class=float><A name=table_002dgensub_002descapes></A>
+<DIV class=display><PRE class=display>  You type          <CODE>gensub()</CODE> sees         <CODE>gensub()</CODE> generates
+  &#8212;&#8212;&#8211;          &#8212;&#8212;&#8212;&#8212;-         &#8212;&#8212;&#8212;&#8212;&#8212;&#8212;
+      <CODE>&amp;</CODE>                    <CODE>&amp;</CODE>            the matched text
+    <CODE>\\&amp;</CODE>                   <CODE>\&amp;</CODE>            a literal &#8216;<SAMP>&amp;</SAMP>&#8217;
+   <CODE>\\\\</CODE>                   <CODE>\\</CODE>            a literal &#8216;<SAMP>\</SAMP>&#8217;
+  <CODE>\\\\&amp;</CODE>                  <CODE>\\&amp;</CODE>            a literal &#8216;<SAMP>\</SAMP>&#8217;, then the matched text
+<CODE>\\\\\\&amp;</CODE>                 <CODE>\\\&amp;</CODE>            a literal &#8216;<SAMP>\&amp;</SAMP>&#8217;
+    <CODE>\\q</CODE>                   <CODE>\q</CODE>            a literal &#8216;<SAMP>q</SAMP>&#8217;
+</PRE></DIV>
+<DIV class=float-caption>
+<P><STRONG>Table 9.5: </STRONG>Escape Sequence Processing For <CODE>gensub()</CODE></P></DIV></DIV>
+<P>Because of the complexity of the lexical and runtime level processing and the special cases for <CODE>sub()</CODE> and <CODE>gsub()</CODE>, we recommend the use of <CODE>gawk</CODE> and <CODE>gensub()</CODE> when you have to do substitutions. </P><A name=index-sidebar_002c-Matching-the-Null-String></A>
+<TABLE class=cartouche border=1>
+<TBODY>
+<TR>
+<TD>
+<DIV align=center><B>Matching the Null String</B> </DIV><A name=index-matching_002c-null-strings></A><A name=index-null-strings_002c-matching></A><A name=index-_002a-_0028asterisk_0029_002c-_002a-operator_002c-null-strings_002c-matching></A><A name=index-asterisk-_0028_002a_0029_002c-_002a-operator_002c-null-strings_002c-matching></A>
+<P>In <CODE>awk</CODE>, the &#8216;<SAMP>*</SAMP>&#8217; operator can match the null string. This is particularly important for the <CODE>sub()</CODE>, <CODE>gsub()</CODE>, and <CODE>gensub()</CODE> functions. For example: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo abc | awk '{ gsub(/m*/, "X"); print }'</EM></KBD>
+-| XaXbXcX
+</PRE></DIV>
+<P>Although this makes a certain amount of sense, it can be surprising. </P></TD></TR></TBODY></TABLE>

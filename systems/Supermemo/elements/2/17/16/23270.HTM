@@ -1,0 +1,36 @@
+<H3 id=title-IDAOXXKH class=docSection1Title>9.10. Building a Simple File System</H3>
+<P class=docText><A name=iddle1155></A><A name=iddle1267></A><A name=iddle1439></A><A name=iddle1901></A><A name=iddle2584></A>It is straightforward to build a simple file system image. Here we demonstrate the use of the Linux kernel's loopback device. The loopback device enables the use of a regular file as a block device. In short, we build a file system image in a regular file and use the Linux loopback device to mount that file in the same way any other block device is mounted.</P>
+<P class=docText>To build a simple root file system, start with a fixed-sized file containing all zeros:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>dd if=/dev/zero of=./my-new-fs-image bs=1k count=512</SPAN></PRE></DIV><BR>
+<P class=docText>This command creates a file of 512KB containing nothing but zeros. We fill the file with zeros to aid in compression later and to have a consistent data pattern for uninitialized data blocks within the file system. Use caution with the <TT>dd</TT> command. Executing <TT>dd</TT> with no boundary (<TT>count=</TT>) or with an improper boundary can fill up your hard drive and possibly crash your system. <TT>dd</TT> is a powerful tool; use it with the respect it deserves. Simple typos in commands such as <TT>dd</TT>, executed as root, have destroyed countless file systems.</P>
+<P class=docText>When we have the new image file, we actually format the file to contain the data structures defined by a given file system. In this example, we build an ext2 file system. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09lev1sec10.html#ch09list20">Listing 9-20</A> details the procedure.</P><A name=ch09list20></A>
+<H5 id=title-IDAT0XKH class=docExampleTitle>Listing 9-20. Creating an ext2 File System Image</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>/sbin/mke2fs ./my-new-fs-image</SPAN>
+mke2fs 1.35 (28-Feb-2004)
+./my-new-fs-image is not a block special device.
+Proceed anyway? (y,n) <SPAN class=docEmphStrong>y</SPAN>
+Filesystem label=
+OS type: Linux
+Block size=1024 (log=0)
+Fragment size=1024 (log=0)
+64 inodes, 512 blocks
+25 blocks (4.88%) reserved for the super user
+First data block=1
+1 block group
+8192 blocks per group, 8192 fragments per group
+64 inodes per group
+
+Writing inode tables: done
+Writing superblocks and filesystem accounting information: done
+
+This filesystem will be automatically checked every 24 mounts or
+180 days, whichever comes first.  Use tune2fs -c or -i to override.
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle2093></A><A name=iddle2601></A>As with <TT>dd</TT>, the <TT>mke2fs</TT> command can destroy your system, so use it with care. In this example, we asked <TT>mke2fs</TT> to format a file rather than a hard drive partition (block device) for which it was intended. As such, <TT>mke2fs</TT> detected that fact and asked us to confirm the operation. After confirming, <TT>mke2fs</TT> proceeded to write an ext2 superblock and file system data structures into the file. We then can mount this file like any block device, using the Linux loopback device:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>mount -o loop ./my-new-fs-image /mnt/flash</SPAN></PRE></DIV><BR>
+<P class=docText>This command mounts the file <TT>my-new-fs-image</TT> as a file system on the mount point named <TT>/mnt/flash</TT>. The mount point name is not important; you can mount it wherever you want, as long as the mount point exists. Use <TT>mkdir</TT> to create your mount point.</P>
+<P class=docText>After the newly created image file is mounted as a file system, we are free to make changes to it. We can add and delete directories, make device nodes, and so on. We can use <TT>tar</TT> to copy files into or out of it. When the changes are complete, they are saved in the file, assuming that you didn't exceed the size of the device. Remember, using this method, the size is fixed at creation time and cannot be changed.

@@ -1,0 +1,48 @@
+; DOS interrupt version<PRE></PRE><PRE style="LINE-HEIGHT: normal; TEXT-TRANSFORM: none; FONT-VARIANT: normal; FONT-STYLE: normal; TEXT-INDENT: 0px; WORD-WRAP: break-word; WHITE-SPACE: pre-wrap; LETTER-SPACING: normal; COLOR: rgb(0,0,0); FONT-WEIGHT: normal; WORD-SPACING: 0px; -webkit-text-stroke-width: 0px">org 100h
+
+
+mov ax, 0x3569 ; get current int vector
+int 21h
+mov [old_int_off], bx ; and save it, so we can restore it later
+mov bx, es
+mov [old_int_seg], bx
+
+
+mov ax, cs
+mov ds, ax   ; load data segment with code segment (the one we are in now)
+mov ah, 0x25 ; Set Interrupt Vector Command
+mov al, 0x69 ; Interrupt to replace
+mov dx, int_prog ; load dx with our interrupt address
+int 21h
+
+int 69h ; execute our interrupt and enjoy the fun :)
+
+;restore old interrupt
+mov ax, [old_int_seg]
+mov ds, ax
+mov dx, [old_int_off]
+mov ax, 0x2569
+int 21h
+
+mov ax, 0x4c00 ; Exit 
+int 21h
+
+
+; Our interrupt just prints some text :)
+int_prog:
+
+pusha ; save old registers, just incase ;)
+
+mov ah, 9
+mov dx, our_text
+int 21h
+
+popa
+
+iret
+
+
+our_text db "Bleh... $"
+
+old_int_seg dw 0
+old_int_off dw 0</PRE>

@@ -1,0 +1,23 @@
+<H3 class=section>8.4 Using Uninitialized Variables as Subscripts</H3><A name=index-variables_002c-uninitialized_002c-as-array-subscripts></A><A name=index-uninitialized-variables_002c-as-array-subscripts></A><A name=index-subscripts-in-arrays_002c-uninitialized-variables-as></A><A name=index-arrays_002c-subscripts_002c-uninitialized-variables-as></A>
+<P>Suppose it&#8217;s necessary to write a program to print the input data in reverse order. A reasonable attempt to do so (with some test data) might look like this: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>echo 'line 1</EM></KBD>
+&gt; <KBD><EM>line 2</EM></KBD>
+&gt; <KBD><EM>line 3' | awk '{ l[lines] = $0; ++lines }</EM></KBD>
+&gt; <KBD><EM>END {</EM></KBD>
+&gt;     <KBD><EM>for (i = lines-1; i &gt;= 0; --i)</EM></KBD>
+&gt;        <KBD><EM>print l[i]</EM></KBD>
+&gt; <KBD><EM>}'</EM></KBD>
+-| line 3
+-| line 2
+</PRE></DIV>
+<P>Unfortunately, the very first line of input data did not come out in the output! </P>
+<P>Upon first glance, we would think that this program should have worked. The variable <CODE>lines</CODE> is uninitialized, and uninitialized variables have the numeric value zero. So, <CODE>awk</CODE> should have printed the value of <CODE>l[0]</CODE>. </P>
+<P>The issue here is that subscripts for <CODE>awk</CODE> arrays are <EM>always</EM> strings. Uninitialized variables, when used as strings, have the value <CODE>""</CODE>, not zero. Thus, &#8216;<SAMP>line 1</SAMP>&#8217; ends up stored in <CODE>l[""]</CODE>. The following version of the program works correctly: </P>
+<DIV class=example><PRE class=example>{ l[lines++] = $0 }
+END {
+    for (i = lines - 1; i &gt;= 0; --i)
+       print l[i]
+}
+</PRE></DIV>
+<P>Here, the &#8216;<SAMP>++</SAMP>&#8217; forces <CODE>lines</CODE> to be numeric, thus making the &#8220;old value&#8221; numeric zero. This is then converted to <CODE>"0"</CODE> as the array subscript. </P><A name=index-null-strings_002c-as-array-subscripts></A><A name=index-dark-corner_002c-array-subscripts></A><A name=index-lint-checking_002c-array-subscripts></A>
+<P>Even though it is somewhat unusual, the null string (<CODE>""</CODE>) is a valid array subscript. (d.c.) <CODE>gawk</CODE> warns about the use of the null string as a subscript if <SAMP>--lint</SAMP> is provided on the command line (see <A href="http://www.gnu.org/software/gawk/manual/gawk.html#Options">Options</A>).

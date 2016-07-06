@@ -1,0 +1,6 @@
+/* Check if the vma is being used as a stack by this task */<BR>static int vm_is_stack_for_task(struct task_struct *t,<BR>&nbsp;&nbsp;&nbsp;&nbsp;struct vm_area_struct *vma)<BR>{<BR>&nbsp;return (vma-&gt;vm_start &lt;= KSTK_ESP(t) &amp;&amp; vma-&gt;vm_end &gt;= KSTK_ESP(t));<BR>} 
+<P></P>
+<P>/*<BR>&nbsp;* Check if the vma is being used as a stack.<BR>&nbsp;* If is_group is non-zero, check in the entire thread group or else<BR>&nbsp;* just check in the current task. Returns the task_struct of the task<BR>&nbsp;* that the vma is stack for. Must be called under rcu_read_lock().<BR>&nbsp;*/<BR>struct task_struct *task_of_stack(struct task_struct *task,<BR>&nbsp;&nbsp;&nbsp;&nbsp;struct vm_area_struct *vma, bool in_group)<BR>{<BR>&nbsp;if (vm_is_stack_for_task(task, vma))<BR>&nbsp;&nbsp;return task;</P>
+<P>&nbsp;if (in_group) {<BR>&nbsp;&nbsp;struct task_struct *t;</P>
+<P>&nbsp;&nbsp;for_each_thread(task, t) {<BR>&nbsp;&nbsp;&nbsp;if (vm_is_stack_for_task(t, vma))<BR>&nbsp;&nbsp;&nbsp;&nbsp;return t;<BR>&nbsp;&nbsp;}<BR>&nbsp;}</P>
+<P>&nbsp;return NULL;<BR>}

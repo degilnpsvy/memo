@@ -1,0 +1,72 @@
+# Documentation/gcov.txt 
+<P></P>
+<P>Using gcov with the Linux kernel<BR>================================</P>
+<P></P>
+<P>1. Introduction<BR>2. Preparation<BR>3. Customization<BR>4. Files<BR>5. Modules<BR>6. Separated build and test machines<BR>7. Troubleshooting<BR>Appendix A: sample script: gather_on_build.sh<BR>Appendix B: sample script: gather_on_test.sh</P>
+<P><BR>1. Introduction<BR>===============</P>
+<P>gcov profiling kernel support enables the use of GCC's coverage testing<BR>tool gcov [1] with the Linux kernel. Coverage data of a running kernel<BR>is exported in gcov-compatible format via the "gcov" debugfs directory.<BR>To get coverage data for a specific file, change to the kernel build<BR>directory and use gcov with the -o option as follows (requires root):</P>
+<P># cd /tmp/linux-out<BR># gcov -o /sys/kernel/debug/gcov/tmp/linux-out/kernel spinlock.c</P>
+<P>This will create source code files annotated with execution counts<BR>in the current directory. In addition, graphical gcov front-ends such<BR>as lcov [2] can be used to automate the process of collecting data<BR>for the entire kernel and provide coverage overviews in HTML format.</P>
+<P>Possible uses:</P>
+<P>* debugging (has this line been reached at all?)<BR>* test improvement (how do I change my test to cover these lines?)<BR>* minimizing kernel configurations (do I need this option if the<BR>&nbsp; associated code is never run?)</P>
+<P>--</P>
+<P>[1] <A href="http://gcc.gnu.org/onlinedocs/gcc/Gcov.html">http://gcc.gnu.org/onlinedocs/gcc/Gcov.html</A><BR>[2] <A href="http://ltp.sourceforge.net/coverage/lcov.php">http://ltp.sourceforge.net/coverage/lcov.php</A></P>
+<P><BR>2. Preparation<BR>==============</P>
+<P>Configure the kernel with:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CONFIG_DEBUG_FS=y<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CONFIG_GCOV_KERNEL=y</P>
+<P>select the gcc's gcov format, default is autodetect based on gcc version:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CONFIG_GCOV_FORMAT_AUTODETECT=y</P>
+<P>and to get coverage data for the entire kernel:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; CONFIG_GCOV_PROFILE_ALL=y</P>
+<P>Note that kernels compiled with profiling flags will be significantly<BR>larger and run slower. Also CONFIG_GCOV_PROFILE_ALL may not be supported<BR>on all architectures.</P>
+<P>Profiling data will only become accessible once debugfs has been<BR>mounted:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; mount -t debugfs none /sys/kernel/debug</P>
+<P><BR>3. Customization<BR>================</P>
+<P>To enable profiling for specific files or directories, add a line<BR>similar to the following to the respective kernel Makefile:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; For a single file (e.g. main.o):<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; GCOV_PROFILE_main.o := y</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; For all files in one directory:<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; GCOV_PROFILE := y</P>
+<P>To exclude files from being profiled even when CONFIG_GCOV_PROFILE_ALL<BR>is specified, use:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; GCOV_PROFILE_main.o := n<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; and:<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; GCOV_PROFILE := n</P>
+<P>Only files which are linked to the main kernel image or are compiled as<BR>kernel modules are supported by this mechanism.</P>
+<P><BR>4. Files<BR>========</P>
+<P>The gcov kernel support creates the following files in debugfs:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /sys/kernel/debug/gcov<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Parent directory for all gcov-related files.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /sys/kernel/debug/gcov/reset<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Global reset file: resets all coverage data to zero when<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; written to.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /sys/kernel/debug/gcov/path/to/compile/dir/file.gcda<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; The actual gcov data file as understood by the gcov<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tool. Resets file coverage data to zero when written to.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; /sys/kernel/debug/gcov/path/to/compile/dir/file.gcno<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Symbolic link to a static data file required by the gcov<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tool. This file is generated by gcc when compiling with<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; option -ftest-coverage.</P>
+<P><BR>5. Modules<BR>==========</P>
+<P>Kernel modules may contain cleanup code which is only run during<BR>module unload time. The gcov mechanism provides a means to collect<BR>coverage data for such code by keeping a copy of the data associated<BR>with the unloaded module. This data remains available through debugfs.<BR>Once the module is loaded again, the associated coverage counters are<BR>initialized with the data from its previous instantiation.</P>
+<P>This behavior can be deactivated by specifying the gcov_persist kernel<BR>parameter:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; gcov_persist=0</P>
+<P>At run-time, a user can also choose to discard data for an unloaded<BR>module by writing to its data file or the global reset file.</P>
+<P><BR>6. Separated build and test machines<BR>====================================</P>
+<P>The gcov kernel profiling infrastructure is designed to work out-of-the<BR>box for setups where kernels are built and run on the same machine. In<BR>cases where the kernel runs on a separate machine, special preparations<BR>must be made, depending on where the gcov tool is used:</P>
+<P>a) gcov is run on the TEST machine</P>
+<P>The gcov tool version on the test machine must be compatible with the<BR>gcc version used for kernel build. Also the following files need to be<BR>copied from build to test machine:</P>
+<P>from the source tree:<BR>&nbsp; - all C source files + headers</P>
+<P>from the build tree:<BR>&nbsp; - all C source files + headers<BR>&nbsp; - all .gcda and .gcno files<BR>&nbsp; - all links to directories</P>
+<P>It is important to note that these files need to be placed into the<BR>exact same file system location on the test machine as on the build<BR>machine. If any of the path components is symbolic link, the actual<BR>directory needs to be used instead (due to make's CURDIR handling).</P>
+<P>b) gcov is run on the BUILD machine</P>
+<P>The following files need to be copied after each test case from test<BR>to build machine:</P>
+<P>from the gcov directory in sysfs:<BR>&nbsp; - all .gcda files<BR>&nbsp; - all links to .gcno files</P>
+<P>These files can be copied to any location on the build machine. gcov<BR>must then be called with the -o option pointing to that directory.</P>
+<P>Example directory setup on the build machine:</P>
+<P>&nbsp; /tmp/linux:&nbsp;&nbsp;&nbsp; kernel source tree<BR>&nbsp; /tmp/out:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; kernel build directory as specified by make O=<BR>&nbsp; /tmp/coverage: location of the files copied from the test machine</P>
+<P>&nbsp; [user@build] cd /tmp/out<BR>&nbsp; [user@build] gcov -o /tmp/coverage/tmp/out/init main.c</P>
+<P><BR>7. Troubleshooting<BR>==================</P>
+<P>Problem:&nbsp; Compilation aborts during linker step.<BR>Cause:&nbsp;&nbsp;&nbsp; Profiling flags are specified for source files which are not<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; linked to the main kernel or which are linked by a custom<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; linker procedure.<BR>Solution: Exclude affected source files from profiling by specifying<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; GCOV_PROFILE := n or GCOV_PROFILE_basename.o := n in the<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; corresponding Makefile.</P>
+<P>Problem:&nbsp; Files copied from sysfs appear empty or incomplete.<BR>Cause:&nbsp;&nbsp;&nbsp; Due to the way seq_file works, some tools such as cp or tar<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; may not correctly copy files from sysfs.<BR>Solution: Use 'cat' to read .gcda files and 'cp -d' to copy links.<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Alternatively use the mechanism shown in Appendix B.</P>
+<P><BR>Appendix A: gather_on_build.sh<BR>==============================</P>
+<P>Sample script to gather coverage meta files on the build machine<BR>(see 6a):<BR>#!/bin/bash</P>
+<P>KSRC=$1<BR>KOBJ=$2<BR>DEST=$3</P>
+<P>if [ -z "$KSRC" ] || [ -z "$KOBJ" ] || [ -z "$DEST" ]; then<BR>&nbsp; echo "Usage: $0 &lt;ksrc directory&gt; &lt;kobj directory&gt; &lt;output.tar.gz&gt;" &gt;&amp;2<BR>&nbsp; exit 1<BR>fi</P>
+<P>KSRC=$(cd $KSRC; printf "all:\n\t@echo \${CURDIR}\n" | make -f -)<BR>KOBJ=$(cd $KOBJ; printf "all:\n\t@echo \${CURDIR}\n" | make -f -)</P>
+<P>find $KSRC $KOBJ \( -name '*.gcno' -o -name '*.[ch]' -o -type l \) -a \<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -perm /u+r,g+r | tar cfz $DEST -P -T -</P>
+<P>if [ $? -eq 0 ] ; then<BR>&nbsp; echo "$DEST successfully created, copy to test system and unpack with:"<BR>&nbsp; echo "&nbsp; tar xfz $DEST -P"<BR>else<BR>&nbsp; echo "Could not create file $DEST"<BR>fi</P>
+<P><BR>Appendix B: gather_on_test.sh<BR>=============================</P>
+<P>Sample script to gather coverage data files on the test machine<BR>(see 6b):</P>
+<P>#!/bin/bash -e</P>
+<P>DEST=$1<BR>GCDA=/sys/kernel/debug/gcov</P>
+<P>if [ -z "$DEST" ] ; then<BR>&nbsp; echo "Usage: $0 &lt;output.tar.gz&gt;" &gt;&amp;2<BR>&nbsp; exit 1<BR>fi</P>
+<P>TEMPDIR=$(mktemp -d)<BR>echo Collecting data..<BR>find $GCDA -type d -exec mkdir -p $TEMPDIR/\{\} \;<BR>find $GCDA -name '*.gcda' -exec sh -c 'cat &lt; $0 &gt; '$TEMPDIR'/$0' {} \;<BR>find $GCDA -name '*.gcno' -exec sh -c 'cp -d $0 '$TEMPDIR'/$0' {} \;<BR>tar czf $DEST -C $TEMPDIR sys<BR>rm -rf $TEMPDIR</P>
+<P>echo "$DEST successfully created, copy to build system and unpack with:"<BR>echo "&nbsp; tar xfz $DEST"

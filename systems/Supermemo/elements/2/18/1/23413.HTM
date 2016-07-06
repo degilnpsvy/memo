@@ -1,0 +1,331 @@
+# Documentation/ioctl/hdio.txt
+<P></P>
+<P>&nbsp;&nbsp;Summary of HDIO_ ioctl calls.<BR>&nbsp;&nbsp;============================</P>
+<P></P>
+<P>&nbsp;&nbsp;Edward A. Falk &lt;<A href="mailto:efalk@google.com">efalk@google.com</A>&gt;</P>
+<P>&nbsp;&nbsp;November, 2004</P>
+<P>This document attempts to describe the ioctl(2) calls supported by<BR>the HD/IDE layer.&nbsp; These are by-and-large implemented (as of Linux 2.6)<BR>in drivers/ide/ide.c and drivers/block/scsi_ioctl.c</P>
+<P>ioctl values are listed in &lt;linux/hdreg.h&gt;.&nbsp; As of this writing, they<BR>are as follows:</P>
+<P>&nbsp;&nbsp;&nbsp; ioctls that pass argument pointers to user space:</P>
+<P>&nbsp;HDIO_GETGEO&nbsp;&nbsp;get device geometry<BR>&nbsp;HDIO_GET_UNMASKINTR&nbsp;get current unmask setting<BR>&nbsp;HDIO_GET_MULTCOUNT&nbsp;get current IDE blockmode setting<BR>&nbsp;HDIO_GET_QDMA&nbsp;&nbsp;get use-qdma flag<BR>&nbsp;HDIO_SET_XFER&nbsp;&nbsp;set transfer rate via proc<BR>&nbsp;HDIO_OBSOLETE_IDENTITY&nbsp;OBSOLETE, DO NOT USE<BR>&nbsp;HDIO_GET_KEEPSETTINGS&nbsp;get keep-settings-on-reset flag<BR>&nbsp;HDIO_GET_32BIT&nbsp;&nbsp;get current io_32bit setting<BR>&nbsp;HDIO_GET_NOWERR&nbsp;&nbsp;get ignore-write-error flag<BR>&nbsp;HDIO_GET_DMA&nbsp;&nbsp;get use-dma flag<BR>&nbsp;HDIO_GET_NICE&nbsp;&nbsp;get nice flags<BR>&nbsp;HDIO_GET_IDENTITY&nbsp;get IDE identification info<BR>&nbsp;HDIO_GET_WCACHE&nbsp;&nbsp;get write cache mode on|off<BR>&nbsp;HDIO_GET_ACOUSTIC&nbsp;get acoustic value<BR>&nbsp;HDIO_GET_ADDRESS&nbsp;get sector addressing mode<BR>&nbsp;HDIO_GET_BUSSTATE&nbsp;get the bus state of the hwif<BR>&nbsp;HDIO_TRISTATE_HWIF&nbsp;execute a channel tristate<BR>&nbsp;HDIO_DRIVE_RESET&nbsp;execute a device reset<BR>&nbsp;HDIO_DRIVE_TASKFILE&nbsp;execute raw taskfile<BR>&nbsp;HDIO_DRIVE_TASK&nbsp;&nbsp;execute task and special drive command<BR>&nbsp;HDIO_DRIVE_CMD&nbsp;&nbsp;execute a special drive command<BR>&nbsp;HDIO_DRIVE_CMD_AEB&nbsp;HDIO_DRIVE_TASK</P>
+<P>&nbsp;&nbsp;&nbsp; ioctls that pass non-pointer values:</P>
+<P>&nbsp;HDIO_SET_MULTCOUNT&nbsp;change IDE blockmode<BR>&nbsp;HDIO_SET_UNMASKINTR&nbsp;permit other irqs during I/O<BR>&nbsp;HDIO_SET_KEEPSETTINGS&nbsp;keep ioctl settings on reset<BR>&nbsp;HDIO_SET_32BIT&nbsp;&nbsp;change io_32bit flags<BR>&nbsp;HDIO_SET_NOWERR&nbsp;&nbsp;change ignore-write-error flag<BR>&nbsp;HDIO_SET_DMA&nbsp;&nbsp;change use-dma flag<BR>&nbsp;HDIO_SET_PIO_MODE&nbsp;reconfig interface to new speed<BR>&nbsp;HDIO_SCAN_HWIF&nbsp;&nbsp;register and (re)scan interface<BR>&nbsp;HDIO_SET_NICE&nbsp;&nbsp;set nice flags<BR>&nbsp;HDIO_UNREGISTER_HWIF&nbsp;unregister interface<BR>&nbsp;HDIO_SET_WCACHE&nbsp;&nbsp;change write cache enable-disable<BR>&nbsp;HDIO_SET_ACOUSTIC&nbsp;change acoustic behavior<BR>&nbsp;HDIO_SET_BUSSTATE&nbsp;set the bus state of the hwif<BR>&nbsp;HDIO_SET_QDMA&nbsp;&nbsp;change use-qdma flag<BR>&nbsp;HDIO_SET_ADDRESS&nbsp;change lba addressing modes</P>
+<P>&nbsp;HDIO_SET_IDE_SCSI&nbsp;Set scsi emulation mode on/off<BR>&nbsp;HDIO_SET_SCSI_IDE&nbsp;not implemented yet</P>
+<P><BR>The information that follows was determined from reading kernel source<BR>code.&nbsp; It is likely that some corrections will be made over time.</P>
+<P>&nbsp;</P>
+<P>&nbsp;</P>
+<P>&nbsp;</P>
+<P>General:</P>
+<P>&nbsp;Unless otherwise specified, all ioctl calls return 0 on success<BR>&nbsp;and -1 with errno set to an appropriate value on error.</P>
+<P>&nbsp;Unless otherwise specified, all ioctl calls return -1 and set<BR>&nbsp;errno to EFAULT on a failed attempt to copy data to or from user<BR>&nbsp;address space.</P>
+<P>&nbsp;Unless otherwise specified, all data structures and constants<BR>&nbsp;are defined in &lt;linux/hdreg.h&gt;</P>
+<P>&nbsp;</P>
+<P>HDIO_GETGEO&nbsp;&nbsp;&nbsp;get device geometry</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct hd_geometry geom;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GETGEO, &amp;geom);</P>
+<P><BR>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:</P>
+<P>&nbsp;&nbsp; hd_geometry structure containing:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; heads&nbsp;number of heads<BR>&nbsp;&nbsp;&nbsp;&nbsp; sectors&nbsp;number of sectors/track<BR>&nbsp;&nbsp;&nbsp;&nbsp; cylinders&nbsp;number of cylinders, mod 65536<BR>&nbsp;&nbsp;&nbsp;&nbsp; start&nbsp;starting sector of this partition.</P>
+<P><BR>&nbsp;error returns:<BR>&nbsp;&nbsp; EINVAL&nbsp;if the device is not a disk drive or floppy drive,<BR>&nbsp;&nbsp; &nbsp;&nbsp;or if the user passes a null pointer</P>
+<P><BR>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; Not particularly useful with modern disk drives, whose geometry<BR>&nbsp;&nbsp; is a polite fiction anyway.&nbsp; Modern drives are addressed<BR>&nbsp;&nbsp; purely by sector number nowadays (lba addressing), and the<BR>&nbsp;&nbsp; drive geometry is an abstraction which is actually subject<BR>&nbsp;&nbsp; to change.&nbsp; Currently (as of Nov 2004), the geometry values<BR>&nbsp;&nbsp; are the "bios" values -- presumably the values the drive had<BR>&nbsp;&nbsp; when Linux first booted.</P>
+<P>&nbsp;&nbsp; In addition, the cylinders field of the hd_geometry is an<BR>&nbsp;&nbsp; unsigned short, meaning that on most architectures, this<BR>&nbsp;&nbsp; ioctl will not return a meaningful value on drives with more<BR>&nbsp;&nbsp; than 65535 tracks.</P>
+<P>&nbsp;&nbsp; The start field is unsigned long, meaning that it will not<BR>&nbsp;&nbsp; contain a meaningful value for disks over 219 Gb in size.</P>
+<P>&nbsp;</P>
+<P><BR>HDIO_GET_UNMASKINTR&nbsp;&nbsp;get current unmask setting</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_UNMASKINTR, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the drive's current unmask setting</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_UNMASKINTR&nbsp;&nbsp;permit other irqs during I/O</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; unsigned long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_UNMASKINTR, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for unmask flag</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 1]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P><BR>HDIO_GET_MULTCOUNT&nbsp;&nbsp;get current IDE blockmode setting</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_MULTCOUNT, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current IDE block mode setting.&nbsp; This<BR>&nbsp;&nbsp; controls how many sectors the drive will transfer per<BR>&nbsp;&nbsp; interrupt.</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_MULTCOUNT&nbsp;&nbsp;change IDE blockmode</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_MULTCOUNT, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for IDE block mode setting.&nbsp; This controls how many<BR>&nbsp;&nbsp; sectors the drive will transfer per interrupt.</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range supported by disk.<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy or blockmode already set.<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;Drive did not accept new block mode.</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; Source code comments read:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; This is tightly woven into the driver-&gt;do_special cannot<BR>&nbsp;&nbsp;&nbsp;&nbsp; touch.&nbsp; DON'T do it again until a total personality rewrite<BR>&nbsp;&nbsp;&nbsp;&nbsp; is committed.</P>
+<P>&nbsp;&nbsp; If blockmode has already been set, this ioctl will fail with<BR>&nbsp;&nbsp; EBUSY</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_QDMA&nbsp;&nbsp;&nbsp;get use-qdma flag</P>
+<P>&nbsp;Not implemented, as of 2.6.8.1</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_XFER&nbsp;&nbsp;&nbsp;set transfer rate via proc</P>
+<P>&nbsp;Not implemented, as of 2.6.8.1</P>
+<P>&nbsp;</P>
+<P>HDIO_OBSOLETE_IDENTITY&nbsp;&nbsp;OBSOLETE, DO NOT USE</P>
+<P>&nbsp;Same as HDIO_GET_IDENTITY (see below), except that it only<BR>&nbsp;returns the first 142 bytes of drive identity information.</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_IDENTITY&nbsp;&nbsp;get IDE identification info</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; unsigned char identity[512];<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_IDENTITY, identity);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:</P>
+<P>&nbsp;&nbsp; ATA drive identity information.&nbsp; For full description, see<BR>&nbsp;&nbsp; the IDENTIFY DEVICE and IDENTIFY PACKET DEVICE commands in<BR>&nbsp;&nbsp; the ATA specification.</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; ENOMSG&nbsp;IDENTIFY DEVICE information not available</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; Returns information that was obtained when the drive was<BR>&nbsp;&nbsp; probed.&nbsp; Some of this information is subject to change, and<BR>&nbsp;&nbsp; this ioctl does not re-probe the drive to update the<BR>&nbsp;&nbsp; information.</P>
+<P>&nbsp;&nbsp; This information is also available from /proc/ide/hdX/identify</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_KEEPSETTINGS&nbsp;&nbsp;get keep-settings-on-reset flag</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_KEEPSETTINGS, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current "keep settings" flag</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; When set, indicates that kernel should restore settings<BR>&nbsp;&nbsp; after a drive reset.</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_KEEPSETTINGS&nbsp;&nbsp;keep ioctl settings on reset</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_KEEPSETTINGS, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for keep_settings flag</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 1]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_32BIT&nbsp;&nbsp;&nbsp;get current io_32bit setting</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_32BIT, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current io_32bit setting</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; 0=16-bit, 1=32-bit, 2,3 = 32bit+sync</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_NOWERR&nbsp;&nbsp;&nbsp;get ignore-write-error flag</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_NOWERR, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current ignore-write-error flag</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_DMA&nbsp;&nbsp;&nbsp;get use-dma flag</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_DMA, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current use-dma flag</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_NICE&nbsp;&nbsp;&nbsp;get nice flags</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long nice;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_NICE, &amp;nice);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:</P>
+<P>&nbsp;&nbsp; The drive's "nice" values.</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; Per-drive flags which determine when the system will give more<BR>&nbsp;&nbsp; bandwidth to other devices sharing the same IDE bus.<BR>&nbsp;&nbsp; See &lt;linux/hdreg.h&gt;, near symbol IDE_NICE_DSC_OVERLAP.</P>
+<P>&nbsp;</P>
+<P><BR>HDIO_SET_NICE&nbsp;&nbsp;&nbsp;set nice flags</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; unsigned long nice;<BR>&nbsp;&nbsp; ...<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_NICE, nice);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; bitmask of nice flags.</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EPERM&nbsp;&nbsp;Flags other than DSC_OVERLAP and NICE_1 set.<BR>&nbsp;&nbsp; EPERM&nbsp;&nbsp;DSC_OVERLAP specified but not supported by drive</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; This ioctl sets the DSC_OVERLAP and NICE_1 flags from values<BR>&nbsp;&nbsp; provided by the user.</P>
+<P>&nbsp;&nbsp; Nice flags are listed in &lt;linux/hdreg.h&gt;, starting with<BR>&nbsp;&nbsp; IDE_NICE_DSC_OVERLAP.&nbsp; These values represent shifts.</P>
+<P>&nbsp;</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_WCACHE&nbsp;&nbsp;&nbsp;get write cache mode on|off</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_WCACHE, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current write cache mode</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_ACOUSTIC&nbsp;&nbsp;get acoustic value</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_ACOUSTIC, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current acoustic settings</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; See HDIO_SET_ACOUSTIC</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_ADDRESS</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_GET_ADDRESS, &amp;val);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; The value of the current addressing mode:<BR>&nbsp;&nbsp;&nbsp;&nbsp; 0 = 28-bit<BR>&nbsp;&nbsp;&nbsp;&nbsp; 1 = 48-bit<BR>&nbsp;&nbsp;&nbsp;&nbsp; 2 = 48-bit doing 28-bit<BR>&nbsp;&nbsp;&nbsp;&nbsp; 3 = 64-bit</P>
+<P>&nbsp;</P>
+<P>HDIO_GET_BUSSTATE&nbsp;&nbsp;get the bus state of the hwif</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long state;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SCAN_HWIF, &amp;state);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:<BR>&nbsp;&nbsp; Current power state of the IDE bus.&nbsp; One of BUSSTATE_OFF,<BR>&nbsp;&nbsp; BUSSTATE_ON, or BUSSTATE_TRISTATE</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN</P>
+<P>&nbsp;</P>
+<P><BR>HDIO_SET_BUSSTATE&nbsp;&nbsp;set the bus state of the hwif</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int state;<BR>&nbsp;&nbsp; ...<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SCAN_HWIF, state);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; Desired IDE power state.&nbsp; One of BUSSTATE_OFF, BUSSTATE_ON,<BR>&nbsp;&nbsp; or BUSSTATE_TRISTATE</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_RAWIO<BR>&nbsp;&nbsp; EOPNOTSUPP&nbsp;Hardware interface does not support bus power control</P>
+<P>&nbsp;</P>
+<P><BR>HDIO_TRISTATE_HWIF&nbsp;&nbsp;execute a channel tristate</P>
+<P>&nbsp;Not implemented, as of 2.6.8.1.&nbsp; See HDIO_SET_BUSSTATE</P>
+<P>&nbsp;</P>
+<P>HDIO_DRIVE_RESET&nbsp;&nbsp;execute a device reset</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int args[3]<BR>&nbsp;&nbsp; ...<BR>&nbsp;&nbsp; ioctl(fd, HDIO_DRIVE_RESET, args);</P>
+<P>&nbsp;inputs:&nbsp;&nbsp;none</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; ENXIO&nbsp;&nbsp;No such device:&nbsp;phy dead or ctl_addr == 0<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;I/O error:&nbsp;reset timed out or hardware error</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; Execute a reset on the device as soon as the current IO<BR>&nbsp;&nbsp; operation has completed.</P>
+<P>&nbsp;&nbsp; Executes an ATAPI soft reset if applicable, otherwise<BR>&nbsp;&nbsp; executes an ATA soft reset on the controller.</P>
+<P>&nbsp;</P>
+<P>HDIO_DRIVE_TASKFILE&nbsp;&nbsp;execute raw taskfile</P>
+<P>&nbsp;Note:&nbsp; If you don't have a copy of the ANSI ATA specification<BR>&nbsp;handy, you should probably ignore this ioctl.</P>
+<P>&nbsp;Execute an ATA disk command directly by writing the "taskfile"<BR>&nbsp;registers of the drive.&nbsp; Requires ADMIN and RAWIO access<BR>&nbsp;privileges.</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; struct {<BR>&nbsp;&nbsp;&nbsp;&nbsp; ide_task_request_t req_task;<BR>&nbsp;&nbsp;&nbsp;&nbsp; u8 outbuf[OUTPUT_SIZE];<BR>&nbsp;&nbsp;&nbsp;&nbsp; u8 inbuf[INPUT_SIZE];<BR>&nbsp;&nbsp; } task;<BR>&nbsp;&nbsp; memset(&amp;task.req_task, 0, sizeof(task.req_task));<BR>&nbsp;&nbsp; task.req_task.out_size = sizeof(task.outbuf);<BR>&nbsp;&nbsp; task.req_task.in_size = sizeof(task.inbuf);<BR>&nbsp;&nbsp; ...<BR>&nbsp;&nbsp; ioctl(fd, HDIO_DRIVE_TASKFILE, &amp;task);<BR>&nbsp;&nbsp; ...</P>
+<P>&nbsp;inputs:</P>
+<P>&nbsp;&nbsp; (See below for details on memory area passed to ioctl.)</P>
+<P>&nbsp;&nbsp; io_ports[8]&nbsp;values to be written to taskfile registers<BR>&nbsp;&nbsp; hob_ports[8]&nbsp;high-order bytes, for extended commands.<BR>&nbsp;&nbsp; out_flags&nbsp;flags indicating which registers are valid<BR>&nbsp;&nbsp; in_flags&nbsp;flags indicating which registers should be returned<BR>&nbsp;&nbsp; data_phase&nbsp;see below<BR>&nbsp;&nbsp; req_cmd&nbsp;command type to be executed<BR>&nbsp;&nbsp; out_size&nbsp;size of output buffer<BR>&nbsp;&nbsp; outbuf&nbsp;buffer of data to be transmitted to disk<BR>&nbsp;&nbsp; inbuf&nbsp;&nbsp;buffer of data to be received from disk (see [1])</P>
+<P>&nbsp;outputs:</P>
+<P>&nbsp;&nbsp; io_ports[]&nbsp;values returned in the taskfile registers<BR>&nbsp;&nbsp; hob_ports[]&nbsp;high-order bytes, for extended commands.<BR>&nbsp;&nbsp; out_flags&nbsp;flags indicating which registers are valid (see [2])<BR>&nbsp;&nbsp; in_flags&nbsp;flags indicating which registers should be returned<BR>&nbsp;&nbsp; outbuf&nbsp;buffer of data to be transmitted to disk (see [1])<BR>&nbsp;&nbsp; inbuf&nbsp;&nbsp;buffer of data to be received from disk</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;CAP_SYS_ADMIN or CAP_SYS_RAWIO privilege not set.<BR>&nbsp;&nbsp; ENOMSG&nbsp;Device is not a disk drive.<BR>&nbsp;&nbsp; ENOMEM&nbsp;Unable to allocate memory for task<BR>&nbsp;&nbsp; EFAULT&nbsp;req_cmd == TASKFILE_IN_OUT (not implemented as of 2.6.8)<BR>&nbsp;&nbsp; EPERM&nbsp;&nbsp;req_cmd == TASKFILE_MULTI_OUT and drive<BR>&nbsp;&nbsp; &nbsp;&nbsp;multi-count not yet set.<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;Drive failed the command.</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; [1] READ THE FOLLOWING NOTES *CAREFULLY*.&nbsp; THIS IOCTL IS<BR>&nbsp;&nbsp; FULL OF GOTCHAS.&nbsp; Extreme caution should be used with using<BR>&nbsp;&nbsp; this ioctl.&nbsp; A mistake can easily corrupt data or hang the<BR>&nbsp;&nbsp; system.</P>
+<P>&nbsp;&nbsp; [2] Both the input and output buffers are copied from the<BR>&nbsp;&nbsp; user and written back to the user, even when not used.</P>
+<P>&nbsp;&nbsp; [3] If one or more bits are set in out_flags and in_flags is<BR>&nbsp;&nbsp; zero, the following values are used for in_flags.all and<BR>&nbsp;&nbsp; written back into in_flags on completion.</P>
+<P>&nbsp;&nbsp;&nbsp; * IDE_TASKFILE_STD_IN_FLAGS | (IDE_HOB_STD_IN_FLAGS &lt;&lt; 8)<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if LBA48 addressing is enabled for the drive<BR>&nbsp;&nbsp;&nbsp; * IDE_TASKFILE_STD_IN_FLAGS<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; if CHS/LBA28</P>
+<P>&nbsp;&nbsp; The association between in_flags.all and each enable<BR>&nbsp;&nbsp; bitfield flips depending on endianness; fortunately, TASKFILE<BR>&nbsp;&nbsp; only uses inflags.b.data bit and ignores all other bits.<BR>&nbsp;&nbsp; The end result is that, on any endian machines, it has no<BR>&nbsp;&nbsp; effect other than modifying in_flags on completion.</P>
+<P>&nbsp;&nbsp; [4] The default value of SELECT is (0xa0|DEV_bit|LBA_bit)<BR>&nbsp;&nbsp; except for four drives per port chipsets.&nbsp; For four drives<BR>&nbsp;&nbsp; per port chipsets, it's (0xa0|DEV_bit|LBA_bit) for the first<BR>&nbsp;&nbsp; pair and (0x80|DEV_bit|LBA_bit) for the second pair.</P>
+<P>&nbsp;&nbsp; [5] The argument to the ioctl is a pointer to a region of<BR>&nbsp;&nbsp; memory containing a ide_task_request_t structure, followed<BR>&nbsp;&nbsp; by an optional buffer of data to be transmitted to the<BR>&nbsp;&nbsp; drive, followed by an optional buffer to receive data from<BR>&nbsp;&nbsp; the drive.</P>
+<P>&nbsp;&nbsp; Command is passed to the disk drive via the ide_task_request_t<BR>&nbsp;&nbsp; structure, which contains these fields:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; io_ports[8]&nbsp;&nbsp;values for the taskfile registers<BR>&nbsp;&nbsp;&nbsp;&nbsp; hob_ports[8]&nbsp;high-order bytes, for extended commands<BR>&nbsp;&nbsp;&nbsp;&nbsp; out_flags&nbsp;&nbsp;flags indicating which entries in the<BR>&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;io_ports[] and hob_ports[] arrays<BR>&nbsp;&nbsp;&nbsp;&nbsp;contain valid values.&nbsp; Type ide_reg_valid_t.<BR>&nbsp;&nbsp;&nbsp;&nbsp; in_flags&nbsp;&nbsp;flags indicating which entries in the<BR>&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;io_ports[] and hob_ports[] arrays<BR>&nbsp;&nbsp;&nbsp;&nbsp;are expected to contain valid values<BR>&nbsp;&nbsp;&nbsp;&nbsp;on return.<BR>&nbsp;&nbsp;&nbsp;&nbsp; data_phase&nbsp;&nbsp;See below<BR>&nbsp;&nbsp;&nbsp;&nbsp; req_cmd&nbsp;&nbsp;Command type, see below<BR>&nbsp;&nbsp;&nbsp;&nbsp; out_size&nbsp;&nbsp;output (user-&gt;drive) buffer size, bytes<BR>&nbsp;&nbsp;&nbsp;&nbsp; in_size&nbsp;&nbsp;input (drive-&gt;user) buffer size, bytes</P>
+<P>&nbsp;&nbsp; When out_flags is zero, the following registers are loaded.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; HOB_FEATURE&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_NSECTOR&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_SECTOR&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_LCYL&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_HCYL&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; FEATURE<BR>&nbsp;&nbsp;&nbsp;&nbsp; NSECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; SECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; LCYL<BR>&nbsp;&nbsp;&nbsp;&nbsp; HCYL<BR>&nbsp;&nbsp;&nbsp;&nbsp; SELECT&nbsp;&nbsp;First, masked with 0xE0 if LBA48, 0xEF<BR>&nbsp;&nbsp;&nbsp;&nbsp;otherwise; then, or'ed with the default<BR>&nbsp;&nbsp;&nbsp;&nbsp;value of SELECT.</P>
+<P>&nbsp;&nbsp; If any bit in out_flags is set, the following registers are loaded.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; HOB_DATA&nbsp;&nbsp;If out_flags.b.data is set.&nbsp; HOB_DATA will<BR>&nbsp;&nbsp;&nbsp;&nbsp;travel on DD8-DD15 on little endian machines<BR>&nbsp;&nbsp;&nbsp;&nbsp;and on DD0-DD7 on big endian machines.<BR>&nbsp;&nbsp;&nbsp;&nbsp; DATA&nbsp;&nbsp;If out_flags.b.data is set.&nbsp; DATA will<BR>&nbsp;&nbsp;&nbsp;&nbsp;travel on DD0-DD7 on little endian machines<BR>&nbsp;&nbsp;&nbsp;&nbsp;and on DD8-DD15 on big endian machines.<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_NSECTOR&nbsp;&nbsp;If out_flags.b.nsector_hob is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_SECTOR&nbsp;&nbsp;If out_flags.b.sector_hob is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_LCYL&nbsp;&nbsp;If out_flags.b.lcyl_hob is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_HCYL&nbsp;&nbsp;If out_flags.b.hcyl_hob is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; FEATURE&nbsp;&nbsp;If out_flags.b.feature is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; NSECTOR&nbsp;&nbsp;If out_flags.b.nsector is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; SECTOR&nbsp;&nbsp;If out_flags.b.sector is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; LCYL&nbsp;&nbsp;If out_flags.b.lcyl is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; HCYL&nbsp;&nbsp;If out_flags.b.hcyl is set<BR>&nbsp;&nbsp;&nbsp;&nbsp; SELECT&nbsp;&nbsp;Or'ed with the default value of SELECT and<BR>&nbsp;&nbsp;&nbsp;&nbsp;loaded regardless of out_flags.b.select.</P>
+<P>&nbsp;&nbsp; Taskfile registers are read back from the drive into<BR>&nbsp;&nbsp; {io|hob}_ports[] after the command completes iff one of the<BR>&nbsp;&nbsp; following conditions is met; otherwise, the original values<BR>&nbsp;&nbsp; will be written back, unchanged.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; 1. The drive fails the command (EIO).<BR>&nbsp;&nbsp;&nbsp;&nbsp; 2. One or more than one bits are set in out_flags.<BR>&nbsp;&nbsp;&nbsp;&nbsp; 3. The requested data_phase is TASKFILE_NO_DATA.</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; HOB_DATA&nbsp;&nbsp;If in_flags.b.data is set.&nbsp; It will contain<BR>&nbsp;&nbsp;&nbsp;&nbsp;DD8-DD15 on little endian machines and<BR>&nbsp;&nbsp;&nbsp;&nbsp;DD0-DD7 on big endian machines.<BR>&nbsp;&nbsp;&nbsp;&nbsp; DATA&nbsp;&nbsp;If in_flags.b.data is set.&nbsp; It will contain<BR>&nbsp;&nbsp;&nbsp;&nbsp;DD0-DD7 on little endian machines and<BR>&nbsp;&nbsp;&nbsp;&nbsp;DD8-DD15 on big endian machines.<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_FEATURE&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_NSECTOR&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_SECTOR&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_LCYL&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; HOB_HCYL&nbsp;&nbsp;If the drive supports LBA48<BR>&nbsp;&nbsp;&nbsp;&nbsp; NSECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; SECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; LCYL<BR>&nbsp;&nbsp;&nbsp;&nbsp; HCYL</P>
+<P>&nbsp;&nbsp; The data_phase field describes the data transfer to be<BR>&nbsp;&nbsp; performed.&nbsp; Value is one of:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_IN<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_MULTI_IN<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_OUT<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_MULTI_OUT<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_IN_OUT<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_IN_DMA<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_IN_DMAQ&nbsp;&nbsp;== IN_DMA (queueing not supported)<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_OUT_DMA<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_OUT_DMAQ&nbsp;&nbsp;== OUT_DMA (queueing not supported)<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_P_IN&nbsp;&nbsp;unimplemented<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_P_IN_DMA&nbsp;&nbsp;unimplemented<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_P_IN_DMAQ&nbsp;&nbsp;unimplemented<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_P_OUT&nbsp;&nbsp;unimplemented<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_P_OUT_DMA&nbsp;&nbsp;unimplemented<BR>&nbsp;&nbsp;&nbsp;&nbsp; TASKFILE_P_OUT_DMAQ&nbsp;&nbsp;unimplemented</P>
+<P>&nbsp;&nbsp; The req_cmd field classifies the command type.&nbsp; It may be<BR>&nbsp;&nbsp; one of:</P>
+<P>&nbsp;&nbsp;&nbsp;&nbsp; IDE_DRIVE_TASK_NO_DATA<BR>&nbsp;&nbsp;&nbsp;&nbsp; IDE_DRIVE_TASK_SET_XFER&nbsp;unimplemented<BR>&nbsp;&nbsp;&nbsp;&nbsp; IDE_DRIVE_TASK_IN<BR>&nbsp;&nbsp;&nbsp;&nbsp; IDE_DRIVE_TASK_OUT&nbsp;&nbsp;unimplemented<BR>&nbsp;&nbsp;&nbsp;&nbsp; IDE_DRIVE_TASK_RAW_WRITE</P>
+<P>&nbsp;&nbsp; [6] Do not access {in|out}_flags-&gt;all except for resetting<BR>&nbsp;&nbsp; all the bits.&nbsp; Always access individual bit fields.&nbsp; -&gt;all<BR>&nbsp;&nbsp; value will flip depending on endianness.&nbsp; For the same<BR>&nbsp;&nbsp; reason, do not use IDE_{TASKFILE|HOB}_STD_{OUT|IN}_FLAGS<BR>&nbsp;&nbsp; constants defined in hdreg.h.</P>
+<P>&nbsp;</P>
+<P>HDIO_DRIVE_CMD&nbsp;&nbsp;&nbsp;execute a special drive command</P>
+<P>&nbsp;Note:&nbsp; If you don't have a copy of the ANSI ATA specification<BR>&nbsp;handy, you should probably ignore this ioctl.</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; u8 args[4+XFER_SIZE];<BR>&nbsp;&nbsp; ...<BR>&nbsp;&nbsp; ioctl(fd, HDIO_DRIVE_CMD, args);</P>
+<P>&nbsp;inputs:</P>
+<P>&nbsp;&nbsp; Commands other than WIN_SMART<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[0]&nbsp;COMMAND<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[1]&nbsp;NSECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[2]&nbsp;FEATURE<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[3]&nbsp;NSECTOR</P>
+<P>&nbsp;&nbsp; WIN_SMART<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[0]&nbsp;COMMAND<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[1]&nbsp;SECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[2]&nbsp;FEATURE<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[3]&nbsp;NSECTOR</P>
+<P>&nbsp;outputs:</P>
+<P>&nbsp;&nbsp; args[] buffer is filled with register values followed by any<BR>&nbsp;&nbsp; data returned by the disk.<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[0]&nbsp;status<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[1]&nbsp;error<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[2]&nbsp;NSECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[3]&nbsp;undefined<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[4+]&nbsp;NSECTOR * 512 bytes of data returned by the command.</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_RAWIO<BR>&nbsp;&nbsp; ENOMEM&nbsp;Unable to allocate memory for task<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;Drive reports error</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; [1] For commands other than WIN_SMART, args[1] should equal<BR>&nbsp;&nbsp; args[3].&nbsp; SECTOR, LCYL and HCYL are undefined.&nbsp; For<BR>&nbsp;&nbsp; WIN_SMART, 0x4f and 0xc2 are loaded into LCYL and HCYL<BR>&nbsp;&nbsp; respectively.&nbsp; In both cases SELECT will contain the default<BR>&nbsp;&nbsp; value for the drive.&nbsp; Please refer to HDIO_DRIVE_TASKFILE<BR>&nbsp;&nbsp; notes for the default value of SELECT.</P>
+<P>&nbsp;&nbsp; [2] If NSECTOR value is greater than zero and the drive sets<BR>&nbsp;&nbsp; DRQ when interrupting for the command, NSECTOR * 512 bytes<BR>&nbsp;&nbsp; are read from the device into the area following NSECTOR.<BR>&nbsp;&nbsp; In the above example, the area would be<BR>&nbsp;&nbsp; args[4..4+XFER_SIZE].&nbsp; 16bit PIO is used regardless of<BR>&nbsp;&nbsp; HDIO_SET_32BIT setting.</P>
+<P>&nbsp;&nbsp; [3] If COMMAND == WIN_SETFEATURES &amp;&amp; FEATURE == SETFEATURES_XFER<BR>&nbsp;&nbsp; &amp;&amp; NSECTOR &gt;= XFER_SW_DMA_0 &amp;&amp; the drive supports any DMA<BR>&nbsp;&nbsp; mode, IDE driver will try to tune the transfer mode of the<BR>&nbsp;&nbsp; drive accordingly.</P>
+<P>&nbsp;</P>
+<P>HDIO_DRIVE_TASK&nbsp;&nbsp;&nbsp;execute task and special drive command</P>
+<P>&nbsp;Note:&nbsp; If you don't have a copy of the ANSI ATA specification<BR>&nbsp;handy, you should probably ignore this ioctl.</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; u8 args[7];<BR>&nbsp;&nbsp; ...<BR>&nbsp;&nbsp; ioctl(fd, HDIO_DRIVE_TASK, args);</P>
+<P>&nbsp;inputs:</P>
+<P>&nbsp;&nbsp; Taskfile register values:<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[0]&nbsp;COMMAND<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[1]&nbsp;FEATURE<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[2]&nbsp;NSECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[3]&nbsp;SECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[4]&nbsp;LCYL<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[5]&nbsp;HCYL<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[6]&nbsp;SELECT</P>
+<P>&nbsp;outputs:</P>
+<P>&nbsp;&nbsp; Taskfile register values:<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[0]&nbsp;status<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[1]&nbsp;error<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[2]&nbsp;NSECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[3]&nbsp;SECTOR<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[4]&nbsp;LCYL<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[5]&nbsp;HCYL<BR>&nbsp;&nbsp;&nbsp;&nbsp; args[6]&nbsp;SELECT</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_RAWIO<BR>&nbsp;&nbsp; ENOMEM&nbsp;Unable to allocate memory for task<BR>&nbsp;&nbsp; ENOMSG&nbsp;Device is not a disk drive.<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;Drive failed the command.</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; [1] DEV bit (0x10) of SELECT register is ignored and the<BR>&nbsp;&nbsp; appropriate value for the drive is used.&nbsp; All other bits<BR>&nbsp;&nbsp; are used unaltered.</P>
+<P>&nbsp;</P>
+<P>HDIO_DRIVE_CMD_AEB&nbsp;&nbsp;HDIO_DRIVE_TASK</P>
+<P>&nbsp;Not implemented, as of 2.6.8.1</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_32BIT&nbsp;&nbsp;&nbsp;change io_32bit flags</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_32BIT, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for io_32bit flag</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 3]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P><BR>HDIO_SET_NOWERR&nbsp;&nbsp;&nbsp;change ignore-write-error flag</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_NOWERR, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for ignore-write-error flag.&nbsp; Used for ignoring<BR>&nbsp;&nbsp; WRERR_STAT</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 1]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_DMA&nbsp;&nbsp;&nbsp;change use-dma flag</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_DMA, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for use-dma flag</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 1]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_PIO_MODE&nbsp;&nbsp;reconfig interface to new speed</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_PIO_MODE, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New interface speed.</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 255]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P>HDIO_SCAN_HWIF&nbsp;&nbsp;&nbsp;register and (re)scan interface</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int args[3]<BR>&nbsp;&nbsp; ...<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SCAN_HWIF, args);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; args[0]&nbsp;io address to probe<BR>&nbsp;&nbsp; args[1]&nbsp;control address to probe<BR>&nbsp;&nbsp; args[2]&nbsp;irq number</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_RAWIO<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;Probe failed.</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; This ioctl initializes the addresses and irq for a disk<BR>&nbsp;&nbsp; controller, probes for drives, and creates /proc/ide<BR>&nbsp;&nbsp; interfaces as appropriate.</P>
+<P>&nbsp;</P>
+<P>HDIO_UNREGISTER_HWIF&nbsp;&nbsp;unregister interface</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int index;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_UNREGISTER_HWIF, index);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; index&nbsp;&nbsp;index of hardware interface to unregister</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error returns:<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_RAWIO</P>
+<P>&nbsp;notes:</P>
+<P>&nbsp;&nbsp; This ioctl removes a hardware interface from the kernel.</P>
+<P>&nbsp;&nbsp; Currently (2.6.8) this ioctl silently fails if any drive on<BR>&nbsp;&nbsp; the interface is busy.</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_WCACHE&nbsp;&nbsp;&nbsp;change write cache enable-disable</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_WCACHE, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for write cache enable</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 1]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_ACOUSTIC&nbsp;&nbsp;change acoustic behavior</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_ACOUSTIC, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for drive acoustic settings</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 254]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_QDMA&nbsp;&nbsp;&nbsp;change use-qdma flag</P>
+<P>&nbsp;Not implemented, as of 2.6.8.1</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_ADDRESS&nbsp;&nbsp;change lba addressing modes</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; int val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_ADDRESS, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for addressing mode<BR>&nbsp;&nbsp;&nbsp;&nbsp; 0 = 28-bit<BR>&nbsp;&nbsp;&nbsp;&nbsp; 1 = 48-bit<BR>&nbsp;&nbsp;&nbsp;&nbsp; 2 = 48-bit doing 28-bit</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 2]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy<BR>&nbsp;&nbsp; EIO&nbsp;&nbsp;Drive does not support lba48 mode.</P>
+<P><BR>HDIO_SET_IDE_SCSI</P>
+<P>&nbsp;usage:</P>
+<P>&nbsp;&nbsp; long val;<BR>&nbsp;&nbsp; ioctl(fd, HDIO_SET_IDE_SCSI, val);</P>
+<P>&nbsp;inputs:<BR>&nbsp;&nbsp; New value for scsi emulation mode (?)</P>
+<P>&nbsp;outputs:&nbsp;none</P>
+<P>&nbsp;error return:<BR>&nbsp;&nbsp; EINVAL&nbsp;(bdev != bdev-&gt;bd_contains) (not sure what this means)<BR>&nbsp;&nbsp; EACCES&nbsp;Access denied:&nbsp; requires CAP_SYS_ADMIN<BR>&nbsp;&nbsp; EINVAL&nbsp;value out of range [0 1]<BR>&nbsp;&nbsp; EBUSY&nbsp;&nbsp;Controller busy</P>
+<P>&nbsp;</P>
+<P>HDIO_SET_SCSI_IDE</P>
+<P>&nbsp;Not implemented, as of 2.6.8.1</P>
+<P><BR>&nbsp;

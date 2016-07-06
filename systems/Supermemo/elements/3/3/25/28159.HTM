@@ -1,0 +1,102 @@
+<DIV class=abstract>In Part II of his series on ptrace, Pradeep tackles the more advanced topics of setting breakpoints and injecting code into running processes. </DIV>
+<DIV class=content>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x18b9890.0x19af328></A>Injecting the Code into Free Space</DIV>
+<P>In the previous example we injected the code directly into the executing instruction stream. However, debuggers can get confused with this kind of behaviour, so let's find the free space in the process and inject the code there. We can find free space by examining the /proc/pid/maps file of the traced process. The following function will find the starting address of this map:</P><PRE class=programlisting>long freespaceaddr(pid_t pid)
+{
+    FILE *fp;
+    char filename[30];
+    char line[85];
+    long addr;
+    char str[20];
+    sprintf(filename, "/proc/%d/maps", pid);
+    fp = fopen(filename, "r");
+    if(fp == NULL)
+        exit(1);
+    while(fgets(line, 85, fp) != NULL) {
+        sscanf(line, "%lx-%*lx %*s %*s %s", &amp;addr,
+               str, str, str, str);
+        if(strcmp(str, "00:00") == 0)
+            break;
+    }
+    fclose(fp);
+    return addr;
+}
+</PRE>
+<P>Each line in /proc/pid/maps represents a mapped region of the process. An entry in /proc/pid/maps looks like this: </P><PRE class=programlisting>map start-mapend    protection  offset     device
+inode      process file
+08048000-0804d000   r-xp        00000000   03:08
+66111      /opt/kde2/bin/kdeinit
+</PRE>The following program injects code into free space. It's similar to the previous injection program except the free space address is used for keeping our new code. Here is the source code for the main function: <PRE class=programlisting>int main(int argc, char *argv[])
+{   pid_t traced_process;
+    struct user_regs_struct oldregs, regs;
+    long ins;
+    int len = 41;
+    char insertcode[] =
+"\xeb\x15\x5e\xb8\x04\x00"
+        "\x00\x00\xbb\x02\x00\x00\x00\x89\xf1\xba"
+        "\x0c\x00\x00\x00\xcd\x80\xcc\xe8\xe6\xff"
+        "\xff\xff\x48\x65\x6c\x6c\x6f\x20\x57\x6f"
+        "\x72\x6c\x64\x0a\x00";
+    char backup[len];
+    long addr;
+    if(argc != 2) {
+        printf("Usage: %s &lt;pid to be traced&gt;\n",
+               argv[0], argv[1]);
+        exit(1);
+    }
+    traced_process = atoi(argv[1]);
+    ptrace(PTRACE_ATTACH, traced_process,
+           NULL, NULL);
+    wait(NULL);
+    ptrace(PTRACE_GETREGS, traced_process,
+           NULL, &amp;regs);
+    addr = freespaceaddr(traced_process);
+    getdata(traced_process, addr, backup, len);
+    putdata(traced_process, addr, insertcode, len);
+    memcpy(&amp;oldregs, &amp;regs, sizeof(regs));
+    regs.eip = addr;
+    ptrace(PTRACE_SETREGS, traced_process,
+           NULL, &amp;regs);
+    ptrace(PTRACE_CONT, traced_process,
+           NULL, NULL);
+    wait(NULL);
+    printf("The process stopped, Putting back "
+           "the original instructions\n");
+    putdata(traced_process, addr, backup, len);
+    ptrace(PTRACE_SETREGS, traced_process,
+           NULL, &amp;oldregs);
+    printf("Letting it continue with "
+           "original flow\n");
+    ptrace(PTRACE_DETACH, traced_process,
+           NULL, NULL);
+    return 0;
+}
+</PRE>
+<P></P></DIV>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x18b9890.0x1c65590></A>Behind the Scenes</DIV>
+<P>So what happens within the kernel now? How is ptrace implemented? This section could be an article on its own; however, here's a brief description of what happens.</P>
+<P>When a process calls ptrace with PTRACE_TRACEME, the kernel sets up the process flags to reflect that it is being traced:</P><PRE class=programlisting>Source: arch/i386/kernel/ptrace.c
+if (request == PTRACE_TRACEME) {
+    /* are we already being traced? */
+    if (current-&gt;ptrace &amp; PT_PTRACED)
+        goto out;
+    /* set the ptrace bit in the process flags. */
+    current-&gt;ptrace |= PT_PTRACED;
+    ret = 0;
+    goto out;
+}
+</PRE>
+<P>When a system call entry is done, the kernel checks this flag and calls the trace system call if the process is being traced. The gory assembly details can be found in arch/i386/kernel/entry.S. </P>
+<P>Now, we are in the sys_trace() function as defined in arch/i386/kernel/ptrace.c. It stops the child and sends a signal to the parent notifying that the child is stopped. This wakes up the waiting parent, and it does the ptrace magic. Once the parent is done, and it calls ptrace(PTRACE_CONT, ..) or ptrace(PTRACE_SYSCALL, ..), it wakes up the child by calling the scheduler function wake_up_process(). Some other architectures can implement this by sending a SIGCHLD to child.</P></DIV>
+<DIV lang=en class=simplesect>
+<DIV class=titlepage><A name=N0x18b9890.0x1c657f8></A>Conclusion</DIV>
+<P><SPAN class=bold><B>ptrace</B></SPAN> may appear to be magic to some people, because it can examine and modify a running program. It is generally used by debuggers and system call tracing programs, such as ptrace. It opens up interesting possibilities for doing user-mode extensions as well. There have been a lot of attempts to extend the operating system on the user level. See Resources to read about UFO, a user-level extension to filesystems. <SPAN class=bold><B>ptrace</B></SPAN> also is used to employ security mechanisms.</P>
+<P>All example code from this article and from Part I is available as a tar archive on the <I>Linux Journal</I> FTP site [<A href="ftp://ftp.linuxjournal.com/pub/lj/listings/issue104/6210.tgz">ftp.linuxjournal.com/pub/lj/listings/issue104/6210.tgz</A>].</P>
+<P><A href="http://www.linuxjournal.com/files/linuxjournal.com/linuxjournal/articles/062/6210/6210s1.html">Resources</A></P></DIV>
+<DIV class=authorblurb>
+<P></P>
+<DIV class=mediaobject><IMG src="http://www.linuxjournal.com/files/linuxjournal.com/linuxjournal/articles/062/6210/6210aa.jpg"></DIV>email: <A href="mailto:ppadala@cise.ufl.edu">ppadala@cise.ufl.edu</A> 
+<P></P>
+<P><SPAN class=bold><B>Pradeep Padala</B></SPAN> is currently working on his Master's degree at the University of Florida. His research interests include Grid and distributed systems. He can be reached via e-mail at <A href="mailto:p_padala@yahoo.com">p_padala@yahoo.com</A> or through his web site (<A href="http://www.cise.ufl.edu/~ppadala">www.cise.ufl.edu/~ppadala</A>).</P></DIV></DIV>

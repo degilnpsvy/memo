@@ -1,0 +1,45 @@
+<H3 id=-100000 class=docSection1Title>Allocating Memory</H3>
+<P class=docText><A name="Some device"></A>Some device drivers have to be aware of the existence of <SPAN class=docEmphasis>memory zones.</SPAN><A name="drivers need"></A> In addition, many drivers need the services of memory-allocation functions. In this section, let's briefly discuss both.</P>
+<P class=docText><A name="kernel organizes"></A>The kernel organizes physical memory into <SPAN class=docEmphasis>pages.</SPAN><A name="in physical"></A> The page size depends on the architecture. On x86-based machines, it's 4096 bytes. <FONT class=extract>Each page in physical memory has a <TT>struct page</TT> (defined in <SPAN class=docEmphasis>include/linux/mm_types.h</SPAN>) associated with it:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>struct page {
+  unsigned long flags; /* Page status */
+  atomic_t _count;     /* Reference count */
+  /* ... */
+  void * virtual;      /* Explained later on */
+};</FONT></PRE></DIV><BR>
+<P class=docText><A name=iddle2931></A><A name=iddle1055></A><A name=iddle1060></A><A name=iddle1359></A><A name=iddle1800></A><A name=iddle1817></A><A name=iddle2847></A><A name=iddle2967></A><A name=iddle2968></A><A name=iddle2969></A><A name=iddle4590></A><A name=iddle4678></A><A name=iddle4679></A><A name=iddle4680></A><A name="splits the"></A><FONT class=extract>On 32-bit x86 systems, the default kernel configuration splits the available 4GB address space into a 3GB virtual memory space for user processes and a 1GB space for the kernel, as shown in </FONT><A class=docLink href="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/ch02lev1sec7.html#ch02fig03"><FONT class=extract>Figure 2.5</FONT></A><A name="memory that"></A><FONT class=extract>. This imposes a 1GB limit on the amount of physical memory that the kernel can handle. In reality, the limit is 896MB because 128MB of the address space is occupied by kernel data structures. You may increase this limit by changing the 3GB/1GB split during kernel configuration, but you will incur the displeasure of memory-intensive applications if you reduce the virtual address space of user processes.</FONT></P><A name=ch02fig03></A>
+<P><FONT class=extract></FONT>
+<CENTER>
+<H5 class=docFigureTitle><A name="a "></A><FONT class=extract>Figure 2.5. Default address space split on a 32-bit PC system.</FONT></H5>
+<P class=docText><FONT class=extract><IMG border=0 alt="" src="http://www.embeddedlinux.org.cn/EssentialLinuxDeviceDrivers/final/images/YTNyaWQ3ODBzOS9jL2VnbXRwNjQ5NWEzMi9yZzE1ZmkwcGdmaS4wLzVoaWcyc2M-.jpg" width=450 height=283></FONT></P></CENTER>
+<P><FONT class=extract></FONT></P><BR>
+<P class=docText><A name="physical addresses"></A><FONT class=extract>Kernel addresses that map the low 896MB differ from physical addresses by a constant offset and are called <SPAN class=docEmphasis>logical addresses.</SPAN></FONT><A name="the kernel"></A><FONT class=extract> With "high memory" support, the kernel can access memory beyond 896MB by generating <SPAN class=docEmphasis>virtual addresses</SPAN></FONT><A name="virtual addresses"></A><FONT class=extract> for those regions using special mappings. All logical addresses are kernel virtual addresses, but not vice versa.</FONT></P>
+<P class=docText><A name="This leads"></A><FONT class=extract>This leads us to the following kernel memory zones:</FONT></P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT><FONT class=extract>ZONE_DMA</FONT></TT><A name="used for"></A><FONT class=extract> (&lt;16MB), the zone used for <SPAN class=docEmphasis><A name="Memory Access"></A>Direct Memory Access</SPAN></FONT><A name="access only"></A><FONT class=extract> (DMA). Because legacy ISA devices have 24 address lines and can access only the first 16MB, the kernel tries to dedicate this area for such devices.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT><FONT class=extract>ZONE_NORMAL</FONT></TT><A name="called low"></A><FONT class=extract> (16MB to 896MB), the normally addressable region, also called low memory. The "virtual" field in <TT>struct page</TT> for low memory pages contains the corresponding logical addresses.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docList><TT><FONT class=extract>ZONE_HIGH</FONT></TT><A name="mapping resident"></A><FONT class=extract> (&gt;896MB), the space that the kernel can access only after mapping resident pages to regions in <TT>ZONE_NORMAL</TT> (using <TT>kmap()</TT> and <TT>kunmap()</TT>). </FONT><A name=iddle2665></A><A name=iddle2710></A><A name=iddle4601></A><A name="and not"></A><FONT class=extract>The corresponding kernel addresses are virtual and not logical. The "virtual" field in <TT>struct page</TT> for high memory pages points to <TT>NULL</TT> if the page is not kmapped.</FONT></P></DIV></LI></OL></DIV>
+<P class=docText><FONT class=extract><TT>kmalloc()</TT> is a memory-allocation function that returns contiguous memory from <TT>ZONE_NORMAL</TT>. The prototype is as follows:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>void *kmalloc(int count, int flags);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Where <TT>count</TT> is the number of bytes to allocate, and <TT>flags</TT></FONT><A name=in></A><FONT class=extract> is a mode specifier. All supported flags are listed in <SPAN class=docEmphasis>include/linux./gfp.h</SPAN></FONT><A name=for></A><FONT class=extract> (gfp stands for <SPAN class=docEmphasis>get free pages</SPAN>), but these are the commonly used ones:</FONT></P>
+<DIV style="FONT-WEIGHT: bold">
+<OL class=docList type=1>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><TT><FONT class=extract>GFP_KERNEL</FONT></TT><A name="is specified"></A><FONT class=extract> Used by process context code to allocate memory. If this flag is specified, <TT>kmalloc()</TT></FONT><A name="is allowed"></A><FONT class=extract> is allowed to go to sleep and wait for pages to get freed up.</FONT></P></DIV>
+<LI>
+<DIV style="FONT-WEIGHT: normal">
+<P class=docText><TT><FONT class=extract>GFP_ATOMIC</FONT></TT><A name="interrupt context"></A><FONT class=extract> Used by interrupt context code to get hold of memory. In this mode, <TT>kmalloc()</TT></FONT><A name="not allowed"></A><FONT class=extract> is not allowed to sleep-wait for free pages, so the probability of successful allocation with <TT>GFP_ATOMIC</TT> is lower than with <TT>GFP_KERNEL</TT>.</FONT></P></DIV></LI></OL></DIV>
+<P class=docText><FONT class=extract>Because memory returned by <TT>kmalloc()</TT></FONT><A name="a security"></A><FONT class=extract> retains the contents from its previous incarnation, there could be a security risk if it's exposed to user space. To get zeroed kmalloced memory, use <TT>kzalloc()</TT>.</FONT></P>
+<P class=docText><A name="large memory"></A><FONT class=extract>If you need to allocate large memory buffers, and you don't require the memory to be physically contiguous, use <TT>vmalloc()</TT> rather than <TT>kmalloc()</TT>:</FONT></P>
+<DIV class=docText><PRE><FONT class=extract>void *vmalloc(unsigned long count);</FONT></PRE></DIV><BR>
+<P class=docText><FONT class=extract>Here <TT>count</TT> is the requested allocation size. The function returns kernel virtual addresses.</FONT></P>
+<P class=docText><FONT class=extract><TT>vmalloc()</TT> enjoys bigger allocation size limits than <TT>kmalloc()</TT></FONT><A name="cannot use"></A><FONT class=extract> but is slower and can't be called from interrupt context. Moreover, you cannot use the physically discontiguous memory returned by <TT>vmalloc()</TT> to perform <SPAN class=docEmphasis>Direct Memory Access</SPAN> (DMA). High-performance network drivers commonly use <TT>vmalloc()</TT></FONT><A name="the device"></A><FONT class=extract> to allocate large descriptor rings when the device is opened.</FONT></P>
+<P class=docText><A name=include></A><FONT class=extract>The kernel offers more sophisticated memory allocation techniques. These include <SPAN class=docEmphasis><A name="aside buffers"></A>look aside buffers</SPAN>, <SPAN class=docEmphasis>slabs</SPAN>, and <SPAN class=docEmphasis>mempools</SPAN>, which are beyond the scope of this chapter.</FONT>

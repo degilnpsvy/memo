@@ -1,0 +1,107 @@
+<H3 id=title-IDAO32PF class=docSection1Title>10.4. MTD Utilities</H3>
+<P class=docText>The MTD package contains a number of system utilities useful for setting up and managing your MTD subsystem. The utilities are built separately from the primary MTD subsystem, which should be built from within your Linux kernel source tree. The utilities can be built in a similar manner to any other cross-compiled user space code.</P>
+<P class=docText>You must use caution when using these utilities because there is no protection from mistakes. A single-digit typo can wipe out the bootloader on your hardware platform, which can definitely ruin your day unless you've backed it up and know how to reprogram it using a JTAG Flash programmer.</P>
+<P class=docText>In keeping with a common practice throughout this book, we cannot devote sufficient space to cover every MTD utility. We highlight the most common and useful ones, and leave it as an exercise for the reader to explore the rest. A recent MTD snapshot contained more than 20 binary utilities.</P>
+<P class=docText>The <TT>flash_*</TT> family of utilities is useful for raw device operations on an MTD partition. These include flashcp, flash_erase, flash_info, flash_lock, flash_unlock, and others. Hopefully their names are descriptive enough to give some idea of their function. After partitions are defined and enumerated as kernel devices, any of these user space utilities can be run on a partition. We repeat the warning we issued earlier: If you execute <TT>flash_erase</TT> on the partition containing your bootloader, you'll be the proud owner of a silicon paperweight. If you intend to experiment like <A name=iddle1510></A><A name=iddle1949></A>this, it's a good idea to have a backup of your bootloader image and know how to re-Flash it using a hardware JTAG emulator or other Flash programming tool.</P>
+<P class=docText>Our new partition created in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec3.html#ch10list08">Listing 10-8</A> (<TT>MyKernel</TT>) shows up in the kernel running on the Coyote board, as detailed in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec4.html#ch10list13">Listing 10-13</A>. Here you can see the new partition we created instantiated as the kernel device <TT>mTD1</TT>.</P><A name=ch10list13></A>
+<H5 id=title-IDAQ52PF class=docExampleTitle>Listing 10-13. Kernel MTD Partition List</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote:~# <SPAN class=docEmphStrong>cat /proc/mtd</SPAN>
+dev:    size   erasesize  name
+mtd0: 00060000 00020000 "RedBoot"
+mtd1: 00160000 00020000 "MyKernel"
+mtd2: 00001000 00020000 "RedBoot config"x
+mtd3: 00020000 00020000 "FIS directory"</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Using the MTD utilities, we can perform a number of operations on the newly created partition. The following shows the results of a <TT>flash_erase</TT> command on the partition:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>flash_erase /dev/mtd1</SPAN>
+Erase Total 1 Units
+Performing Flash Erase of length 131072 at offset 0x0 done</PRE></DIV><BR>
+<P class=docText>To copy a new kernel image to this partition, use the <TT>flashcp</TT> command:</P>
+<DIV class=docText><PRE>root@coyote:~# <SPAN class=docEmphStrong>flashcp /workspace/coyote-40-zImage /dev/mtd1</SPAN></PRE></DIV><BR>
+<P class=docText>It gets a bit more interesting working with a root file system partition. We have the option of using the bootloader or the Linux kernel to place the initial image on the Redboot flash partition. First, we use Redboot to create the new partition that will hold our root file system. The following command creates a new partition on the Flash called <TT>RootFS</TT> starting at physical memory <TT>0x50300000</TT>, with a length of 30 blocks. Remember, a block, generically called an erase unit, is 128KB on this Flash chip.</P>
+<DIV class=docText><PRE>RedBoot&gt; <SPAN class=docEmphStrong>fis create -f 0x50300000 -l 0x600000 -n RootFS</SPAN></PRE></DIV><BR>
+<P class=docText>Next, we boot the kernel and copy the root file system image into the new partition we have named <TT>RootFS</TT>. This is accomplished with the following command from a Linux command prompt on your target board. Note that this assumes you have already placed your file system image in a directory accessible to your board. <A name=iddle1428></A><A name=iddle1447></A><A name=iddle1985></A><A name=iddle2133></A><A name=iddle2192></A>As mentioned many times throughout this book, NFS is your best choice for development.</P>
+<DIV class=docText><PRE>root@coyote:~# <SPAN class=docEmphStrong>flashcp /rootfs.ext2/dev/mtd2</SPAN></PRE></DIV><BR>
+<P class=docText>The file system can be anywhere from a couple megabytes up to the largest size we have allowed on this partition, so this can take some time. Remember, this operation involves programming (sometimes called flashing) the image into the Flash memory. After copying, we can mount the partition as a file system. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec4.html#ch10list14">Listing 10-14</A> displays the sequence.</P><A name=ch10list14></A>
+<H5 id=title-IDAPE3PF class=docExampleTitle>Listing 10-14. Mounting MTD Flash Partition as ext2 File System</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote:~# <SPAN class=docEmphStrong>mount -t ext2/dev/mtdblock2 /mnt/remote ro</SPAN>
+root@coyote:~# <SPAN class=docEmphStrong>ls -l /mnt/remote/</SPAN>
+total 16
+drwxr-xr-x  2 root root 1024 Nov 19  2005 bin
+drwxr-xr-x  2 root root 1024 Oct 26  2005 boot
+drwxr-xr-x  2 root root 1024 Nov 19  2005 dev
+drwxr-xr-x  5 root root 1024 Nov 19  2005 etc
+drwxr-xr-x  2 root root 1024 Oct 26  2005 home
+drwxr-xr-x  3 root root 1024 Nov 19  2005 lib
+drwxr-xr-x  3 root root 1024 Nov 19  2005 mnt
+drwxr-xr-x  2 root root 1024 Oct 26  2005 opt
+drwxr-xr-x  2 root root 1024 Oct 26  2005 proc
+drwxr-xr-x  2 root root 1024 Oct 26  2005 root
+drwxr-xr-x  2 root root 1024 Nov 19  2005 sbin
+drwxr-xr-x  2 root root 1024 Oct 26  2005 srv
+drwxr-xr-x  2 root root 1024 Oct 26  2005 sys
+drwxr-xr-x  2 root root 1024 Oct 26  2005 tmp
+drwxr-xr-x  6 root root 1024 Oct 26  2005 usr
+drwxr-xr-x  2 root root 1024 Nov 19  2005 var
+root@coyote:~#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec4.html#ch10list14">Listing 10-14</A> has two important subtleties. Notice that we have specified <TT>/dev/mtdblock2</TT> on the mount command line. This is the MTD block driver that enables us to access the MTD partition as a block device. Using <TT>/dev/mtd2</TT> as a specifier instructs the kernel to use the MTD character driver. Both the <TT>mtdchar</TT> and <TT>mtdblock</TT> are pseudodrivers used to provide either character-based or block-oriented access to the underlying Flash partition. Because <TT>mount</TT> expects a block device, you must use the block-device specifier. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec1.html#ch10fig01">Figure 10-1</A> shows the kernel configuration that enables these access methods. The respective kernel configuration macros are <TT>CONFIG_MTD_CHAR</TT> and <TT>CONFIG_MTD_BLOCK</TT>.</P>
+<P class=docText><A name=iddle1463></A><A name=iddle1693></A><A name=iddle1705></A><A name=iddle1870></A><A name=iddle2130></A>The second subtlety is the use of the read-only (ro) command-line switch on the <TT>mount</TT> command. It is perfectly acceptable to mount an ext2 image from Flash using the MTD block emulation driver for read-only purposes. However, there is no support for writing to an ext2 device using the <TT>mtdblock</TT> driver. This is because ext2 has no knowledge of Flash erase blocks. For write access to a Flash-based file system, we need to use a file system with Flash knowledge, such as JFFS2.</P><A name=ch10lev2sec8></A>
+<H4 id=title-IDAGI3PF class=docSection2Title>10.4.1. JFFS2 Root File System</H4>
+<P class=docText>Creating a JFFS2 root file system is a straightforward process. In addition to compression, JFFS2 supports wear leveling, a feature designed to increase Flash lifetime by fairly distributing the write cycles across the blocks of the device. As pointed out in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch09.html#ch09">Chapter 9</A>, Flash memory is subject to a limited number of write cycles. Wear leveling should be considered a mandatory feature in any Flash-based file system you employ. As mentioned elsewhere in this book, you should consider Flash memory as a write-occasional medium. Specifically, you should avoid allowing any processes that require frequent writes to target the Flash file system. Be especially aware of any logging programs, such as syslogd.</P>
+<P class=docText>We can build a JFFS2 image on our development workstation using the ext2 image we used on our Redboot <TT>RootFS</TT> partition. The compression benefits will be immediately obvious. The image we used in the previous <TT>RootFS</TT> example was an ext2 file system image. Here is the listing in long (<TT>-l</TT>) format:</P>
+<DIV class=docText><PRE># <SPAN class=docEmphStrong>ls -l rootfs.ext2</SPAN>
+-rw-r--r--  1 root root 6291456 Nov 19 16:21 rootfs.ext2</PRE></DIV><BR>
+<P class=docText>Now let's convert this file system image to JFFS2 using the mkfs.jffs2 utility found in the MTD package. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec4.html#ch10list15">Listing 10-15</A> shows the command and results.</P><A name=ch10list15></A>
+<H5 id=title-IDA0J3PF class=docExampleTitle>Listing 10-15. Converting RootFS to JFFS2</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># <SPAN class=docEmphStrong>mount -o loop rootfs.ext2/mnt/flash/</SPAN>
+# <SPAN class=docEmphStrong>mkfs.jffs2 -r /mnt/flash -e 128 -b -o rootfs.jffs2</SPAN>
+# <SPAN class=docEmphStrong>ls -l rootfs.jffs2</SPAN>
+-rw-r--r--  1 root root 2401512 Nov 20 10:08 rootfs.jffs2
+#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>First we mount the ext2 file system image on a loopback device on an arbitrary mount point on our development workstation. Next we invoke the MTD utility <A name=iddle1871></A>mkfs.jffs2 to create the JFFS2 file system image. The <TT>-r</TT> flag tells mkfs.jffs2 where the root file system image is located. The <TT>-e</TT> instructs mkfs.jffs2 to build the image while assuming a 128KB block size. The default is 64KB. JFFS2 does not exhibit its most efficient behavior if the Flash device contains a different block size than the block size of the image. Finally, we display a long listing and discover that the resulting JFFS2 root file system image has been reduced in size by more than 60 percent. When you are working with limited Flash memory, this is a substantial reduction in precious Flash resource usage.</P>
+<P class=docText>Take note of an important command-line flag passed to mkfs.jffs2 in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec4.html#ch10list15">Listing 10-15</A>. The <TT>-b</TT> flag is the <TT>-big-endian</TT> flag. This instructs the mkfs.jffs2 utility to create a JFFS2 Flash image suitable for use on a big-endian target. Because we are targeting the ADI Engineering Coyote board, which contains an Intel IXP425 processor running in big-endian mode, this step is crucial for proper operation. If you fail to specify big endian, you will get several screens full of complaints from the kernel as it tries to negotiate the superblock of a JFFS2 file system that is essentially gibberish.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec4.html#ch10fn02">[2]</A></SUP> Anyone care to guess how I remembered this important detail?</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch10fn02>[2]</A></SUP> The kernel can be configured to operate with a wrong-endian MTD file system, at the cost of reduced performance. In some configurations (such as multiprocessor designs), this can be a useful feature.</P></BLOCKQUOTE>
+<P class=docText>In a similar manner to the previous example, we can copy this image to our Redboot <TT>RootFS</TT> Flash partition using the flashcp utility. Then we can boot the Linux kernel using a JFFS2 root file system. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec4.html#ch10list16">Listing 10-16</A> provides the details, running the MTD utilities on our target hardware.</P><A name=ch10list16></A>
+<H5 id=title-IDAIM3PF class=docExampleTitle>Listing 10-16. Copying JFFS2 to <TT>RootFS</TT> Partition</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote:~# <SPAN class=docEmphStrong>cat /proc/mtd</SPAN>
+dev:    size   erasesize  name
+mtd0: 00060000 00020000 "RedBoot"
+mtd1: 00160000 00020000 "MyKernel"
+mtd2: 00600000 00020000 "RootFS"
+mtd3: 00001000 00020000 "RedBoot config"
+mtd4: 00020000 00020000 "FIS directory"
+root@coyote:~# <SPAN class=docEmphStrong>flash_erase /dev/mtd2</SPAN>
+Erase Total 1 Units
+Performing Flash Erase of length 131072 at offset 0x0 done
+root@coyote:~# <SPAN class=docEmphStrong>flashcp /rootfs.jffs2 /dev/mtd2</SPAN>
+root@coyote:~#</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1850></A>It is important to note that you must have the JFFS2 file system enabled in your kernel configuration. Execute <TT>make ARCH=&lt;arch&gt; gconfig</TT> and select JFFS2 under File Systems, Miscellaneous File Systems. Another useful hint is to use the <TT>-v</TT> (verbose) flag on the MTD utilities. This provides progress updates and other useful information during the Flash operations.</P>
+<P class=docText>We have already seen how to boot a kernel with the Redboot <TT>exec</TT> command. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch10lev1sec4.html#ch10list17">Listing 10-17</A> details the sequence of commands to load and boot the Linux kernel with our new JFFS2 file system as root.</P><A name=ch10list17></A>
+<H5 id=title-IDAFO3PF class=docExampleTitle>Listing 10-17. Booting with JFFS2 as Root File System</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>RedBoot&gt; <SPAN class=docEmphStrong>load -r -v -b 0x01008000 coyote-zImage</SPAN>
+Using default protocol (TFTP)
+Raw file loaded 0x01008000-0x0114decb, assumed entry at 0x01008000
+RedBoot&gt; <SPAN class=docEmphStrong>exec -c "console=ttyS0,115200 rootfstype=jffs2 root=/dev/mtdblock2"</SPAN>
+Using base address 0x01008000 and length 0x00145ecc
+Uncompressing Linux...... done, booting the kernel.
+...</PRE></TD></TR></TBODY></TABLE>

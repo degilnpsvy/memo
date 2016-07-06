@@ -1,0 +1,79 @@
+<H3 id=700181-839 class=docSection1Title>7.5. Other Bootloaders</H3>
+<P class=docText><A name=iddle1106></A><A name=iddle1820></A><A name=iddle1835></A><A name=iddle1954></A>Here we introduce the more popular bootloaders, describe where they might be used, and give a summary of their features. This is not intended to be a thorough tutorial because to do so would require a book of its own. The interested reader can consult the "Suggestions for Additional Reading" at the end of this chapter for further study.</P><A name=ch07lev2sec16></A>
+<H4 id=title-IDAYTPWD class=docSection2Title>7.5.1. Lilo</H4>
+<P class=docText>The Linux Loader, or Lilo, was widely used in commercial Linux distributions for desktop PC platforms; as such, it has its roots in the Intel x86/IA32 architecture. Lilo has several components. It has a primary bootstrap program that lives on the first sector of a bootable disk drive.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec5.html#ch07fn04">[4]</A></SUP> The primary loader is limited to a disk sector size, usually 512 bytes. Therefore, its primary purpose is simply to load and pass control to a secondary loader. The secondary loader can span multiple partitions and does most of the work of the bootloader.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch07fn04>[4]</A></SUP> This is mostly for historical reasons. From the early days of PCs, BIOS programs loaded only the first sector of a disk drive and passed control to it.</P></BLOCKQUOTE>
+<P class=docText>Lilo is driven by a configuration file and utility that is part of the <TT>lilo</TT> executable. This configuration file can be read or written to only under control of the host operating system. That is, the configuration file is not referenced by the early boot code in either the primary or secondary loaders. Entries in the configuration file are read and processed by the <TT>lilo</TT> configuration utility during system installation or administration. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec5.html#ch07list10">Listing 7-10</A> is an example of a simple <TT>lilo.conf</TT> configuration file describing a typical dual-boot Linux and Windows installation.</P><A name=ch07list10></A>
+<H5 id=title-IDA4UPWD class=docExampleTitle>Listing 7-10. Example Lilo Configuration: <TT>lilo.conf</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE># This is the global lilo configuration section
+# These settings apply to all the "image" sections
+
+boot = /dev/hda
+timeout=50
+default=linux
+# This  describes the primary kernel boot image
+# Lilo will display it with the label 'linux'
+image=/boot/myLinux-2.6.11.1
+         label=linux
+         initrd=/boot/myInitrd-2.6.11.1.img
+         read-only
+         append="root=LABEL=/"
+
+# This is the second OS in a dual-boot configuration
+# This entry will boot a secondary image from /dev/hda1
+other=/dev/hda1
+         optional
+         label=that_other_os</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1098></A><A name=iddle1557></A>This configuration file instructs the Lilo configuration utility to use the master boot record of the first hard drive (<TT>/dev/hda</TT>). It contains a delay instruction to wait for the user to press a key before the timeout (5 seconds, in this case). This gives the system operator the choice to select from a list of OS images to boot. If the system operator presses the Tab key before the timeout, Lilo presents a list to choose from. Lilo uses the <TT>label</TT> tag as the text to display for each image.</P>
+<P class=docText>The images are defined with the <TT>image</TT> tag in the configuration file. In the example presented in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec5.html#ch07list10">Listing 7-10</A>, the primary (default) image is a Linux kernel image with a file name of <TT>myLinux-2.6.11.1</TT>. Lilo loads this image from the hard drive. It then loads a second file to be used as an initial ramdisk. This is the file <TT>myInitrd-2.6.11.1.img</TT>. Lilo constructs a kernel command line containing the string "<TT>root=LABEL=/</TT>" and passes this to the Linux kernel upon execution. This instructs Linux where to get its root file system after boot.</P><A name=ch07lev2sec17></A>
+<H4 id=title-IDA1WPWD class=docSection2Title>7.5.2. GRUB</H4>
+<P class=docText>Many current commercial Linux distributions now ship with the GRUB bootloader. GRUB, or GRand Unified Bootloader, is a GNU project. It has many enhanced features not found in Lilo. The biggest difference between GRUB and Lilo is GRUB's capability to understand file systems and kernel image formats. Furthermore, GRUB can read and modify its configuration at boot time. GRUB also supports booting across a network, which can be a tremendous asset in an embedded environment. GRUB offers a command line interface at boot time to modify the boot configuration.</P>
+<P class=docText>Like Lilo, GRUB is driven by a configuration file. Unlike Lilo's static configuration however, the GRUB bootloader reads this configuration at boot time. This <A name=iddle1921></A>means that the configured behavior can be modified at boot time for different system configurations.</P>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec5.html#ch07list11">Listing 7-11</A> is an example GRUB configuration file. This is the configuration file from the PC on which this manuscript is being written. The GRUB configuration file is called <TT>grub.conf</TT> and is usually placed in a small partition dedicated to storing boot images. On the machine from which this example is taken, that directory is called <TT>/boot</TT>.</P><A name=ch07list11></A>
+<H5 id=title-IDAHYPWD class=docExampleTitle>Listing 7-11. Example GRUB Configuration File: <TT>grub.conf</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>default=0
+timeout=3
+splashimage=(hd0,1)/grub/splash.xpm.gz
+
+title Fedora Core 2 (2.6.9)
+         root (hd0,1)
+         kernel /bzImage-2.6.9 ro root=LABEL=/ rhgb proto=imps quiet
+         initrd /initrd-2.6.9.img
+
+title Fedora Core (2.6.5-1.358)
+         root (hd0,1)
+         kernel /vmlinuz-2.6.5-1.358 ro root=LABEL=/ rhgb quiet
+
+title That Other OS
+         rootnoverify (hd0,0)
+         chainloader +1</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>GRUB first presents the user with a list of images that are available to boot. The <TT>title</TT> entries from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec5.html#ch07list11">Listing 7-11</A> are the image names presented to the user. The <TT>default</TT> tag specifies which image to boot if no keys have been pressed in the timeout period, which is 3 seconds in this example. Images are counted starting from zero.</P>
+<P class=docText>Unlike Lilo, GRUB can actually read a file system on a given partition to load an image from. The <TT>root</TT> tag specifies the root partition from which all filenames in the <TT>grub.conf</TT> configuration file are rooted. In this example configuration, the root is partition number 1 on the first hard disk drive, specified as <TT>root(hd0,1)</TT>. Partitions are numbered from zero; this is the second partition on the first hard disk.</P>
+<P class=docText><A name=iddle1099></A><A name=iddle1111></A><A name=iddle2407></A>The images are specified as filenames relative to the specified root. In <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec5.html#ch07list11">Listing 7-11</A>, the default boot image is a Linux 2.6.9 kernel with a matching initial ramdisk image called <TT>initrd-2.6.9.img</TT>. Notice that the <TT>GRUB</TT> syntax has the kernel command line parameters on the same line as the kernel file specification.</P><A name=ch07lev2sec18></A>
+<H4 id=title-IDAY0PWD class=docSection2Title>7.5.3. Still More Bootloaders</H4>
+<P class=docText>Numerous other bootloaders have found their way into specific niches. For example, Redboot is another open-source bootloader that Intel and the XScale community have adopted for use on various evaluation boards based on the Intel IXP and PXA processor families. Micromonitor is in use by board vendors such as Cogent and others. YAMON has found popularity in MIPs circles.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch07lev1sec5.html#ch07fn05">[5]</A></SUP> LinuxBIOS is used primarily in X86 environments. In general, when you consider a boot loader, you should consider some important factors up front:</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch07fn05>[5]</A></SUP> In an acknowledgment of the number of bootloaders in existence, the YAMON user's guide bills itself as Yet Another MONitor.</P></BLOCKQUOTE>
+<UL>
+<LI>
+<P class=docList>Does it support my chosen processor?</P></LI>
+<LI>
+<P class=docList>Has it been ported to a board similar to my own?</P></LI>
+<LI>
+<P class=docList>Does it support the features I need?</P></LI>
+<LI>
+<P class=docList>Does it support the hardware devices I intend to use?</P></LI>
+<LI>
+<P class=docList>Is there a large community of users where I might get support?</P></LI>
+<LI>
+<P class=docList>Are there any commercial vendors from which I can purchase support?</P></LI></UL>
+<P class=docText>These are some of the questions you must answer when considering what bootloader to use in your embedded project. Unless you are doing something on the "bleeding edge" of technology using a brand-new processor, you are likely to find that someone has already done the bulk of the hard work in porting a bootloader to your chosen platform. Use the resources at the end of this chapter to help make your final decisions.

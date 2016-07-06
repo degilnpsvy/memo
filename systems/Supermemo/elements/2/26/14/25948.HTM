@@ -1,0 +1,13 @@
+# Documentation/input/notifier.txt 
+<P></P>
+<P>Keyboard notifier</P>
+<P></P>
+<P>One can use register_keyboard_notifier to get called back on keyboard<BR>events (see kbd_keycode() function for details).&nbsp; The passed structure is<BR>keyboard_notifier_param:</P>
+<P>- 'vc' always provide the VC for which the keyboard event applies;<BR>- 'down' is 1 for a key press event, 0 for a key release;<BR>- 'shift' is the current modifier state, mask bit indexes are KG_*;<BR>- 'value' depends on the type of event.</P>
+<P>- KBD_KEYCODE events are always sent before other events, value is the keycode.<BR>- KBD_UNBOUND_KEYCODE events are sent if the keycode is not bound to a keysym.<BR>&nbsp; value is the keycode.<BR>- KBD_UNICODE events are sent if the keycode -&gt; keysym translation produced a<BR>&nbsp; unicode character. value is the unicode value.<BR>- KBD_KEYSYM events are sent if the keycode -&gt; keysym translation produced a<BR>&nbsp; non-unicode character. value is the keysym.<BR>- KBD_POST_KEYSYM events are sent after the treatment of non-unicode keysyms.<BR>&nbsp; That permits one to inspect the resulting LEDs for instance.</P>
+<P>For each kind of event but the last, the callback may return NOTIFY_STOP in<BR>order to "eat" the event: the notify loop is stopped and the keyboard event is<BR>dropped.</P>
+<P>In a rough C snippet, we have:</P>
+<P>kbd_keycode(keycode) {<BR>&nbsp;...<BR>&nbsp;params.value = keycode;<BR>&nbsp;if (notifier_call_chain(KBD_KEYCODE,&amp;params) == NOTIFY_STOP)<BR>&nbsp;&nbsp;&nbsp;&nbsp; || !bound) {<BR>&nbsp;&nbsp;notifier_call_chain(KBD_UNBOUND_KEYCODE,&amp;params);<BR>&nbsp;&nbsp;return;<BR>&nbsp;}</P>
+<P>&nbsp;if (unicode) {<BR>&nbsp;&nbsp;param.value = unicode;<BR>&nbsp;&nbsp;if (notifier_call_chain(KBD_UNICODE,&amp;params) == NOTIFY_STOP)<BR>&nbsp;&nbsp;&nbsp;return;<BR>&nbsp;&nbsp;emit unicode;<BR>&nbsp;&nbsp;return;<BR>&nbsp;}</P>
+<P>&nbsp;params.value = keysym;<BR>&nbsp;if (notifier_call_chain(KBD_KEYSYM,&amp;params) == NOTIFY_STOP)<BR>&nbsp;&nbsp;return;<BR>&nbsp;apply keysym;<BR>&nbsp;notifier_call_chain(KBD_POST_KEYSYM,&amp;params);<BR>}</P>
+<P>NOTE: This notifier is usually called from interrupt context.

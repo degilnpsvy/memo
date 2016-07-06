@@ -1,0 +1,61 @@
+<H4 class=subsection>11.3.10 Finding Anagrams From A Dictionary</H4><A name=index-anagrams_002c-finding></A>
+<P>An interesting programming challenge is to search for <EM>anagrams</EM> in a word list (such as <SAMP>/usr/share/dict/words</SAMP> on many GNU/Linux systems). One word is an anagram of another if both words contain the same letters (for example, &#8220;babbling&#8221; and &#8220;blabbing&#8221;). </P>
+<P>An elegant algorithm is presented in Column 2, Problem C of Jon Bentley&#8217;s <CITE>Programming Pearls</CITE>, second edition. The idea is to give words that are anagrams a common signature, sort all the words together by their signature, and then print them. Dr. Bentley observes that taking the letters in each word and sorting them produces that common signature. </P>
+<P>The following program uses arrays of arrays to bring together words with the same signature and array sorting to print the words in sorted order. </P><A name=index-anagram_002eawk-program></A>
+<DIV class=example><PRE class=example># anagram.awk --- An implementation of the anagram finding algorithm
+#                 from Jon Bentley's "Programming Pearls", 2nd edition.
+#                 Addison Wesley, 2000, ISBN 0-201-65788-0.
+#                 Column 2, Problem C, section 2.8, pp 18-20.
+
+/'s$/   { next }        # Skip possessives
+</PRE></DIV>
+<P>The program starts with a header, and then a rule to skip possessives in the dictionary file. The next rule builds up the data structure. The first dimension of the array is indexed by the signature; the second dimension is the word itself: </P>
+<DIV class=example><PRE class=example>{
+    key = word2key($1)  # Build signature
+    data[key][$1] = $1  # Store word with signature
+}
+</PRE></DIV>
+<P>The <CODE>word2key()</CODE> function creates the signature. It splits the word apart into individual letters, sorts the letters, and then joins them back together: </P>
+<DIV class=example><PRE class=example># word2key --- split word apart into letters, sort, joining back together
+
+function word2key(word,     a, i, n, result)
+{
+    n = split(word, a, "")
+    asort(a)
+
+    for (i = 1; i &lt;= n; i++)
+        result = result a[i]
+
+    return result
+}
+</PRE></DIV>
+<P>Finally, the <CODE>END</CODE> rule traverses the array and prints out the anagram lists. It sends the output to the system <CODE>sort</CODE> command, since otherwise the anagrams would appear in arbitrary order: </P>
+<DIV class=example><PRE class=example>END {
+    sort = "sort"
+    for (key in data) {
+        # Sort words with same key
+        nwords = asorti(data[key], words)
+        if (nwords == 1)
+            continue
+
+        # And print. Minor glitch: trailing space at end of each line
+        for (j = 1; j &lt;= nwords; j++)
+            printf("%s ", words[j]) | sort
+        print "" | sort
+    }
+    close(sort)
+}
+</PRE></DIV>
+<P>Here is some partial output when the program is run: </P>
+<DIV class=example><PRE class=example>$ <KBD><EM>gawk -f anagram.awk /usr/share/dict/words | grep '^b'</EM></KBD>
+&#8230;
+babbled blabbed 
+babbler blabber brabble 
+babblers blabbers brabbles 
+babbling blabbing 
+babbly blabby 
+babel bable 
+babels beslab 
+babery yabber 
+&#8230;
+</PRE></DIV>

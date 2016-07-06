@@ -1,0 +1,190 @@
+<H3 id=title-IDADRRWD class=docSection1Title>15.4. Debugging Multiple Tasks</H3>
+<P class=docText>Generally the developer is presented with two different debugging scenarios when dealing with multiple threads of execution. Processes can exist in their own address space or can share an address space (and other system resources) with other threads of execution. The former (independent processes not sharing common address space) must be debugged using separate independent debug sessions. Nothing prevents you from using <TT>gdbserver</TT> on multiple processes on your target system, and using a separate invocation of GDB on your development host to coordinate a debug session for multiple cooperating but independent processes.</P><A name=ch15lev2sec3></A>
+<H4 id=title-IDARRRWD class=docSection2Title>15.4.1. Debugging Multiple Processes</H4>
+<P class=docText>When a process being debugged under GDB uses the <TT>fork()</TT> system call <SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15fn4">[4]</A></SUP> to spawn a new process, GDB can take two courses of action. It can continue to control and debug the parent process, or it can stop debugging the parent process and attach to the newly formed child process. You can control this behavior using the <TT>set follow-fork-mode command</TT>. The two modes are follow parent and follow child. The default behavior is for GDB to follow the parent. In this case, the child process executes immediately upon a successful fork.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch15fn4>[4]</A></SUP> We will use the term system call, but fork() in this context is actually the C library function which in turn calls the Linux sys_fork() system call.</P></BLOCKQUOTE>
+<P class=docText><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list11">Listing 15-11</A> reproduces a snippet of a simple program that forks multiple processes from its <TT>main()</TT> routine.</P><A name=ch15list11></A>
+<H5 id=title-IDAWSRWD class=docExampleTitle>Listing 15-11. Using <TT>fork()</TT> to Spawn a Child Process</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+  for( i=0; i&lt;MAX_PROCESSES; i++ ) {
+    /* Creating child process */
+    <SPAN class=docEmphStrong>pid[i] = fork();</SPAN>                /* Parent gets non-zero PID */
+    if ( pid[i] == -1 ) {
+      perror("fork failed");
+      exit(1);
+    }
+    if ( pid[i] == 0 ) {      /* Indicates child's code path */
+       worker_process();      /* The forked process calls this */
+    }
+  }
+
+  /* Parent's main control loop */
+  while ( 1 ) {
+...
+  }</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1914></A><A name=iddle2181></A>This simple loop creates <TT>MAX_THREADS</TT> new processes using the <TT>fork()</TT> system call. Each newly spawned process executes a body of code defined by the function <TT>worker_process()</TT>. When run under GDB in the default mode, GDB detects the creation of the new threads of execution (processes) but remains <SPAN class=docEmphasis>attached</SPAN> to the parent's thread of execution. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list12">Listing 15-12</A> illustrates this GDB session.</P><A name=ch15list12></A>
+<H5 id=title-IDATURWD class=docExampleTitle>Listing 15-12. GDB in <TT>follow-fork-mode = parent</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>target remote 192.168.1.141:2001</SPAN>
+0x40000790 in ?? ()
+(gdb)  <SPAN class=docEmphStrong>b main</SPAN>
+Breakpoint 1 at 0x8888: file forker.c, line 104.
+(gdb)  <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+[New Thread 356]
+[Switching to Thread 356]
+
+Breakpoint 1, main (argc=0x1, argv=0xbe807dd4) at forker.c:104
+104       time(&amp;start_time);
+(gdb)  <SPAN class=docEmphStrong>b worker_process</SPAN>
+Breakpoint 2 at 0x8784: file forker.c, line 45.
+(gdb)  <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+Detaching after fork from child process 357.
+Detaching after fork from child process 358.
+Detaching after fork from child process 359.
+Detaching after fork from child process 360.
+Detaching after fork from child process 361.
+Detaching after fork from child process 362.
+Detaching after fork from child process 363.
+Detaching after fork from child process 364.</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Notice that eight child processes were spawned, with PID values from 357 to 364. The parent process was instantiated with PID 356. When the breakpoint in <TT>main()</TT> was hit, we entered a breakpoint at the <TT>worker_process()</TT> routine, which <A name=iddle1179></A><A name=iddle1913></A>each child process executes upon <TT>fork()</TT>. Letting the program continue from main, we see each of the new processes spawned and detached by the debugger. They never hit the breakpoint because GDB is attached to the main process, which never executes the <TT>worker_process()</TT> routine.</P>
+<P class=docText>If you need to debug each process, you must execute a separate independent GDB session and attach to the child process after it is <TT>forked()</TT>. The GDB documentation referenced at the end of this chapter outlines a useful technique to place a call to <TT>sleep()</TT> in the child process, giving you time to attach a debugger to the new process. Attaching to a new process is explained in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec5.html#ch15lev2sec7">Section 15.5.2</A>, "Attaching to a Running Process."</P>
+<P class=docText>If you simply need to follow the child process, set the <TT>follow-fork-mode</TT> to follow child before your parent reaches the <TT>fork()</TT> system call. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list13">Listing 15-13</A> shows this.</P><A name=ch15list13></A>
+<H5 id=title-IDAUXRWD class=docExampleTitle>Listing 15-13. GDB in <TT>follow-fork-mode = child</TT></H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>(gdb) <SPAN class=docEmphStrong>target remote 192.168.1.141:2001</SPAN>
+0x40000790 in ?? ()
+<SPAN class=docEmphStrong>(gdb) set follow-fork-mode child</SPAN>
+(gdb)  <SPAN class=docEmphStrong>b worker_process</SPAN>
+Breakpoint 1 at 0x8784: file forker.c, line 45.
+(gdb)  <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+[New Thread 401]
+Attaching after fork to child process 402.
+[New Thread 402]
+[Switching to Thread 402]
+
+Breakpoint 1, worker_process () at forker.c:45
+45         int my_pid = getpid();
+(gdb)  <SPAN class=docEmphStrong>c</SPAN>
+Continuing.</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>Here we see the parent process being instantiated as PID 401. When the first child is spawned by the <TT>fork()</TT> system call, GDB detaches silently from the parent thread of execution and attaches to the newly spawned child process having PID 402. GDB is now in control of the first child process and honors the breakpoint set at <TT>worker_process()</TT>. Notice, however, that the other child processes spawned by the code snippet from <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list11">Listing 15-11</A> are not debugged and continue to run to their own completion.</P>
+<P class=docText><A name=iddle1036></A><A name=iddle1279></A><A name=iddle2026></A><A name=iddle2141></A><A name=iddle2146></A><A name=iddle2162></A><A name=iddle2525></A>In summary, using GDB in this fashion, you are limited to debugging a single process at a time. You can debug through the <TT>fork()</TT> system call, but you have to decide which thread of execution to follow through the <TT>fork()</TT> call, either the parent or the child. As mentioned in the introduction to this section, you can use multiple independent GDB sessions if you must debug more than one cooperating process at a time.</P><A name=ch15lev2sec4></A>
+<H4 id=title-IDAV1LWD class=docSection2Title>15.4.2. Debugging Multithreaded Applications</H4>
+<P class=docText>If your application uses the POSIX thread library for its threading functions, GDB has additional capabilities to handle concurrent debugging of a multithreaded application. The Native Posix Thread Library (NPTL) has become the de facto standard thread library in use on Linux systems, including embedded Linux systems. The rest of this discussion assumes that you are using this thread library.</P>
+<P class=docText>For this section, we use a demonstration program that spawns a number of threads using the <TT>pthread_create()</TT> library function in a simple loop. After the threads are spawned, the <TT>main()</TT> routine simply waits for keyboard input to terminate the application. Each thread displays a short message on the screen and sleeps for a predetermined time. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list14">Listing 15-14</A> shows the startup sequence on the target board.</P><A name=ch15list14></A>
+<H5 id=title-IDAQ2LWD class=docExampleTitle>Listing 15-14. Target Threads Demo Startup</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>root@coyote:/workspace # <SPAN class=docEmphStrong>gdbserver localhost:2001 ./tdemo</SPAN>
+Process ./tdemo created; pid = 671
+Listening on port 2001
+Remote debugging from host 192.168.1.10
+    ^^^^^  Previous three lines displayed by gdbserver
+
+tdemo main() entered: My pid is 671
+Starting worker thread 0
+Starting worker thread 1
+Starting worker thread 2
+Starting worker thread 3</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText>As in our previous examples, <TT>gdbserver</TT> prepares the application for running and waits for a connection from our host-based cross-gdb. When GDB connects, <TT>gdbserver</TT> reports the connection with the <TT>Remote debugging...</TT> message. Now we start GDB on the host and connect. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list15">Listing 15-15</A> reproduces this half of the session.</P>
+<P class=docText></P><A name=ch15list15></A>
+<H5 id=title-IDAX3LWD class=docExampleTitle>Listing 15-15. Host GDB Connecting to Target Threads Demo</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>$ <SPAN class=docEmphStrong>xscale_be-gdb -q tdemo</SPAN>
+(gdb) <SPAN class=docEmphStrong>target remote 192.168.1.141:2001</SPAN>
+0x40000790 in ?? ()
+(gdb)   <SPAN class=docEmphStrong>b tdemo.c:97</SPAN>
+Breakpoint 1 at 0x88ec: file tdemo.c, line 97.
+(gdb)   <SPAN class=docEmphStrong>c</SPAN>
+Continuing.
+[New Thread 1059]
+[New Thread 1060]
+[New Thread 1061]
+[New Thread 1062]
+[New Thread 1063]
+[Switching to Thread 1059]
+
+Breakpoint 1, main (argc=0x1, argv=0xbefffdd4) at tdemo.c:98
+98               int c = getchar();
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1925></A>Here we connect to the target (resulting in the "<TT>Remote debugging...</TT>" message in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list14">Listing 15-14</A>), set a breakpoint just past the loop where we spawned the new threads, and continue. When the new thread is created, GDB displays a notice along with the thread ID. Thread 1059 is the <TT>TDemo</TT> application, doing its work directly from the <TT>main()</TT> function. Threads 1060 through 1063 are the new threads created from the call to <TT>pthread_create()</TT>.</P>
+<P class=docText>When GDB hits the breakpoint, it displays the message <TT>[Switching to Thread 1059]</TT>, indicating that this was the thread of execution that encountered the breakpoint. It is the active thread for the debugging session, referred to as the <SPAN class=docEmphasis>current thread</SPAN> in the GDB documentation.</P>
+<P class=docText><A name=iddle1917></A>GDB enables us to switch between threads and perform the usual debugging operations such as setting additional breakpoints, examining data, displaying a backtrace, and working with the individual stack frames within the current thread. <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list16">Listing 15-16</A> provides examples of these operations, continuing directly with our debugging session started in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15list15">Listing 15-15</A>.</P>
+<P class=docText></P><A name=ch15list16></A>
+<H5 id=title-IDAZAMWD class=docExampleTitle>Listing 15-16. GDB Operations on Threads</H5>
+<P>
+<TABLE cellSpacing=0 cellPadding=5 width="90%" border=1>
+<TBODY>
+<TR>
+<TD><PRE>...
+(gdb) c
+Continuing.
+                  &lt;&lt;&lt; Ctl-C to interrupt program execution
+Program received signal SIGINT, Interrupt.
+0x400db9c0 in read () from /opt/mvl/.../lib/tls/libc.so.6
+(gdb)  <SPAN class=docEmphStrong>i threads</SPAN>
+  5 Thread 1063  0x400bc714 in nanosleep ()
+   from /opt/mvl/.../lib/tls/libc.so.6
+  4 Thread 1062  0x400bc714 in nanosleep ()
+   from /opt/mvl/.../lib/tls/libc.so.6
+  3 Thread 1061  0x400bc714 in nanosleep ()
+   from /opt/mvl/.../lib/tls/libc.so.6
+  2 Thread 1060  0x400bc714 in nanosleep ()
+   from /opt/mvl/.../lib/tls/libc.so.6
+* 1 Thread 1059  0x400db9c0 in read ()
+   from /opt/mvl/.../lib/tls/libc.so.6
+(gdb) <SPAN class=docEmphStrong>thread 4</SPAN>               &lt;&lt;&lt; Make Thread 4 the current thread
+[Switching to thread 4 (Thread 1062)]
+#0  0x400bc714 in nanosleep ()
+   from /opt/mvl/.../lib/tls/libc.so.6
+(gdb)  <SPAN class=docEmphStrong>bt</SPAN>
+#0  0x400bc714 in nanosleep ()
+   from /opt/mvl/.../lib/tls/libc.so.6
+#1  0x400bc4a4 in __sleep (seconds=0x0) at sleep.c:137
+#2  0x00008678 in go_to_sleep (duration=0x5) at tdemo.c:18
+#3  0x00008710 in worker_2_job (random=0x5) at tdemo.c:36
+#4  0x00008814 in worker_thread (threadargs=0x2) at tdemo.c:67
+#5  0x40025244 in start_thread (arg=0xfffffdfc) at pthread_create.c:261
+#6  0x400e8fa0 in clone () at../sysdeps/unix/sysv/linux/arm/clone.S:82
+#7  0x400e8fa0 in clone () at../sysdeps/unix/sysv/linux/arm/clone.S:82
+(gdb)   <SPAN class=docEmphStrong>frame 3</SPAN>
+#3  0x00008710 in worker_2_job (random=0x5) at tdemo.c:36
+36          go_to_sleep(random);
+
+(gdb)  <SPAN class=docEmphStrong>l</SPAN>                    &lt;&lt;&lt; Generate listing of where we are
+31      }
+32
+33      static void worker_2_job(int random)
+34      {
+35          printf("t2 sleeping for %d\n", random);
+36          go_to_sleep(random);
+37      }
+38
+39      static void worker_3_job(int random)
+40      {
+(gdb)</PRE><BR></TD></TR></TBODY></TABLE></P>
+<P class=docText><A name=iddle1034></A><A name=iddle1085></A><A name=iddle1277></A><A name=iddle1509></A>A few points are worth mentioning. GDB assigns its own integer value to each thread and uses these values to reference the individual threads. When a breakpoint is hit in a thread, all threads within the process are halted for examination. GDB marks the current thread with an asterisk (*). You can set unique breakpoints within each threadassuming, of course, that they exist in a unique context. If you set a breakpoint in a common portion of code where all threads execute, the thread that hits the breakpoint first is arbitrary.</P>
+<P class=docText>The GDB user documentation referenced at the end of this chapter contains more useful information related to debugging in a multithreaded environment.</P><A name=ch15lev2sec5></A>
+<H4 id=title-IDAPDMWD class=docSection2Title>15.4.3. Debugging Bootloader/Flash Code</H4>
+<P class=docText><A name=iddle1030></A><A name=iddle1031></A><A name=iddle1032></A><A name=iddle1033></A><A name=iddle1274></A><A name=iddle1275></A><A name=iddle1276></A><A name=iddle1281></A><A name=iddle1319></A><A name=iddle1549></A><A name=iddle2259></A><A name=iddle2390></A><A name=iddle2411></A>Debugging Flash resident code presents its own unique challenges. The most obvious limitation is the way in which GDB and <TT>gdbserver</TT> cooperate in setting target breakpoints. When we discussed the GDB remote serial protocol in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14.html#ch14">Chapter 14</A>, you learned how breakpoints are inserted into an application.<SUP class=docFootnote><A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch15lev1sec4.html#ch15fn5">[5]</A></SUP> GDB replaces the opcode at the breakpoint location with an architecture-specific opcode that passes control to the debugger. However, in ROM or Flash, GDB cannot overwrite the opcode, so this method of setting breakpoints is useless.</P>
+<BLOCKQUOTE>
+<P class=docFootnote><SUP><A name=ch15fn5>[5]</A></SUP> Refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec3.html#ch14list05">Listing 14-5</A> in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14.html#ch14">Chapter 14</A>.</P></BLOCKQUOTE>
+<P class=docText>Most modern processors contain some number of debug registers that can be used to get around this limitation. These capabilities must be supported by architecture-and processor-specific hardware probes or stubs. The most common technique for debugging Flash and ROM resident code is to use JTAG hardware probes. These probes support the setting of processor-specific hardware breakpoints. This topic was covered in detail in <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14.html#ch14">Chapter 14</A>. Refer back to <A class=docLink href="http://www.embeddedlinux.org.cn/EmbeddedLinuxPrimer/0136130550/ch14lev1sec4.html#ch14lev2sec12">Section 14.4.2</A>, "Debugging with a JTAG Probe," for details.
