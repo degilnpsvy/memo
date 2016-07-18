@@ -1,0 +1,23 @@
+# Linux 4.6 include/linux/kern_stat.h 
+<P></P>
+<P>#ifndef __KERN_LEVELS_H__<BR></P>
+<P></P>
+<P>#ifndef _LINUX_KERNEL_STAT_H<BR>#define _LINUX_KERNEL_STAT_H</P>
+<P></P>
+<P>#include &lt;linux/smp.h&gt;<BR>#include &lt;linux/threads.h&gt;<BR>#include &lt;linux/percpu.h&gt;<BR>#include &lt;linux/cpumask.h&gt;<BR>#include &lt;linux/interrupt.h&gt;<BR>#include &lt;linux/sched.h&gt;<BR>#include &lt;linux/vtime.h&gt;<BR>#include &lt;asm/irq.h&gt;<BR>#include &lt;linux/cputime.h&gt;</P>
+<P>/*<BR>&nbsp;* 'kernel_stat.h' contains the definitions needed for doing<BR>&nbsp;* some kernel statistics (CPU usage, context switches ...),<BR>&nbsp;* used by rstatd/perfmeter<BR>&nbsp;*/</P>
+<P>enum cpu_usage_stat {<BR>&nbsp;CPUTIME_USER,<BR>&nbsp;CPUTIME_NICE,<BR>&nbsp;CPUTIME_SYSTEM,<BR>&nbsp;CPUTIME_SOFTIRQ,<BR>&nbsp;CPUTIME_IRQ,<BR>&nbsp;CPUTIME_IDLE,<BR>&nbsp;CPUTIME_IOWAIT,<BR>&nbsp;CPUTIME_STEAL,<BR>&nbsp;CPUTIME_GUEST,<BR>&nbsp;CPUTIME_GUEST_NICE,<BR>&nbsp;NR_STATS,<BR>};</P>
+<P>struct kernel_cpustat {<BR>&nbsp;u64 cpustat[NR_STATS];<BR>};</P>
+<P>struct kernel_stat {<BR>&nbsp;unsigned long irqs_sum;<BR>&nbsp;unsigned int softirqs[NR_SOFTIRQS];<BR>};</P>
+<P>DECLARE_PER_CPU(struct kernel_stat, kstat);<BR>DECLARE_PER_CPU(struct kernel_cpustat, kernel_cpustat);</P>
+<P>/* Must have preemption disabled for this to be meaningful. */<BR>#define kstat_this_cpu this_cpu_ptr(&amp;kstat)<BR>#define kcpustat_this_cpu this_cpu_ptr(&amp;kernel_cpustat)<BR>#define kstat_cpu(cpu) per_cpu(kstat, cpu)<BR>#define kcpustat_cpu(cpu) per_cpu(kernel_cpustat, cpu)</P>
+<P>extern unsigned long long nr_context_switches(void);</P>
+<P>extern unsigned int kstat_irqs_cpu(unsigned int irq, int cpu);<BR>extern void kstat_incr_irq_this_cpu(unsigned int irq);</P>
+<P>static inline void kstat_incr_softirqs_this_cpu(unsigned int irq)<BR>{<BR>&nbsp;__this_cpu_inc(kstat.softirqs[irq]);<BR>}</P>
+<P>static inline unsigned int kstat_softirqs_cpu(unsigned int irq, int cpu)<BR>{<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; return kstat_cpu(cpu).softirqs[irq];<BR>}</P>
+<P>/*<BR>&nbsp;* Number of interrupts per specific IRQ source, since bootup<BR>&nbsp;*/<BR>extern unsigned int kstat_irqs(unsigned int irq);<BR>extern unsigned int kstat_irqs_usr(unsigned int irq);</P>
+<P>/*<BR>&nbsp;* Number of interrupts per cpu, since bootup<BR>&nbsp;*/<BR>static inline unsigned int kstat_cpu_irqs_sum(unsigned int cpu)<BR>{<BR>&nbsp;return kstat_cpu(cpu).irqs_sum;<BR>}</P>
+<P>extern void account_user_time(struct task_struct *, cputime_t, cputime_t);<BR>extern void account_system_time(struct task_struct *, int, cputime_t, cputime_t);<BR>extern void account_steal_time(cputime_t);<BR>extern void account_idle_time(cputime_t);</P>
+<P>#ifdef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE<BR>static inline void account_process_tick(struct task_struct *tsk, int user)<BR>{<BR>&nbsp;vtime_account_user(tsk);<BR>}<BR>#else<BR>extern void account_process_tick(struct task_struct *, int user);<BR>#endif</P>
+<P>extern void account_steal_ticks(unsigned long ticks);<BR>extern void account_idle_ticks(unsigned long ticks);</P>
+<P>#endif /* _LINUX_KERNEL_STAT_H */
