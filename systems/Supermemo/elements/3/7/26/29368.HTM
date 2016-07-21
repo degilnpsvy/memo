@@ -1,0 +1,398 @@
+<DIV class=PageHeadline>
+<H1>RCU part 3: the RCU API</H1></DIV>
+<DIV class=ArticleText>
+<DIV class=GAByline>
+<P>January 7, 2008</P>
+<P>This article was contributed by Paul McKenney</P></DIV>[<I>Editor's note: this is the third and final installment in Paul McKenney's "What is RCU?" series. The <A href="http://lwn.net/Articles/262464/">first</A> and <A href="http://lwn.net/Articles/263130/">second</A> parts remain available for those who might have missed them. Many thanks to Paul for letting LWN run these articles.</I>] 
+<P></P>
+<H3>Introduction</H3>
+<P>Read-copy update (RCU) is a synchronization mechanism that was added to the Linux kernel in October of 2002. RCU is most frequently described as a replacement for reader-writer locking, but has also been used in a number of other ways. RCU is notable in that RCU readers do not directly synchronize with RCU updaters, which makes RCU read paths extremely fast, and also permits RCU readers to accomplish useful work even when running concurrently with RCU updaters. </P>
+<P>This leads to the question "what exactly is RCU?", a question that this document addresses from the viewpoint of the Linux kernel's RCU API. </P>
+<OL>
+<LI><A href="http://lwn.net/Articles/264090/#RCU%20has%20a%20Family%20of%20Wait-to-Finish%20APIs">RCU has a Family of Wait-to-Finish APIs</A> 
+<P></P></LI>
+<LI><A href="http://lwn.net/Articles/264090/#RCU%20has%20Publish-Subscribe%20and%20Version-Maintenance%20APIs">RCU has Publish-Subscribe and Version-Maintenance APIs</A> 
+<P></P></LI>
+<LI><A href="http://lwn.net/Articles/264090/#So,%20What%20is%20RCU%20Really?">So, What is RCU Really?</A> </LI></OL>
+<P>These sections are followed by a <A href="http://lwn.net/Articles/264090/#References">references</A> section and the <A href="http://lwn.net/Articles/264090/#Answers%20to%20Quick%20Quizzes">answers to the Quick Quizzes</A>. </P>
+<H3><A name="RCU has a Family of Wait-to-Finish APIs">RCU has a Family of Wait-to-Finish APIs</A></H3>
+<P>The most straightforward answer to "what is RCU" is that RCU is an API used in the Linux kernel, as summarized by the pair of tables in this section (the first table shows the wait-for-RCU-readers portions of the API, while the second table shows the publish/subscribe portions of the API). Or, more precisely, RCU is a family of APIs as shown in the first table, with each column corresponding to a member of the RCU API family. </P>
+<P>If you are new to RCU, you might consider focusing on just one of the columns in the following table. For example, if you are primarily interested in understanding how RCU is used in the Linux kernel, "RCU Classic" would be the place to start, as it is used most frequently. On the other hand, if you want to understand RCU for its own sake, "SRCU" has the simplest API. You can always come back for the other columns later. </P>
+<P>If you are already familiar with RCU, the following pair of tables can serve as a useful reference. </P>
+<P></P>
+<TABLE cellPadding=3>
+<TBODY>
+<TR>
+<TH>Attribute</TH>
+<TH>RCU Classic</TH>
+<TH>RCU BH</TH>
+<TH>RCU Sched</TH>
+<TH>Realtime RCU</TH>
+<TH>SRCU</TH>
+<TH>QRCU</TH></TR>
+<TR class=Odd>
+<TH align=left>Purpose</TH>
+<TD>Original</TD>
+<TD>Prevent DDoS attacks</TD>
+<TD>Wait for hardirqs and NMIs</TD>
+<TD>Realtime response</TD>
+<TD>Sleeping readers</TD>
+<TD>Sleeping readers and fast grace periods</TD></TR>
+<TR class=Even>
+<TH align=left>Availability</TH>
+<TD>2.5.43</TD>
+<TD>2.6.9</TD>
+<TD>2.6.12</TD>
+<TD>Aug 2005 -rt</TD>
+<TD>2.6.19</TD>
+<TD></TD></TR>
+<TR class=Odd>
+<TH align=left>Read-side primitives</TH>
+<TD bgColor=lightgreen><CODE>rcu_read_lock()</CODE> <BR><CODE>rcu_read_unlock()</CODE></TD>
+<TD><CODE>rcu_read_lock_bh()</CODE> <BR><CODE>rcu_read_unlock_bh()</CODE></TD>
+<TD><CODE>preempt_disable()</CODE> <BR><CODE>preempt_enable()</CODE> <BR>(and friends)</TD>
+<TD><CODE>rcu_read_lock()</CODE> <BR><CODE>rcu_read_unlock()</CODE> </TD>
+<TD><CODE>srcu_read_lock()</CODE> <BR><CODE>srcu_read_unlock()</CODE></TD>
+<TD><CODE>qrcu_read_lock()</CODE> <BR><CODE>qrcu_read_unlock()</CODE></TD></TR>
+<TR class=Even>
+<TH align=left>Update-side primitives <BR>(synchronous)</TH>
+<TD><CODE>synchronize_rcu()</CODE> <BR><CODE>synchronize_net()</CODE></TD>
+<TD></TD>
+<TD><CODE>synchronize_sched()</CODE></TD>
+<TD><CODE>synchronize_rcu()</CODE> <BR><CODE>synchronize_net()</CODE></TD>
+<TD><CODE>synchronize_srcu()</CODE></TD>
+<TD><CODE>synchronize_qrcu()</CODE></TD></TR>
+<TR class=Odd>
+<TH align=left>Update-side primitives <BR>(asynchronous/callback)</TH>
+<TD bgColor=lightgreen><CODE>call_rcu()</CODE></TD>
+<TD><CODE>call_rcu_bh()</CODE></TD>
+<TD></TD>
+<TD><CODE>call_rcu()</CODE></TD>
+<TD bgColor=pink>N/A</TD>
+<TD bgColor=pink>N/A</TD></TR>
+<TR class=Even>
+<TH align=left>Update-side primitives <BR>(wait for callbacks)</TH>
+<TD><CODE>rcu_barrier()</CODE></TD>
+<TD></TD>
+<TD></TD>
+<TD><CODE>rcu_barrier()</CODE></TD>
+<TD bgColor=pink>N/A</TD>
+<TD bgColor=pink>N/A</TD></TR>
+<TR class=Odd>
+<TH align=left>Read side constraints</TH>
+<TD>No blocking</TD>
+<TD>No irq enabling</TD>
+<TD>No blocking</TD>
+<TD>No blocking except preemption and lock acquisition</TD>
+<TD>No <CODE>synchronize_srcu()</CODE></TD>
+<TD>No <CODE>synchronize_qrcu()</CODE></TD></TR>
+<TR class=Even>
+<TH align=left>Read side overhead</TH>
+<TD>Preempt disable/enable (free on non-PREEMPT)</TD>
+<TD>BH disable/enable</TD>
+<TD>Preempt disable/enable (free on non-PREEMPT)</TD>
+<TD>Simple instructions, irq disable/enable</TD>
+<TD>Simple instructions, preempt disable/enable</TD>
+<TD>Atomic increment and decrement of shared variable</TD></TR>
+<TR class=Odd>
+<TH align=left>Asynchronous update-side overhead (for example, <CODE>call_rcu()</CODE>)</TH>
+<TD>sub-microsecond</TD>
+<TD>sub-microsecond</TD>
+<TD></TD>
+<TD>sub-microsecond</TD>
+<TD bgColor=pink>N/A</TD>
+<TD bgColor=pink>N/A</TD></TR>
+<TR class=Even>
+<TH align=left>Grace-period latency</TH>
+<TD>10s of milliseconds</TD>
+<TD>10s of milliseconds</TD>
+<TD>10s of milliseconds</TD>
+<TD>10s of milliseconds</TD>
+<TD>10s of milliseconds</TD>
+<TD>10s of <I>nanoseconds</I> in absence of readers</TD></TR>
+<TR class=Odd>
+<TH align=left>Non-PREEMPT_RT implementation</TH>
+<TD>RCU Classic</TD>
+<TD>RCU BH</TD>
+<TD>RCU Classic</TD>
+<TD>N/A</TD>
+<TD>SRCU</TD>
+<TD>N/A</TD></TR>
+<TR class=Even>
+<TH align=left>PREEMPT_RT implementation</TH>
+<TD>N/A</TD>
+<TD>Realtime RCU</TD>
+<TD>Forced Schedule on all CPUs</TD>
+<TD>Realtime RCU</TD>
+<TD>SRCU</TD>
+<TD>N/A</TD></TR></TBODY></TABLE>
+<P><A name="Quick Quiz 1"><B>Quick Quiz 1</B>:</A> Why are some of the cells in the above table colored green? </P>
+<P>The "RCU Classic" column corresponds to the original RCU implementation, in which RCU read-side critical sections are delimited by <CODE>rcu_read_lock()</CODE> and <CODE>rcu_read_unlock()</CODE>, which may be nested. The corresponding synchronous update-side primitives, <CODE>synchronize_rcu()</CODE>, along with its synonym <CODE>synchronize_net()</CODE>, wait for any currently executing RCU read-side critical sections to complete. The length of this wait is known as a "grace period". The asynchronous update-side primitive, <CODE>call_rcu()</CODE>, invokes a specified function with a specified argument after a subsequent grace period. For example, <CODE>call_rcu(p,f);</CODE> will result in the "RCU callback" <CODE>f(p)</CODE> being invoked after a subsequent grace period. There are situations, <A href="http://lwn.net/Articles/217484/">such as when unloading a module that uses <CODE>call_rcu()</CODE></A>, when it is necessary to wait for all outstanding RCU callbacks to complete. The <CODE>rcu_barrier()</CODE> primitive does this job. </P>
+<P>In the "RCU BH" column, <CODE>rcu_read_lock_bh()</CODE> and <CODE>rcu_read_unlock_bh()</CODE> delimit RCU read-side critical sections, and <CODE>call_rcu_bh()</CODE> invokes the specified function and argument after a subsequent grace period. Note that RCU BH does not have a synchronous <CODE>synchronize_rcu_bh()</CODE> interface, though one could easily be added if required. </P>
+<P><A name="Quick Quiz 2"><B>Quick Quiz 2</B>:</A> What happens if you mix and match? For example, suppose you use <CODE>rcu_read_lock()</CODE> and <CODE>rcu_read_unlock()</CODE> to delimit RCU read-side critical sections, but then use <CODE>call_rcu_bh()</CODE> to post an RCU callback? </P>
+<P>In the "RCU Sched" column, anything that disables preemption acts as an RCU read-side critical section, and <CODE>synchronize_sched()</CODE> waits for the corresponding RCU grace period. This RCU API family was added in the 2.6.12 kernel, which split the old <CODE>synchronize_kernel()</CODE> API into the current <CODE>synchronize_rcu()</CODE> (for RCU Classic) and <CODE>synchronize_sched()</CODE> (for RCU Sched). Note that RCU Sched does not have an asynchronous <CODE>call_rcu_sched()</CODE> interface, though one could be added if required. </P>
+<P><A name="Quick Quiz 3"><B>Quick Quiz 3</B>:</A> What happens if you mix and match RCU Classic and RCU Sched? </P>
+<P>The "Realtime RCU" column has the same API as does RCU Classic, the only difference being that RCU read-side critical sections may be preempted and may block while acquiring spinlocks. The design of Realtime RCU is described in the LWN article <A href="http://lwn.net/Articles/253651/">The design of preemptible read-copy-update</A>. </P>
+<P><A name="Quick Quiz 4"><B>Quick Quiz 4</B>:</A> What happens if you mix and match Realtime RCU and RCU Classic? </P>
+<P>The "SRCU" column displays a specialized RCU API that permits general sleeping in RCU read-side critical sections, as was described in the LWN article <A href="http://lwn.net/Articles/202847/">Sleepable RCU</A>. Of course, use of <CODE>synchronize_srcu()</CODE> in an SRCU read-side critical section can result in self-deadlock, so should be avoided. SRCU differs from earlier RCU implementations in that the caller allocates an <CODE>srcu_struct</CODE> for each distinct SRCU usage. This approach prevents SRCU read-side critical sections from blocking unrelated <CODE>synchronize_srcu()</CODE> invocations. In addition, in this variant of RCU, <CODE>srcu_read_lock()</CODE> returns a value that must be passed into the corresponding <CODE>srcu_read_unlock()</CODE>. </P>
+<P>The "QRCU" column presents an RCU implementation with the same API structure as SRCU, but optimized for extremely low-latency grace periods in absence of readers, as described in the LWN article <A href="http://lwn.net/Articles/243851/">Using Promela and Spin to verify parallel algorithms</A>. As with SRCU, use of <CODE>synchronize_qrcu()</CODE> can result in self-deadlock, so should be avoided. Although QRCU has not yet been accepted into the Linux kernel, it is worth mentioning given that it is the only RCU implementation that can boast deep sub-microsecond grace-period latencies. </P>
+<P><A name="Quick Quiz 5"><B>Quick Quiz 5</B>:</A> Why do both SRCU and QRCU lack asynchronous <CODE>call_srcu()</CODE> or <CODE>call_qrcu()</CODE> interfaces? </P>
+<P><A name="Quick Quiz 6"><B>Quick Quiz 6</B>:</A> Under what conditions can <CODE>synchronize_srcu()</CODE> be safely used within an SRCU read-side critical section? </P>
+<P>The Linux kernel currently has a surprising number of RCU APIs and implementations. There is some hope of reducing this number, evidenced by the fact that a given build of the Linux kernel currently has at most three implementations behind four APIs (given that RCU Classic and Realtime RCU share the same API). However, careful inspection and analysis will be required, just as would be required for one of the many locking APIs. </P>
+<H3><A name="RCU has Publish-Subscribe and Version-Maintenance APIs">RCU has Publish-Subscribe and Version-Maintenance APIs</A></H3>
+<P>Fortunately, the RCU publish-subscribe and version-maintenance primitives shown in the following table apply to all of the variants of RCU discussed above. This commonality can in some cases allow more code to be shared, which certainly reduces the API proliferation that would otherwise occur. </P>
+<TABLE cellPadding=3>
+<TBODY>
+<TR>
+<TH>Category</TH>
+<TH>Primitives</TH>
+<TH>Availability</TH>
+<TH>Overhead</TH></TR>
+<TR class=Odd>
+<TH align=left>List traversal</TH>
+<TD><CODE>list_for_each_entry_rcu()</CODE></TD>
+<TD>2.5.59</TD>
+<TD>Simple instructions (memory barrier on Alpha)</TD></TR>
+<TR class=Even>
+<TH rowSpan=5 align=left>List update</TH>
+<TD><CODE>list_add_rcu()</CODE></TD>
+<TD>2.5.44</TD>
+<TD>Memory barrier</TD></TR>
+<TR class=Even>
+<TD><CODE>list_add_tail_rcu()</CODE></TD>
+<TD>2.5.44</TD>
+<TD>Memory barrier</TD></TR>
+<TR class=Even>
+<TD><CODE>list_del_rcu()</CODE></TD>
+<TD>2.5.44</TD>
+<TD>Simple instructions</TD></TR>
+<TR class=Even>
+<TD><CODE>list_replace_rcu()</CODE></TD>
+<TD>2.6.9</TD>
+<TD>Memory barrier</TD></TR>
+<TR class=Even>
+<TD><CODE>list_splice_init_rcu()</CODE></TD>
+<TD>2.6.21</TD>
+<TD>Grace-period latency</TD></TR>
+<TR class=Odd>
+<TH align=left>Hlist traversal</TH>
+<TD><CODE>hlist_for_each_entry_rcu()</CODE></TD>
+<TD>2.6.8</TD>
+<TD>Simple instructions (memory barrier on Alpha)</TD></TR>
+<TR class=Even>
+<TH rowSpan=5 align=left>Hlist update</TH>
+<TD><CODE>hlist_add_after_rcu()</CODE></TD>
+<TD>2.6.14</TD>
+<TD>Memory barrier</TD></TR>
+<TR class=Even>
+<TD><CODE>hlist_add_before_rcu()</CODE></TD>
+<TD>2.6.14</TD>
+<TD>Memory barrier</TD></TR>
+<TR class=Even>
+<TD><CODE>hlist_add_head_rcu()</CODE></TD>
+<TD>2.5.64</TD>
+<TD>Memory barrier</TD></TR>
+<TR class=Even>
+<TD><CODE>hlist_del_rcu()</CODE></TD>
+<TD>2.5.64</TD>
+<TD>Simple instructions</TD></TR>
+<TR class=Even>
+<TD><CODE>hlist_replace_rcu()</CODE></TD>
+<TD>2.6.15</TD>
+<TD>Memory barrier</TD></TR>
+<TR class=Odd>
+<TH align=left>Pointer traversal</TH>
+<TD><CODE>rcu_dereference()</CODE></TD>
+<TD>2.6.9</TD>
+<TD>Simple instructions (memory barrier on Alpha)</TD></TR>
+<TR class=Even>
+<TH align=left>Pointer update</TH>
+<TD><CODE>rcu_assign_pointer()</CODE></TD>
+<TD>2.6.10</TD>
+<TD>Memory barrier</TD></TR></TBODY></TABLE>
+<P>The first pair of categories operate on Linux <CODE>struct&nbsp;list_head</CODE> lists, which are circular, doubly-linked lists. The <CODE>list_for_each_entry_rcu()</CODE> primitive traverses an RCU-protected list in a type-safe manner, while also enforcing memory ordering for situations where a new list element is inserted into the list concurrently with traversal. On non-Alpha platforms, this primitive incurs little or no performance penalty compared to <CODE>list_for_each_entry()</CODE>. The <CODE>list_add_rcu()</CODE>, <CODE>list_add_tail_rcu()</CODE>, and <CODE>list_replace_rcu()</CODE> primitives are analogous to their non-RCU counterparts, but incur the overhead of an additional memory barrier on weakly-ordered machines. The <CODE>list_del_rcu()</CODE> primitive is also analogous to its non-RCU counterpart, but oddly enough is very slightly faster due to the fact that it poisons only the <CODE>prev</CODE> pointer rather than both the <CODE>prev</CODE> and <CODE>next</CODE> pointers as <CODE>list_del()</CODE> must do. Finally, the <CODE>list_splice_init_rcu()</CODE> primitive is similar to its non-RCU counterpart, but incurs a full grace-period latency. The purpose of this grace period is to allow RCU readers to finish their traversal of the source list before completely disconnecting it from the list header -- failure to do this could prevent such readers from ever terminating their traversal. </P>
+<P><A name="Quick Quiz 7"><B>Quick Quiz 7</B>:</A> Why doesn't <CODE>list_del_rcu()</CODE> poison both the <CODE>next</CODE> and <CODE>prev</CODE> pointers? </P>
+<P>The second pair of categories operate on Linux's <CODE>struct&nbsp;hlist_head</CODE>, which is a linear linked list. One advantage of <CODE>struct&nbsp;hlist_head</CODE> over <CODE>struct&nbsp;list_head</CODE> is that the former requires only a single-pointer list header, which can save significant memory in large hash tables. The <CODE>struct&nbsp;hlist_head</CODE> primitives in the table relate to their non-RCU counterparts in much the same way as do the <CODE>struct&nbsp;list_head</CODE> primitives. </P>
+<P>The final pair of categories operate directly on pointers, and are useful for creating RCU-protected non-list data structures, such as RCU-protected arrays and trees. The <CODE>rcu_assign_pointer()</CODE> primitive ensures that any prior initialization remains ordered before the assignment to the pointer on weakly ordered machines. Similarly, the <CODE>rcu_dereference()</CODE> primitive ensures that subsequent code dereferencing the pointer will see the effects of initialization code prior to the corresponding <CODE>rcu_assign_pointer()</CODE> on Alpha CPUs. On non-Alpha CPUs, <CODE>rcu_dereference()</CODE> documents which pointer dereferences are protected by RCU. </P>
+<P><A name="Quick Quiz 8"><B>Quick Quiz 8</B>:</A> Normally, any pointer subject to <CODE>rcu_dereference()</CODE> should always be updated using <CODE>rcu_assign_pointer()</CODE>. What is an exception to this rule? </P>
+<P><A name="Quick Quiz 9"><B>Quick Quiz 9</B>:</A> Are there any downsides to the fact that these traversal and update primitives can be used with any of the RCU API family members? </P>
+<H3><A name="So, What is RCU Really?">So, What <I>is</I> RCU Really?</A></H3>
+<P>At its core, RCU is nothing more nor less than an API that supports publication and subscription for insertions, waiting for all RCU readers to complete, and maintenance of multiple versions. That said, it is possible to build higher-level constructs on top of RCU, including the reader-writer-locking, reference-counting, and existence-guarantee constructs listed in the companion article. Furthermore, I have no doubt that the Linux community will continue to find interesting new uses for RCU, just as they do for any of a number of synchronization primitives throughout the kernel. </P>
+<P>Finally, a complete view of RCU would also include all of the things you can do with these APIs. </P>
+<H3>Acknowledgements</H3>
+<P>We are all indebted to Andy Whitcroft, Jon Walpole, and Gautham Shenoy, whose review of an early draft of this document greatly improved it. I owe thanks to the members of the Relativistic Programming project and to members of PNW TEC for many valuable discussions. I am grateful to Dan Frye for his support of this effort. </P>
+<P>This work represents the view of the author and does not necessarily represent the view of IBM. </P>
+<P>Linux is a registered trademark of Linus Torvalds. </P>
+<P>Other company, product, and service names may be trademarks or service marks of others. </P>
+<H3><A name=References>References</A></H3>
+<P>This section gives a short annotated bibliography describing using RCU, Linux-kernel RCU implementations, background, and historical perspectives. For more information, see <A href="http://www.rdrop.com/users/paulmck/RCU/">Paul E. McKenney's RCU Page</A>. </P>
+<H4>Using RCU</H4>
+<OL>
+<LI><A href="http://open-std.org/jtc1/sc22/wg21/docs/papers/2007/n2167.pdf">Overview of Linux-Kernel Reference Counting (McKenney, January 2007) [PDF]</A>. Overview of Linux-kernel reference counting (including RCU) prepared for the Concurrency Working Group of the C/C++ standards committee. 
+<P></P></LI>
+<LI><A href="http://lwn.net/Articles/217484/">RCU and Unloadable Modules (McKenney, January 2007)</A>. Describes how to unload modules that use <CODE>call_rcu()</CODE>, so as to avoid RCU callbacks trying to use the module after it has been unloaded. 
+<P></P></LI>
+<LI><A href="http://www.livejournal.com/users/james_morris/2153.html">Recent Developments in SELinux Kernel Performance</A>. James Morris describes a performance problem in the SELinux Access Vector Cache (AVC), and its resolution via RCU in a patch by Kaigai Kohei. 
+<P></P></LI>
+<LI><A href="http://www.rdrop.com/users/paulmck/RCU/rcu.FREENIX.2003.06.14.pdf">Using Read-Copy-Update Techniques for System V IPC in the Linux 2.5 Kernel (Arcangeli et al., June 2003) [PDF]</A>. Describes how RCU is used in the Linux kernel's System V IPC implementation. </LI></OL>
+<H4>Linux-Kernel RCU Implementations</H4>
+<OL>
+<LI><A href="http://lwn.net/Articles/253651/">The design of preemptible read-copy-update (McKenney, October 2007)</A>. Describes a high-performance RCU implementation for realtime use. 
+<P></P></LI>
+<LI><A href="http://lwn.net/Articles/202847/">Sleepable RCU (McKenney, October 2006)</A>. Description of SRCU. 
+<P></P></LI>
+<LI><A href="http://lwn.net/Articles/243851/">Using Promela and Spin to verify parallel algorithms (McKenney, August 2007)</A>. Description of the QRCU patch. 
+<P></P></LI>
+<LI><A href="http://www.rdrop.com/users/paulmck/RCU/RCUdissertation.2004.07.14e1.pdf">RCU dissertation (McKenney, July 2004) [PDF]</A>. 
+<UL>
+<LI>Section 2.2.20 (pages 62-64) gives a history of RCU-like mechanisms, a very brief summary of which can be found below. </LI>
+<LI>Chapter 4 (pages 71-98) and Appendix C (pages 326-345) review a number of different types of RCU implementations, summarizing a number of earlier papers. </LI>
+<LI>Chapter 5 (pages 137-178) gives an overview of a number of "design patterns" guiding use of RCU. </LI>
+<LI>Chapter 6 (pages 179-234) describes some early uses of RCU. </LI></UL>
+<P></P></LI>
+<LI><A href="http://www.linuxjournal.com/article/6993">Using RCU in the Linux 2.5 Kernel (October 2003)</A>. Brief summary of why RCU can be helpful, along with an analogy between RCU and reader-writer locking. 
+<P></P></LI>
+<LI>Anyone who is laboring under the misapprehension that the Linux community would never have independently invented RCU should read this <A href="http://oss.sgi.com/projects/netdev/archive/2000-06/msg00250.html">netdev posting</A> and <A href="http://oss.sgi.com/projects/netdev/archive/2000-06/msg00254.html">this one as well</A>. Both postings pre-date the earliest known introduction of RCU to the Linux community. </LI></OL>
+<H4>Background</H4>
+<OL>
+<LI><A href="http://rt.wiki.kernel.org/index.php/Main_Page">Real-Time Linux Wiki</A>. Provides much valuable information on the -rt patchset for both kernel and application developers. 
+<P></P></LI>
+<LI><A href="http://www.kernel.org/pub/linux/kernel/projects/rt/">Home of the -rt kernel patchsets</A>. 
+<P></P></LI>
+<LI><A href="http://www.rdrop.com/users/paulmck/scalability/paper/ordering.2007.09.19a.pdf">Memory Ordering in Modern Microprocessors (McKenney, August 2005) [PDF]</A>. Gives an overview of how Linux's memory-ordering primitives work on a number of computer architectures. </LI></OL>
+<H4>Historical Perspectives on RCU and Related Mechanisms</H4>
+<OL>
+<LI><A href="http://www.usenix.org/events/osdi99/full_papers/gamsa/gamsa.pdf">Tornado: Maximizing Locality and Concurrency in a Shared Memory Multiprocessor Operating System (Gamsa et al., February 1999) [PDF]</A>. Independent invention of a mechanism very similar to RCU. Tornado is a research operating system developed at the University of Toronto. This operating system uses its analog to RCU pervasively. Some of the University of Toronto students brought this operating system with them to IBM Research, where it was developed as part of the K42 project. 
+<P></P></LI>
+<LI><A href="http://www.rdrop.com/users/paulmck/RCU/rclockpdcsproof.pdf">Read-Copy Update: Using Execution History to Solve Concurrency Problems (McKenney and Slingwine, October 1998) [PDF]</A>. First non-patent publication of DYNIX/ptx's RCU implementation. 
+<P></P></LI>
+<LI><A href="http://patft.uspto.gov/netacgi/nph-Parser?Sect1=PTO1&amp;Sect2=HITOFF&amp;d=PALL&amp;p=1&amp;u=%2Fnetahtml%2FPTO%2Fsrchnum.htm&amp;r=1&amp;f=G&amp;l=50&amp;s1=4809168.PN.&amp;OS=PN/4809168&amp;RS=PN/4809168">Passive Serialization in a Multitasking Environment (Hennessey et al., February 1989)</A>. This patent describes an RCU-like mechanism that was apparently used in IBM's VM/XA mainframe hypervisor. This is the earliest known production use of an RCU-like mechanism. 
+<P></P></LI>
+<LI><A href="http://portal.acm.org/citation.cfm?id=320619&amp;dl=GUIDE,">Concurrent Manipulation of Binary Search Trees (Kung and Lehman, September 1980)</A>. The earliest known publication of an RCU-like mechanism, using a garbage collector to implicitly compute grace periods. </LI></OL>
+<H3><A name="Answers to Quick Quizzes">Answers to Quick Quizzes</A></H3>
+<P><B>Quick Quiz 1</B>: Why are some of the cells in the above table colored green? </P>
+<P><B>Answer</B>: The green API members (<CODE>rcu_read_lock()</CODE>, <CODE>rcu_read_unlock()</CODE>, and <CODE>call_rcu()</CODE>) were the only members of the Linux RCU API that Paul E. McKenney was aware of back in the mid-90s. During this timeframe, he was under the mistaken impression that he knew all that there is to know about RCU. </P>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%201"><B>Back to Quick Quiz 1</B>.</A> </P>
+<P><B>Quick Quiz 2</B>: What happens if you mix and match? For example, suppose you use <CODE>rcu_read_lock()</CODE> and <CODE>rcu_read_unlock()</CODE> to delimit RCU read-side critical sections, but then use <CODE>call_rcu_bh()</CODE> to post an RCU callback? </P>
+<P><B>Answer</B>: If there happened to be no RCU read-side critical sections delimited by <CODE>rcu_read_lock_bh()</CODE> and <CODE>rcu_read_unlock_bh()</CODE> at the time <CODE>call_rcu_bh()</CODE> was invoked, RCU would be within its rights to invoke the callback immediately, possibly freeing a data structure still being used by the RCU read-side critical section! This is not merely a theoretical possibility: a long-running RCU read-side critical section delimited by <CODE>rcu_read_lock()</CODE> and <CODE>rcu_read_unlock()</CODE> is vulnerable to this failure mode. </P>
+<P>This vulnerability disappears in -rt kernels, where RCU Classic and RCU BH both map onto a common implementation. </P>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%202"><B>Back to Quick Quiz 2</B>.</A> </P>
+<P><B>Quick Quiz 3</B>: What happens if you mix and match RCU Classic and RCU Sched? </P>
+<P><B>Answer</B>: In a non-PREEMPT or a PREEMPT kernel, mixing these two works "by accident" because in those kernel builds, RCU Classic and RCU Sched map to the same implementation. However, this mixture is fatal in PREEMPT_RT builds using the -rt patchset, due to the fact that Realtime RCU's read-side critical sections can be preempted, which would permit <CODE>synchronize_sched()</CODE> to return before the RCU read-side critical section reached its <CODE>rcu_read_unlock()</CODE> call. This could in turn result in a data structure being freed before the read-side critical section was finished with it, which could in turn greatly increase the actuarial risk experienced by your kernel. </P>
+<P>In fact, the split between RCU Classic and RCU Sched was inspired by the need for preemptible RCU read-side critical sections. </P>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%203"><B>Back to Quick Quiz 3</B>.</A> </P>
+<P><B>Quick Quiz 4</B>: What happens if you mix and match Realtime RCU and RCU Classic? </P>
+<P><B>Answer</B>: That would be up to you, because you would have to code up changes to the kernel to make such mixing possible. Currently, any kernel running with RCU Classic cannot access Realtime RCU and vice versa. </P>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%204"><B>Back to Quick Quiz 4</B>.</A> </P>
+<P><B>Quick Quiz 5</B>: Why do both SRCU and QRCU lack asynchronous <CODE>call_srcu()</CODE> or <CODE>call_qrcu()</CODE> interfaces? </P>
+<P><B>Answer</B>: Given an asynchronous interface, a single task could register an arbitrarily large number of SRCU or QRCU callbacks, thereby consuming an arbitrarily large quantity of memory. In contrast, given the current synchronous <CODE>synchronize_srcu()</CODE> and <CODE>synchronize_qrcu()</CODE> interfaces, a given task must finish waiting for a given grace period before it can start waiting for the next one. </P>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%205"><B>Back to Quick Quiz 5</B>.</A> </P>
+<P><B>Quick Quiz 6</B>: Under what conditions can <CODE>synchronize_srcu()</CODE> be safely used within an SRCU read-side critical section? </P>
+<P><B>Answer</B>: In principle, you can use <CODE>synchronize_srcu()</CODE> with a given <CODE>srcu_struct</CODE> within an SRCU read-side critical section that uses some other <CODE>srcu_struct</CODE>. In practice, however, doing this is almost certainly a bad idea. In particular, the following could still result in deadlock: </P>
+<BLOCKQUOTE><PRE>idx = srcu_read_lock(&amp;ssa);
+synchronize_srcu(&amp;ssb);
+srcu_read_unlock(&amp;ssa, idx);
+
+/* . . . */
+
+idx = srcu_read_lock(&amp;ssb);
+synchronize_srcu(&amp;ssa);
+srcu_read_unlock(&amp;ssb, idx);
+</PRE></BLOCKQUOTE>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%206"><B>Back to Quick Quiz 6</B>.</A> </P>
+<P><B>Quick Quiz 7</B>: Why doesn't <CODE>list_del_rcu()</CODE> poison both the <CODE>next</CODE> and <CODE>prev</CODE> pointers? </P>
+<P><B>Answer</B>: Poisoning the <CODE>next</CODE> pointer would interfere with concurrent RCU readers, who must use this pointer. However, RCU readers are forbidden from using the <CODE>prev</CODE> pointer, so it may safely be poisoned. </P>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%207"><B>Back to Quick Quiz 7</B>.</A> </P>
+<P><B>Quick Quiz 8</B>: Normally, any pointer subject to <CODE>rcu_dereference()</CODE> <I>must</I> always be updated using <CODE>rcu_assign_pointer()</CODE>. What is an exception to this rule? </P>
+<P><B>Answer</B>: One such exception is when a multi-element linked data structure is initialized as a unit while inaccessible to other CPUs, and then a single <CODE>rcu_assign_pointer()</CODE> is used to plant a global pointer to this data structure. The initialization-time pointer assignments need not use <CODE>rcu_assign_pointer()</CODE>, though any such assignments that happen after the structure is globally visible <I>must</I> use <CODE>rcu_assign_pointer()</CODE>. </P>
+<P>However, unless this initialization code is on an impressively hot code-path, it is probably wise to use <CODE>rcu_assign_pointer()</CODE> anyway, even though it is in theory unnecessary. It is all too easy for a "minor" change to invalidate your cherished assumptions about the initialization happening privately. </P>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%208"><B>Back to Quick Quiz 8</B>.</A> </P>
+<P><B>Quick Quiz 9</B>: Are there any downsides to the fact that these traversal and update primitives can be used with any of the RCU API family members? </P>
+<P><B>Answer</B>: It can sometimes be difficult for automated code checkers such as "sparse" (or indeed for human beings) to work out which type of RCU read-side critical section a given RCU traversal primitive corresponds to. For example, consider the following: </P>
+<BLOCKQUOTE><PRE>rcu_read_lock();
+preempt_disable();
+p = rcu_dereference(global_pointer);
+
+/* . . . */
+
+preempt_enable();
+rcu_read_unlock();
+</PRE></BLOCKQUOTE>
+<P>Is the <CODE>rcu_dereference()</CODE> primitive in an RCU Classic or an RCU Sched critical section? What would you have to do to figure this out? </P>
+<P><A href="http://lwn.net/Articles/264090/#Quick%20Quiz%209"><B>Back to Quick Quiz 9</B>.</A></P>
+<HR align=left width="60%">
+(<A href="https://lwn.net/login?target=/Articles/264090/">Log in</A> to post comments) 
+<P></P></DIV>
+<P><A name=Comments></A><A name=CommAnchor266388></A></P>
+<DIV class=CommentBox>
+<P class=CommentTitle>RCU part 3: the RCU API</P>
+<DIV class=CommentBody>
+<P class=CommentPoster>Posted Jan 24, 2008 9:46 UTC (Thu) by <B>jarkao2</B> (guest, #41960) [<A href="http://lwn.net/Articles/266388/">Link</A>] </P>
+<DIV class=FormattedComment><PRE>Hi, here are my doubts and suggestions of tiny fixes:
+
+1. Probably in part 1 there was mention of using RCU pointers after their read-side block
+being illegal; maybe it was explained later, but I would like to be sure about such cases:
+
+  RCU Classic
+================
+preempt_disable()
+or spin_lock()
+    ...
+rcu_read_lock()
+    ...
+p = rcu_dereference()
+    ...
+rcu_read_unlock()
+    ...
+rcu_read_lock()
+    ...
+r = p-&gt;something
+    ...
+rcu_read_unlock()
+    ...
+preempt_enable()
+or spin_unlock()
+
+(this code could be divided between 2 functions, BTW)
+
+or similarly with RCU BH, but with local_bh_disable/enable() instead of
+preempt_disable/enable() and with rcu_read_lock/unlock_bh()
+
+So, is it 'legal' if we don't care about RT problems with this?
+
+2. In the first table here for RCU BH shouldn't this be "No soft irq enabling"? (And why
+rcu_barrier() missing?)
+
+3. And traditionally 'an' fix proposal: (under second table) "but incur an the overhead".
+(Quick Quiz 10?)
+
+Many thanks again!
+</PRE></DIV></DIV>
+<P></P></DIV>
+<DIV class=Comment><A name=CommAnchor267237></A>
+<DIV class=CommentBox>
+<P class=CommentTitle>RCU part 3: the RCU API</P>
+<DIV class=CommentBody>
+<P class=CommentPoster>Posted Jan 31, 2008 2:04 UTC (Thu) by <B>PaulMcKenney</B> (subscriber, #9624) [<A href="http://lwn.net/Articles/267237/">Link</A>] </P>Good questions! Point-by-point answers: 
+<OL>
+<LI>Your example might or might not be legal, depending on what primitive you used to wait for a grace period. If you are using <CODE>call_rcu()</CODE> or <CODE>synchronize_rcu()</CODE>, your example is technically illegal for Classic RCU and prone to failure for realtime RCU. If you are using <CODE>synchronize_srcu()</CODE>, your example is technically illegal, but will work given the current implementation. If you are using <CODE>call_rcu_bh()</CODE> or <CODE>synchronize_qrcu()</CODE>, your example is illegal and prone to failure. Finally, if you are using <CODE>synchronize_sched()</CODE>, your example is entirely legal, because <CODE>preempt_disable()</CODE> introduces an RCU read-side critical section. You could create a similar list for your <CODE>_ bh</CODE> example. But please note that if I see anyone submitting a patch in the "technically illegal but works" category, I will NACK it. </LI>
+<LI>One could indeed have listed more things in that cell: no _bh enabling, no blocking, and, as you say, no softirq enabling. The reason that there is not yet an rcu_bh_barrier() is that there has not been a clear need for it yet -- which might change if someone needs call_rcu_bh() in a module. </LI>
+<LI>Good catch! s/an the/the/ </LI></OL></DIV>
+<P></P></DIV>
+<DIV class=Comment><A name=CommAnchor267240></A>
+<DIV class=CommentBox>
+<P class=CommentTitle>RCU part 3: the RCU API</P>
+<DIV class=CommentBody>
+<P class=CommentPoster>Posted Jan 31, 2008 2:34 UTC (Thu) by <B>ris</B> (editor, #5) [<A href="http://lwn.net/Articles/267240/">Link</A>] </P>
+<DIV class=FormattedComment><PRE><FONT class=QuotedText>&gt; Good catch! s/an the/the/</FONT>
+
+Fixed!
+</PRE></DIV></DIV>
+<P></P></DIV>
+<DIV class=Comment><A name=CommAnchor267279></A>
+<DIV class=CommentBox>
+<P class=CommentTitle>RCU part 3: the RCU API</P>
+<DIV class=CommentBody>
+<P class=CommentPoster>Posted Jan 31, 2008 11:18 UTC (Thu) by <B>PaulMcKenney</B> (subscriber, #9624) [<A href="http://lwn.net/Articles/267279/">Link</A>] </P>
+<DIV class=FormattedComment><PRE>Thank you very much!!!
+</PRE></DIV></DIV></DIV></DIV></DIV></DIV>
