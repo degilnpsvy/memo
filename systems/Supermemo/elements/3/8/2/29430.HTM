@@ -1,0 +1,7 @@
+static int __device_attach_driver(struct device_driver *drv, void *_data)<BR>{<BR>&nbsp;struct device_attach_data *data = _data;<BR>&nbsp;struct device *dev = data-&gt;dev;<BR>&nbsp;bool async_allowed;<BR>&nbsp;int ret;</P>
+<P>&nbsp;/*<BR>&nbsp; * Check if device has already been claimed. This may<BR>&nbsp; * happen with driver loading, device discovery/registration,<BR>&nbsp; * and deferred probe processing happens all at once with<BR>&nbsp; * multiple threads.<BR>&nbsp; */<BR>&nbsp;if (dev-&gt;driver)<BR>&nbsp;&nbsp;return -EBUSY;</P>
+<P>&nbsp;ret = driver_match_device(drv, dev);<BR>&nbsp;if (ret == 0) {<BR>&nbsp;&nbsp;/* no match */<BR>&nbsp;&nbsp;return 0;<BR>&nbsp;} else if (ret == -EPROBE_DEFER) {<BR>&nbsp;&nbsp;dev_dbg(dev, "Device match requests probe deferral\n");<BR>&nbsp;&nbsp;driver_deferred_probe_add(dev);<BR>&nbsp;} else if (ret &lt; 0) {<BR>&nbsp;&nbsp;dev_dbg(dev, "Bus failed to match device: %d", ret);<BR>&nbsp;&nbsp;return ret;<BR>&nbsp;} /* ret &gt; 0 means positive match */</P>
+<P>&nbsp;async_allowed = driver_allows_async_probing(drv);</P>
+<P>&nbsp;if (async_allowed)<BR>&nbsp;&nbsp;data-&gt;have_async = true;</P>
+<P>&nbsp;if (data-&gt;check_async &amp;&amp; async_allowed != data-&gt;want_async)<BR>&nbsp;&nbsp;return 0;</P>
+<P>&nbsp;return driver_probe_device(drv, dev);<BR>}

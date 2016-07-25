@@ -1,0 +1,13 @@
+static void __device_attach_async_helper(void *_dev, async_cookie_t cookie)<BR>{<BR>&nbsp;struct device *dev = _dev;<BR>&nbsp;struct device_attach_data data = {<BR>&nbsp;&nbsp;.dev&nbsp;&nbsp;= dev,<BR>&nbsp;&nbsp;.check_async&nbsp;= true,<BR>&nbsp;&nbsp;.want_async&nbsp;= true,<BR>&nbsp;};</P>
+<P>&nbsp;device_lock(dev);</P>
+<P>&nbsp;if (dev-&gt;parent)<BR>&nbsp;&nbsp;pm_runtime_get_sync(dev-&gt;parent);</P>
+<P>&nbsp;bus_for_each_drv(dev-&gt;bus, NULL, &amp;data, __device_attach_driver);<BR>&nbsp;dev_dbg(dev, "async probe completed\n");</P>
+<P>&nbsp;pm_request_idle(dev);</P>
+<P>&nbsp;if (dev-&gt;parent)<BR>&nbsp;&nbsp;pm_runtime_put(dev-&gt;parent);</P>
+<P>&nbsp;device_unlock(dev);</P>
+<P>&nbsp;put_device(dev);<BR>}</P>
+<P>static int __device_attach(struct device *dev, bool allow_async)<BR>{<BR>&nbsp;int ret = 0;</P>
+<P>&nbsp;device_lock(dev);<BR>&nbsp;if (dev-&gt;driver) {<BR>&nbsp;&nbsp;if (device_is_bound(dev)) {<BR>&nbsp;&nbsp;&nbsp;ret = 1;<BR>&nbsp;&nbsp;&nbsp;goto out_unlock;<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;ret = device_bind_driver(dev);<BR>&nbsp;&nbsp;if (ret == 0)<BR>&nbsp;&nbsp;&nbsp;ret = 1;<BR>&nbsp;&nbsp;else {<BR>&nbsp;&nbsp;&nbsp;dev-&gt;driver = NULL;<BR>&nbsp;&nbsp;&nbsp;ret = 0;<BR>&nbsp;&nbsp;}<BR>&nbsp;} else {<BR>&nbsp;&nbsp;struct device_attach_data data = {<BR>&nbsp;&nbsp;&nbsp;.dev = dev,<BR>&nbsp;&nbsp;&nbsp;.check_async = allow_async,<BR>&nbsp;&nbsp;&nbsp;.want_async = false,<BR>&nbsp;&nbsp;};</P>
+<P>&nbsp;&nbsp;if (dev-&gt;parent)<BR>&nbsp;&nbsp;&nbsp;pm_runtime_get_sync(dev-&gt;parent);</P>
+<P>&nbsp;&nbsp;ret = bus_for_each_drv(dev-&gt;bus, NULL, &amp;data,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__device_attach_driver);<BR>&nbsp;&nbsp;if (!ret &amp;&amp; allow_async &amp;&amp; data.have_async) {<BR>&nbsp;&nbsp;&nbsp;/*<BR>&nbsp;&nbsp;&nbsp; * If we could not find appropriate driver<BR>&nbsp;&nbsp;&nbsp; * synchronously and we are allowed to do<BR>&nbsp;&nbsp;&nbsp; * async probes and there are drivers that<BR>&nbsp;&nbsp;&nbsp; * want to probe asynchronously, we'll<BR>&nbsp;&nbsp;&nbsp; * try them.<BR>&nbsp;&nbsp;&nbsp; */<BR>&nbsp;&nbsp;&nbsp;dev_dbg(dev, "scheduling asynchronous probe\n");<BR>&nbsp;&nbsp;&nbsp;get_device(dev);<BR>&nbsp;&nbsp;&nbsp;async_schedule(__device_attach_async_helper, dev);<BR>&nbsp;&nbsp;} else {<BR>&nbsp;&nbsp;&nbsp;pm_request_idle(dev);<BR>&nbsp;&nbsp;}</P>
+<P>&nbsp;&nbsp;if (dev-&gt;parent)<BR>&nbsp;&nbsp;&nbsp;pm_runtime_put(dev-&gt;parent);<BR>&nbsp;}<BR>out_unlock:<BR>&nbsp;device_unlock(dev);<BR>&nbsp;return ret;<BR>}

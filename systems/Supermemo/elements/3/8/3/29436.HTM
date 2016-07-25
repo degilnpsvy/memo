@@ -1,0 +1,8 @@
+/*<BR>&nbsp;* __device_release_driver() must be called with @dev lock held.<BR>&nbsp;* When called for a USB interface, @dev-&gt;parent lock must be held as well.<BR>&nbsp;*/<BR>static void __device_release_driver(struct device *dev)<BR>{<BR>&nbsp;struct device_driver *drv;</P>
+<P>&nbsp;drv = dev-&gt;driver;<BR>&nbsp;if (drv) {<BR>&nbsp;&nbsp;if (driver_allows_async_probing(drv))<BR>&nbsp;&nbsp;&nbsp;async_synchronize_full();</P>
+<P>&nbsp;&nbsp;pm_runtime_get_sync(dev);</P>
+<P>&nbsp;&nbsp;driver_sysfs_remove(dev);</P>
+<P>&nbsp;&nbsp;if (dev-&gt;bus)<BR>&nbsp;&nbsp;&nbsp;blocking_notifier_call_chain(&amp;dev-&gt;bus-&gt;p-&gt;bus_notifier,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BUS_NOTIFY_UNBIND_DRIVER,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; dev);</P>
+<P>&nbsp;&nbsp;pm_runtime_put_sync(dev);</P>
+<P>&nbsp;&nbsp;if (dev-&gt;bus &amp;&amp; dev-&gt;bus-&gt;remove)<BR>&nbsp;&nbsp;&nbsp;dev-&gt;bus-&gt;remove(dev);<BR>&nbsp;&nbsp;else if (drv-&gt;remove)<BR>&nbsp;&nbsp;&nbsp;drv-&gt;remove(dev);<BR>&nbsp;&nbsp;devres_release_all(dev);<BR>&nbsp;&nbsp;dev-&gt;driver = NULL;<BR>&nbsp;&nbsp;dev_set_drvdata(dev, NULL);<BR>&nbsp;&nbsp;if (dev-&gt;pm_domain &amp;&amp; dev-&gt;pm_domain-&gt;dismiss)<BR>&nbsp;&nbsp;&nbsp;dev-&gt;pm_domain-&gt;dismiss(dev);<BR>&nbsp;&nbsp;pm_runtime_reinit(dev);</P>
+<P>&nbsp;&nbsp;klist_remove(&amp;dev-&gt;p-&gt;knode_driver);<BR>&nbsp;&nbsp;device_pm_check_callbacks(dev);<BR>&nbsp;&nbsp;if (dev-&gt;bus)<BR>&nbsp;&nbsp;&nbsp;blocking_notifier_call_chain(&amp;dev-&gt;bus-&gt;p-&gt;bus_notifier,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; BUS_NOTIFY_UNBOUND_DRIVER,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; dev);<BR>&nbsp;}<BR>}
