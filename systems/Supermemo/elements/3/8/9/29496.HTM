@@ -1,0 +1,4 @@
+/**<BR>&nbsp;* klist_remove - Decrement the refcount of node and wait for it to go away.<BR>&nbsp;* @n: node we're removing.<BR>&nbsp;*/<BR>void klist_remove(struct klist_node *n)<BR>{<BR>&nbsp;struct klist_waiter waiter;</P>
+<P>&nbsp;waiter.node = n;<BR>&nbsp;waiter.process = current;<BR>&nbsp;waiter.woken = 0;<BR>&nbsp;spin_lock(&amp;klist_remove_lock);<BR>&nbsp;list_add(&amp;waiter.list, &amp;klist_remove_waiters);<BR>&nbsp;spin_unlock(&amp;klist_remove_lock);</P>
+<P>&nbsp;klist_del(n);</P>
+<P>&nbsp;for (;;) {<BR>&nbsp;&nbsp;set_current_state(TASK_UNINTERRUPTIBLE);<BR>&nbsp;&nbsp;if (waiter.woken)<BR>&nbsp;&nbsp;&nbsp;break;<BR>&nbsp;&nbsp;schedule();<BR>&nbsp;}<BR>&nbsp;__set_current_state(TASK_RUNNING);<BR>}<BR>EXPORT_SYMBOL_GPL(klist_remove);
