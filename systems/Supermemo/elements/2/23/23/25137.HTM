@@ -1,7 +1,7 @@
 The above example could also be optimized using kref_get_unless_zero() in<BR>the following way: 
 <P></P>
-<P>static struct my_data *get_entry()<BR>{<BR>&nbsp;struct my_data *entry = NULL;<BR>&nbsp;mutex_lock(&amp;mutex);<BR>&nbsp;if (!list_empty(&amp;q)) {<BR>&nbsp;&nbsp;entry = container_of(q.next, struct my_data, link);<BR>&nbsp;&nbsp;if (!kref_get_unless_zero(&amp;entry-&gt;refcount))<BR>&nbsp;&nbsp;&nbsp;entry = NULL;<BR>&nbsp;}<BR>&nbsp;mutex_unlock(&amp;mutex);<BR>&nbsp;return entry;<BR>}</P>
-<P>static void release_entry(struct kref *ref)<BR>{<BR>&nbsp;struct my_data *entry = container_of(ref, struct my_data, refcount);</P>
-<P>&nbsp;mutex_lock(&amp;mutex);<BR>&nbsp;list_del(&amp;entry-&gt;link);<BR>&nbsp;mutex_unlock(&amp;mutex);<BR>&nbsp;kfree(entry);<BR>}</P>
-<P>static void put_entry(struct my_data *entry)<BR>{<BR>&nbsp;kref_put(&amp;entry-&gt;refcount, release_entry);<BR>}</P>
+<P><FONT class=clozed>static struct my_data *get_entry()<BR>{<BR>&nbsp;struct my_data *entry = NULL;<BR>&nbsp;mutex_lock(&amp;mutex);<BR>&nbsp;if (!list_empty(&amp;q)) {<BR>&nbsp;&nbsp;entry = container_of(q.next, struct my_data, link);<BR>&nbsp;&nbsp;if (!kref_get_unless_zero(&amp;entry-&gt;refcount))<BR>&nbsp;&nbsp;&nbsp;entry = NULL;<BR>&nbsp;}<BR>&nbsp;mutex_unlock(&amp;mutex);<BR>&nbsp;return entry;<BR>}</FONT></P>
+<P><FONT class=clozed>static void release_entry(struct kref *ref)<BR>{<BR>&nbsp;struct my_data *entry = container_of(ref, struct my_data, refcount);</FONT></P>
+<P><FONT class=clozed>&nbsp;mutex_lock(&amp;mutex);<BR>&nbsp;list_del(&amp;entry-&gt;link);<BR>&nbsp;mutex_unlock(&amp;mutex);<BR>&nbsp;kfree(entry);<BR>}</FONT></P>
+<P><FONT class=clozed>static void put_entry(struct my_data *entry)<BR>{<BR>&nbsp;kref_put(&amp;entry-&gt;refcount, release_entry);<BR>}</FONT></P>
 <P>Which is useful to remove the mutex lock around kref_put() in put_entry(), but<BR>it's important that kref_get_unless_zero is enclosed in the same critical<BR>section that finds the entry in the lookup table,<BR>otherwise kref_get_unless_zero may reference already freed memory.<BR>Note that it is illegal to use kref_get_unless_zero without checking its<BR>return value. If you are sure (by already having a valid pointer) that<BR>kref_get_unless_zero() will return true, then use kref_get() instead.
