@@ -1,3 +1,6 @@
 /**<BR>&nbsp;* driver_detach - detach driver from all devices it controls.<BR>&nbsp;* @drv: driver.<BR>&nbsp;*/<BR>void driver_detach(struct device_driver *drv)<BR>{<BR>&nbsp;struct device_private *dev_prv;<BR>&nbsp;struct device *dev;</P>
+<P></P>
 <P>&nbsp;for (;;) {<BR>&nbsp;&nbsp;spin_lock(&amp;drv-&gt;p-&gt;klist_devices.k_lock);<BR>&nbsp;&nbsp;if (list_empty(&amp;drv-&gt;p-&gt;klist_devices.k_list)) {<BR>&nbsp;&nbsp;&nbsp;spin_unlock(&amp;drv-&gt;p-&gt;klist_devices.k_lock);<BR>&nbsp;&nbsp;&nbsp;break;<BR>&nbsp;&nbsp;}<BR>&nbsp;&nbsp;dev_prv = list_entry(drv-&gt;p-&gt;klist_devices.k_list.prev,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; struct device_private,<BR>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; knode_driver.n_node);<BR>&nbsp;&nbsp;dev = dev_prv-&gt;device;<BR>&nbsp;&nbsp;get_device(dev);<BR>&nbsp;&nbsp;spin_unlock(&amp;drv-&gt;p-&gt;klist_devices.k_lock);</P>
 <P>&nbsp;&nbsp;if (dev-&gt;parent)&nbsp;/* Needed for USB */<BR>&nbsp;&nbsp;&nbsp;device_lock(dev-&gt;parent);<BR>&nbsp;&nbsp;device_lock(dev);<BR>&nbsp;&nbsp;if (dev-&gt;driver == drv)<BR>&nbsp;&nbsp;&nbsp;__device_release_driver(dev);<BR>&nbsp;&nbsp;device_unlock(dev);<BR>&nbsp;&nbsp;if (dev-&gt;parent)<BR>&nbsp;&nbsp;&nbsp;device_unlock(dev-&gt;parent);<BR>&nbsp;&nbsp;put_device(dev);<BR>&nbsp;}<BR>}
+<P>&nbsp;
+<P>This is only invoked by bus_remove_driver
