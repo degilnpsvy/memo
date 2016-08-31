@@ -1,0 +1,23 @@
+<H5 class=subsubsection>6.44.5.2 Specifying Registers for Local Variables</H5>
+<P><A name=Local-Reg-Vars></A><A name=index-local-variables_002c-specifying-registers-3719></A><A name=index-specifying-registers-for-local-variables-3720></A><A name=index-registers-for-local-variables-3721></A>You can define a local register variable and associate it with a specified register like this: </P><PRE class=smallexample>     register int *foo asm ("r12");
+</PRE>
+<P class=noindent>Here <CODE>r12</CODE> is the name of the register that should be used. Note that this is the same syntax used for defining global register variables, but for a local variable the declaration appears within a function. The <CODE>register</CODE> keyword is required, and cannot be combined with <CODE>static</CODE>. The register name must be a valid register name for the target platform. </P>
+<P>As with global register variables, it is recommended that you choose a register that is normally saved and restored by function calls on your machine, so that calls to library routines will not clobber it. </P>
+<P>The only supported use for this feature is to specify registers for input and output operands when calling Extended <CODE>asm</CODE> (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html#Extended-Asm">Extended Asm</A>). This may be necessary if the constraints for a particular machine don't provide sufficient control to select the desired register. To force an operand into a register, create a local variable and specify the register name after the variable's declaration. Then use the local variable for the <CODE>asm</CODE> operand and specify any constraint letter that matches the register: </P><PRE class=smallexample>     register int *p1 asm ("r0") = ...;
+     register int *p2 asm ("r1") = ...;
+     register int *result asm ("r0");
+     asm ("sysint" : "=r" (result) : "0" (p1), "r" (p2));
+</PRE>
+<P><EM>Warning:</EM> In the above example, be aware that a register (for example <CODE>r0</CODE>) can be call-clobbered by subsequent code, including function calls and library calls for arithmetic operators on other variables (for example the initialization of <CODE>p2</CODE>). In this case, use temporary variables for expressions between the register assignments: </P><PRE class=smallexample>     int t1 = ...;
+     register int *p1 asm ("r0") = ...;
+     register int *p2 asm ("r1") = t1;
+     register int *result asm ("r0");
+     asm ("sysint" : "=r" (result) : "0" (p1), "r" (p2));
+</PRE>
+<P>Defining a register variable does not reserve the register. Other than when invoking the Extended <CODE>asm</CODE>, the contents of the specified register are not guaranteed. For this reason, the following uses are explicitly <EM>not</EM> supported. If they appear to work, it is only happenstance, and may stop working as intended due to (seemingly) unrelated changes in surrounding code, or even minor changes in the optimization of a future version of gcc: </P>
+<UL>
+<LI>Passing parameters to or from Basic <CODE>asm</CODE> </LI>
+<LI>Passing parameters to or from Extended <CODE>asm</CODE> without using input or output operands. </LI>
+<LI>Passing parameters to or from routines written in assembler (or other languages) using non-standard calling conventions. </LI></UL>
+<P>Some developers use Local Register Variables in an attempt to improve gcc's allocation of registers, especially in large functions. In this case the register name is essentially a hint to the register allocator. While in some instances this can generate better code, improvements are subject to the whims of the allocator/optimizers. Since there are no guarantees that your improvements won't be lost, this usage of Local Register Variables is discouraged. </P>
+<P>On the MIPS platform, there is related use for local register variables with slightly different characteristics (see <A href="https://gcc.gnu.org/onlinedocs/gccint/MIPS-Coprocessors.html#MIPS-Coprocessors">Defining coprocessor specifics for MIPS targets</A>).

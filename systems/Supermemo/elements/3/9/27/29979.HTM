@@ -1,0 +1,457 @@
+<H4 class=subsection>6.44.2 Extended Asm - Assembler Instructions with C Expression Operands</H4>
+<P><A name=index-extended-_0040code_007basm_007d-3647></A><A name=index-assembly-language-in-C_002c-extended-3648></A>With extended <CODE>asm</CODE> you can read and write C variables from assembler and perform jumps from assembler code to C labels. Extended <CODE>asm</CODE> syntax uses colons (&#8216;<SAMP><SPAN class=samp>:</SPAN></SAMP>&#8217;) to delimit the operand parameters after the assembler template: </P><PRE class=example>     asm <SPAN class=roman>[</SPAN>volatile<SPAN class=roman>]</SPAN> ( <VAR>AssemblerTemplate</VAR>
+                      : <VAR>OutputOperands</VAR>
+                      <SPAN class=roman>[</SPAN> : <VAR>InputOperands</VAR>
+                      <SPAN class=roman>[</SPAN> : <VAR>Clobbers</VAR> <SPAN class=roman>]</SPAN> <SPAN class=roman>]</SPAN>)
+     
+     asm <SPAN class=roman>[</SPAN>volatile<SPAN class=roman>]</SPAN> goto ( <VAR>AssemblerTemplate</VAR>
+                           :
+                           : <VAR>InputOperands</VAR>
+                           : <VAR>Clobbers</VAR>
+                           : <VAR>GotoLabels</VAR>)
+</PRE>
+<P>The <CODE>asm</CODE> keyword is a GNU extension. When writing code that can be compiled with <SAMP><SPAN class=option>-ansi</SPAN></SAMP> and the various <SAMP><SPAN class=option>-std</SPAN></SAMP> options, use <CODE>__asm__</CODE> instead of <CODE>asm</CODE> (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Alternate-Keywords.html#Alternate-Keywords">Alternate Keywords</A>). </P>
+<H5 class=subsubheading>Qualifiers</H5>
+<DL>
+<DT><CODE>volatile</CODE></DT>
+<DD>The typical use of extended <CODE>asm</CODE> statements is to manipulate input values to produce output values. However, your <CODE>asm</CODE> statements may also produce side effects. If so, you may need to use the <CODE>volatile</CODE> qualifier to disable certain optimizations. See <A href="https://gcc.gnu.org/onlinedocs/gcc/Volatile.html#Volatile">Volatile</A>. <BR></DD>
+<DT><CODE>goto</CODE></DT>
+<DD>This qualifier informs the compiler that the <CODE>asm</CODE> statement may perform a jump to one of the labels listed in the <VAR>GotoLabels</VAR>. See <A href="https://gcc.gnu.org/onlinedocs/gcc/GotoLabels.html#GotoLabels">GotoLabels</A>. </DD></DL>
+<H5 class=subsubheading>Parameters</H5>
+<DL>
+<DT><VAR>AssemblerTemplate</VAR></DT>
+<DD>This is a literal string that is the template for the assembler code. It is a combination of fixed text and tokens that refer to the input, output, and goto parameters. See <A href="https://gcc.gnu.org/onlinedocs/gcc/AssemblerTemplate.html#AssemblerTemplate">AssemblerTemplate</A>. <BR></DD>
+<DT><VAR>OutputOperands</VAR></DT>
+<DD>A comma-separated list of the C variables modified by the instructions in the <VAR>AssemblerTemplate</VAR>. An empty list is permitted. See <A href="https://gcc.gnu.org/onlinedocs/gcc/OutputOperands.html#OutputOperands">OutputOperands</A>. <BR></DD>
+<DT><VAR>InputOperands</VAR></DT>
+<DD>A comma-separated list of C expressions read by the instructions in the <VAR>AssemblerTemplate</VAR>. An empty list is permitted. See <A href="https://gcc.gnu.org/onlinedocs/gcc/InputOperands.html#InputOperands">InputOperands</A>. <BR></DD>
+<DT><VAR>Clobbers</VAR></DT>
+<DD>A comma-separated list of registers or other values changed by the <VAR>AssemblerTemplate</VAR>, beyond those listed as outputs. An empty list is permitted. See <A href="https://gcc.gnu.org/onlinedocs/gcc/Clobbers.html#Clobbers">Clobbers</A>. <BR></DD>
+<DT><VAR>GotoLabels</VAR></DT>
+<DD>When you are using the <CODE>goto</CODE> form of <CODE>asm</CODE>, this section contains the list of all C labels to which the code in the <VAR>AssemblerTemplate</VAR> may jump. See <A href="https://gcc.gnu.org/onlinedocs/gcc/GotoLabels.html#GotoLabels">GotoLabels</A>. 
+<P><CODE>asm</CODE> statements may not perform jumps into other <CODE>asm</CODE> statements, only to the listed <VAR>GotoLabels</VAR>. GCC's optimizers do not know about other jumps; therefore they cannot take account of them when deciding how to optimize. </P></DD></DL>
+<P>The total number of input + output + goto operands is limited to 30. </P>
+<H5 class=subsubheading>Remarks</H5>
+<P>The <CODE>asm</CODE> statement allows you to include assembly instructions directly within C code. This may help you to maximize performance in time-sensitive code or to access assembly instructions that are not readily available to C programs. </P>
+<P>Note that extended <CODE>asm</CODE> statements must be inside a function. Only basic <CODE>asm</CODE> may be outside functions (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Basic-Asm.html#Basic-Asm">Basic Asm</A>). Functions declared with the <CODE>naked</CODE> attribute also require basic <CODE>asm</CODE> (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Function-Attributes.html#Function-Attributes">Function Attributes</A>). </P>
+<P>While the uses of <CODE>asm</CODE> are many and varied, it may help to think of an <CODE>asm</CODE> statement as a series of low-level instructions that convert input parameters to output parameters. So a simple (if not particularly useful) example for i386 using <CODE>asm</CODE> might look like this: </P><PRE class=example>     int src = 1;
+     int dst;
+     
+     asm ("mov %1, %0\n\t"
+         "add $1, %0"
+         : "=r" (dst)
+         : "r" (src));
+     
+     printf("%d\n", dst);
+</PRE>
+<P>This code copies <CODE>src</CODE> to <CODE>dst</CODE> and add 1 to <CODE>dst</CODE>. </P>
+<P><A name=Volatile></A></P>
+<H5 class=subsubsection>6.44.2.1 Volatile</H5>
+<P><A name=index-volatile-_0040code_007basm_007d-3649></A><A name=index-g_t_0040code_007basm_007d-volatile-3650></A>GCC's optimizers sometimes discard <CODE>asm</CODE> statements if they determine there is no need for the output variables. Also, the optimizers may move code out of loops if they believe that the code will always return the same result (i.e. none of its input values change between calls). Using the <CODE>volatile</CODE> qualifier disables these optimizations. <CODE>asm</CODE> statements that have no output operands, including <CODE>asm goto</CODE> statements, are implicitly volatile. </P>
+<P>This i386 code demonstrates a case that does not use (or require) the <CODE>volatile</CODE> qualifier. If it is performing assertion checking, this code uses <CODE>asm</CODE> to perform the validation. Otherwise, <CODE>dwRes</CODE> is unreferenced by any code. As a result, the optimizers can discard the <CODE>asm</CODE> statement, which in turn removes the need for the entire <CODE>DoCheck</CODE> routine. By omitting the <CODE>volatile</CODE> qualifier when it isn't needed you allow the optimizers to produce the most efficient code possible. </P><PRE class=example>     void DoCheck(uint32_t dwSomeValue)
+     {
+        uint32_t dwRes;
+     
+        // Assumes dwSomeValue is not zero.
+        asm ("bsfl %1,%0"
+          : "=r" (dwRes)
+          : "r" (dwSomeValue)
+          : "cc");
+     
+        assert(dwRes &gt; 3);
+     }
+</PRE>
+<P>The next example shows a case where the optimizers can recognize that the input (<CODE>dwSomeValue</CODE>) never changes during the execution of the function and can therefore move the <CODE>asm</CODE> outside the loop to produce more efficient code. Again, using <CODE>volatile</CODE> disables this type of optimization. </P><PRE class=example>     void do_print(uint32_t dwSomeValue)
+     {
+        uint32_t dwRes;
+     
+        for (uint32_t x=0; x &lt; 5; x++)
+        {
+           // Assumes dwSomeValue is not zero.
+           asm ("bsfl %1,%0"
+             : "=r" (dwRes)
+             : "r" (dwSomeValue)
+             : "cc");
+     
+           printf("%u: %u %u\n", x, dwSomeValue, dwRes);
+        }
+     }
+</PRE>
+<P>The following example demonstrates a case where you need to use the <CODE>volatile</CODE> qualifier. It uses the x86 <CODE>rdtsc</CODE> instruction, which reads the computer's time-stamp counter. Without the <CODE>volatile</CODE> qualifier, the optimizers might assume that the <CODE>asm</CODE> block will always return the same value and therefore optimize away the second call. </P><PRE class=example>     uint64_t msr;
+     
+     asm volatile ( "rdtsc\n\t"    // Returns the time in EDX:EAX.
+             "shl $32, %%rdx\n\t"  // Shift the upper bits left.
+             "or %%rdx, %0"        // 'Or' in the lower bits.
+             : "=a" (msr)
+             :
+             : "rdx");
+     
+     printf("msr: %llx\n", msr);
+     
+     // Do other work...
+     
+     // Reprint the timestamp
+     asm volatile ( "rdtsc\n\t"    // Returns the time in EDX:EAX.
+             "shl $32, %%rdx\n\t"  // Shift the upper bits left.
+             "or %%rdx, %0"        // 'Or' in the lower bits.
+             : "=a" (msr)
+             :
+             : "rdx");
+     
+     printf("msr: %llx\n", msr);
+</PRE>
+<P>GCC's optimizers do not treat this code like the non-volatile code in the earlier examples. They do not move it out of loops or omit it on the assumption that the result from a previous call is still valid. </P>
+<P>Note that the compiler can move even volatile <CODE>asm</CODE> instructions relative to other code, including across jump instructions. For example, on many targets there is a system register that controls the rounding mode of floating-point operations. Setting it with a volatile <CODE>asm</CODE>, as in the following PowerPC example, does not work reliably. </P><PRE class=example>     asm volatile("mtfsf 255, %0" : : "f" (fpenv));
+     sum = x + y;
+</PRE>
+<P>The compiler may move the addition back before the volatile <CODE>asm</CODE>. To make it work as expected, add an artificial dependency to the <CODE>asm</CODE> by referencing a variable in the subsequent code, for example: </P><PRE class=example>     asm volatile ("mtfsf 255,%1" : "=X" (sum) : "f" (fpenv));
+     sum = x + y;
+</PRE>
+<P>Under certain circumstances, GCC may duplicate (or remove duplicates of) your assembly code when optimizing. This can lead to unexpected duplicate symbol errors during compilation if your asm code defines symbols or labels. Using &#8216;<SAMP><SPAN class=samp>%=</SPAN></SAMP>&#8217; (see <A href="https://gcc.gnu.org/onlinedocs/gcc/AssemblerTemplate.html#AssemblerTemplate">AssemblerTemplate</A>) may help resolve this problem. </P>
+<P><A name=AssemblerTemplate></A></P>
+<H5 class=subsubsection>6.44.2.2 Assembler Template</H5>
+<P><A name=index-g_t_0040code_007basm_007d-assembler-template-3651></A>An assembler template is a literal string containing assembler instructions. The compiler replaces tokens in the template that refer to inputs, outputs, and goto labels, and then outputs the resulting string to the assembler. The string can contain any instructions recognized by the assembler, including directives. GCC does not parse the assembler instructions themselves and does not know what they mean or even whether they are valid assembler input. However, it does count the statements (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Size-of-an-asm.html#Size-of-an-asm">Size of an asm</A>). </P>
+<P>You may place multiple assembler instructions together in a single <CODE>asm</CODE> string, separated by the characters normally used in assembly code for the system. A combination that works in most places is a newline to break the line, plus a tab character to move to the instruction field (written as &#8216;<SAMP><SPAN class=samp>\n\t</SPAN></SAMP>&#8217;). Some assemblers allow semicolons as a line separator. However, note that some assembler dialects use semicolons to start a comment. </P>
+<P>Do not expect a sequence of <CODE>asm</CODE> statements to remain perfectly consecutive after compilation, even when you are using the <CODE>volatile</CODE> qualifier. If certain instructions need to remain consecutive in the output, put them in a single multi-instruction asm statement. </P>
+<P>Accessing data from C programs without using input/output operands (such as by using global symbols directly from the assembler template) may not work as expected. Similarly, calling functions directly from an assembler template requires a detailed understanding of the target assembler and ABI. </P>
+<P>Since GCC does not parse the assembler template, it has no visibility of any symbols it references. This may result in GCC discarding those symbols as unreferenced unless they are also listed as input, output, or goto operands. </P>
+<H5 class=subsubheading>Special format strings</H5>
+<P>In addition to the tokens described by the input, output, and goto operands, these tokens have special meanings in the assembler template: </P>
+<DL>
+<DT>&#8216;<SAMP><SPAN class=samp>%%</SPAN></SAMP>&#8217;</DT>
+<DD>Outputs a single &#8216;<SAMP><SPAN class=samp>%</SPAN></SAMP>&#8217; into the assembler code. <BR></DD>
+<DT>&#8216;<SAMP><SPAN class=samp>%=</SPAN></SAMP>&#8217;</DT>
+<DD>Outputs a number that is unique to each instance of the <CODE>asm</CODE> statement in the entire compilation. This option is useful when creating local labels and referring to them multiple times in a single template that generates multiple assembler instructions. <BR></DD>
+<DT>&#8216;<SAMP><SPAN class=samp>%{</SPAN></SAMP>&#8217;</DT>
+<DT>&#8216;<SAMP><SPAN class=samp>%|</SPAN></SAMP>&#8217;</DT>
+<DT>&#8216;<SAMP><SPAN class=samp>%}</SPAN></SAMP>&#8217;</DT>
+<DD>Outputs &#8216;<SAMP><SPAN class=samp>{</SPAN></SAMP>&#8217;, &#8216;<SAMP><SPAN class=samp>|</SPAN></SAMP>&#8217;, and &#8216;<SAMP><SPAN class=samp>}</SPAN></SAMP>&#8217; characters (respectively) into the assembler code. When unescaped, these characters have special meaning to indicate multiple assembler dialects, as described below. </DD></DL>
+<H5 class=subsubheading>Multiple assembler dialects in <CODE>asm</CODE> templates</H5>
+<P>On targets such as x86, GCC supports multiple assembler dialects. The <SAMP><SPAN class=option>-masm</SPAN></SAMP> option controls which dialect GCC uses as its default for inline assembler. The target-specific documentation for the <SAMP><SPAN class=option>-masm</SPAN></SAMP> option contains the list of supported dialects, as well as the default dialect if the option is not specified. This information may be important to understand, since assembler code that works correctly when compiled using one dialect will likely fail if compiled using another. See <A href="https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html#x86-Options">x86 Options</A>. </P>
+<P>If your code needs to support multiple assembler dialects (for example, if you are writing public headers that need to support a variety of compilation options), use constructs of this form: </P><PRE class=example>     { dialect0 | dialect1 | dialect2... }
+</PRE>
+<P>This construct outputs <CODE>dialect0</CODE> when using dialect #0 to compile the code, <CODE>dialect1</CODE> for dialect #1, etc. If there are fewer alternatives within the braces than the number of dialects the compiler supports, the construct outputs nothing. </P>
+<P>For example, if an x86 compiler supports two dialects (&#8216;<SAMP><SPAN class=samp>att</SPAN></SAMP>&#8217;, &#8216;<SAMP><SPAN class=samp>intel</SPAN></SAMP>&#8217;), an assembler template such as this: </P><PRE class=example>     "bt{l %[Offset],%[Base] | %[Base],%[Offset]}; jc %l2"
+</PRE>
+<P class=noindent>is equivalent to one of </P><PRE class=example>     "btl %[Offset],%[Base] ; jc %l2"   <SPAN class=roman>/* att dialect */</SPAN>
+     "bt %[Base],%[Offset]; jc %l2"     <SPAN class=roman>/* intel dialect */</SPAN>
+</PRE>
+<P>Using that same compiler, this code: </P><PRE class=example>     "xchg{l}\t{%%}ebx, %1"
+</PRE>
+<P class=noindent>corresponds to either </P><PRE class=example>     "xchgl\t%%ebx, %1"                 <SPAN class=roman>/* att dialect */</SPAN>
+     "xchg\tebx, %1"                    <SPAN class=roman>/* intel dialect */</SPAN>
+</PRE>
+<P>There is no support for nesting dialect alternatives. </P>
+<P><A name=OutputOperands></A></P>
+<H5 class=subsubsection>6.44.2.3 Output Operands</H5>
+<P><A name=index-g_t_0040code_007basm_007d-output-operands-3652></A>An <CODE>asm</CODE> statement has zero or more output operands indicating the names of C variables modified by the assembler code. </P>
+<P>In this i386 example, <CODE>old</CODE> (referred to in the template string as <CODE>%0</CODE>) and <CODE>*Base</CODE> (as <CODE>%1</CODE>) are outputs and <CODE>Offset</CODE> (<CODE>%2</CODE>) is an input: </P><PRE class=example>     bool old;
+     
+     __asm__ ("btsl %2,%1\n\t" // Turn on zero-based bit #Offset in Base.
+              "sbb %0,%0"      // Use the CF to calculate old.
+        : "=r" (old), "+rm" (*Base)
+        : "Ir" (Offset)
+        : "cc");
+     
+     return old;
+</PRE>
+<P>Operands are separated by commas. Each operand has this format: </P><PRE class=example>     <SPAN class=roman>[</SPAN> [<VAR>asmSymbolicName</VAR>] <SPAN class=roman>]</SPAN> <VAR>constraint</VAR> (<VAR>cvariablename</VAR>)
+</PRE>
+<DL>
+<DT><VAR>asmSymbolicName</VAR></DT>
+<DD>Specifies a symbolic name for the operand. Reference the name in the assembler template by enclosing it in square brackets (i.e. &#8216;<SAMP><SPAN class=samp>%[Value]</SPAN></SAMP>&#8217;). The scope of the name is the <CODE>asm</CODE> statement that contains the definition. Any valid C variable name is acceptable, including names already defined in the surrounding code. No two operands within the same <CODE>asm</CODE> statement can use the same symbolic name. 
+<P>When not using an <VAR>asmSymbolicName</VAR>, use the (zero-based) position of the operand in the list of operands in the assembler template. For example if there are three output operands, use &#8216;<SAMP><SPAN class=samp>%0</SPAN></SAMP>&#8217; in the template to refer to the first, &#8216;<SAMP><SPAN class=samp>%1</SPAN></SAMP>&#8217; for the second, and &#8216;<SAMP><SPAN class=samp>%2</SPAN></SAMP>&#8217; for the third. <BR></P></DD>
+<DT><VAR>constraint</VAR></DT>
+<DD>A string constant specifying constraints on the placement of the operand; See <A href="https://gcc.gnu.org/onlinedocs/gcc/Constraints.html#Constraints">Constraints</A>, for details. 
+<P>Output constraints must begin with either &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; (a variable overwriting an existing value) or &#8216;<SAMP><SPAN class=samp>+</SPAN></SAMP>&#8217; (when reading and writing). When using &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;, do not assume the location contains the existing value on entry to the <CODE>asm</CODE>, except when the operand is tied to an input; see <A href="https://gcc.gnu.org/onlinedocs/gcc/InputOperands.html#InputOperands">Input Operands</A>. </P>
+<P>After the prefix, there must be one or more additional constraints (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Constraints.html#Constraints">Constraints</A>) that describe where the value resides. Common constraints include &#8216;<SAMP><SPAN class=samp>r</SPAN></SAMP>&#8217; for register and &#8216;<SAMP><SPAN class=samp>m</SPAN></SAMP>&#8217; for memory. When you list more than one possible location (for example, <CODE>"=rm"</CODE>), the compiler chooses the most efficient one based on the current context. If you list as many alternates as the <CODE>asm</CODE> statement allows, you permit the optimizers to produce the best possible code. If you must use a specific register, but your Machine Constraints do not provide sufficient control to select the specific register you want, local register variables may provide a solution (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Local-Register-Variables.html#Local-Register-Variables">Local Register Variables</A>). <BR></P></DD>
+<DT><VAR>cvariablename</VAR></DT>
+<DD>Specifies a C lvalue expression to hold the output, typically a variable name. The enclosing parentheses are a required part of the syntax. </DD></DL>
+<P>When the compiler selects the registers to use to represent the output operands, it does not use any of the clobbered registers (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Clobbers.html#Clobbers">Clobbers</A>). </P>
+<P>Output operand expressions must be lvalues. The compiler cannot check whether the operands have data types that are reasonable for the instruction being executed. For output expressions that are not directly addressable (for example a bit-field), the constraint must allow a register. In that case, GCC uses the register as the output of the <CODE>asm</CODE>, and then stores that register into the output. </P>
+<P>Operands using the &#8216;<SAMP><SPAN class=samp>+</SPAN></SAMP>&#8217; constraint modifier count as two operands (that is, both as input and output) towards the total maximum of 30 operands per <CODE>asm</CODE> statement. </P>
+<P>Use the &#8216;<SAMP><SPAN class=samp>&amp;</SPAN></SAMP>&#8217; constraint modifier (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Modifiers.html#Modifiers">Modifiers</A>) on all output operands that must not overlap an input. Otherwise, GCC may allocate the output operand in the same register as an unrelated input operand, on the assumption that the assembler code consumes its inputs before producing outputs. This assumption may be false if the assembler code actually consists of more than one instruction. </P>
+<P>The same problem can occur if one output parameter (<VAR>a</VAR>) allows a register constraint and another output parameter (<VAR>b</VAR>) allows a memory constraint. The code generated by GCC to access the memory address in <VAR>b</VAR> can contain registers which <EM>might</EM> be shared by <VAR>a</VAR>, and GCC considers those registers to be inputs to the asm. As above, GCC assumes that such input registers are consumed before any outputs are written. This assumption may result in incorrect behavior if the asm writes to <VAR>a</VAR> before using <VAR>b</VAR>. Combining the &#8216;<SAMP><SPAN class=samp>&amp;</SPAN></SAMP>&#8217; modifier with the register constraint on <VAR>a</VAR> ensures that modifying <VAR>a</VAR> does not affect the address referenced by <VAR>b</VAR>. Otherwise, the location of <VAR>b</VAR> is undefined if <VAR>a</VAR> is modified before using <VAR>b</VAR>. </P>
+<P><CODE>asm</CODE> supports operand modifiers on operands (for example &#8216;<SAMP><SPAN class=samp>%k2</SPAN></SAMP>&#8217; instead of simply &#8216;<SAMP><SPAN class=samp>%2</SPAN></SAMP>&#8217;). Typically these qualifiers are hardware dependent. The list of supported modifiers for x86 is found at <A href="https://gcc.gnu.org/onlinedocs/gcc/x86Operandmodifiers.html#x86Operandmodifiers">x86 Operand modifiers</A>. </P>
+<P>If the C code that follows the <CODE>asm</CODE> makes no use of any of the output operands, use <CODE>volatile</CODE> for the <CODE>asm</CODE> statement to prevent the optimizers from discarding the <CODE>asm</CODE> statement as unneeded (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Volatile.html#Volatile">Volatile</A>). </P>
+<P>This code makes no use of the optional <VAR>asmSymbolicName</VAR>. Therefore it references the first output operand as <CODE>%0</CODE> (were there a second, it would be <CODE>%1</CODE>, etc). The number of the first input operand is one greater than that of the last output operand. In this i386 example, that makes <CODE>Mask</CODE> referenced as <CODE>%1</CODE>: </P><PRE class=example>     uint32_t Mask = 1234;
+     uint32_t Index;
+     
+       asm ("bsfl %1, %0"
+          : "=r" (Index)
+          : "r" (Mask)
+          : "cc");
+</PRE>
+<P>That code overwrites the variable <CODE>Index</CODE> (&#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217;), placing the value in a register (&#8216;<SAMP><SPAN class=samp>r</SPAN></SAMP>&#8217;). Using the generic &#8216;<SAMP><SPAN class=samp>r</SPAN></SAMP>&#8217; constraint instead of a constraint for a specific register allows the compiler to pick the register to use, which can result in more efficient code. This may not be possible if an assembler instruction requires a specific register. </P>
+<P>The following i386 example uses the <VAR>asmSymbolicName</VAR> syntax. It produces the same result as the code above, but some may consider it more readable or more maintainable since reordering index numbers is not necessary when adding or removing operands. The names <CODE>aIndex</CODE> and <CODE>aMask</CODE> are only used in this example to emphasize which names get used where. It is acceptable to reuse the names <CODE>Index</CODE> and <CODE>Mask</CODE>. </P><PRE class=example>     uint32_t Mask = 1234;
+     uint32_t Index;
+     
+       asm ("bsfl %[aMask], %[aIndex]"
+          : [aIndex] "=r" (Index)
+          : [aMask] "r" (Mask)
+          : "cc");
+</PRE>
+<P>Here are some more examples of output operands. </P><PRE class=example>     uint32_t c = 1;
+     uint32_t d;
+     uint32_t *e = &amp;c;
+     
+     asm ("mov %[e], %[d]"
+        : [d] "=rm" (d)
+        : [e] "rm" (*e));
+</PRE>
+<P>Here, <CODE>d</CODE> may either be in a register or in memory. Since the compiler might already have the current value of the <CODE>uint32_t</CODE> location pointed to by <CODE>e</CODE> in a register, you can enable it to choose the best location for <CODE>d</CODE> by specifying both constraints. </P>
+<P><A name=FlagOutputOperands></A></P>
+<H5 class=subsubsection>6.44.2.4 Flag Output Operands</H5>
+<P><A name=index-g_t_0040code_007basm_007d-flag-output-operands-3653></A>Some targets have a special register that holds the &#8220;flags&#8221; for the result of an operation or comparison. Normally, the contents of that register are either unmodifed by the asm, or the asm is considered to clobber the contents. </P>
+<P>On some targets, a special form of output operand exists by which conditions in the flags register may be outputs of the asm. The set of conditions supported are target specific, but the general rule is that the output variable must be a scalar integer, and the value is boolean. When supported, the target defines the preprocessor symbol <CODE>__GCC_ASM_FLAG_OUTPUTS__</CODE>. </P>
+<P>Because of the special nature of the flag output operands, the constraint may not include alternatives. </P>
+<P>Most often, the target has only one flags register, and thus is an implied operand of many instructions. In this case, the operand should not be referenced within the assembler template via <CODE>%0</CODE> etc, as there's no corresponding text in the assembly language. </P>
+<DL>
+<DT>x86 family</DT>
+<DD>The flag output constraints for the x86 family are of the form &#8216;<SAMP><SPAN class=samp>=@cc</SPAN><VAR>cond</VAR></SAMP>&#8217; where <VAR>cond</VAR> is one of the standard conditions defined in the ISA manual for <CODE>j</CODE><VAR>cc</VAR> or <CODE>set</CODE><VAR>cc</VAR>. 
+<DL>
+<DT><CODE>a</CODE></DT>
+<DD>&#8220;above&#8221; or unsigned greater than <BR></DD>
+<DT><CODE>ae</CODE></DT>
+<DD>&#8220;above or equal&#8221; or unsigned greater than or equal <BR></DD>
+<DT><CODE>b</CODE></DT>
+<DD>&#8220;below&#8221; or unsigned less than <BR></DD>
+<DT><CODE>be</CODE></DT>
+<DD>&#8220;below or equal&#8221; or unsigned less than or equal <BR></DD>
+<DT><CODE>c</CODE></DT>
+<DD>carry flag set <BR></DD>
+<DT><CODE>e</CODE></DT>
+<DT><CODE>z</CODE></DT>
+<DD>&#8220;equal&#8221; or zero flag set <BR></DD>
+<DT><CODE>g</CODE></DT>
+<DD>signed greater than <BR></DD>
+<DT><CODE>ge</CODE></DT>
+<DD>signed greater than or equal <BR></DD>
+<DT><CODE>l</CODE></DT>
+<DD>signed less than <BR></DD>
+<DT><CODE>le</CODE></DT>
+<DD>signed less than or equal <BR></DD>
+<DT><CODE>o</CODE></DT>
+<DD>overflow flag set <BR></DD>
+<DT><CODE>p</CODE></DT>
+<DD>parity flag set <BR></DD>
+<DT><CODE>s</CODE></DT>
+<DD>sign flag set <BR></DD>
+<DT><CODE>na</CODE></DT>
+<DT><CODE>nae</CODE></DT>
+<DT><CODE>nb</CODE></DT>
+<DT><CODE>nbe</CODE></DT>
+<DT><CODE>nc</CODE></DT>
+<DT><CODE>ne</CODE></DT>
+<DT><CODE>ng</CODE></DT>
+<DT><CODE>nge</CODE></DT>
+<DT><CODE>nl</CODE></DT>
+<DT><CODE>nle</CODE></DT>
+<DT><CODE>no</CODE></DT>
+<DT><CODE>np</CODE></DT>
+<DT><CODE>ns</CODE></DT>
+<DT><CODE>nz</CODE></DT>
+<DD>&#8220;not&#8221; <VAR>flag</VAR>, or inverted versions of those above </DD></DL></DD></DL>
+<P><A name=InputOperands></A></P>
+<H5 class=subsubsection>6.44.2.5 Input Operands</H5>
+<P><A name=index-g_t_0040code_007basm_007d-input-operands-3654></A><A name=index-g_t_0040code_007basm_007d-expressions-3655></A>Input operands make values from C variables and expressions available to the assembly code. </P>
+<P>Operands are separated by commas. Each operand has this format: </P><PRE class=example>     <SPAN class=roman>[</SPAN> [<VAR>asmSymbolicName</VAR>] <SPAN class=roman>]</SPAN> <VAR>constraint</VAR> (<VAR>cexpression</VAR>)
+</PRE>
+<DL>
+<DT><VAR>asmSymbolicName</VAR></DT>
+<DD>Specifies a symbolic name for the operand. Reference the name in the assembler template by enclosing it in square brackets (i.e. &#8216;<SAMP><SPAN class=samp>%[Value]</SPAN></SAMP>&#8217;). The scope of the name is the <CODE>asm</CODE> statement that contains the definition. Any valid C variable name is acceptable, including names already defined in the surrounding code. No two operands within the same <CODE>asm</CODE> statement can use the same symbolic name. 
+<P>When not using an <VAR>asmSymbolicName</VAR>, use the (zero-based) position of the operand in the list of operands in the assembler template. For example if there are two output operands and three inputs, use &#8216;<SAMP><SPAN class=samp>%2</SPAN></SAMP>&#8217; in the template to refer to the first input operand, &#8216;<SAMP><SPAN class=samp>%3</SPAN></SAMP>&#8217; for the second, and &#8216;<SAMP><SPAN class=samp>%4</SPAN></SAMP>&#8217; for the third. <BR></P></DD>
+<DT><VAR>constraint</VAR></DT>
+<DD>A string constant specifying constraints on the placement of the operand; See <A href="https://gcc.gnu.org/onlinedocs/gcc/Constraints.html#Constraints">Constraints</A>, for details. 
+<P>Input constraint strings may not begin with either &#8216;<SAMP><SPAN class=samp>=</SPAN></SAMP>&#8217; or &#8216;<SAMP><SPAN class=samp>+</SPAN></SAMP>&#8217;. When you list more than one possible location (for example, &#8216;<SAMP><SPAN class=samp>"irm"</SPAN></SAMP>&#8217;), the compiler chooses the most efficient one based on the current context. If you must use a specific register, but your Machine Constraints do not provide sufficient control to select the specific register you want, local register variables may provide a solution (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Local-Register-Variables.html#Local-Register-Variables">Local Register Variables</A>). </P>
+<P>Input constraints can also be digits (for example, <CODE>"0"</CODE>). This indicates that the specified input must be in the same place as the output constraint at the (zero-based) index in the output constraint list. When using <VAR>asmSymbolicName</VAR> syntax for the output operands, you may use these names (enclosed in brackets &#8216;<SAMP><SPAN class=samp>[]</SPAN></SAMP>&#8217;) instead of digits. <BR></P></DD>
+<DT><VAR>cexpression</VAR></DT>
+<DD>This is the C variable or expression being passed to the <CODE>asm</CODE> statement as input. The enclosing parentheses are a required part of the syntax. </DD></DL>
+<P>When the compiler selects the registers to use to represent the input operands, it does not use any of the clobbered registers (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Clobbers.html#Clobbers">Clobbers</A>). </P>
+<P>If there are no output operands but there are input operands, place two consecutive colons where the output operands would go: </P><PRE class=example>     __asm__ ("some instructions"
+        : /* No outputs. */
+        : "r" (Offset / 8));
+</PRE>
+<P><STRONG>Warning:</STRONG> Do <EM>not</EM> modify the contents of input-only operands (except for inputs tied to outputs). The compiler assumes that on exit from the <CODE>asm</CODE> statement these operands contain the same values as they had before executing the statement. It is <EM>not</EM> possible to use clobbers to inform the compiler that the values in these inputs are changing. One common work-around is to tie the changing input variable to an output variable that never gets used. Note, however, that if the code that follows the <CODE>asm</CODE> statement makes no use of any of the output operands, the GCC optimizers may discard the <CODE>asm</CODE> statement as unneeded (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Volatile.html#Volatile">Volatile</A>). </P>
+<P><CODE>asm</CODE> supports operand modifiers on operands (for example &#8216;<SAMP><SPAN class=samp>%k2</SPAN></SAMP>&#8217; instead of simply &#8216;<SAMP><SPAN class=samp>%2</SPAN></SAMP>&#8217;). Typically these qualifiers are hardware dependent. The list of supported modifiers for x86 is found at <A href="https://gcc.gnu.org/onlinedocs/gcc/x86Operandmodifiers.html#x86Operandmodifiers">x86 Operand modifiers</A>. </P>
+<P>In this example using the fictitious <CODE>combine</CODE> instruction, the constraint <CODE>"0"</CODE> for input operand 1 says that it must occupy the same location as output operand 0. Only input operands may use numbers in constraints, and they must each refer to an output operand. Only a number (or the symbolic assembler name) in the constraint can guarantee that one operand is in the same place as another. The mere fact that <CODE>foo</CODE> is the value of both operands is not enough to guarantee that they are in the same place in the generated assembler code. </P><PRE class=example>     asm ("combine %2, %0"
+        : "=r" (foo)
+        : "0" (foo), "g" (bar));
+</PRE>
+<P>Here is an example using symbolic names. </P><PRE class=example>     asm ("cmoveq %1, %2, %[result]"
+        : [result] "=r"(result)
+        : "r" (test), "r" (new), "[result]" (old));
+</PRE>
+<P><A name=Clobbers></A></P>
+<H5 class=subsubsection>6.44.2.6 Clobbers</H5>
+<P><A name=index-g_t_0040code_007basm_007d-clobbers-3656></A>While the compiler is aware of changes to entries listed in the output operands, the inline <CODE>asm</CODE> code may modify more than just the outputs. For example, calculations may require additional registers, or the processor may overwrite a register as a side effect of a particular assembler instruction. In order to inform the compiler of these changes, list them in the clobber list. Clobber list items are either register names or the special clobbers (listed below). Each clobber list item is a string constant enclosed in double quotes and separated by commas. </P>
+<P>Clobber descriptions may not in any way overlap with an input or output operand. For example, you may not have an operand describing a register class with one member when listing that register in the clobber list. Variables declared to live in specific registers (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Explicit-Register-Variables.html#Explicit-Register-Variables">Explicit Register Variables</A>) and used as <CODE>asm</CODE> input or output operands must have no part mentioned in the clobber description. In particular, there is no way to specify that input operands get modified without also specifying them as output operands. </P>
+<P>When the compiler selects which registers to use to represent input and output operands, it does not use any of the clobbered registers. As a result, clobbered registers are available for any use in the assembler code. </P>
+<P>Here is a realistic example for the VAX showing the use of clobbered registers: </P><PRE class=example>     asm volatile ("movc3 %0, %1, %2"
+                        : /* No outputs. */
+                        : "g" (from), "g" (to), "g" (count)
+                        : "r0", "r1", "r2", "r3", "r4", "r5");
+</PRE>
+<P>Also, there are two special clobber arguments: </P>
+<DL>
+<DT><CODE>"cc"</CODE></DT>
+<DD>The <CODE>"cc"</CODE> clobber indicates that the assembler code modifies the flags register. On some machines, GCC represents the condition codes as a specific hardware register; <CODE>"cc"</CODE> serves to name this register. On other machines, condition code handling is different, and specifying <CODE>"cc"</CODE> has no effect. But it is valid no matter what the target. <BR></DD>
+<DT><CODE>"memory"</CODE></DT>
+<DD>The <CODE>"memory"</CODE> clobber tells the compiler that the assembly code performs memory reads or writes to items other than those listed in the input and output operands (for example, accessing the memory pointed to by one of the input parameters). To ensure memory contains correct values, GCC may need to flush specific register values to memory before executing the <CODE>asm</CODE>. Further, the compiler does not assume that any values read from memory before an <CODE>asm</CODE> remain unchanged after that <CODE>asm</CODE>; it reloads them as needed. Using the <CODE>"memory"</CODE> clobber effectively forms a read/write memory barrier for the compiler. 
+<P>Note that this clobber does not prevent the <EM>processor</EM> from doing speculative reads past the <CODE>asm</CODE> statement. To prevent that, you need processor-specific fence instructions. </P>
+<P>Flushing registers to memory has performance implications and may be an issue for time-sensitive code. You can use a trick to avoid this if the size of the memory being accessed is known at compile time. For example, if accessing ten bytes of a string, use a memory input like: </P>
+<P><CODE>{"m"( ({ struct { char x[10]; } *p = (void *)ptr ; *p; }) )}</CODE>. </P></DD></DL>
+<P><A name=GotoLabels></A></P>
+<H5 class=subsubsection>6.44.2.7 Goto Labels</H5>
+<P><A name=index-g_t_0040code_007basm_007d-goto-labels-3657></A><CODE>asm goto</CODE> allows assembly code to jump to one or more C labels. The <VAR>GotoLabels</VAR> section in an <CODE>asm goto</CODE> statement contains a comma-separated list of all C labels to which the assembler code may jump. GCC assumes that <CODE>asm</CODE> execution falls through to the next statement (if this is not the case, consider using the <CODE>__builtin_unreachable</CODE> intrinsic after the <CODE>asm</CODE> statement). Optimization of <CODE>asm goto</CODE> may be improved by using the <CODE>hot</CODE> and <CODE>cold</CODE> label attributes (see <A href="https://gcc.gnu.org/onlinedocs/gcc/Label-Attributes.html#Label-Attributes">Label Attributes</A>). </P>
+<P>An <CODE>asm goto</CODE> statement cannot have outputs. This is due to an internal restriction of the compiler: control transfer instructions cannot have outputs. If the assembler code does modify anything, use the <CODE>"memory"</CODE> clobber to force the optimizers to flush all register values to memory and reload them if necessary after the <CODE>asm</CODE> statement. </P>
+<P>Also note that an <CODE>asm goto</CODE> statement is always implicitly considered volatile. </P>
+<P>To reference a label in the assembler template, prefix it with &#8216;<SAMP><SPAN class=samp>%l</SPAN></SAMP>&#8217; (lowercase &#8216;<SAMP><SPAN class=samp>L</SPAN></SAMP>&#8217;) followed by its (zero-based) position in <VAR>GotoLabels</VAR> plus the number of input operands. For example, if the <CODE>asm</CODE> has three inputs and references two labels, refer to the first label as &#8216;<SAMP><SPAN class=samp>%l3</SPAN></SAMP>&#8217; and the second as &#8216;<SAMP><SPAN class=samp>%l4</SPAN></SAMP>&#8217;). </P>
+<P>Alternately, you can reference labels using the actual C label name enclosed in brackets. For example, to reference a label named <CODE>carry</CODE>, you can use &#8216;<SAMP><SPAN class=samp>%l[carry]</SPAN></SAMP>&#8217;. The label must still be listed in the <VAR>GotoLabels</VAR> section when using this approach. </P>
+<P>Here is an example of <CODE>asm goto</CODE> for i386: </P><PRE class=example>     asm goto (
+         "btl %1, %0\n\t"
+         "jc %l2"
+         : /* No outputs. */
+         : "r" (p1), "r" (p2)
+         : "cc"
+         : carry);
+     
+     return 0;
+     
+     carry:
+     return 1;
+</PRE>
+<P>The following example shows an <CODE>asm goto</CODE> that uses a memory clobber. </P><PRE class=example>     int frob(int x)
+     {
+       int y;
+       asm goto ("frob %%r5, %1; jc %l[error]; mov (%2), %%r5"
+                 : /* No outputs. */
+                 : "r"(x), "r"(&amp;y)
+                 : "r5", "memory"
+                 : error);
+       return y;
+     error:
+       return -1;
+     }
+</PRE>
+<P><A name=x86Operandmodifiers></A></P>
+<H5 class=subsubsection>6.44.2.8 x86 Operand Modifiers</H5>
+<P>References to input, output, and goto operands in the assembler template of extended <CODE>asm</CODE> statements can use modifiers to affect the way the operands are formatted in the code output to the assembler. For example, the following code uses the &#8216;<SAMP><SPAN class=samp>h</SPAN></SAMP>&#8217; and &#8216;<SAMP><SPAN class=samp>b</SPAN></SAMP>&#8217; modifiers for x86: </P><PRE class=example>     uint16_t  num;
+     asm volatile ("xchg %h0, %b0" : "+a" (num) );
+</PRE>
+<P class=noindent>These modifiers generate this assembler code: </P><PRE class=example>     xchg %ah, %al
+</PRE>
+<P>The rest of this discussion uses the following code for illustrative purposes. </P><PRE class=example>     int main()
+     {
+        int iInt = 1;
+     
+     top:
+     
+        asm volatile goto ("some assembler instructions here"
+        : /* No outputs. */
+        : "q" (iInt), "X" (sizeof(unsigned char) + 1)
+        : /* No clobbers. */
+        : top);
+     }
+</PRE>
+<P>With no modifiers, this is what the output from the operands would be for the &#8216;<SAMP><SPAN class=samp>att</SPAN></SAMP>&#8217; and &#8216;<SAMP><SPAN class=samp>intel</SPAN></SAMP>&#8217; dialects of assembler: </P>
+<P>
+<TABLE summary="">
+<TBODY>
+<TR align=left>
+<TH vAlign=top>Operand </TH>
+<TH vAlign=top>masm=att </TH>
+<TH vAlign=top>masm=intel <BR></TH></TR>
+<TR align=left>
+<TD vAlign=top><CODE>%0</CODE> </TD>
+<TD vAlign=top><CODE>%eax</CODE> </TD>
+<TD vAlign=top><CODE>eax</CODE> <BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>%1</CODE> </TD>
+<TD vAlign=top><CODE>$2</CODE> </TD>
+<TD vAlign=top><CODE>2</CODE> <BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>%2</CODE> </TD>
+<TD vAlign=top><CODE>$.L2</CODE> </TD>
+<TD vAlign=top><CODE>OFFSET FLAT:.L2</CODE> <BR></TD></TR></TBODY></TABLE></P>
+<P>The table below shows the list of supported modifiers and their effects. </P>
+<P>
+<TABLE summary="">
+<TBODY>
+<TR align=left>
+<TH vAlign=top>Modifier </TH>
+<TH vAlign=top>Description </TH>
+<TH vAlign=top>Operand </TH>
+<TH vAlign=top><SAMP><SPAN class=option>masm=att</SPAN></SAMP> </TH>
+<TH vAlign=top><SAMP><SPAN class=option>masm=intel</SPAN></SAMP> <BR></TH></TR>
+<TR align=left>
+<TD vAlign=top><CODE>z</CODE> </TD>
+<TD vAlign=top>Print the opcode suffix for the size of the current integer operand (one of <CODE>b</CODE>/<CODE>w</CODE>/<CODE>l</CODE>/<CODE>q</CODE>). </TD>
+<TD vAlign=top><CODE>%z0</CODE> </TD>
+<TD vAlign=top><CODE>l</CODE> </TD>
+<TD vAlign=top><BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>b</CODE> </TD>
+<TD vAlign=top>Print the QImode name of the register. </TD>
+<TD vAlign=top><CODE>%b0</CODE> </TD>
+<TD vAlign=top><CODE>%al</CODE> </TD>
+<TD vAlign=top><CODE>al</CODE> <BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>h</CODE> </TD>
+<TD vAlign=top>Print the QImode name for a &#8220;high&#8221; register. </TD>
+<TD vAlign=top><CODE>%h0</CODE> </TD>
+<TD vAlign=top><CODE>%ah</CODE> </TD>
+<TD vAlign=top><CODE>ah</CODE> <BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>w</CODE> </TD>
+<TD vAlign=top>Print the HImode name of the register. </TD>
+<TD vAlign=top><CODE>%w0</CODE> </TD>
+<TD vAlign=top><CODE>%ax</CODE> </TD>
+<TD vAlign=top><CODE>ax</CODE> <BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>k</CODE> </TD>
+<TD vAlign=top>Print the SImode name of the register. </TD>
+<TD vAlign=top><CODE>%k0</CODE> </TD>
+<TD vAlign=top><CODE>%eax</CODE> </TD>
+<TD vAlign=top><CODE>eax</CODE> <BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>q</CODE> </TD>
+<TD vAlign=top>Print the DImode name of the register. </TD>
+<TD vAlign=top><CODE>%q0</CODE> </TD>
+<TD vAlign=top><CODE>%rax</CODE> </TD>
+<TD vAlign=top><CODE>rax</CODE> <BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>l</CODE> </TD>
+<TD vAlign=top>Print the label name with no punctuation. </TD>
+<TD vAlign=top><CODE>%l2</CODE> </TD>
+<TD vAlign=top><CODE>.L2</CODE> </TD>
+<TD vAlign=top><CODE>.L2</CODE> <BR></TD></TR>
+<TR align=left>
+<TD vAlign=top><CODE>c</CODE> </TD>
+<TD vAlign=top>Require a constant operand and print the constant expression with no punctuation. </TD>
+<TD vAlign=top><CODE>%c1</CODE> </TD>
+<TD vAlign=top><CODE>2</CODE> </TD>
+<TD vAlign=top><CODE>2</CODE> <BR></TD></TR></TBODY></TABLE></P>
+<P><A name=x86floatingpointasmoperands></A></P>
+<H5 class=subsubsection>6.44.2.9 x86 Floating-Point <CODE>asm</CODE> Operands</H5>
+<P>On x86 targets, there are several rules on the usage of stack-like registers in the operands of an <CODE>asm</CODE>. These rules apply only to the operands that are stack-like registers: </P>
+<OL type=1>
+<LI>Given a set of input registers that die in an <CODE>asm</CODE>, it is necessary to know which are implicitly popped by the <CODE>asm</CODE>, and which must be explicitly popped by GCC. 
+<P>An input register that is implicitly popped by the <CODE>asm</CODE> must be explicitly clobbered, unless it is constrained to match an output operand. </P></LI>
+<LI>For any input register that is implicitly popped by an <CODE>asm</CODE>, it is necessary to know how to adjust the stack to compensate for the pop. If any non-popped input is closer to the top of the reg-stack than the implicitly popped register, it would not be possible to know what the stack looked like&#8212;it's not clear how the rest of the stack &#8220;slides up&#8221;. 
+<P>All implicitly popped input registers must be closer to the top of the reg-stack than any input that is not implicitly popped. </P>
+<P>It is possible that if an input dies in an <CODE>asm</CODE>, the compiler might use the input register for an output reload. Consider this example: </P><PRE class=smallexample>          asm ("foo" : "=t" (a) : "f" (b));
+</PRE>
+<P class=noindent>This code says that input <CODE>b</CODE> is not popped by the <CODE>asm</CODE>, and that the <CODE>asm</CODE> pushes a result onto the reg-stack, i.e., the stack is one deeper after the <CODE>asm</CODE> than it was before. But, it is possible that reload may think that it can use the same register for both the input and the output. </P>
+<P>To prevent this from happening, if any input operand uses the &#8216;<SAMP><SPAN class=samp>f</SPAN></SAMP>&#8217; constraint, all output register constraints must use the &#8216;<SAMP><SPAN class=samp>&amp;</SPAN></SAMP>&#8217; early-clobber modifier. </P>
+<P>The example above is correctly written as: </P><PRE class=smallexample>          asm ("foo" : "=&amp;t" (a) : "f" (b));
+</PRE></LI>
+<LI>Some operands need to be in particular places on the stack. All output operands fall in this category&#8212;GCC has no other way to know which registers the outputs appear in unless you indicate this in the constraints. 
+<P>Output operands must specifically indicate which register an output appears in after an <CODE>asm</CODE>. &#8216;<SAMP><SPAN class=samp>=f</SPAN></SAMP>&#8217; is not allowed: the operand constraints must select a class with a single register. </P></LI>
+<LI>Output operands may not be &#8220;inserted&#8221; between existing stack registers. Since no 387 opcode uses a read/write operand, all output operands are dead before the <CODE>asm</CODE>, and are pushed by the <CODE>asm</CODE>. It makes no sense to push anywhere but the top of the reg-stack. 
+<P>Output operands must start at the top of the reg-stack: output operands may not &#8220;skip&#8221; a register. </P></LI>
+<LI>Some <CODE>asm</CODE> statements may need extra stack space for internal calculations. This can be guaranteed by clobbering stack registers unrelated to the inputs and outputs. </LI></OL>
+<P>This <CODE>asm</CODE> takes one input, which is internally popped, and produces two outputs. </P><PRE class=smallexample>     asm ("fsincos" : "=t" (cos), "=u" (sin) : "0" (inp));
+</PRE>
+<P class=noindent>This <CODE>asm</CODE> takes two inputs, which are popped by the <CODE>fyl2xp1</CODE> opcode, and replaces them with one output. The <CODE>st(1)</CODE> clobber is necessary for the compiler to know that <CODE>fyl2xp1</CODE> pops both inputs. </P><PRE class=smallexample>     asm ("fyl2xp1" : "=t" (result) : "0" (x), "u" (y) : "st(1)");
+</PRE>
