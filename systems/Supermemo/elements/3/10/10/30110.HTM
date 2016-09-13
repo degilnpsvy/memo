@@ -1,0 +1,8 @@
+/**<BR>&nbsp;* driver_probe_device - attempt to bind device &amp; driver together<BR>&nbsp;* @drv: driver to bind a device to<BR>&nbsp;* @dev: device to try to bind to the driver<BR>&nbsp;*<BR>&nbsp;* This function returns -ENODEV if the device is not registered,<BR>&nbsp;* 1 if the device is bound successfully and 0 otherwise.<BR>&nbsp;*<BR>&nbsp;* This function must be called with @dev lock held.&nbsp; When called for a<BR>&nbsp;* USB interface, @dev-&gt;parent lock must be held as well.<BR>&nbsp;*<BR>&nbsp;* If the device has a parent, runtime-resume the parent before driver probing.<BR>&nbsp;*/<BR>int driver_probe_device(struct device_driver *drv, struct device *dev)<BR>{<BR>&nbsp;int ret = 0; 
+<P></P>
+<P>&nbsp;if (<FONT class=clozed>!device_is_registered(dev)</FONT>)<BR>&nbsp;&nbsp;return -ENODEV;</P>
+<P>&nbsp;pr_debug("bus: '%s': %s: matched device %s with driver %s\n",<BR>&nbsp;&nbsp; drv-&gt;bus-&gt;name, __func__, dev_name(dev), drv-&gt;name);</P>
+<P>&nbsp;if (dev-&gt;parent)<BR>&nbsp;&nbsp;pm_runtime_get_sync(dev-&gt;parent);</P>
+<P>&nbsp;pm_runtime_barrier(dev);<BR>&nbsp;ret = <SPAN class=cloze>[...]</SPAN>;<BR>&nbsp;pm_request_idle(dev);</P>
+<P>&nbsp;if (dev-&gt;parent)<BR>&nbsp;&nbsp;pm_runtime_put(dev-&gt;parent);</P>
+<P>&nbsp;return ret;<BR>}
