@@ -1,0 +1,27 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>E3.1.11 BXWritePC</FONT></SPAN></B></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// BXWritePC()</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// ===========</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>ExcInfo BXWritePC(<B>bits</B>(32) address, <B>boolean </B>allowNonSecure)</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>exc = DefaultExcInfo();</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveSecurityExt() &amp;&amp; address == '1111 1110 1111 1111 1111 1111 1111 111x' <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Unlike exception return, any faults raised during a FNC_RETURN</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// unstacking are raised synchronously with the instruction that triggered</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// the unstacking.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>exc = FunctionReturn();</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">elsif </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">CurrentMode() == Mode_Handler &amp;&amp; address&lt;31:24&gt; == '11111111' <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// The actual exception return is performed when the</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// current instruction completes. This is because faults that occur</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// during the exception return are handled differently from faults</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// raised during the instruction execution.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>PendReturnOperation(address);</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">elsif </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveSecurityExt() &amp;&amp; IsSecure() &amp;&amp; allowNonSecure <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If in the Secure state and transitions to the Non-secure state are allowed</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// then the target state is specified by the LSB of the target address</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>BranchToNS(address);</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>EPSR.T = address&lt;0&gt;;</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If EPSR.T == 0 then an exception is taken on the next</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// instruction: UsageFault('Invalid State') if the Main Extension is</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// implemented; HardFault otherwise</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>BranchTo(address&lt;31:1&gt;:'0');</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">return </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">exc;</SPAN></FONT>

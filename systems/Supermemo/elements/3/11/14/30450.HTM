@@ -1,0 +1,75 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>E3.1.72 ExceptionTaken</FONT></SPAN></B></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// ExceptionTaken()</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// ================</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>ExcInfo ExceptionTaken(<B>integer </B>exceptionNumber, <B>boolean </B>doTailChain,</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">boolean </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">excIsSecure, <B>boolean </B>ignStackFaults)</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">assert</SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">(HaveSecurityExt() || !excIsSecure);</SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If the background code was running in the Secure state that are some</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// additional steps that might need to be taken to protect the callee saved</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// registers</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>exc = DefaultExcInfo();</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveSecurityExt() &amp;&amp; LR&lt;6&gt; == '1' <B>then</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">excIsSecure <B>then </B><I>// Transitioning to Secure</I></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If tail chaining is from Non-secure to Secure, then the callee registers</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// are already on stack. Set excReturn.DCRS accordingly</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">doTailChain &amp;&amp; LR&lt;0&gt; == '0' <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>LR&lt;5&gt; = '0';</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">else </SPAN></B><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">// Transitioning to Non-secure</SPAN></I></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If the callee registers aren't already on the stack push them now</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">LR&lt;5&gt; == '1' &amp;&amp; !(doTailChain &amp;&amp; LR&lt;0&gt; == '0') <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>exc = PushCalleeStack(doTailChain);</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Going to Non-secure exception. Set excReturn.DCRS to default</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// value</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>LR&lt;5&gt; = '1';</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Finalise excReturn value</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">excIsSecure <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>LR&lt;2&gt; = CONTROL_S.SPSEL;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>LR&lt;0&gt; = '1';</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>LR&lt;2&gt; = CONTROL_NS.SPSEL;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>LR&lt;0&gt; = '0';</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Register clearing</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Caller saved registers: These registers are cleared if exception targets</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// the Non-secure state, otherwise they are UNKNOWN. NOTE: The original</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// values were pushed to the stack.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>callerRegValue = <B>if </B>!HaveSecurityExt() || excIsSecure <B>then bits</B>(32) UNKNOWN <B>else </B>Zeros(32);</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">for </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">n = 0 <B>to </B>3</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>R[n] = callerRegValue;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>R[12] = callerRegValue;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>EAPSR = callerRegValue;</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Callee saved registers: If the background code was in the Secure state</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// these registers are cleared if the excepton targets the Non-secure state,</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// and UNKNOWN if it targets the Secure state and the registers have been</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// pushed to the stack (as indicated by EXC_RETURN.DCRS).</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>//</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// NOTE: Callee saved registers are preserved if the background code is</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Non-secure, of when the exception is Secure and the values haven't</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// been pushed to the stack.</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveSecurityExt() &amp;&amp; LR&lt;6&gt; == '1' <B>then</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">excIsSecure <B>then</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">LR&lt;5&gt; == '0' <B>then</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">for </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">n = 4 <B>to </B>11</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>R[n] = <B>bits</B>(32) UNKNOWN;</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">for </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">n = 4 <B>to </B>11</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>R[n] = Zeros();</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If no errors so far (or errors that can be ignored) load the vector address</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">exc.fault == NoFault || ignStackFaults <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>(exc, start) = Vector[exceptionNumber, excIsSecure];</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// The state / mode of processor isn't updated if an exception is raised</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// during the entry sequency.</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">exc.fault == NoFault <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>ActivateException(exceptionNumber, excIsSecure);</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>SCS_UpdateStatusRegs();</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>ClearExclusiveLocal(ProcessorID());</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>SetEventRegister(); <I>// See WFE instruction for details</I></FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>InstructionSynchronizationBarrier('1111');</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Start execution of handler</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>EPSR.T = start&lt;0&gt;;</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If EPSR.T == 0 then an exception is taken on the next</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// instruction: UsageFault('Invalid State') if the Main Extension is</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// implemented; HardFault otherwise</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>BranchTo(start&lt;31:1&gt;:'0');</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>exc.inExcTaken = TRUE;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">return </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">exc;</SPAN></FONT>

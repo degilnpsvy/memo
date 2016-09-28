@@ -1,0 +1,98 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>E3.1.140 InstructionAdvance</FONT></SPAN></B></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// InstructionAdvance()</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// ====================</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>InstructionAdvance(<B>boolean </B>instExecOk)</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Check for, and process any exception returns that were requested. This</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// must be done after the instruction has completed so any exceptions</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// raised during the exception return do not interfere with the execution of</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// the instruction that cause the exception return (eg a POP causing an</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// excReturn value to be written to the PC must adjust SP even if the</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// exception return caused by the POP raises a fault).</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>excRetFault = FALSE;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">_PendingReturnOperation <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>_PendingReturnOperation = FALSE;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>nextAddr = NextInstrAddr();</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>excInfo = ExceptionReturn(nextAddr&lt;23:0&gt;);</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Handle any faults raised during exception return</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">excInfo.fault != NoFault <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>excRetFault = TRUE;</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Either lockup, or pend the fault if it can be taken</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">excInfo.lockup <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Check if the fault occured on exception return, or whether it</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// occured during a tail chained exception entry. This is</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// because Lockups on exception return have to be handled</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// differently.</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">!excInfo.inExcTaken <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If the fault occured during exception return then the</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// register state is UNKNOWN. This is due to the fact that</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// an unknown amount of the exception stack frame might have</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// been restored.</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">for </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">n = 0 <B>to </B>12</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>R[n] = <B>bits</B>(32) UNKNOWN;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>LR = <B>bits</B>(32) UNKNOWN;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>XPSR = <B>bits</B>(32) UNKNOWN;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveFPExt() <B>then</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">for </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">n = 0 <B>to </B>31</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>S[n] = <B>bits</B>(32) UNKNOWN;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>FPSCR = <B>bits</B>(32) UNKNOWN;</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If lockup is entered as a result of an exception return</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// fault the original exception is deactivated. Therefore</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// the stack pointer must be updated to consume the</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// exception stack frame to keep the stack depth consistent</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// with the number of active exceptions. NOTE: The xPSR SP</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// alignment flag is UNKNOWN, assume is was zero.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>ConsumeExcStackFrame(nextAddr&lt;23:0&gt;, '0');</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// IPSR from stack is UNKNOWN, set IPSR based on mode</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// specified in EXC_RETURN.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>IPSR.Exception = (<B>if </B>nextAddr&lt;3&gt; == 1 <B>then </B>NoFault <B>else </B>HardFault)&lt;8:0&gt;;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveFPExt() <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>CONTROL.FPCA = NOT(nextAddr&lt;4&gt;);</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>Lockup(FALSE);</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Set syndrome if fault escalated to a HardFault</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveMainExt() &amp;&amp;</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>(excInfo.fault == HardFault) &amp;&amp;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>(excInfo.origFault != HardFault) <B>then</B></FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>HFSR.FORCED = '1';</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>SetPending(excInfo.fault, excInfo.isSecure, TRUE);</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If there's a pending exception with sufficient priority take it now. This</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// is done before we commit PC and ITSTATE changes caused by the previous</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// instruction so that calls to ThisInstrAddr(), NextInstrAddr(),</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// ThisInstrITState(), NextInstrITState() represent the context the</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// instruction was executed in. IE so the correct context is pushed to the</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// stack</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>(takeException, exception, excIsSecure) = PendingExceptionDetails();</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">takeException <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If a fault occurred during an exception return then the exception</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// stack frame will already be on the stack, as a result entry to the</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// next exception is treated as if it were a tail chain.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>pePriority = ExecutionPriority();</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>peException = UInt(IPSR.Exception);</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>peIsSecure = IsSecure();</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">excRetFault <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If the fault occurred during ExceptionTaken() then LR will have</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// been updated with the new exception return value. To excReturn</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// consistent with the state of the exception stack frame we need to</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// use the updated version in this case. If no updates have occurred</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// then the excReturn value from the previous exception return is</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// used.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>excRet = <B>if </B>excInfo.inExcTaken <B>then </B>LR <B>else </B>nextAddr;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>excInfo = TailChain(exception, excIsSecure, excRet&lt;23:0&gt;);</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>excInfo = ExceptionEntry(exception, excIsSecure, instExecOk);</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Handle any derived faults that have occurred</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">excInfo.fault != NoFault <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>DerivedLateArrival(pePriority, peException, peIsSecure, excInfo,</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>exception, excIsSecure);</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If the PC has moved away from the lockup address (eg because an NMI</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// has been taken) leave the lockup state.</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">DHCSR.S_LOCKUP == '1' &amp;&amp; NextInstrAddr() != 0xEFFFFFFE&lt;31:0&gt; <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>DHCSR.S_LOCKUP = '0';</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Only advance the PC and ITSTATE if not locked up.</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">DHCSR.S_LOCKUP != '1' <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Commit PC and ITSTATE changes ready for the next instruction.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>_R[RName_PC] = NextInstrAddr();</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>_PCChanged = FALSE;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveMainExt() <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>EPSR.IT = NextInstrITState();</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>_ITStateChanged = FALSE;</FONT></SPAN>

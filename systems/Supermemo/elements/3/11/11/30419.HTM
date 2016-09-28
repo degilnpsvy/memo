@@ -1,0 +1,40 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>E3.1.41 CreateException</FONT></SPAN></B></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// CreateException()</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// =================</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>ExcInfo CreateException(<B>integer </B>exception, <B>boolean </B>forceSecurity,</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">boolean </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">isSecure, <B>boolean </B>isSynchronous)</SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Work out the effective target state of the exception</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveSecurityExt() <B>then</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">!forceSecurity <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>isSecure = ExceptionTargetsSecure(exception, IsSecure());</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>isSecure = FALSE;</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// An implementation without Security Extensions cannot cause a fault targetting</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Secure state</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">assert </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">HaveSecurityExt() || !isSecure;</SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Get the remaining exception details</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>(escalateToHf, termInst) = ExceptionDetails(exception, isSecure, isSynchronous);</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Fill in the default exception info</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>info = DefaultExcInfo();</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>info.fault = exception;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>info.termInst = termInst;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>info.origFault = exception;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>info.origFaultIsSecure = isSecure;</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Check for HardFault escalation</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">escalateToHf &amp;&amp; info.fault != HardFault <B>then</B></SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Update the exception info with the escalation details, including</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// whether there's a change in destination Security state.</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>info.fault = HardFault;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>isSecure = ExceptionTargetsSecure(HardFault, isSecure);</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>(escalateToHf, -) = ExceptionDetails(HardFault, isSecure, isSynchronous);</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If the requested exception was already a HardFault then we can't escalate</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// to a HardFault, so lockup. NOTE: Asynchronous BusFaults never cause</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// lockups, if the BusFault is disabled it escalates to a HardFault that is</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// pended.</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">escalateToHf &amp;&amp; isSynchronous &amp;&amp; info.fault == HardFault <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>info.lockup = TRUE;</FONT></SPAN></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Fill in the remaining exception info</FONT></SPAN></I></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>info.isSecure = isSecure;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">return </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">info;</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>ExcInfo CreateException(<B>integer </B>exception, <B>boolean </B>forceSecurity, <B>boolean </B>isSecure)</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">return </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">CreateException(exception, forceSecurity, isSecure, TRUE);</SPAN></FONT>

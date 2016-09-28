@@ -1,0 +1,56 @@
+<B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>E3.1.48 DWT_DataAddressMatch</FONT></SPAN></B></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// DWT_DataAddressMatch()</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// ======================</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Check for match of access at "daddr". "dsize", "read" and "NSreq" are the attributes</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// for the access. Note that for a load or store instruction, "NSreq" is the current</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Security state of the PE, but this is not necessarily true for a hardware stack</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// push/pop or vector table access. "NSreq" might not be the same as the "NSattr"</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// attribute the PE finally uses to make the access.</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// If comparators 'm' and 'm+1' form an Data Address Range comparator, then this function</FONT></SPAN></I></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// returns the range match result when N=m+1.</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">boolean </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">DWT_DataAddressMatch(<B>integer </B>N, <B>bits</B>(32) daddr, <B>integer </B>dsize, <B>boolean </B>read,</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">boolean </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">NSreq)</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">assert </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">N &lt; UInt(DWT_CTRL.NUMCOMP) &amp;&amp; dsize <B>IN </B>{1,2,4} &amp;&amp; Align(daddr, dsize) == daddr;</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>valid_match = DWT_ValidMatch(N, !NSreq);</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>valid_addr = DWT_FUNCTION[N].MATCH == 'x1xx';</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">valid_match &amp;&amp; valid_addr <B>then</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">DWT_FUNCTION[N].ID&lt;3&gt; == '0' || DWT_FUNCTION[N].DATAVSIZE == '11' <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>UNPREDICTABLE;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">N != UInt(DWT_CTRL.NUMCOMP)-1 <B>then</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">DWT_FUNCTION[N+1].MATCH == '0011' <B>then </B>UNPREDICTABLE;</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>linked_to_addr = DWT_FUNCTION[N+1].MATCH == '0111'; <I>// Data Address Limit</I></FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>linked_to_data = DWT_FUNCTION[N+1].MATCH == '1011'; <I>// Linked Data Value</I></FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>linked_to_addr = FALSE; linked_to_data = FALSE;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">case </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">DWT_FUNCTION[N].MATCH&lt;1:0&gt; <B>of</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">when </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">'00' match_lsc = TRUE; linked = FALSE;</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">when </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">'01' match_lsc = !read; linked = FALSE;</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">when </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">'10' match_lsc = read; linked = FALSE;</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">when </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">'11'</SPAN></FONT></P>
+<p><I><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>// Data Address Limit: check for UNPREDICTABLE cases</FONT></SPAN></I></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">(linked_to_addr || linked_to_data || N == 0 ||</SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>DWT_FUNCTION[N].ID&lt;4&gt; == '0' || DWT_FUNCTION[N].MATCH == '1111' ||</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>DWT_FUNCTION[N-1].MATCH <B>IN </B>{'x0xx','x111'} ||</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>DWT_FUNCTION[N].DATAVSIZE != '00' ||</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>DWT_FUNCTION[N-1].DATAVSIZE != '00' ||</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>UInt(DWT_COMP[N-1]) &gt;= UInt(DWT_COMP[N])) <B>then</B></FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>UNPREDICTABLE;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">case </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">DWT_FUNCTION[N-1].MATCH&lt;1:0&gt; <B>of</B></SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">when </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">'00' match_lsc = TRUE; linked = TRUE;</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">when </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">'01' match_lsc = !read; linked = TRUE;</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">when </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">'10' match_lsc = read; linked = TRUE;</SPAN></FONT></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">!linked_to_addr <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>vsize = 2^UInt(DWT_FUNCTION[N].DATAVSIZE);</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>(match_eq,match_gt) = DWT_AddressCompare(daddr, DWT_COMP[N], dsize, vsize);</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">if </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">linked <B>then</B></SPAN></FONT></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>valid_match = DWT_ValidMatch(N-1, !NSreq);</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>(lower_eq,lower_gt) = DWT_AddressCompare(daddr, DWT_COMP[N-1], dsize, 1);</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>match_addr = valid_match &amp;&amp; (lower_eq || lower_gt) &amp;&amp; !match_gt;</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>match_addr = match_eq;</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>match_addr = FALSE;</FONT></SPAN></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>match = match_addr &amp;&amp; match_lsc;</FONT></SPAN></P>
+<p><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>else</FONT></SPAN></B></P>
+<p><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt"><FONT face=Calibri>match = FALSE;</FONT></SPAN></P>
+<p><FONT face=Calibri><B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">return </SPAN></B><SPAN lang=EN-US style="FONT-SIZE: 17.5pt; mso-bidi-font-size: 11.0pt">match;</SPAN></FONT>
