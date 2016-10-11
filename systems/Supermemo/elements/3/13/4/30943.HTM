@@ -1,0 +1,283 @@
+<H1 class=title>Exercise 51: Getting Input from a Browser</H1>
+<P id=p1>While it's exciting to see the browser display "Hello World," it's even more exciting to let the user submit text to your application from a form. In this exercise we'll improve our starter web application by using forms and storing information about users into their "sessions."</P>
+<DIV id=how-the-web-works class=section>
+<H1>How the Web Works</H1>
+<P id=p2>Time for some boring stuff. You need to understand a bit more about how the web works before you can make a form. This description isn't complete, but it's accurate and will help you figure out what might be going wrong with your application. Also, creating forms will be easier if you know what they do.</P>
+<P id=p3>I'll start with a simple diagram that shows you the different parts of a web request and how the information flows:</P>
+<DIV class="figure align-center"><IMG alt=_static/python/http_flow_graphic.png src="https://learnpythonthehardway.org/book/_static/python/http_flow_graphic.png"> </DIV>
+<P id=p4>I've labeled the lines with letters so I can walk you through a regular request process:</P>
+<OL class="arabic simple">
+<LI>You type in the url <A class="reference external" href="http://test.com//"><FONT color=#000080>http://test.com//</FONT></A> into your browser and it sends the request on <TT class="docutils literal">line (A)</TT> to your computer's network interface.</LI>
+<LI>Your request goes out over the internet on <TT class="docutils literal">line (B)</TT> and then to the remote computer on <TT class="docutils literal">line (C)</TT> where my server accepts the request.</LI>
+<LI>Once my computer accepts it, my web application gets it on <TT class="docutils literal">line (D)</TT>, and my Python code runs the <TT class="docutils literal">index.GET</TT> handler.</LI>
+<LI>The response comes out of my Python server when I <TT class="docutils literal">return</TT> it, and it goes back to your browser over <TT class="docutils literal">line (D)</TT> again.</LI>
+<LI>The server running this site takes the response off <TT class="docutils literal">line (D)</TT> then sends it back over the internet on <TT class="docutils literal">line (C)</TT>.</LI>
+<LI>The response from the server then comes off the internet on <TT class="docutils literal">line (B)</TT>, and your computer's network interface hands it to your browser on <TT class="docutils literal">line (A)</TT>.</LI>
+<LI>Finally, your browser then displays the response.</LI></OL>
+<P id=p5>In this description there are a few terms you should know so that you have a common vocabulary to work with when talking about your web application:</P>
+<DL class=docutils>
+<DT>Browser</DT>
+<DD>The software that you're probably using every day. Most people don't know what a browser really does. They just call browsers "the internet." Its job is to take addresses (like <A class="reference external" href="http://test.com/"><FONT color=#000080>http://test.com/</FONT></A>) you type into the URL bar, then use that information to make requests to the server at that address.</DD>
+<DT>Address</DT>
+<DD>This is normally a URL (Uniform Resource Locator) like <A class="reference external" href="http://test.com//"><FONT color=#000080>http://test.com//</FONT></A> and indicates where a browser should go. The first part <TT class="docutils literal">http</TT> indicates the protocol you want to use, in this case "Hyper-Text Transport Protocol." You can also try <A class="reference external" href="ftp://ibiblio.org/"><FONT color=#000080>ftp://ibiblio.org/</FONT></A> to see how "File Transport Protocol" works. The <A class="reference external" href="http://test.com/"><FONT color=#000080>http://test.com/</FONT></A> part is the "hostname," or a human readable address you can remember and which maps to a number called an IP address, similar to a telephone number for a computer on the Internet. Finally, URLs can have a trailing <TT class="docutils literal">path</TT> like the <TT class="docutils literal">/book/</TT> part of <A class="reference external" href="http://test.com//book/"><FONT color=#000080>http://test.com//book/</FONT></A>, which indicates a file or some resource <EM>on</EM> the server to retrieve with a request. There are many other parts, but those are the main ones.</DD>
+<DT>Connection</DT>
+<DD>Once a browser knows what protocol you want to use (http), what server you want to talk to (<A class="reference external" href="http://test.com/"><FONT color=#000080>http://test.com/</FONT></A>), and what resource on that server to get, it must make a connection. The browser simply asks your operating system (OS) to open a "port" to the computer, usually port 80. When it works the OS hands back to your program something that works like a file, but is actually sending and receiving bytes over the network wires between your computer and the other computer at <A class="reference external" href="http://test.com/"><FONT color=#000080>http://test.com/</FONT></A>. This is also the same thing that happens with <A class="reference external" href="http://localhost:8080/"><FONT color=#000080>http://localhost:8080/</FONT></A> but in this case you're telling the browser to connect to your own computer (localhost) and use port 8080 rather than the default of 80. You could also do <A class="reference external" href="http://test.com/"><FONT color=#000080>http://test.com:80/</FONT></A> and get the same result, except you're explicitly saying to use port 80 instead of letting it be that by default.</DD>
+<DT>Request</DT>
+<DD>Your browser is connected using the address you gave. Now it needs to ask for the resource it wants (or you want) on the remote server. If you gave <TT class="docutils literal">/book/</TT> at the end of the URL, then you want the file (resource) at <TT class="docutils literal">/book/</TT>, and most servers will use the real file <TT class="docutils literal">/book/index.html</TT> but pretend it doesn't exist. What the browser does to get this resource is send a <EM>request</EM> to the server. I won't get into exactly how it does this, but just understand that it has to send something to query the server for the request. The interesting thing is that these "resources" don't have to be files. For instance, when the browser in your application asks for something, the server is returning something your Python code generated.</DD>
+<DT>Server</DT>
+<DD>The server is the computer at the end of a browser's connection that knows how to answer your browser's requests for files/resources. Most web servers just send files, and that's actually the majority of traffic. But you're actually building a server in Python that knows how to take requests for resources, and then return strings that you craft using Python. When you do this crafting, <EM>you</EM> are pretending to be a file to the browser, but really it's just code. As you can see from Exercise 50, it also doesn't take much code to create a response.</DD>
+<DT>Response</DT>
+<DD>This is the HTML (CSS, JavaScript, or images) your server wants to send back to the browser as the answer to the browser's request. In the case of files, it just reads them off the disk and sends them to the browser, but it wraps the contents of the disk in a special "header" so the browser knows what it's getting. In the case of your application, you're still sending the same thing, including the header, but you generate that data on the fly with your Python code.</DD></DL>
+<P id=p6>That is the fastest crash course in how a web browser accesses information on servers on the internet. It should work well enough for you to understand this exercise, but if not, read about it as much as you can until you get it. A really good way to do that is to take the diagram and break different parts of the web application you did in Exercise 50. If you can break your web application in predictable ways using the diagram, you'll start to understand how it works.</P></DIV>
+<DIV id=how-forms-work class=section>
+<H1>How Forms Work</H1>
+<P id=p7>The best way to play with forms is to write some code that accepts form data, and then see what you can do. Take your <TT class="docutils literal">bin/app.py</TT> file and make it look like this:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE></DIV>
+<DIV id=how-forms-work class=section>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex51--gothonweb--form_test.py-idio.html-1></A><SPAN class=kn>import</SPAN> <SPAN class=nn>web</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-2></A>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-3></A><SPAN class=n>urls</SPAN> <SPAN class=o>=</SPAN> <SPAN class=p>(</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-4></A>  <SPAN class=s1>'/hello'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'Index'</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-5></A><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-6></A>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-7></A>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-8></A><SPAN class=n>app</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>web</SPAN><SPAN class=o>.</SPAN><SPAN class=n>application</SPAN><SPAN class=p>(</SPAN><SPAN class=n>urls</SPAN><SPAN class=p>,</SPAN> <SPAN class=nb>globals</SPAN><SPAN class=p>())</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-9></A>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-10></A><SPAN class=n>render</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>web</SPAN><SPAN class=o>.</SPAN><SPAN class=n>template</SPAN><SPAN class=o>.</SPAN><SPAN class=n>render</SPAN><SPAN class=p>(</SPAN><SPAN class=s1>'templates/'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-11></A>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-12></A><SPAN class=k>class</SPAN> <SPAN class=nc>Index</SPAN><SPAN class=p>(</SPAN><SPAN class=nb>object</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-13></A>    <SPAN class=k>def</SPAN> <SPAN class=nf>GET</SPAN><SPAN class=p>(</SPAN><SPAN class=bp>self</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-14></A>        <SPAN class=n>form</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>web</SPAN><SPAN class=o>.</SPAN><SPAN class=n>input</SPAN><SPAN class=p>(</SPAN><SPAN class=n>name</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"Nobody"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-15></A>        <SPAN class=n>greeting</SPAN> <SPAN class=o>=</SPAN> <SPAN class=s2>"Hello, </SPAN><SPAN class=si>%s</SPAN><SPAN class=s2>"</SPAN> <SPAN class=o>%</SPAN> <SPAN class=n>form</SPAN><SPAN class=o>.</SPAN><SPAN class=n>name</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-16></A>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-17></A>        <SPAN class=k>return</SPAN> <SPAN class=n>render</SPAN><SPAN class=o>.</SPAN><SPAN class=n>index</SPAN><SPAN class=p>(</SPAN><SPAN class=n>greeting</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>greeting</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-18></A>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-19></A><SPAN class=k>if</SPAN> <SPAN class=n>__name__</SPAN> <SPAN class=o>==</SPAN> <SPAN class=s2>"__main__"</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex51--gothonweb--form_test.py-idio.html-20></A>    <SPAN class=n>app</SPAN><SPAN class=o>.</SPAN><SPAN class=n>run</SPAN><SPAN class=p>()</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p8>Restart it (hit CTRL-c and then run it again) to make sure it loads again, then with your browser go to <TT class="docutils literal"><SPAN class=pre>http://localhost:8080/hello</SPAN></TT> which should display, "I just wanted to say Hello, Nobody." Next, change the URL in your browser to <TT class="docutils literal"><SPAN class=pre>http://localhost:8080/hello?name=Frank</SPAN></TT> and you'll see it say, "Hello, Frank." Finally, change the <TT class="docutils literal">name=Frank</TT> part to be your name. Now it's saying hello to you.</P>
+<P id=p9>Let's break down the changes I made to your script.</P>
+<OL class="arabic simple">
+<LI>Instead of just a string for <TT class="docutils literal">greeting</TT> I'm now using <TT class="docutils literal">web.input</TT> to get data from the browser. This function takes a key=value set of defaults, parses the <TT class="docutils literal"><SPAN class=pre>?name=Frank</SPAN></TT> part of the URL you give it, and then returns a nice object for you to work with that represents those values.</LI>
+<LI>I then construct the <TT class="docutils literal">greeting</TT> from the new <TT class="docutils literal">form.name</TT> attribute of the <TT class="docutils literal">form</TT> object, which should be very familiar to you by now.</LI>
+<LI>Everything else about the file is the same as before.</LI></OL>
+<P id=p10>You're also not restricted to just one parameter on the URL. Change this example to give two variables like this: <TT class="docutils literal"><SPAN class=pre>http://localhost:8080/hello?name=Frank&amp;greet=Hola</SPAN></TT>. Then change the code to get <TT class="docutils literal">form.name</TT> and <TT class="docutils literal">form.greet</TT> like this:</P><PRE class="code python literal-block"><SPAN class=name>greeting</SPAN> <SPAN class=operator>=</SPAN> <SPAN class="literal string double">"</SPAN><SPAN class="literal string interpol">%s</SPAN><SPAN class="literal string double">, </SPAN><SPAN class="literal string interpol">%s</SPAN><SPAN class="literal string double">"</SPAN> <SPAN class=operator>%</SPAN> <SPAN class=punctuation>(</SPAN><SPAN class=name>form</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>greet</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>form</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>name</SPAN><SPAN class=punctuation>)</SPAN>
+</PRE>
+<P id=p11>After that, try the URL. Next, leave out the <TT class="docutils literal">&amp;greet=Hola</TT> part so that you can see the error you get. Since <TT class="docutils literal">greet</TT> doesn't have a default value in <TT class="docutils literal"><SPAN class=pre>web.input(name="Nobody")</SPAN></TT> then it is a required field. Now go back and make it have a default in the <TT class="docutils literal">web.input</TT> call to see how you fix this. Another thing you can do is set its default to <TT class="docutils literal">greet=None</TT> so that you can check if it exists and then give a better error message, like this:</P><PRE class="code python literal-block"><SPAN class=name>form</SPAN> <SPAN class=operator>=</SPAN> <SPAN class=name>web</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>input</SPAN><SPAN class=punctuation>(</SPAN><SPAN class=name>name</SPAN><SPAN class=operator>=</SPAN><SPAN class="literal string double">"Nobody"</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>greet</SPAN><SPAN class=operator>=</SPAN><SPAN class="name builtin pseudo">None</SPAN><SPAN class=punctuation>)</SPAN>
+
+<SPAN class=keyword>if</SPAN> <SPAN class=name>form</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>greet</SPAN><SPAN class=punctuation>:</SPAN>
+    <SPAN class=name>greeting</SPAN> <SPAN class=operator>=</SPAN> <SPAN class="literal string double">"</SPAN><SPAN class="literal string interpol">%s</SPAN><SPAN class="literal string double">, </SPAN><SPAN class="literal string interpol">%s</SPAN><SPAN class="literal string double">"</SPAN> <SPAN class=operator>%</SPAN> <SPAN class=punctuation>(</SPAN><SPAN class=name>form</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>greet</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>form</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>name</SPAN><SPAN class=punctuation>)</SPAN>
+    <SPAN class=keyword>return</SPAN> <SPAN class=name>render</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>index</SPAN><SPAN class=punctuation>(</SPAN><SPAN class=name>greeting</SPAN> <SPAN class=operator>=</SPAN> <SPAN class=name>greeting</SPAN><SPAN class=punctuation>)</SPAN>
+<SPAN class=keyword>else</SPAN><SPAN class=punctuation>:</SPAN>
+    <SPAN class=keyword>return</SPAN> <SPAN class="literal string double">"ERROR: greet is required."</SPAN>
+</PRE></DIV>
+<DIV id=creating-html-forms class=section>
+<H1>Creating HTML Forms</H1>
+<P id=p12>Passing the parameters on the URL works, but it's kind of ugly and not easy to use for regular people. What you really want is a "POST form," which is a special HTML file that has a <TT class="docutils literal">&lt;form&gt;</TT> tag in it. This form will collect information from the user, then send it to your web application just like you did above.</P>
+<P id=p13>Let's make a quick one so you can see how it works. Here's the new HTML file you need to create, in <TT class="docutils literal">templates/hello_form.html</TT>:</P>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-1></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>html</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-2></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>head</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-3></A>        <SPAN class=p>&lt;</SPAN><SPAN class=nt>title</SPAN><SPAN class=p>&gt;</SPAN>Sample Web Form<SPAN class=p>&lt;/</SPAN><SPAN class=nt>title</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-4></A>    <SPAN class=p>&lt;/</SPAN><SPAN class=nt>head</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-5></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>body</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-6></A>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-7></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>h1</SPAN><SPAN class=p>&gt;</SPAN>Fill Out This Form<SPAN class=p>&lt;/</SPAN><SPAN class=nt>h1</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-8></A>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-9></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>form</SPAN> <SPAN class=na>action</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"/hello"</SPAN> <SPAN class=na>method</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"POST"</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-10></A>    A Greeting: <SPAN class=p>&lt;</SPAN><SPAN class=nt>input</SPAN> <SPAN class=na>type</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"text"</SPAN> <SPAN class=na>name</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"greet"</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-11></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>br</SPAN><SPAN class=p>/&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-12></A>    Your Name: <SPAN class=p>&lt;</SPAN><SPAN class=nt>input</SPAN> <SPAN class=na>type</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"text"</SPAN> <SPAN class=na>name</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"name"</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-13></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>br</SPAN><SPAN class=p>/&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-14></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>input</SPAN> <SPAN class=na>type</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"submit"</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-15></A><SPAN class=p>&lt;/</SPAN><SPAN class=nt>form</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-16></A>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-17></A><SPAN class=p>&lt;/</SPAN><SPAN class=nt>body</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form.html-pyg.html-18></A><SPAN class=p>&lt;/</SPAN><SPAN class=nt>html</SPAN><SPAN class=p>&gt;</SPAN>
+</PRE></DIV>
+<P id=p14>You should then change <TT class="docutils literal">bin/app.py</TT> to look like this:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE></DIV>
+<DIV id=creating-html-forms class=section>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex51--gothonweb--post_form.py-idio.html-1></A><SPAN class=kn>import</SPAN> <SPAN class=nn>web</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-2></A>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-3></A><SPAN class=n>urls</SPAN> <SPAN class=o>=</SPAN> <SPAN class=p>(</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-4></A>  <SPAN class=s1>'/hello'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'Index'</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-5></A><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-6></A>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-7></A><SPAN class=n>app</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>web</SPAN><SPAN class=o>.</SPAN><SPAN class=n>application</SPAN><SPAN class=p>(</SPAN><SPAN class=n>urls</SPAN><SPAN class=p>,</SPAN> <SPAN class=nb>globals</SPAN><SPAN class=p>())</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-8></A>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-9></A><SPAN class=n>render</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>web</SPAN><SPAN class=o>.</SPAN><SPAN class=n>template</SPAN><SPAN class=o>.</SPAN><SPAN class=n>render</SPAN><SPAN class=p>(</SPAN><SPAN class=s1>'templates/'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-10></A>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-11></A><SPAN class=k>class</SPAN> <SPAN class=nc>Index</SPAN><SPAN class=p>(</SPAN><SPAN class=nb>object</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-12></A>    <SPAN class=k>def</SPAN> <SPAN class=nf>GET</SPAN><SPAN class=p>(</SPAN><SPAN class=bp>self</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-13></A>        <SPAN class=k>return</SPAN> <SPAN class=n>render</SPAN><SPAN class=o>.</SPAN><SPAN class=n>hello_form</SPAN><SPAN class=p>()</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-14></A>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-15></A>    <SPAN class=k>def</SPAN> <SPAN class=nf>POST</SPAN><SPAN class=p>(</SPAN><SPAN class=bp>self</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-16></A>        <SPAN class=n>form</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>web</SPAN><SPAN class=o>.</SPAN><SPAN class=n>input</SPAN><SPAN class=p>(</SPAN><SPAN class=n>name</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"Nobody"</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>greet</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"Hello"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-17></A>        <SPAN class=n>greeting</SPAN> <SPAN class=o>=</SPAN> <SPAN class=s2>"</SPAN><SPAN class=si>%s</SPAN><SPAN class=s2>, </SPAN><SPAN class=si>%s</SPAN><SPAN class=s2>"</SPAN> <SPAN class=o>%</SPAN> <SPAN class=p>(</SPAN><SPAN class=n>form</SPAN><SPAN class=o>.</SPAN><SPAN class=n>greet</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>form</SPAN><SPAN class=o>.</SPAN><SPAN class=n>name</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-18></A>        <SPAN class=k>return</SPAN> <SPAN class=n>render</SPAN><SPAN class=o>.</SPAN><SPAN class=n>index</SPAN><SPAN class=p>(</SPAN><SPAN class=n>greeting</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>greeting</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-19></A>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-20></A><SPAN class=k>if</SPAN> <SPAN class=n>__name__</SPAN> <SPAN class=o>==</SPAN> <SPAN class=s2>"__main__"</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex51--gothonweb--post_form.py-idio.html-21></A>    <SPAN class=n>app</SPAN><SPAN class=o>.</SPAN><SPAN class=n>run</SPAN><SPAN class=p>()</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p15>Once you've got those written up, simply restart the web application again and hit it with your browser like before.</P>
+<P id=p16>This time you'll get a form asking you for "A Greeting" and "Your Name." When you hit the <TT class="docutils literal">Submit</TT> button on the form, it will give you the same greeting you normally get, but this time look at the URL in your browser. See how it's <TT class="docutils literal"><SPAN class=pre>http://localhost:8080/hello</SPAN></TT> even though you sent in parameters.</P>
+<P id=p17>The part of the <TT class="docutils literal">hello_form.html</TT> file that makes this work is the line with <TT class="docutils literal">&lt;form <SPAN class=pre>action="/hello"</SPAN> <SPAN class=pre>method="POST"&gt;</SPAN></TT>. This tells your browser to:</P>
+<OL class="arabic simple">
+<LI>Collect data from the user using the form fields inside the form.</LI>
+<LI>Send them to the server using a <TT class="docutils literal">POST</TT> type of request, which is just another browser request that "hides" the form fields.</LI>
+<LI>Send that to the <TT class="docutils literal">/hello</TT> URL (as shown in the <TT class="docutils literal"><SPAN class=pre>action="/hello"</SPAN></TT> part).</LI></OL>
+<P id=p18>You can then see how the two <TT class="docutils literal">&lt;input&gt;</TT> tags match the names of the variables in your new code. Also notice that instead of just a <TT class="docutils literal">GET</TT> method inside <TT class="docutils literal">class index</TT>, I have another method, <TT class="docutils literal">POST</TT>. How this new application works is:</P>
+<OL class="arabic simple">
+<LI>The browser first hits the web application at <TT class="docutils literal">/hello</TT> but it sends a <TT class="docutils literal">GET</TT>, so our <TT class="docutils literal">index.GET</TT> function runs and returns the <TT class="docutils literal">hello_form</TT>.</LI>
+<LI>You fill out the form in the browser, and the browser does what the <TT class="docutils literal">&lt;form&gt;</TT> says and sends the data as a <TT class="docutils literal">POST</TT>.</LI>
+<LI>The web application then runs the <TT class="docutils literal">index.POST</TT> method rather than the <TT class="docutils literal">index.GET</TT> method to handle this request.</LI>
+<LI>This <TT class="docutils literal">index.POST</TT> method then does what it normally does to send back the hello page like before. There's really nothing new in here, it's just moved into a new function.</LI></OL>
+<P id=p19>As an exercise, go into the <TT class="docutils literal">templates/index.html</TT> file and add a link <EM>back</EM> to just <TT class="docutils literal">/hello</TT> so that you can keep filling out the form and seeing the results. Make sure you can explain how this link works and how it's letting you cycle between <TT class="docutils literal">templates/index.html</TT> and <TT class="docutils literal">templates/hello_form.html</TT> and what's being run inside this latest Python code.</P></DIV>
+<DIV id=creating-a-layout-template class=section>
+<H1>Creating a Layout Template</H1>
+<P id=p20>When you work on your game in the next exercise, you'll need to make a bunch of little HTML pages. Writing a full web page each time will quickly become tedious. Luckily you can create a "layout" template, or a kind of shell that will wrap all your other pages with common headers and footers. Good programmers try to reduce repetition, so layouts are essential for being a good programmer.</P>
+<P id=p21>Change <TT class="docutils literal">templates/index.html</TT> to be like this:</P>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex51--gothonweb--templates--index_laid_out.html-pyg.html-1></A>$def with (greeting)
+<A name=python--ex51--gothonweb--templates--index_laid_out.html-pyg.html-2></A>
+<A name=python--ex51--gothonweb--templates--index_laid_out.html-pyg.html-3></A>$if greeting:
+<A name=python--ex51--gothonweb--templates--index_laid_out.html-pyg.html-4></A>    I just wanted to say <SPAN class=p>&lt;</SPAN><SPAN class=nt>em</SPAN> <SPAN class=na>style</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"color: green; font-size: 2em;"</SPAN><SPAN class=p>&gt;</SPAN>$greeting<SPAN class=p>&lt;/</SPAN><SPAN class=nt>em</SPAN><SPAN class=p>&gt;</SPAN>.
+<A name=python--ex51--gothonweb--templates--index_laid_out.html-pyg.html-5></A>$else:
+<A name=python--ex51--gothonweb--templates--index_laid_out.html-pyg.html-6></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>em</SPAN><SPAN class=p>&gt;</SPAN>Hello<SPAN class=p>&lt;/</SPAN><SPAN class=nt>em</SPAN><SPAN class=p>&gt;</SPAN>, world!
+</PRE></DIV>
+<P id=p22>Then change <TT class="docutils literal">templates/hello_form.html</TT> to be like this:</P>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-1></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>h1</SPAN><SPAN class=p>&gt;</SPAN>Fill Out This Form<SPAN class=p>&lt;/</SPAN><SPAN class=nt>h1</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-2></A>
+<A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-3></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>form</SPAN> <SPAN class=na>action</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"/hello"</SPAN> <SPAN class=na>method</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"POST"</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-4></A>    A Greeting: <SPAN class=p>&lt;</SPAN><SPAN class=nt>input</SPAN> <SPAN class=na>type</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"text"</SPAN> <SPAN class=na>name</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"greet"</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-5></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>br</SPAN><SPAN class=p>/&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-6></A>    Your Name: <SPAN class=p>&lt;</SPAN><SPAN class=nt>input</SPAN> <SPAN class=na>type</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"text"</SPAN> <SPAN class=na>name</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"name"</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-7></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>br</SPAN><SPAN class=p>/&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-8></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>input</SPAN> <SPAN class=na>type</SPAN><SPAN class=o>=</SPAN><SPAN class=s>"submit"</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--hello_form_laid_out.html-pyg.html-9></A><SPAN class=p>&lt;/</SPAN><SPAN class=nt>form</SPAN><SPAN class=p>&gt;</SPAN>
+</PRE></DIV>
+<P id=p23>All we're doing is stripping out the "boilerplate" at the top and the bottom, which is always on every page. We'll put that back into a single <TT class="docutils literal">templates/layout.html</TT> file that handles it for us from now on.</P>
+<P id=p24>Once you have those changes, create a <TT class="docutils literal">templates/layout.html</TT> file with this in it:</P>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex51--gothonweb--templates--layout.html-pyg.html-1></A>$def with (content)
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-2></A>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-3></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>html</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-4></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>head</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-5></A>    <SPAN class=p>&lt;</SPAN><SPAN class=nt>title</SPAN><SPAN class=p>&gt;</SPAN>Gothons From Planet Percal #25<SPAN class=p>&lt;/</SPAN><SPAN class=nt>title</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-6></A><SPAN class=p>&lt;/</SPAN><SPAN class=nt>head</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-7></A><SPAN class=p>&lt;</SPAN><SPAN class=nt>body</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-8></A>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-9></A>$:content
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-10></A>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-11></A><SPAN class=p>&lt;/</SPAN><SPAN class=nt>body</SPAN><SPAN class=p>&gt;</SPAN>
+<A name=python--ex51--gothonweb--templates--layout.html-pyg.html-12></A><SPAN class=p>&lt;/</SPAN><SPAN class=nt>html</SPAN><SPAN class=p>&gt;</SPAN>
+</PRE></DIV>
+<P id=p25>This file looks like a regular template, except that it's going to be passed the <EM>contents</EM> of the other templates and used to <EM>wrap</EM> them. Anything you put in here doesn't need to be in the other templates. You should also pay attention to how <TT class="docutils literal">$:content</TT> is written, since it's a little different from the other template variables.</P>
+<P id=p26>The <EM>final</EM> step is to change the line that makes the <TT class="docutils literal">render</TT> object to be this:</P><PRE class="code python literal-block"><SPAN class=name>render</SPAN> <SPAN class=operator>=</SPAN> <SPAN class=name>web</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>template</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>render</SPAN><SPAN class=punctuation>(</SPAN><SPAN class="literal string single">'templates/'</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>base</SPAN><SPAN class=operator>=</SPAN><SPAN class="literal string double">"layout"</SPAN><SPAN class=punctuation>)</SPAN>
+</PRE>
+<P id=p27>That tells <TT class="docutils literal">lpthw.web</TT> to use the <TT class="docutils literal">templates/layout.html</TT> file as the <EM>base</EM> template for all the other templates. Restart your application and then try to change the layout in interesting ways but without changing the other templates.</P></DIV>
+<DIV id=writing-automated-tests-for-forms class=section>
+<H1>Writing Automated Tests for Forms</H1>
+<P id=p28>It's easy to test a web application with your browser by just hitting refresh, but come on, we're programmers here. Why do some repetitive task when we can write some code to test our application? What you're going to do next is write a little test for your web application form based on what you learned in Exercise 47. If you don't remember Exercise 47, read it again.</P>
+<P id=p29>You need to do a bit of setup to make Python let you load your <TT class="docutils literal">bin/app.py</TT> file for testing. When we get to Exercise 52 you'll change this, but for now create an empty <TT class="docutils literal">bin/__init__.py</TT> file so Python thinks <TT class="docutils literal">bin/</TT> is a directory.</P>
+<P id=p30>I've also created a simple little function for <TT class="docutils literal">lpthw.web</TT> that lets you assert things about your web application's response, aptly named <TT class="docutils literal">assert_response</TT>. Create the file <TT class="docutils literal">tests/tools.py</TT> with these contents:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE></DIV>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex51--gothonweb--tests--tools.py-idio.html-1></A><SPAN class=kn>from</SPAN> <SPAN class=nn>nose.tools</SPAN> <SPAN class=kn>import</SPAN> <SPAN class=o>*</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-2></A><SPAN class=kn>import</SPAN> <SPAN class=nn>re</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-3></A>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-4></A><SPAN class=k>def</SPAN> <SPAN class=nf>assert_response</SPAN><SPAN class=p>(</SPAN><SPAN class=n>resp</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>contains</SPAN><SPAN class=o>=</SPAN><SPAN class=bp>None</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>matches</SPAN><SPAN class=o>=</SPAN><SPAN class=bp>None</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>headers</SPAN><SPAN class=o>=</SPAN><SPAN class=bp>None</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>status</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"200"</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-5></A>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-6></A>    <SPAN class=k>assert</SPAN> <SPAN class=n>status</SPAN> <SPAN class=ow>in</SPAN> <SPAN class=n>resp</SPAN><SPAN class=o>.</SPAN><SPAN class=n>status</SPAN><SPAN class=p>,</SPAN> <SPAN class=s2>"Expected response </SPAN><SPAN class=si>%r</SPAN><SPAN class=s2> not in </SPAN><SPAN class=si>%r</SPAN><SPAN class=s2>"</SPAN> <SPAN class=o>%</SPAN> <SPAN class=p>(</SPAN><SPAN class=n>status</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>resp</SPAN><SPAN class=o>.</SPAN><SPAN class=n>status</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-7></A>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-8></A>    <SPAN class=k>if</SPAN> <SPAN class=n>status</SPAN> <SPAN class=o>==</SPAN> <SPAN class=s2>"200"</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-9></A>        <SPAN class=k>assert</SPAN> <SPAN class=n>resp</SPAN><SPAN class=o>.</SPAN><SPAN class=n>data</SPAN><SPAN class=p>,</SPAN> <SPAN class=s2>"Response data is empty."</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-10></A>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-11></A>    <SPAN class=k>if</SPAN> <SPAN class=n>contains</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-12></A>        <SPAN class=k>assert</SPAN> <SPAN class=n>contains</SPAN> <SPAN class=ow>in</SPAN> <SPAN class=n>resp</SPAN><SPAN class=o>.</SPAN><SPAN class=n>data</SPAN><SPAN class=p>,</SPAN> <SPAN class=s2>"Response does not contain </SPAN><SPAN class=si>%r</SPAN><SPAN class=s2>"</SPAN> <SPAN class=o>%</SPAN> <SPAN class=n>contains</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-13></A>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-14></A>    <SPAN class=k>if</SPAN> <SPAN class=n>matches</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-15></A>        <SPAN class=n>reg</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>re</SPAN><SPAN class=o>.</SPAN><SPAN class=n>compile</SPAN><SPAN class=p>(</SPAN><SPAN class=n>matches</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-16></A>        <SPAN class=k>assert</SPAN> <SPAN class=n>reg</SPAN><SPAN class=o>.</SPAN><SPAN class=n>matches</SPAN><SPAN class=p>(</SPAN><SPAN class=n>resp</SPAN><SPAN class=o>.</SPAN><SPAN class=n>data</SPAN><SPAN class=p>),</SPAN> <SPAN class=s2>"Response does not match </SPAN><SPAN class=si>%r</SPAN><SPAN class=s2>"</SPAN> <SPAN class=o>%</SPAN> <SPAN class=n>matches</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-17></A>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-18></A>    <SPAN class=k>if</SPAN> <SPAN class=n>headers</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex51--gothonweb--tests--tools.py-idio.html-19></A>        <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>resp</SPAN><SPAN class=o>.</SPAN><SPAN class=n>headers</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>headers</SPAN><SPAN class=p>)</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p31>Once that's in place you can write your automated test for the last version of the <TT class="docutils literal">bin/app.py</TT> file you created. Create a new file named <TT class="docutils literal">tests/app_tests.py</TT> with this:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<DIV id=writing-automated-tests-for-forms class=section>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-1></A><SPAN class=kn>from</SPAN> <SPAN class=nn>nose.tools</SPAN> <SPAN class=kn>import</SPAN> <SPAN class=o>*</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-2></A><SPAN class=kn>from</SPAN> <SPAN class=nn>bin.app</SPAN> <SPAN class=kn>import</SPAN> <SPAN class=n>app</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-3></A><SPAN class=kn>from</SPAN> <SPAN class=nn>tests.tools</SPAN> <SPAN class=kn>import</SPAN> <SPAN class=n>assert_response</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-4></A>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-5></A><SPAN class=k>def</SPAN> <SPAN class=nf>test_index</SPAN><SPAN class=p>():</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-6></A>    <SPAN class=c1># check that we get a 404 on the / URL</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-7></A>    <SPAN class=n>resp</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>app</SPAN><SPAN class=o>.</SPAN><SPAN class=n>request</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"/"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-8></A>    <SPAN class=n>assert_response</SPAN><SPAN class=p>(</SPAN><SPAN class=n>resp</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>status</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"404"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-9></A>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-10></A>    <SPAN class=c1># test our first GET request to /hello</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-11></A>    <SPAN class=n>resp</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>app</SPAN><SPAN class=o>.</SPAN><SPAN class=n>request</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"/hello"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-12></A>    <SPAN class=n>assert_response</SPAN><SPAN class=p>(</SPAN><SPAN class=n>resp</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-13></A>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-14></A>    <SPAN class=c1># make sure default values work for the form</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-15></A>    <SPAN class=n>resp</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>app</SPAN><SPAN class=o>.</SPAN><SPAN class=n>request</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"/hello"</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>method</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"POST"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-16></A>    <SPAN class=n>assert_response</SPAN><SPAN class=p>(</SPAN><SPAN class=n>resp</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>contains</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"Nobody"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-17></A>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-18></A>    <SPAN class=c1># test that we get expected values</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-19></A>    <SPAN class=n>data</SPAN> <SPAN class=o>=</SPAN> <SPAN class=p>{</SPAN><SPAN class=s1>'name'</SPAN><SPAN class=p>:</SPAN> <SPAN class=s1>'Zed'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'greet'</SPAN><SPAN class=p>:</SPAN> <SPAN class=s1>'Hola'</SPAN><SPAN class=p>}</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-20></A>    <SPAN class=n>resp</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>app</SPAN><SPAN class=o>.</SPAN><SPAN class=n>request</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"/hello"</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>method</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"POST"</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>data</SPAN><SPAN class=o>=</SPAN><SPAN class=n>data</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-21></A>    <SPAN class=n>assert_response</SPAN><SPAN class=p>(</SPAN><SPAN class=n>resp</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>contains</SPAN><SPAN class=o>=</SPAN><SPAN class=s2>"Zed"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex51--gothonweb--tests--app_tests.py-idio.html-22></A>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p32>Finally, use <TT class="docutils literal">nosetests</TT> to run this test setup and test your web application:</P><PRE class="code console literal-block"><SPAN class="generic prompt">$</SPAN> nosetests
+<SPAN class="generic output">.
+----------------------------------------------------------------------
+Ran 1 test in 0.059s
+
+OK</SPAN>
+</PRE>
+<P id=p33>What I'm doing here is I'm actually <EM>importing</EM> the whole application from the <TT class="docutils literal">bin/app.py</TT> module, then running it manually. The <TT class="docutils literal">lpthw.web</TT> framework has a very simple API for processing requests, which looks like this:</P><PRE class="code python literal-block"><SPAN class=name>app</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>request</SPAN><SPAN class=punctuation>(</SPAN><SPAN class=name>localpart</SPAN><SPAN class=operator>=</SPAN><SPAN class="literal string single">'/'</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>method</SPAN><SPAN class=operator>=</SPAN><SPAN class="literal string single">'GET'</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>data</SPAN><SPAN class=operator>=</SPAN><SPAN class="name builtin pseudo">None</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>host</SPAN><SPAN class=operator>=</SPAN><SPAN class="literal string single">'0.0.0.0:8080'</SPAN><SPAN class=punctuation>,</SPAN>
+            <SPAN class=name>headers</SPAN><SPAN class=operator>=</SPAN><SPAN class="name builtin pseudo">None</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>https</SPAN><SPAN class=operator>=</SPAN><SPAN class="name builtin pseudo">False</SPAN><SPAN class=punctuation>)</SPAN>
+</PRE>
+<P id=p34>This means you can pass in the URL as the first parameter, then change the method of the request, as wellas what form data you send, including the host and headers. This works without running an actual web server so you can do tests with automated tests and also use your browser to test a running server.</P>
+<P id=p35>To validate responses from this function, use the <TT class="docutils literal">assert_response</TT> function from <TT class="docutils literal">tests.tools</TT> which has:</P><PRE class="code python literal-block"><SPAN class=name>assert_response</SPAN><SPAN class=punctuation>(</SPAN><SPAN class=name>resp</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>contains</SPAN><SPAN class=operator>=</SPAN><SPAN class="name builtin pseudo">None</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>matches</SPAN><SPAN class=operator>=</SPAN><SPAN class="name builtin pseudo">None</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>headers</SPAN><SPAN class=operator>=</SPAN><SPAN class="name builtin pseudo">None</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>status</SPAN><SPAN class=operator>=</SPAN><SPAN class="literal string double">"200"</SPAN><SPAN class=punctuation>)</SPAN>
+</PRE>
+<P id=p36>Pass in the response you get from calling <TT class="docutils literal">app.request</TT>, then add things you want checked. Use the <TT class="docutils literal">contains</TT> parameter to make sure that the response contains certain values. Use the <TT class="docutils literal">status</TT> parameter to check for certain responses. There's actually quite a lot of information in this little function so it would be good for you to study it.</P>
+<P id=p37>In the <TT class="docutils literal">tests/app_tests.py</TT> automated test I'm first making sure the <TT class="docutils literal">/</TT> URL returns a "404 Not Found" response, since it actually doesn't exist. Then I'm checking that <TT class="docutils literal">/hello</TT> works with both a <TT class="docutils literal">GET</TT> and <TT class="docutils literal">POST</TT> form. Following the test should be fairly simple, even if you might not totally know what's going on.</P>
+<P id=p38>Take some time studying this latest application, especially how the automated testing works. Make sure you understand how I imported the application from <TT class="docutils literal">bin/app.py</TT> and ran it directly for the automated test. This is an important trick that will lead to more learning.</P></DIV>
+<DIV id=study-drills class=section>
+<H1>Study Drills</H1>
+<OL class="arabic simple">
+<LI>Read even more about HTML, and give the simple form a better layout. It helps to draw what you want to do on paper and <EM>then</EM> implement it with HTML.</LI>
+<LI>This one is hard, but try to figure out how you'd do a file upload form so that you can upload an image and save it to the disk.</LI>
+<LI>This is even more mind-numbing, but go find the HTTP RFC (which is the document that describes how HTTP works) and read as much of it as you can. It is really boring but comes in handy once in a while.</LI>
+<LI>This will also be really difficult, but see if you can find someone to help you setup a web server like Apache, Nginx, or thttpd. Try to serve a couple of your .html and .css files with it just to see if you can. Don't worry if you can't. Web servers kind of suck.</LI>
+<LI>Take a break after this and just try making as many different web applications as you can. You should <EM>definitely</EM> read about sessions in <TT class="docutils literal">web.py</TT> (which is the same as <TT class="docutils literal">lpthw.web</TT>) so you can understand how to keep state for a user.</LI></OL></DIV>
+<DIV id=common-student-questions class=section>
+<H1>Common Student Questions</H1>
+<DL class=docutils>
+<DT>I get <TT class="docutils literal">ImportError "No module named bin.app"</TT>.</DT>
+<DD>Again, this is either because you are in the wrong directory, did not make a <TT class="docutils literal">bin/__init__.py</TT> file, or did not set <TT class="docutils literal">PYTHONPATH=.</TT> in your shell. Always remember these solutions as they are so incredibly common that running to ask why you're getting that error will only slow you down.</DD>
+<DT>I get <TT class="docutils literal">__template__() takes no arguments (1 given)</TT> when I run the template.</DT>
+<DD>You probably forgot to put <TT class="docutils literal">$def with (greeting)</TT> or a similar variable declaration at the top of the template.</DD></DL></DIV>

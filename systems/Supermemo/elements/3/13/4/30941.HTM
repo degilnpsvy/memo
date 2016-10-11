@@ -1,0 +1,227 @@
+<H1 class=title>Exercise 49: Making Sentences</H1>
+<P id=p1>What we should be able to get from our little game lexicon scanner is a list that looks like this:</P>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex49_pycon.py-idio-pycon-pyg.html-1></A><SPAN class=go>Python 2.7.11 (default, May 25 2016, 05:27:56) </SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-2></A><SPAN class=go>[GCC 4.2.1 Compatible Apple LLVM 7.3.0 (clang-703.0.29)] on darwin</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-3></A><SPAN class=go>Type "help", "copyright", "credits" or "license" for more information.</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-4></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=kn>from</SPAN> <SPAN class=nn>ex48</SPAN> <SPAN class=kn>import</SPAN> <SPAN class=n>lexicon</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-5></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"go north"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-6></A><SPAN class=go>[('verb', 'go'), ('direction', 'north')]</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-7></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"kill the princess"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-8></A><SPAN class=go>[('verb', 'kill'), ('stop', 'the'), ('noun', 'princess')]</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-9></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"eat the bear"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-10></A><SPAN class=go>[('verb', 'eat'), ('stop', 'the'), ('noun', 'bear')]</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-11></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"open the door and smack the bear in the nose"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex49_pycon.py-idio-pycon-pyg.html-12></A><SPAN class=go>[('error', 'open'), ('stop', 'the'), ('error', 'door'), ('error', 'and'), ('error', 'smack'), ('stop', 'the'), ('noun', 'bear'), ('stop', 'in'), ('stop', 'the'), ('error', 'nose')]</SPAN>
+</PRE></DIV>
+<P id=p2>Now let us turn this into something the game can work with, which would be some kind of <TT class="docutils literal">Sentence</TT> class.</P>
+<P id=p3>If you remember grade school, a sentence can be a simple structure like:</P>
+<BLOCKQUOTE>Subject Verb Object</BLOCKQUOTE>
+<P id=p4>Obviously it gets more complex than that, and you probably did many days of annoying sentence graphs for English class. What we want is to turn the above lists of tuples into a nice Sentence object that has subject, verb, and object.</P>
+<DIV id=match-and-peek class=section>
+<H1>Match and Peek</H1>
+<P id=p5>To do this we need four tools:</P>
+<OL class="arabic simple">
+<LI>A way to loop through the list of scanned words. That's easy.</LI>
+<LI>A way to "match" different types of tuples that we expect in our Subject Verb Object setup.</LI>
+<LI>A way to "peek" at a potential tuple so we can make some decisions.</LI>
+<LI>A way to "skip" things we do not care about, like stop words.</LI>
+<LI>A Sentence object to put the results in.</LI></OL>
+<P id=p6>We will be putting these functions in a module named <TT class="docutils literal">ex48.parser</TT> in a file named <TT class="docutils literal">ex48/parser.py</TT> in order to test it. We use the <TT class="docutils literal">peek</TT> function to say look at the next element in our tuple list, and then match to take one off and work with it.</P></DIV>
+<DIV id=the-sentence-grammar class=section>
+<H1>The Sentence Grammar</H1>
+<P id=p7>Before you can write the code you need to understand how a basic English sentence grammar works. In our parser we want to produce a <TT class="docutils literal">Sentence</TT> object that has three attributes:</P>
+<DL class=docutils>
+<DT>Sentence.subject</DT>
+<DD>This is the subject of any sentence, but could default to "player" most of the time since a sentence of, "run north" is implying "player run north". This will be a noun.</DD>
+<DT>Sentence.verb</DT>
+<DD>This is the action of the sentence. In "run north" it would be "run". This will be a verb.</DD>
+<DT>Sentence.object</DT>
+<DD>This is another noun that refers to what the verb is done on. In our game we separate out directions which would also be objects. In "run north" the word "north" would be the object. In "hit bear" the word "bear" would be the object.</DD></DL>
+<P id=p8>Our parser then has to use the functions we described and given a scanned sentence, convert it into an <TT class="docutils literal">List</TT> of <TT class="docutils literal">Sentence</TT> objects to match the input.</P></DIV>
+<DIV id=a-word-on-exceptions class=section>
+<H1>A Word On Exceptions</H1>
+<P id=p9>You briefly learned about exceptions but not how to raise them. This code demonstrates how to do that with the <TT class="docutils literal">ParserError</TT> at the top. Notice that it uses classes to give it the type of <TT class="docutils literal">Exception</TT>. Also notice the use of the <TT class="docutils literal">raise</TT> keyword to raise the exception.</P>
+<P id=p10>In your tests, you will want to work with these exceptions, which I'll show you how to do.</P></DIV>
+<DIV id=the-parser-code class=section>
+<H1>The Parser Code</H1>
+<P id=p11>If you want an extra challenge, stop right now and try to write this based on just my description. If you get stuck you can come back and see how I did it, but trying to implement the parser yourself is good practice. I will now walk through the code so you can enter it into your <TT class="docutils literal">ex48/parser.py</TT>. We start the parser with the exception we need for a parsing error:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE></DIV>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>class</SPAN> <SPAN class=nc>ParserError</SPAN><SPAN class=p>(</SPAN><SPAN class=ne>Exception</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>    <SPAN class=k>pass</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p12>This is how you make your own <TT class="docutils literal">ParserError</TT> exception class you can throw. Next we need the <TT class="docutils literal">Sentence</TT> object we'll create:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>class</SPAN> <SPAN class=nc>Sentence</SPAN><SPAN class=p>(</SPAN><SPAN class=nb>object</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>
+<A name=python--ex48--parser.py-idio.html-3></A>    <SPAN class=k>def</SPAN> <SPAN class=nf>__init__</SPAN><SPAN class=p>(</SPAN><SPAN class=bp>self</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>subject</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>verb</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>obj</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-4></A>        <SPAN class=c1># remember we take ('noun','princess') tuples and convert them</SPAN>
+<A name=python--ex48--parser.py-idio.html-5></A>        <SPAN class=bp>self</SPAN><SPAN class=o>.</SPAN><SPAN class=n>subject</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>subject</SPAN><SPAN class=p>[</SPAN><SPAN class=mi>1</SPAN><SPAN class=p>]</SPAN>
+<A name=python--ex48--parser.py-idio.html-6></A>        <SPAN class=bp>self</SPAN><SPAN class=o>.</SPAN><SPAN class=n>verb</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>verb</SPAN><SPAN class=p>[</SPAN><SPAN class=mi>1</SPAN><SPAN class=p>]</SPAN>
+<A name=python--ex48--parser.py-idio.html-7></A>        <SPAN class=bp>self</SPAN><SPAN class=o>.</SPAN><SPAN class=n>object</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>obj</SPAN><SPAN class=p>[</SPAN><SPAN class=mi>1</SPAN><SPAN class=p>]</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p13>There's nothing special about this code so far. You're just making simple classes.</P>
+<P id=p14>In our description of the problem we need a function that can peek at a list of words and return what type of word it is:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>def</SPAN> <SPAN class=nf>peek</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>    <SPAN class=k>if</SPAN> <SPAN class=n>word_list</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-3></A>        <SPAN class=n>word</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>word_list</SPAN><SPAN class=p>[</SPAN><SPAN class=mi>0</SPAN><SPAN class=p>]</SPAN>
+<A name=python--ex48--parser.py-idio.html-4></A>        <SPAN class=k>return</SPAN> <SPAN class=n>word</SPAN><SPAN class=p>[</SPAN><SPAN class=mi>0</SPAN><SPAN class=p>]</SPAN>
+<A name=python--ex48--parser.py-idio.html-5></A>    <SPAN class=k>else</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-6></A>        <SPAN class=k>return</SPAN> <SPAN class=bp>None</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p15>We need this function because we'll have to make decisions about what kind of sentence we're dealing with based on what the next word is, and then we can call another function to consume that word and carry on.</P>
+<P id=p16>To consume a word we use a the <TT class="docutils literal">match</TT> function, which confirms that the expected word is the right type, takes it off the list, and returns the word.</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>def</SPAN> <SPAN class=nf>match</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>expecting</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>    <SPAN class=k>if</SPAN> <SPAN class=n>word_list</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-3></A>        <SPAN class=n>word</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>word_list</SPAN><SPAN class=o>.</SPAN><SPAN class=n>pop</SPAN><SPAN class=p>(</SPAN><SPAN class=mi>0</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-4></A>
+<A name=python--ex48--parser.py-idio.html-5></A>        <SPAN class=k>if</SPAN> <SPAN class=n>word</SPAN><SPAN class=p>[</SPAN><SPAN class=mi>0</SPAN><SPAN class=p>]</SPAN> <SPAN class=o>==</SPAN> <SPAN class=n>expecting</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-6></A>            <SPAN class=k>return</SPAN> <SPAN class=n>word</SPAN>
+<A name=python--ex48--parser.py-idio.html-7></A>        <SPAN class=k>else</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-8></A>            <SPAN class=k>return</SPAN> <SPAN class=bp>None</SPAN>
+<A name=python--ex48--parser.py-idio.html-9></A>    <SPAN class=k>else</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-10></A>        <SPAN class=k>return</SPAN> <SPAN class=bp>None</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p17>Again, fairly simple but make sure you understand this code but also <EM>why</EM> I'm doing it this way. I need to peek at words in the list to decide what kind of sentence I'm dealing with, and then I need to match those words to create my <TT class="docutils literal">Sentence</TT>.</P>
+<P id=p18>The last thing I need is a way to skip words that aren't useful to the <TT class="docutils literal">Sentence</TT>. These are the words labeled "stop words" (type 'stop') that are words like "the", "and", and "a".</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>def</SPAN> <SPAN class=nf>skip</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>word_type</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>    <SPAN class=k>while</SPAN> <SPAN class=n>peek</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>)</SPAN> <SPAN class=o>==</SPAN> <SPAN class=n>word_type</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-3></A>        <SPAN class=n>match</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>word_type</SPAN><SPAN class=p>)</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p19>Remember that <TT class="docutils literal">skip</TT> doesn't skip one word, it skips as many words of that type as it finds. This makes it so if someone types, "scream at the bear" you get "scream" and "bear."</P>
+<P id=p20>That's our basic set of parsing functions, and with that we can actually parse just about any text we want. Our parser is very simple though, so the remaining functions are short.</P>
+<P id=p21>First we can handle parsing a verb:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>def</SPAN> <SPAN class=nf>parse_verb</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>    <SPAN class=n>skip</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'stop'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-3></A>
+<A name=python--ex48--parser.py-idio.html-4></A>    <SPAN class=k>if</SPAN> <SPAN class=n>peek</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>)</SPAN> <SPAN class=o>==</SPAN> <SPAN class=s1>'verb'</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-5></A>        <SPAN class=k>return</SPAN> <SPAN class=n>match</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'verb'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-6></A>    <SPAN class=k>else</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-7></A>        <SPAN class=k>raise</SPAN> <SPAN class=n>ParserError</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"Expected a verb next."</SPAN><SPAN class=p>)</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p22>We skip any stop words, then peek ahead to make sure the next word is a "verb" type. If it's not then raise the <TT class="docutils literal">ParserError</TT> to say why. If it is a "verb" then match it, which takes it off the list. A similar function handles sentence objects:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>def</SPAN> <SPAN class=nf>parse_object</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>    <SPAN class=n>skip</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'stop'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-3></A>    <SPAN class=n>next_word</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>peek</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-4></A>
+<A name=python--ex48--parser.py-idio.html-5></A>    <SPAN class=k>if</SPAN> <SPAN class=n>next_word</SPAN> <SPAN class=o>==</SPAN> <SPAN class=s1>'noun'</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-6></A>        <SPAN class=k>return</SPAN> <SPAN class=n>match</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'noun'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-7></A>    <SPAN class=k>elif</SPAN> <SPAN class=n>next_word</SPAN> <SPAN class=o>==</SPAN> <SPAN class=s1>'direction'</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-8></A>        <SPAN class=k>return</SPAN> <SPAN class=n>match</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'direction'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-9></A>    <SPAN class=k>else</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-10></A>        <SPAN class=k>raise</SPAN> <SPAN class=n>ParserError</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"Expected a noun or direction next."</SPAN><SPAN class=p>)</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p23>Again, skip the stop words, peek ahead, and decide if the sentence is correct based on what's there. In the <TT class="docutils literal">parse_object</TT> function though we need to handle both "noun" and "direction" words as possible objects. Subjects are then similar again, but since we want to handle the implied "player" noun, we have to use <TT class="docutils literal">peek</TT>:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>def</SPAN> <SPAN class=nf>parse_subject</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>    <SPAN class=n>skip</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'stop'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-3></A>    <SPAN class=n>next_word</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>peek</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-4></A>
+<A name=python--ex48--parser.py-idio.html-5></A>    <SPAN class=k>if</SPAN> <SPAN class=n>next_word</SPAN> <SPAN class=o>==</SPAN> <SPAN class=s1>'noun'</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-6></A>        <SPAN class=k>return</SPAN> <SPAN class=n>match</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'noun'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-7></A>    <SPAN class=k>elif</SPAN> <SPAN class=n>next_word</SPAN> <SPAN class=o>==</SPAN> <SPAN class=s1>'verb'</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-8></A>        <SPAN class=k>return</SPAN> <SPAN class=p>(</SPAN><SPAN class=s1>'noun'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'player'</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-9></A>    <SPAN class=k>else</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48--parser.py-idio.html-10></A>        <SPAN class=k>raise</SPAN> <SPAN class=n>ParserError</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"Expected a verb next."</SPAN><SPAN class=p>)</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p24>With that all out of the way and ready, our final <TT class="docutils literal">parse_sentence</TT> function is very simple:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE>
+<DIV id=the-parser-code class=section>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48--parser.py-idio.html-1></A><SPAN class=k>def</SPAN> <SPAN class=nf>parse_sentence</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48--parser.py-idio.html-2></A>    <SPAN class=n>subj</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>parse_subject</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-3></A>    <SPAN class=n>verb</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>parse_verb</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-4></A>    <SPAN class=n>obj</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>parse_object</SPAN><SPAN class=p>(</SPAN><SPAN class=n>word_list</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48--parser.py-idio.html-5></A>
+<A name=python--ex48--parser.py-idio.html-6></A>    <SPAN class=k>return</SPAN> <SPAN class=n>Sentence</SPAN><SPAN class=p>(</SPAN><SPAN class=n>subj</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>verb</SPAN><SPAN class=p>,</SPAN> <SPAN class=n>obj</SPAN><SPAN class=p>)</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE></DIV>
+<DIV id=playing-with-the-parser class=section>
+<H1>Playing With The Parser</H1>
+<P id=p25>To see how this works, you can play with it like this:</P>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex49a_pycon.py-idio-pycon-pyg.html-1></A><SPAN class=go>Python 2.7.11 (default, May 25 2016, 05:27:56) </SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-2></A><SPAN class=go>[GCC 4.2.1 Compatible Apple LLVM 7.3.0 (clang-703.0.29)] on darwin</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-3></A><SPAN class=go>Type "help", "copyright", "credits" or "license" for more information.</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-4></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=kn>from</SPAN> <SPAN class=nn>ex48.parser</SPAN> <SPAN class=kn>import</SPAN> <SPAN class=o>*</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-5></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=n>x</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>parse_sentence</SPAN><SPAN class=p>([(</SPAN><SPAN class=s1>'verb'</SPAN><SPAN class=p>,</SPAN><SPAN class=s1>'run'</SPAN><SPAN class=p>),</SPAN> <SPAN class=p>(</SPAN><SPAN class=s1>'direction'</SPAN><SPAN class=p>,</SPAN><SPAN class=s1>'north'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-6></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=n>x</SPAN><SPAN class=o>.</SPAN><SPAN class=n>subject</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-7></A><SPAN class=go>'player'</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-8></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=n>x</SPAN><SPAN class=o>.</SPAN><SPAN class=n>verb</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-9></A><SPAN class=go>'run'</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-10></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=n>x</SPAN><SPAN class=o>.</SPAN><SPAN class=n>object</SPAN>
+<A name=python--ex49a_pycon.py-idio-pycon-pyg.html-11></A><SPAN class=go>'north'</SPAN>
+</PRE></DIV>
+<P id=p26>Try to map sentences to the correct pairings in a sentence. For example, how would you say, "the bear run south?"</P></DIV>
+<DIV id=what-you-should-test class=section>
+<H1>What You Should Test</H1>
+<P id=p27>For Exercise 49, write a complete test that confirms everything in this code is working. Put the test in <TT class="docutils literal">tests/parser_tests.py</TT> similar to the test file from the last exercise. That includes making exceptions happen by giving the parser bad sentences.</P>
+<P id=p28>Check for an exception by using the function <TT class="docutils literal">assert_raises</TT> from the <TT class="docutils literal">nose</TT> documentation. Learn how to use this so you can write a test that is <EM>expected</EM> to fail, which is very important in testing. Learn about this function (and others) by reading the nose documentation.</P>
+<P id=p29>When you are done, you should know how this bit of code works and how to write a test for other people's code even if they do not want you to. Trust me, it's a very handy skill to have.</P></DIV>
+<DIV id=study-drills class=section>
+<H1>Study Drills</H1>
+<OL class="arabic simple">
+<LI>Change the <TT class="docutils literal">parse_</TT> methods and try to put them into a class rather than be just methods. Which design do you like better?</LI>
+<LI>Make the parser more error-resistant so that you can avoid annoying your users if they type words your lexicon doesn't understand.</LI>
+<LI>Improve the grammar by handling more things like numbers.</LI>
+<LI>Think about how you might use this Sentence class in your game to do more fun things with a user's input.</LI></OL></DIV>
+<DIV id=common-student-questions class=section>
+<H1>Common Student Questions</H1>
+<DL class=docutils>
+<DT>I can't seem to make <TT class="docutils literal">assert_raises</TT> work right.</DT>
+<DD>Make sure you are writing <TT class="docutils literal">assert_raises(exception, callable, parameters)</TT> and <EM>not</EM> writing <TT class="docutils literal">assert_raises(exception, callable(parameters))</TT>. Notice how the second form is calling the function then passing the result to <TT class="docutils literal">assert_raises</TT>, which is <EM>wrong</EM>. You have to pass the function to call <EM>and</EM> its arguments to <TT class="docutils literal">assert_raises</TT>.</DD></DL></DIV>

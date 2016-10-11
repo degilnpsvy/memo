@@ -1,0 +1,187 @@
+<H1 class=title>Exercise 48: Advanced User Input</H1>
+<P id=p1>In past games you handled the user's input by simply expecting set strings. If the user typed "run", and exactly "run", then the game worked. If they typed in similar phrases like "run fast" it would fail. What we need is a device that lets users type phrases in various ways and then convert that into something the computer understands. For example, we'd like to have all of these phrases work the same:</P>
+<UL class=simple>
+<LI>open door</LI>
+<LI>open the door</LI>
+<LI>go THROUGH the door</LI>
+<LI>punch bear</LI>
+<LI>Punch The Bear in the FACE</LI></UL>
+<P id=p2>It should be alright for a user to write something a lot like English for your game, and have your game figure out what it means. To do this, we're going to write a module that does just that. This module will have a few classes that work together to handle user input and convert it into something your game can work with reliably.</P>
+<P id=p3>In a simple version of English the following elements:</P>
+<UL class=simple>
+<LI>Words separated by spaces.</LI>
+<LI>Sentences composed of the words.</LI>
+<LI>Grammar that structures the sentences into meaning.</LI></UL>
+<P id=p4>That means the best place to start is figuring out how to get words from the user and what kinds of words those are.</P>
+<DIV id=our-game-lexicon class=section>
+<H1>Our Game Lexicon</H1>
+<P id=p5>In our game we have to create a list of allowed words called a "lexicon":</P>
+<UL class=simple>
+<LI>Direction words: north, south, east, west, down, up, left, right, back</LI>
+<LI>Verbs: go, stop, kill, eat</LI>
+<LI>Stop words: the, in, of, from, at, it</LI>
+<LI>Nouns: door, bear, princess, cabinet</LI>
+<LI>Numbers: any string of 0 through 9 characters</LI></UL>
+<P id=p6>When we get to nouns, we have a slight problem since each room could have a different set of nouns, but let's just pick this small set to work with for now and improve it later.</P>
+<DIV id=breaking-up-a-sentence class=section>
+<H2>Breaking Up a Sentence</H2>
+<P id=p7>Once we have our lexicon we need a way to break up sentences so that we can figure out what they are. In our case, we've defined a sentence as "words separated by spaces," so we really just need to do this:</P><PRE class="code python literal-block"><SPAN class=name>stuff</SPAN> <SPAN class=operator>=</SPAN> <SPAN class="name builtin">raw_input</SPAN><SPAN class=punctuation>(</SPAN><SPAN class="literal string single">'&gt; '</SPAN><SPAN class=punctuation>)</SPAN>
+<SPAN class=name>words</SPAN> <SPAN class=operator>=</SPAN> <SPAN class=name>stuff</SPAN><SPAN class=operator>.</SPAN><SPAN class=name>split</SPAN><SPAN class=punctuation>()</SPAN>
+</PRE>
+<P id=p8>That's all we'll worry about for now, but this will work really well for quite a while.</P></DIV>
+<DIV id=lexicon-tuples class=section>
+<H2>Lexicon Tuples</H2>
+<P id=p9>Once we know how to break up a sentence into words, we just have to go through the list of words and figure out what "type" they are. To do that we're going to use a handy little Python structure called a "tuple." A tuple is nothing more than a list that you can't modify. It's created by putting data inside two <TT class="docutils literal">()</TT> with a comma, like a list:</P><PRE class="code python literal-block"><SPAN class=name>first_word</SPAN> <SPAN class=operator>=</SPAN> <SPAN class=punctuation>(</SPAN><SPAN class="literal string single">'verb'</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class="literal string single">'go'</SPAN><SPAN class=punctuation>)</SPAN>
+<SPAN class=name>second_word</SPAN> <SPAN class=operator>=</SPAN> <SPAN class=punctuation>(</SPAN><SPAN class="literal string single">'direction'</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class="literal string single">'north'</SPAN><SPAN class=punctuation>)</SPAN>
+<SPAN class=name>third_word</SPAN> <SPAN class=operator>=</SPAN> <SPAN class=punctuation>(</SPAN><SPAN class="literal string single">'direction'</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class="literal string single">'west'</SPAN><SPAN class=punctuation>)</SPAN>
+<SPAN class=name>sentence</SPAN> <SPAN class=operator>=</SPAN> <SPAN class=punctuation>[</SPAN><SPAN class=name>first_word</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>second_word</SPAN><SPAN class=punctuation>,</SPAN> <SPAN class=name>third_word</SPAN><SPAN class=punctuation>]</SPAN>
+</PRE>
+<P id=p10>This creates a pair (TYPE, WORD) that lets you look at the word and do things with it.</P>
+<P id=p11>This is just an example, but that's basically the end result. You want to take raw input from the user, carve it into words with <TT class="docutils literal">split</TT>, analyze those words to identify their type, and finally make a sentence out of them.</P></DIV>
+<DIV id=scanning-input class=section>
+<H2>Scanning Input</H2>
+<P id=p12>Now you are ready to write your scanner. This scanner will take a string of raw input from a user and return a sentence that's composed of a list of tuples with the (TOKEN, WORD) pairings. If a word isn't part of the lexicon then it should still return the WORD but set the TOKEN to an error token. These error tokens will tell users they messed up.</P>
+<P id=p13>Here's where it gets fun. I'm not going to tell you how to do this. Instead I'm going to write a "unit test" and you are going to write the scanner so that the unit test works.</P></DIV>
+<DIV id=exceptions-and-numbers class=section>
+<H2>Exceptions and Numbers</H2>
+<P id=p14>There is one tiny thing I will help you with first, and that's converting numbers. In order to do this though, we're going to cheat and use exceptions. An exception is an error that you get from some function you may have run. What happens is your function "raises" an exception when it encounters an error, then you have to handle that exception. For example, if you type this into Python:</P>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48_pycon.py-idio-pycon-pyg.html-1></A><SPAN class=go>Python 2.7.11 (default, May 25 2016, 05:27:56) </SPAN>
+<A name=python--ex48_pycon.py-idio-pycon-pyg.html-2></A><SPAN class=go>[GCC 4.2.1 Compatible Apple LLVM 7.3.0 (clang-703.0.29)] on darwin</SPAN>
+<A name=python--ex48_pycon.py-idio-pycon-pyg.html-3></A><SPAN class=go>Type "help", "copyright", "credits" or "license" for more information.</SPAN>
+<A name=python--ex48_pycon.py-idio-pycon-pyg.html-4></A><SPAN class=gp>&gt;&gt;&gt; </SPAN><SPAN class=nb>int</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"hell"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48_pycon.py-idio-pycon-pyg.html-5></A><SPAN class=gt>Traceback (most recent call last):</SPAN>
+<A name=python--ex48_pycon.py-idio-pycon-pyg.html-6></A>  File <SPAN class=nb>"&lt;stdin&gt;"</SPAN>, line <SPAN class=m>1</SPAN>, in <SPAN class=n>&lt;module&gt;</SPAN>
+<A name=python--ex48_pycon.py-idio-pycon-pyg.html-7></A><SPAN class=gr>ValueError</SPAN>: <SPAN class=n>invalid literal for int() with base 10: 'hell'</SPAN>
+</PRE></DIV>
+<P id=p15>That <TT class="docutils literal">ValueError</TT> is an exception that the <TT class="docutils literal">int()</TT> function threw because what you handed <TT class="docutils literal">int()</TT> is not a number. The <TT class="docutils literal"><SPAN class=pre>int())</SPAN></TT> function could have returned a value to tell you it had an error, but since it only returns integers, it'd have a hard time doing that. It can't return -1 since that's a number. Instead of trying to figure out what to return when there's an error, the <TT class="docutils literal">int()</TT> function raises the <TT class="docutils literal">ValueError</TT> exception and you deal with it.</P>
+<P id=p16>You deal with an exception by using the <TT class="docutils literal">try</TT> and <TT class="docutils literal">except</TT> keywords:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE></DIV></DIV>
+<DIV id=our-game-lexicon class=section>
+<DIV id=exceptions-and-numbers class=section>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--ex48_convert.py-idio.html-1></A><SPAN class=k>def</SPAN> <SPAN class=nf>convert_number</SPAN><SPAN class=p>(</SPAN><SPAN class=n>s</SPAN><SPAN class=p>):</SPAN>
+<A name=python--ex48_convert.py-idio.html-2></A>    <SPAN class=k>try</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48_convert.py-idio.html-3></A>        <SPAN class=k>return</SPAN> <SPAN class=nb>int</SPAN><SPAN class=p>(</SPAN><SPAN class=n>s</SPAN><SPAN class=p>)</SPAN>
+<A name=python--ex48_convert.py-idio.html-4></A>    <SPAN class=k>except</SPAN> <SPAN class=ne>ValueError</SPAN><SPAN class=p>:</SPAN>
+<A name=python--ex48_convert.py-idio.html-5></A>        <SPAN class=k>return</SPAN> <SPAN class=bp>None</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p17>You put the code you want to "try" inside the <TT class="docutils literal">try</TT> block, and then you put the code to run for the error inside the <TT class="docutils literal">except</TT>. In this case, we want to "try" to call <TT class="docutils literal">int()</TT> on something that might be a number. If that has an error, then we "catch" it and return <TT class="docutils literal">None</TT>.</P>
+<P id=p18>In your scanner that you write, you should use this function to test if something is a number. You should also do it as the last thing you check for before declaring that word an error word.</P></DIV></DIV>
+<DIV id=a-test-first-challenge class=section>
+<H1>A Test First Challenge</H1>
+<P id=p19>Test first is a programming tactic where you write an automated test that pretends the code works, <EM>then</EM> you write the code to make the test actually work. This method works when you can't visualize how the code is implemented, but you can imagine how you have to work with it. For example, if you know how you need to use a new class in another module, but you don't quite know how to implement that class yet, then write the test first.</P>
+<P id=p20>You are going to take a test I give you and use it to write the code that makes it work. To do this exercise you're going to follow this procedure:</P>
+<OL class="arabic simple">
+<LI>Create one small part of the test I give you.</LI>
+<LI>Make sure it runs and <EM>fails</EM> so you know that the test is actually confirming a feature works.</LI>
+<LI>Go to your source file <TT class="docutils literal">lexicon.py</TT> and write the code that makes this test pass.</LI>
+<LI>Repeat until you have implemented everything in the test.</LI></OL>
+<P id=p21>When you get to 3 it's also good to combine our other method of writing code:</P>
+<OL class="arabic simple">
+<LI>Make the "skeleton" function or class that you need.</LI>
+<LI>Write comments inside describing how that function works.</LI>
+<LI>Write the code that does what the comments describe.</LI>
+<LI>Remove any comments that just repeat the code.</LI></OL>
+<P id=p22>This method of writing code is called "psuedo code" and works well if you don't know how to implement something, but you can describe it in your own words.</P>
+<P id=p23>Combining the "test first" with the "psuedo code" tactics we have this simple process for programming:</P>
+<OL class="arabic simple">
+<LI>Write a bit of test that fails.</LI>
+<LI>Write the skeleton function/module/class the test needs.</LI>
+<LI>Fill the skeleton with comments in your own words explaining how it works.</LI>
+<LI>Replace the comments with code until the test passes.</LI>
+<LI>Repeat.</LI></OL>
+<P id=p24>In this exercise you will practice this method of working by making a test I give you run against the <TT class="docutils literal">lexicon.py</TT> module.</P></DIV>
+<DIV id=what-you-should-test class=section>
+<H1>What You Should Test</H1>
+<P id=p25>Here is the test case <TT class="docutils literal">tests/lexicon_tests.py</TT> that you should use, but <EM>don't type this in yet</EM>:</P>
+<TABLE class=highlighttable>
+<TBODY>
+<TR></TR></TBODY></TABLE></DIV>
+<DIV id=what-you-should-test class=section>
+<TABLE class=highlighttable>
+<TBODY>
+<TR>
+<TD class=code>
+<DIV class=highlight><PRE><SPAN></SPAN><A name=python--lexicon_tests.py-idio.html-1></A><SPAN class=kn>from</SPAN> <SPAN class=nn>nose.tools</SPAN> <SPAN class=kn>import</SPAN> <SPAN class=o>*</SPAN>
+<A name=python--lexicon_tests.py-idio.html-2></A><SPAN class=kn>from</SPAN> <SPAN class=nn>ex48</SPAN> <SPAN class=kn>import</SPAN> <SPAN class=n>lexicon</SPAN>
+<A name=python--lexicon_tests.py-idio.html-3></A>
+<A name=python--lexicon_tests.py-idio.html-4></A>
+<A name=python--lexicon_tests.py-idio.html-5></A><SPAN class=k>def</SPAN> <SPAN class=nf>test_directions</SPAN><SPAN class=p>():</SPAN>
+<A name=python--lexicon_tests.py-idio.html-6></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"north"</SPAN><SPAN class=p>),</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'direction'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'north'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-7></A>    <SPAN class=n>result</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"north south east"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--lexicon_tests.py-idio.html-8></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>result</SPAN><SPAN class=p>,</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'direction'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'north'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-9></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'direction'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'south'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-10></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'direction'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'east'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-11></A>
+<A name=python--lexicon_tests.py-idio.html-12></A><SPAN class=k>def</SPAN> <SPAN class=nf>test_verbs</SPAN><SPAN class=p>():</SPAN>
+<A name=python--lexicon_tests.py-idio.html-13></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"go"</SPAN><SPAN class=p>),</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'verb'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'go'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-14></A>    <SPAN class=n>result</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"go kill eat"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--lexicon_tests.py-idio.html-15></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>result</SPAN><SPAN class=p>,</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'verb'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'go'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-16></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'verb'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'kill'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-17></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'verb'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'eat'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-18></A>
+<A name=python--lexicon_tests.py-idio.html-19></A>
+<A name=python--lexicon_tests.py-idio.html-20></A><SPAN class=k>def</SPAN> <SPAN class=nf>test_stops</SPAN><SPAN class=p>():</SPAN>
+<A name=python--lexicon_tests.py-idio.html-21></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"the"</SPAN><SPAN class=p>),</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'stop'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'the'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-22></A>    <SPAN class=n>result</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"the in of"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--lexicon_tests.py-idio.html-23></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>result</SPAN><SPAN class=p>,</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'stop'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'the'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-24></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'stop'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'in'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-25></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'stop'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'of'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-26></A>
+<A name=python--lexicon_tests.py-idio.html-27></A>
+<A name=python--lexicon_tests.py-idio.html-28></A><SPAN class=k>def</SPAN> <SPAN class=nf>test_nouns</SPAN><SPAN class=p>():</SPAN>
+<A name=python--lexicon_tests.py-idio.html-29></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"bear"</SPAN><SPAN class=p>),</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'noun'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'bear'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-30></A>    <SPAN class=n>result</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"bear princess"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--lexicon_tests.py-idio.html-31></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>result</SPAN><SPAN class=p>,</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'noun'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'bear'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-32></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'noun'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'princess'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-33></A>
+<A name=python--lexicon_tests.py-idio.html-34></A><SPAN class=k>def</SPAN> <SPAN class=nf>test_numbers</SPAN><SPAN class=p>():</SPAN>
+<A name=python--lexicon_tests.py-idio.html-35></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"1234"</SPAN><SPAN class=p>),</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'number'</SPAN><SPAN class=p>,</SPAN> <SPAN class=mi>1234</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-36></A>    <SPAN class=n>result</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"3 91234"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--lexicon_tests.py-idio.html-37></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>result</SPAN><SPAN class=p>,</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'number'</SPAN><SPAN class=p>,</SPAN> <SPAN class=mi>3</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-38></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'number'</SPAN><SPAN class=p>,</SPAN> <SPAN class=mi>91234</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-39></A>
+<A name=python--lexicon_tests.py-idio.html-40></A>
+<A name=python--lexicon_tests.py-idio.html-41></A><SPAN class=k>def</SPAN> <SPAN class=nf>test_errors</SPAN><SPAN class=p>():</SPAN>
+<A name=python--lexicon_tests.py-idio.html-42></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"ASDFADFASDF"</SPAN><SPAN class=p>),</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'error'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'ASDFADFASDF'</SPAN><SPAN class=p>)])</SPAN>
+<A name=python--lexicon_tests.py-idio.html-43></A>    <SPAN class=n>result</SPAN> <SPAN class=o>=</SPAN> <SPAN class=n>lexicon</SPAN><SPAN class=o>.</SPAN><SPAN class=n>scan</SPAN><SPAN class=p>(</SPAN><SPAN class=s2>"bear IAS princess"</SPAN><SPAN class=p>)</SPAN>
+<A name=python--lexicon_tests.py-idio.html-44></A>    <SPAN class=n>assert_equal</SPAN><SPAN class=p>(</SPAN><SPAN class=n>result</SPAN><SPAN class=p>,</SPAN> <SPAN class=p>[(</SPAN><SPAN class=s1>'noun'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'bear'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-45></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'error'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'IAS'</SPAN><SPAN class=p>),</SPAN>
+<A name=python--lexicon_tests.py-idio.html-46></A>                          <SPAN class=p>(</SPAN><SPAN class=s1>'noun'</SPAN><SPAN class=p>,</SPAN> <SPAN class=s1>'princess'</SPAN><SPAN class=p>)])</SPAN>
+</PRE></DIV></TD></TR></TBODY></TABLE>
+<P id=p26>You will want to create a new project using the project skeleton just like you did in Exercise 47. Then you'll need to create this test case and the <TT class="docutils literal">lexicon.py</TT> file it will use. Look at the top of the test case to see how it's being imported to figure out where it goes.</P>
+<P id=p27>Next, follow the procedure I gave you and write a little bit of the test case at a time. For example, here's how I'd do it:</P>
+<OL class="arabic simple">
+<LI>Write the import at the top. Get that to work.</LI>
+<LI>Create an empty version of the first test case <TT class="docutils literal">test_directions</TT>. Make sure that runs.</LI>
+<LI>Write the first line of the <TT class="docutils literal">test_directions</TT> test case. Make it fail.</LI>
+<LI>Go to the <TT class="docutils literal">lexicon.py</TT> file, create an empty <TT class="docutils literal">scan</TT> function.</LI>
+<LI>Run the test, make sure <TT class="docutils literal">scan</TT> is at least running, even though it fails.</LI>
+<LI>Fill in psuedo code comments for how <TT class="docutils literal">scan</TT> should work to make <TT class="docutils literal">test_directions</TT> pass.</LI>
+<LI>Write the code that matches the comments until <TT class="docutils literal">test_directions</TT> passes.</LI>
+<LI>Go back to <TT class="docutils literal">test_directions</TT> and write the rest of the lines.</LI>
+<LI>Back to <TT class="docutils literal">scan</TT> in <TT class="docutils literal">lexicon.py</TT> and work on it to make this new test code pass.</LI>
+<LI>Once you've done that you have your first passing test, and you move on to the next test.</LI></OL>
+<P id=p28>As long as you keep following this procedure one little chunk at a time you can successfully turn a large problem into smaller solvable problems. It's like climbing a mountain by turning it into a bunch of little hills.</P></DIV>
+<DIV id=study-drills class=section>
+<H1>Study Drills</H1>
+<OL class="arabic simple">
+<LI>Improve the unit test to make sure you test more of the lexicon.</LI>
+<LI>Add to the lexicon and then update the unit test.</LI>
+<LI>Make sure your scanner handles user input in any capitalization and case. Update the test to make sure this actually works.</LI>
+<LI>Find another way to convert the number.</LI>
+<LI>My solution was 37 lines long. Is yours longer? Shorter?</LI></OL></DIV>
+<DIV id=common-student-questions class=section>
+<H1>Common Student Questions</H1>
+<DL class=docutils>
+<DT>Why do I keep getting <TT class="docutils literal">ImportErrors</TT>?</DT>
+<DD>Import errors are caused by usually four things. 1. You didn't make a <TT class="docutils literal">__init__.py</TT> in a directory that has modules in it. 2. you are in the wrong directory. 3. You are importing the wrong module because you spelled it wrong. 4. Your <TT class="docutils literal">PYTHONPATH</TT> isn't set to <TT class="docutils literal">.</TT> so you can't load modules from your current directory.</DD>
+<DT>What's the difference between <TT class="docutils literal"><SPAN class=pre>try-except</SPAN></TT> and <TT class="docutils literal"><SPAN class=pre>if-else</SPAN></TT>?</DT>
+<DD>The <TT class="docutils literal"><SPAN class=pre>try-except</SPAN></TT> construct is only used for handling exceptions that modules can throw. It should <EM>never</EM> be used as an alternative to <TT class="docutils literal"><SPAN class=pre>if-else</SPAN></TT>.</DD>
+<DT>Is there a way to keep the game running while the user is waiting to type?</DT>
+<DD>I'm assuming you want to have a monster attack users if they don't react quick enough. It is possible but it involves modules and techniques that are outside of this book's domain.</DD></DL></DIV>
