@@ -1,0 +1,353 @@
+<H1>Exceptions in C with Longjmp and Setjmp</H1><BR>
+<H4 class=abstract>Abstract</H4>
+<DIV class=abstract>This document describes a very simple implementation (with many limitations) of a system to add exceptions on top of C using the libc calls longjump and setjump. This system does not pretend to be really useful in practice but it is a useful lesson about longjump and setjump with a fun example. </DIV><BR>
+<H2>Introduction</H2>
+<P>Exception are a very powerful way to program error safe programs. Exceptions let you write straight code without testing for errors at each statement. In modern programming languages, such as C++, Java or C#, exceptions are expressed with the <I>try-throw-catch</I> statement.</P><PRE class=code>...
+try
+{
+   ...
+   /* error prone statements */
+   ...
+}
+catch(SomeExceptionType e)
+{
+   ...
+   /* do something intelligent here*/
+   ...
+}
+...
+</PRE>
+<P>In previous example every exception raised by operations performed in <I>try-block</I> is passed to the right <I>catch-black</I>. If the exception type match <B>SomeExceptionType</B> than the code in that block is executed. Otherwise the exception is passed to the <I>try-block</I> that contains the actual one (if any).</P>
+<P>Our solution is not a fully functional <I>try-throw-catch</I> system. It does not forward exceptions from one block to one more external if no handler is provided.</P>
+<P>Real exception mechanisms need run-time support. We only want to explore the potentiality of <B>longjmp</B> and <B>setjmp</B> function with a non trivial example.</P>
+<H2>Longjmp And SetJmp</H2>
+<P>ANSI-C provide a lot of functions: math functions (<B>log</B>, <B>sqrt</B>...), string handling functions (<B>strdup</B>, <B>strcmp</B>, ...) and I/O functions (<B>getc</B>, <B>printf</B>, ...). All these functions are widely used and simple to understand (...<B>strtok</B> is not so intuitive after all...): only two functions are considered <I>strange beasts</I>.</P>
+<P>These functions are <B>longjmp</B> and <B>setjmp</B>.</P>
+<P><B>longjmp</B> and <B>setjmp</B> are defined in <I>setjmp.h</I> header file...</P><PRE class=code>#include &lt;setjmp.h&gt;
+</PRE>
+<P>...and are defined as follows:</P><PRE class=code>int setjmp(jmp_buf env);
+void longjmp(jmp_buf env, int val);
+</PRE>
+<P><B>setjmp</B> takes a <B>jmp_buf</B> type variable as only input and has a strange return behavior: it returns 0 when invoked directly and when <B>longjmp</B> is invoked with the same <B>jmp_buf</B> variable it returns the value passed as second argument of <B>longjmp</B>.</P>
+<P>Do you think that this is obscure? Strange? Without sense?</P>
+<P>Probably you are right! The behavior of there functions is really strange: you have a function (<B>setjmp</B> with two return values).</P>
+<P><B>setjmp</B> and <B>longjmp</B> mechanism works as follows: when <B>setjmp</B> is invoked the first time it returns 0 and fill the <B>jmp_buf</B> structure with the <I>calling environment</I> and the <I>signal mask</I>. The <I>calling environment</I> represents the state of registers and the point in the code where the function was called. When <B>longjmp</B> is called the state saved in the <B>jmp_buf</B> variable is copied back in the processor and computation starts over from the return point of <B>setjmp</B> function but the returned value is the one passed as second argument to <B>longjmp</B> function.</P>
+<P>Probably now you are thinking something like: "Hey dude are you kiddin' me?". The replay is "No". The behavior is exactly the one stated before.</P>
+<P>There are 10 kind of people in the world: </P>
+<OL start=0>
+<LI>people thinking that this is awful (and probably are asking themselves why only two cases if there are 10 kind of people) 
+<LI>people thinking that it can be amazing!</LI></OL>The rest of document is for second ones. 
+<P></P>
+<H2>Basic Try-Catch</H2>
+<P>First version is a real simple one. Probably if you are here you know the solution. (this solution was presented also by other authors... my contribution is represented by the second and the third version of the solution).</P>
+<P>The general idea is to map <B>TRY</B> statement on <B>if</B> statement. The first time that it is invoked it return 0 and the executed code is the one stated in <B>then</B> branch. <B>CATCH</B> statement is simply the <B>else</B> statement. When the <B>THROW</B> statement is executed it simply calls the <B>longjmp</B> function with the second parameter equals to 1 (or anything not 0).</P><PRE class=code>#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+#define TRY do{ jmp_buf ex_buf__; if( !setjmp(ex_buf__) ){
+#define CATCH } else {
+#define ETRY } }while(0)
+#define THROW longjmp(ex_buf__, 1)
+
+int
+main(int argc, char** argv)
+{
+   TRY
+   {
+      printf("In Try Statement\n");
+      THROW;
+      printf("I do not appear\n");
+   }
+   CATCH
+   {
+      printf("Got Exception!\n");
+   }
+   ETRY;
+
+   return 0;
+}
+</PRE>
+<P>In our solution we provide also an <B>ETRY</B> statement that represents the end of <I>try-throw-catch</I> block. This is needed because we include all operations performed by <I>try-throw-catch</I> block in a <B>do...while(0)</B> block. This solution has two main reasons: </P>
+<UL>
+<LI>all the <B>TRY-ETRY</B> expression is treated as a single statement 
+<LI>we can define multiple, not nested, <B>TRY-ETRY</B> statements in the same block (reuse of <B>ex_buf__</B> variable).</LI></UL>
+<P></P>
+<P>The following represents the compilation and execution steps of the previous example.</P><PRE class=shell>[nids@vultus ttc]% gcc ex1.c
+[nids@vultus ttc]% ./a.out
+In Try Statement
+Got Exception!
+[nids@vultus ttc]%
+</PRE>
+<H2>Adding Exceptions</H2>
+<P>Real exception systems have the possibility to define various <I>kinds</I> of exceptions. These kinds are mapped over types and <I>catch</I> statements intercept exceptions using these types.</P>
+<P>In our solution we cannot define different types for different exceptions. Our solution maps different exception on different return values of function <B>setjmp</B>. To do this we use defines like the following:</P><PRE class=code>#define FOO_EXCEPTION (1)
+</PRE>
+<P>Now, our <B>TRY-ETRY</B> must use a <B>switch</B> statement instead of <B>if</B> statement. Each <B>CATCH</B> statement is no more a simple <B>else</B> but it maps over a <B>case</B>.</P>
+<P><B>CATCH</B> now become a macro with parameters. Parameter represents the exception kind that is treated in that block. Each <B>CATCH</B> statement must also close the previous <B>case</B> block (with a <B>break</B>.)</P><PRE class=code>#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0:
+#define CATCH(x) break; case x:
+#define ETRY } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+
+#define FOO_EXCEPTION (1)
+#define BAR_EXCEPTION (2)
+#define BAZ_EXCEPTION (3)
+
+int
+main(int argc, char** argv)
+{
+   TRY
+   {
+      printf("In Try Statement\n");
+      THROW( BAR_EXCEPTION );
+      printf("I do not appear\n");
+   }
+   CATCH( FOO_EXCEPTION )
+   {
+      printf("Got Foo!\n");
+   }
+   CATCH( BAR_EXCEPTION )
+   {
+      printf("Got Bar!\n");
+   }
+   CATCH( BAZ_EXCEPTION )
+   {
+      printf("Got Baz!\n");
+   }
+   ETRY;
+
+   return 0;
+}
+</PRE>
+<P>The following represents the compilation and execution steps of the previous example.</P><PRE class=shell>[nids@vultus ttc]% gcc ex2.c
+[nids@vultus ttc]% ./a.out
+In Try Statement
+Got Bar!
+[nids@vultus ttc]%
+</PRE>
+<H2>Adding Finally-Block</H2>
+<P>A nasty feature of real exception systems is represented by <B>finally</B> statement.</P>
+<P><B>Finally</B> statement is really powerful. The block guarded by <B>finally</B> statement is executed after the <B>try</B> block or any of the <B>catch</B> blocks. In real exception systems <B>finally</B> block is executed also is <B>try</B> or <B>catch</B> block execute an exit or return statement. We cannot build over the language a system like this.</P>
+<P>Our <B>FINALLY</B> statement is executed in three cases: </P>
+<UL>
+<LI>after a <B>TRY</B> block code (with out exiting) 
+<LI>after a <B>CATCH</B> block code (with out exiting) 
+<LI>when an exception kind is not a known one</LI></UL>
+<P></P>
+<P>Ok... wait a moment... how can we do it?</P>
+<P>In line of principle it is simple: our <B>FINALLY</B> block must map the <B>default</B> case of the switch. This respect exactly the third event (<I>when an exception kind is not a known one</I>).</P>
+<P>To respect the other two events it looks simple enough: instead of breaking out of switch, we must jump to the <B>default</B> case for instance with:</P><PRE class=code>goto default;
+</PRE>
+<P>...bad answer: ANSI-C does not provide you to <I>goto</I> to a case of a switch (but it works perfectly with C#).</P>
+<P>We must find another solution for this problem. Do you know <A href="http://www.catb.org/jargon/html/D/Duffs-device.html"><I>Duff Device</I></A>? It is a really funny way to use a switch statement to do hand made loop unrolling. It uses a <B>do{...}while(0)</B> weaved in a <B>switch</B> statement.</P>
+<P>We want to use a similar technique. Read the following code:</P><PRE class=code>...
+switch( /* some expression */ )
+{
+   case 0: while(1){
+           ...
+    /* case 0 code here */
+           ...
+    break;
+   case 1:
+           ...
+           /* case 1 code here */
+           ...
+           break;
+   }
+   default:
+           ...
+           /* default case code here */
+           ...
+}
+...
+</PRE>
+<P>Yes... it is a <B>while</B> statement weaved in a <B>switch</B> statement. <B>Break</B> statements, when invoked, exit from the <B>while</B> statement and not from <B>switch</B> because <B>while</B> is the nearest one.</P>
+<P>Now our system is complete: we must weave a <B>while</B> in the <B>switch</B> statement. Our <B>TRY-ETRY</B> now become:</P><PRE class=code>#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0: while(1){
+#define CATCH(x) break; case x:
+#define FINALLY break; } default:
+#define ETRY } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+
+#define FOO_EXCEPTION (1)
+#define BAR_EXCEPTION (2)
+#define BAZ_EXCEPTION (3)
+
+int
+main(int argc, char** argv)
+{
+   TRY
+   {
+      printf("In Try Statement\n");
+      THROW( BAR_EXCEPTION );
+      printf("I do not appear\n");
+   }
+   CATCH( FOO_EXCEPTION )
+   {
+      printf("Got Foo!\n");
+   }
+   CATCH( BAR_EXCEPTION )
+   {
+      printf("Got Bar!\n");
+   }
+   CATCH( BAZ_EXCEPTION )
+   {
+      printf("Got Baz!\n");
+   }
+   FINALLY
+   {
+      printf("...et in arcadia Ego\n");
+   }
+   ETRY;
+
+   return 0;
+}
+</PRE>
+<P>The following represents the compilation and execution steps of the previous example.</P><PRE class=shell>[nids@vultus ttc]% gcc ex3.c
+[nids@vultus ttc]% ./a.out
+In Try Statement
+Got Bar!
+...et in arcadia Ego
+[nids@vultus ttc]%
+</PRE>
+<H2>The Need for the FINALLY Block (Modified on December 9<SUP>th</SUP>, 2014)</H2>
+<P>A reader of this document, made me notice that the code as it is right now &#8212; after the introduction of the FINALLY construct &#8212; forces the user to introduce always a FINALLY block. E.g.,</P><PRE class=code>#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0: while(1){
+#define CATCH(x) break; case x:
+#define FINALLY break; } default:
+#define ETRY } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+
+#define FOO_EXCEPTION (1)
+#define BAR_EXCEPTION (2)
+#define BAZ_EXCEPTION (3)
+
+int
+main(int argc, char** argv)
+{
+   TRY
+   {
+      printf("In Try Statement\n");
+      THROW( BAR_EXCEPTION );
+      printf("I do not appear\n");
+   }
+   CATCH( FOO_EXCEPTION )
+   {
+      printf("Got Foo!\n");
+   }
+   CATCH( BAR_EXCEPTION )
+   {
+      printf("Got Bar!\n");
+   }
+   CATCH( BAZ_EXCEPTION )
+   {
+      printf("Got Baz!\n");
+   }
+   ETRY;
+
+   return 0;
+}
+</PRE>
+<P>Just removing the FINALLY block results in a compilation error:</P><PRE class=shell>C:\Dev\Scratch\ttc&gt;gcc -o ttc.exe ttc.c
+ttc.c: In function 'main':
+ttc.c:42:1: error: expected 'while' at end of input
+ }
+ ^
+ttc.c:42:1: error: expected declaration or statement at end of input
+
+C:\Dev\Scratch\ttc&gt;
+</PRE>
+<P>The same reader, not only found the error, the same person provided the fix! Here it is, in all its simplicity and elegence:</P><PRE class=code>...
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0: while(1){
+#define CATCH(x) break; case x:
+#define FINALLY break; } default: <SPAN style="FONT-WEIGHT: bold; COLOR: red">{</SPAN>
+#define ETRY <SPAN style="FONT-WEIGHT: bold; COLOR: red">}</SPAN> } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+...
+</PRE>
+<P>With the fix applied, the code works without the FINALLY block</P><PRE class=shell>C:\Dev\Scratch\ttc&gt;gcc -o ttc.exe ttc.c
+
+C:\Dev\Scratch\ttc&gt;ttc.exe
+In Try Statement
+Got Bar!
+
+C:\Dev\Scratch\ttc&gt;
+</PRE>
+<P>And it works also with the FINALLY block</P><PRE class=shell>C:\Dev\Scratch\ttc&gt;gcc -o ttc.exe ttc.c
+
+C:\Dev\Scratch\ttc&gt;ttc.exe
+In Try Statement
+Got Bar!
+...et in arcadia Ego
+
+C:\Dev\Scratch\ttc&gt;
+</PRE>
+<H2>A BAZ... Bug in the FINALLY Implementation (Modified on April 7<SUP>th</SUP>, 2015)</H2>
+<P><A href="http://www.iem.unifei.edu.br/labtc/cristiano.html">Cristiano Pedro da Silva</A>, a Ph.D. student of the Laborat&#243;rio de Transfer&#234;ncia de Calor of the Universidade Federal de Itajub&#225; using this code in hit thesis, pointed out that the code above has a problem. In the case without the FINALLY, if instead of throwing an exception of type BAR_EXCEPTION, the code throws a BAZ_EXCEPTION one, the program ends up in a infinite loop. This because at the closure of the block of the last CATCH, there is no <B>break</B> statement!</P>
+<P>Fortunately, the fix is easy.</P>
+<P>We need to make sure that at the end of the TRY...ETRY we always perform an exit from the infinite loop that we generate at the end of the expansion of the TRY. the code with the fix follows:</P><PRE class=code>...
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0: while(1){
+#define CATCH(x) break; case x:
+#define FINALLY break; } default: {
+#define ETRY <SPAN style="FONT-WEIGHT: bold; COLOR: red">break;</SPAN> } } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+...
+</PRE>
+<P>We simply introduced an extra <B>break</B> inside the scope defined by the <B>while(1){</B>, which means just before all the three closed curly braces at the beginning of the ETRY expansion.</P>
+<P>The code has been tested with and without FINALLY and with and without CATCH blocks and it seems to work fine.</P>
+<P>The downloadable code and the code in the section below have been updated accordingly.</P>
+<H2>Complete Code and License Terms (Updated April 7<SUP>th</SUP>, 2015)</H2>
+<P>After the publishing of this document, I received quite a bit of questions about how the code, if it can be possible to use it and what license covers the code.</P>
+<P>For the license, I choose the MIT license and the full text of the "library" is reported below:</P><PRE class=code>/* Copyright (C) 2009-2015 Francesco Nidito 
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is furnished to do
+ * so, subject to the following conditions: 
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software. 
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE. 
+ */
+
+#ifndef _TRY_THROW_CATCH_H_
+#define _TRY_THROW_CATCH_H_
+
+#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+/* For the full documentation and explanation of the code below, please refer to
+ * http://www.di.unipi.it/~nids/docs/longjump_try_trow_catch.html
+ */
+
+#define TRY do { jmp_buf ex_buf__; switch( setjmp(ex_buf__) ) { case 0: while(1) {
+#define CATCH(x) break; case x:
+#define FINALLY break; } default: {
+#define ETRY break; } } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+
+#endif /*!_TRY_THROW_CATCH_H_*/
+</PRE>
+<P>If you prefer, the code can be downloaded from this <A href="http://www.di.unipi.it/~nids/docs/try_throw_catch.h">link <IMG class=icon src="http://www.di.unipi.it/~nids/icons/h.png"></A>.</P>
+<H2>A Note on ETRY (Updated July 2<SUP>nd</SUP>, 2016)</H2>
+<P>A reader pointed out the <B>ETRY</B> is not compliant with the C standard as every identifier or macro starting with capital E and followed by another capital letter or number is actually reserved for the standard &lt;errno.h&gt; include file. Fortunately, ETRY seems not to be used by any current &lt;errno.h&gt; that I was able to check.</P>
+<P>On a side note, I will <B>not</B> fix this in the document or in the header file that you can download.</P>
+<H2>Conclusions</H2>
+<P>In this documents we learned something about <B>setjmp</B> and <B>longjmp</B>. These two functions are seen, by the largest part of programmers, as esoteric, dangerous and difficult to use.</P>
+<P>We, also, learned how to use that functions to provide a simple <I>try-throw-catch</I> system. Our system has some limitations but can be useful and it helped us to learn something. This last thing could be considered enough by itself.</P>
+<P>To implement the <I>try-throw-catch</I> system we stressed the C language weaving together <B>switch</B> statement and <B>while</B> statement in a non conventional way.</P>
+<P>But the must important thing is that we had a lot of <B>fun</B>!
