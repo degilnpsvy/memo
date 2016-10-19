@@ -1,0 +1,48 @@
+<H2>Adding Exceptions</H2>
+<P>Real exception systems have the possibility to define various <I>kinds</I> of exceptions. These kinds are mapped over types and <I>catch</I> statements intercept exceptions using these types.</P>
+<P>In our solution we cannot define different types for different exceptions. Our solution maps different exception on different return values of function <B>setjmp</B>. To do this we use defines like the following:</P><PRE class=code>#define FOO_EXCEPTION (1)
+</PRE>
+<P>Now, our <B>TRY-ETRY</B> must use a <B>switch</B> statement instead of <B>if</B> statement. Each <B>CATCH</B> statement is no more a simple <B>else</B> but it maps over a <B>case</B>.</P>
+<P><B>CATCH</B> now become a macro with parameters. Parameter represents the exception kind that is treated in that block. Each <B>CATCH</B> statement must also close the previous <B>case</B> block (with a <B>break</B>.)</P><PRE class=code>#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0:
+#define CATCH(x) break; case x:
+#define ETRY } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+
+#define FOO_EXCEPTION (1)
+#define BAR_EXCEPTION (2)
+#define BAZ_EXCEPTION (3)
+
+int
+main(int argc, char** argv)
+{
+   TRY
+   {
+      printf("In Try Statement\n");
+      THROW( BAR_EXCEPTION );
+      printf("I do not appear\n");
+   }
+   CATCH( FOO_EXCEPTION )
+   {
+      printf("Got Foo!\n");
+   }
+   CATCH( BAR_EXCEPTION )
+   {
+      printf("Got Bar!\n");
+   }
+   CATCH( BAZ_EXCEPTION )
+   {
+      printf("Got Baz!\n");
+   }
+   ETRY;
+
+   return 0;
+}
+</PRE>
+<P>The following represents the compilation and execution steps of the previous example.</P><PRE class=shell>[nids@vultus ttc]% gcc ex2.c
+[nids@vultus ttc]% ./a.out
+In Try Statement
+Got Bar!
+[nids@vultus ttc]%</PRE>

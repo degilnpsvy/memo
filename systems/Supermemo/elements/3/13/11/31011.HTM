@@ -1,0 +1,220 @@
+<H2>Adding Finally-Block</H2>
+<P>A nasty feature of real exception systems is represented by <B>finally</B> statement.</P>
+<P><B>Finally</B> statement is really powerful. The block guarded by <B>finally</B> statement is executed after the <B>try</B> block or any of the <B>catch</B> blocks. In real exception systems <B>finally</B> block is executed also is <B>try</B> or <B>catch</B> block execute an exit or return statement. We cannot build over the language a system like this.</P>
+<P>Our <B>FINALLY</B> statement is executed in three cases: </P>
+<UL>
+<LI>after a <B>TRY</B> block code (with out exiting) 
+<LI>after a <B>CATCH</B> block code (with out exiting) 
+<LI>when an exception kind is not a known one</LI></UL>
+<P></P>
+<P>Ok... wait a moment... how can we do it?</P>
+<P>In line of principle it is simple: our <B>FINALLY</B> block must map the <B>default</B> case of the switch. This respect exactly the third event (<I>when an exception kind is not a known one</I>).</P>
+<P>To respect the other two events it looks simple enough: instead of breaking out of switch, we must jump to the <B>default</B> case for instance with:</P><PRE class=code>goto default;
+</PRE>
+<P>...bad answer: ANSI-C does not provide you to <I>goto</I> to a case of a switch (but it works perfectly with C#).</P>
+<P>We must find another solution for this problem. Do you know <A href="http://www.catb.org/jargon/html/D/Duffs-device.html"><I>Duff Device</I></A>? It is a really funny way to use a switch statement to do hand made loop unrolling. It uses a <B>do{...}while(0)</B> weaved in a <B>switch</B> statement.</P>
+<P>We want to use a similar technique. Read the following code:</P><PRE class=code>...
+switch( /* some expression */ )
+{
+   case 0: while(1){
+           ...
+    /* case 0 code here */
+           ...
+    break;
+   case 1:
+           ...
+           /* case 1 code here */
+           ...
+           break;
+   }
+   default:
+           ...
+           /* default case code here */
+           ...
+}
+...
+</PRE>
+<P>Yes... it is a <B>while</B> statement weaved in a <B>switch</B> statement. <B>Break</B> statements, when invoked, exit from the <B>while</B> statement and not from <B>switch</B> because <B>while</B> is the nearest one.</P>
+<P>Now our system is complete: we must weave a <B>while</B> in the <B>switch</B> statement. Our <B>TRY-ETRY</B> now become:</P><PRE class=code>#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0: while(1){
+#define CATCH(x) break; case x:
+#define FINALLY break; } default:
+#define ETRY } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+
+#define FOO_EXCEPTION (1)
+#define BAR_EXCEPTION (2)
+#define BAZ_EXCEPTION (3)
+
+int
+main(int argc, char** argv)
+{
+   TRY
+   {
+      printf("In Try Statement\n");
+      THROW( BAR_EXCEPTION );
+      printf("I do not appear\n");
+   }
+   CATCH( FOO_EXCEPTION )
+   {
+      printf("Got Foo!\n");
+   }
+   CATCH( BAR_EXCEPTION )
+   {
+      printf("Got Bar!\n");
+   }
+   CATCH( BAZ_EXCEPTION )
+   {
+      printf("Got Baz!\n");
+   }
+   FINALLY
+   {
+      printf("...et in arcadia Ego\n");
+   }
+   ETRY;
+
+   return 0;
+}
+</PRE>
+<P>The following represents the compilation and execution steps of the previous example.</P><PRE class=shell>[nids@vultus ttc]% gcc ex3.c
+[nids@vultus ttc]% ./a.out
+In Try Statement
+Got Bar!
+...et in arcadia Ego
+[nids@vultus ttc]%
+</PRE>
+<H2>The Need for the FINALLY Block (Modified on December 9<SUP>th</SUP>, 2014)</H2>
+<P>A reader of this document, made me notice that the code as it is right now &#8212; after the introduction of the FINALLY construct &#8212; forces the user to introduce always a FINALLY block. E.g.,</P><PRE class=code>#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0: while(1){
+#define CATCH(x) break; case x:
+#define FINALLY break; } default:
+#define ETRY } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+
+#define FOO_EXCEPTION (1)
+#define BAR_EXCEPTION (2)
+#define BAZ_EXCEPTION (3)
+
+int
+main(int argc, char** argv)
+{
+   TRY
+   {
+      printf("In Try Statement\n");
+      THROW( BAR_EXCEPTION );
+      printf("I do not appear\n");
+   }
+   CATCH( FOO_EXCEPTION )
+   {
+      printf("Got Foo!\n");
+   }
+   CATCH( BAR_EXCEPTION )
+   {
+      printf("Got Bar!\n");
+   }
+   CATCH( BAZ_EXCEPTION )
+   {
+      printf("Got Baz!\n");
+   }
+   ETRY;
+
+   return 0;
+}
+</PRE>
+<P>Just removing the FINALLY block results in a compilation error:</P><PRE class=shell>C:\Dev\Scratch\ttc&gt;gcc -o ttc.exe ttc.c
+ttc.c: In function 'main':
+ttc.c:42:1: error: expected 'while' at end of input
+ }
+ ^
+ttc.c:42:1: error: expected declaration or statement at end of input
+
+C:\Dev\Scratch\ttc&gt;
+</PRE>
+<P>The same reader, not only found the error, the same person provided the fix! Here it is, in all its simplicity and elegence:</P><PRE class=code>...
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0: while(1){
+#define CATCH(x) break; case x:
+#define FINALLY break; } default: <SPAN style="FONT-WEIGHT: bold; COLOR: red">{</SPAN>
+#define ETRY <SPAN style="FONT-WEIGHT: bold; COLOR: red">}</SPAN> } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+...
+</PRE>
+<P>With the fix applied, the code works without the FINALLY block</P><PRE class=shell>C:\Dev\Scratch\ttc&gt;gcc -o ttc.exe ttc.c
+
+C:\Dev\Scratch\ttc&gt;ttc.exe
+In Try Statement
+Got Bar!
+
+C:\Dev\Scratch\ttc&gt;
+</PRE>
+<P>And it works also with the FINALLY block</P><PRE class=shell>C:\Dev\Scratch\ttc&gt;gcc -o ttc.exe ttc.c
+
+C:\Dev\Scratch\ttc&gt;ttc.exe
+In Try Statement
+Got Bar!
+...et in arcadia Ego
+
+C:\Dev\Scratch\ttc&gt;
+</PRE>
+<H2>A BAZ... Bug in the FINALLY Implementation (Modified on April 7<SUP>th</SUP>, 2015)</H2>
+<P><A href="http://www.iem.unifei.edu.br/labtc/cristiano.html">Cristiano Pedro da Silva</A>, a Ph.D. student of the Laborat&#243;rio de Transfer&#234;ncia de Calor of the Universidade Federal de Itajub&#225; using this code in hit thesis, pointed out that the code above has a problem. In the case without the FINALLY, if instead of throwing an exception of type BAR_EXCEPTION, the code throws a BAZ_EXCEPTION one, the program ends up in a infinite loop. This because at the closure of the block of the last CATCH, there is no <B>break</B> statement!</P>
+<P>Fortunately, the fix is easy.</P>
+<P>We need to make sure that at the end of the TRY...ETRY we always perform an exit from the infinite loop that we generate at the end of the expansion of the TRY. the code with the fix follows:</P><PRE class=code>...
+#define TRY do{ jmp_buf ex_buf__; switch( setjmp(ex_buf__) ){ case 0: while(1){
+#define CATCH(x) break; case x:
+#define FINALLY break; } default: {
+#define ETRY <SPAN style="FONT-WEIGHT: bold; COLOR: red">break;</SPAN> } } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+...
+</PRE>
+<P>We simply introduced an extra <B>break</B> inside the scope defined by the <B>while(1){</B>, which means just before all the three closed curly braces at the beginning of the ETRY expansion.</P>
+<P>The code has been tested with and without FINALLY and with and without CATCH blocks and it seems to work fine.</P>
+<P>The downloadable code and the code in the section below have been updated accordingly.</P>
+<H2>Complete Code and License Terms (Updated April 7<SUP>th</SUP>, 2015)</H2>
+<P>After the publishing of this document, I received quite a bit of questions about how the code, if it can be possible to use it and what license covers the code.</P>
+<P>For the license, I choose the MIT license and the full text of the "library" is reported below:</P><PRE class=code>/* Copyright (C) 2009-2015 Francesco Nidito 
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is furnished to do
+ * so, subject to the following conditions: 
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software. 
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE. 
+ */
+
+#ifndef _TRY_THROW_CATCH_H_
+#define _TRY_THROW_CATCH_H_
+
+#include &lt;stdio.h&gt;
+#include &lt;setjmp.h&gt;
+
+/* For the full documentation and explanation of the code below, please refer to
+ * http://www.di.unipi.it/~nids/docs/longjump_try_trow_catch.html
+ */
+
+#define TRY do { jmp_buf ex_buf__; switch( setjmp(ex_buf__) ) { case 0: while(1) {
+#define CATCH(x) break; case x:
+#define FINALLY break; } default: {
+#define ETRY break; } } }while(0)
+#define THROW(x) longjmp(ex_buf__, x)
+
+#endif /*!_TRY_THROW_CATCH_H_*/
+</PRE>
+<P>If you prefer, the code can be downloaded from this <A href="http://www.di.unipi.it/~nids/docs/try_throw_catch.h">link <IMG class=icon src="http://www.di.unipi.it/~nids/icons/h.png"></A>.</P>
+<H2>A Note on ETRY (Updated July 2<SUP>nd</SUP>, 2016)</H2>
+<P>A reader pointed out the <B>ETRY</B> is not compliant with the C standard as every identifier or macro starting with capital E and followed by another capital letter or number is actually reserved for the standard &lt;errno.h&gt; include file. Fortunately, ETRY seems not to be used by any current &lt;errno.h&gt; that I was able to check.</P>
+<P>On a side note, I will <B>not</B> fix this in the document or in the header file that you can download.
