@@ -1,0 +1,324 @@
+<H1>Synchronization Primitives</H1>
+<DIV class=sect1><A id=_race_conditions class=anchor></A>
+<H2>Race Conditions</H2>
+<DIV class=sectionbody>
+<DIV class=paragraph>
+<P>A <STRONG>race condition</STRONG> is "when the output of a process is unexpectedly dependent on timing or other events."</P></DIV>
+<DIV class=ulist>
+<DIV class=title>Note that the definition of a race depends on what we <STRONG>expected</STRONG> to happen:</DIV>
+<UL>
+<LI>
+<P>We expected me to have <STRONG>$4,000</STRONG> after both deposits. (Otherwise we are not observing the Law of the Conversation of Money, probably important to banks except during bailouts.)</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_concurrency_v_atomicity class=anchor></A>
+<H2>Concurrency v. Atomicity</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title><STRONG>Concurrency:</STRONG> the illusion that multiple things are happening at once.</DIV>
+<UL>
+<LI>
+<P>Requires stopping or starting any thread at any time.</P></LI></UL></DIV>
+<DIV class=ulist>
+<DIV class=title><STRONG>Atomicity:</STRONG> the illusion that a set of separate actions occurred <STRONG>all at once</STRONG>.</DIV>
+<UL>
+<LI>
+<P>Requires not stopping certain threads at certain times or not starting certain threads at certain times, i.e. providing some limited control to threads over their scheduling.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_critical_sections class=anchor></A>
+<H2>Critical Sections</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title>A <STRONG>critical section</STRONG> contains a series of instructions that only one thread can be executing at any given time.</DIV>
+<UL>
+<LI>
+<P>This set (or sets) of instructions will look atomic with respect to <STRONG>other threads executing code within the critical section</STRONG>.</P></LI></UL></DIV>
+<DIV class=listingblock>
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class="olist arabic">
+<DIV class=title>In order to implement the previous example correctly:</DIV>
+<OL class=arabic>
+<LI>
+<P>What is local state private to each thread? <STRONG class=slide>gwaHas</STRONG></P></LI>
+<LI>
+<P>What is the shared state that is being accessed by giveGWATheMoolah? <STRONG class=slide>account</STRONG></P></LI>
+<LI>
+<P>What lines are in the critical section? <STRONG class=slide>2-4</STRONG></P></LI></OL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_critical_section_requirements class=anchor></A>
+<H2>Critical Section Requirements</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<UL>
+<LI>
+<P><STRONG>Mutual Exclusion:</STRONG> this is the most basic property. Only one thread should be executing in the critical section at one time.</P></LI>
+<LI>
+<P><STRONG>Progress:</STRONG> all threads should eventually be able to proceed through the critical section.</P></LI>
+<LI>
+<P><STRONG>Performance:</STRONG> we want to keep critical sections as small as possible without sacrificing correctness.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_implementing_critical_sections class=anchor></A>
+<H2>Implementing Critical Sections</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>Two possible approaches. <STRONG>Don&#8217;t stop</STRONG>, or <STRONG>don&#8217;t enter</STRONG>.</P></LI>
+<LI>
+<P><STRONG>On uniprocessors</STRONG> a single thread can prevent other threads from executing in a critical section by simply not being descheduled.</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>In the kernel we can do this by <STRONG>masking</STRONG> interrupts. No timer, no scheduler, no stopping.</P></LI>
+<LI>
+<P><STRONG>In the multicore era this is only of historical interest.</STRONG> (This design pattern is usually broken.)</P></LI></UL></DIV></LI>
+<LI>
+<P>More generally we need a way to force other threads&#8212;potentially running on other cores&#8212;<STRONG>not to enter</STRONG> the critical section while one thread is inside. <STRONG>How do we do this?</STRONG></P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_atomic_instructions class=anchor></A>
+<H2>Atomic Instructions</H2>
+<DIV class=sectionbody>
+<DIV class=paragraph>
+<P>Software synchronization primitives utilize <STRONG>special hardware instructions</STRONG> guaranteed to be atomic across all cores:</P></DIV>
+<DIV class=ulist>
+<UL>
+<LI>
+<P><STRONG>Test-and-set</STRONG>: write a memory location and return its old value.</P></LI></UL></DIV>
+<DIV class="listingblock slide">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-function><SPAN class=hljs-keyword>int</SPAN> <SPAN class=hljs-title>testAndSet</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>int</SPAN> * target, <SPAN class=hljs-keyword>int</SPAN> value)</SPAN> </SPAN>{
+  oldvalue = *target;
+  *target = value;
+  <SPAN class=hljs-keyword>return</SPAN> oldvalue;
+}</CODE></PRE></DIV></DIV>
+<DIV style="PAGE-BREAK-AFTER: always"></DIV>
+<DIV class=ulist>
+<UL>
+<LI>
+<P><STRONG>Compare-and-swap</STRONG>: compare the contents of a memory location to a given value. If they are the same, set the variable to a new given value.</P></LI></UL></DIV>
+<DIV class="listingblock slide">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-function><SPAN class=hljs-keyword>bool</SPAN> <SPAN class=hljs-title>compareAndSwap</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>int</SPAN> * target, <SPAN class=hljs-keyword>int</SPAN> compare, <SPAN class=hljs-keyword>int</SPAN> newvalue)</SPAN> </SPAN>{
+  <SPAN class=hljs-keyword>if</SPAN> (*target == compare) {
+    *target = newvalue;
+    <SPAN class=hljs-keyword>return</SPAN> <SPAN class=hljs-number>1</SPAN>;
+  } <SPAN class=hljs-keyword>else</SPAN> {
+    <SPAN class=hljs-keyword>return</SPAN> <SPAN class=hljs-number>0</SPAN>;
+  }
+}</CODE></PRE></DIV></DIV>
+<DIV style="PAGE-BREAK-AFTER: always"></DIV>
+<DIV class=ulist>
+<UL>
+<LI>
+<P><STRONG>Load-link and store-conditional</STRONG>: Load-link returns the value of a memory address, while the following store-conditional succeeds <STRONG>only if</STRONG> the value has not changed since the load-link.</P></LI></UL></DIV>
+<DIV class="listingblock slide">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c">y = <SPAN class=hljs-number>1</SPAN>;
+<SPAN class=hljs-number>__</SPAN><SPAN class=hljs-function><SPAN class=hljs-keyword>asm</SPAN> <SPAN class=hljs-title>volatile</SPAN><SPAN class=hljs-params>(
+    <SPAN class=hljs-string>".set push;"</SPAN>    <SPAN class=hljs-comment>/* save assembler mode */</SPAN>
+    <SPAN class=hljs-string>".set mips32;"</SPAN>  <SPAN class=hljs-comment>/* allow MIPS32 instructions */</SPAN>
+    <SPAN class=hljs-string>".set volatile; /* avoid unwanted optimization */
+    "</SPAN>ll %<SPAN class=hljs-number>0</SPAN>, <SPAN class=hljs-number>0</SPAN>(%<SPAN class=hljs-number>2</SPAN>)</SPAN></SPAN>;<SPAN class=hljs-string>" /*   x = *sd */
+    "</SPAN>sc %<SPAN class=hljs-number>1</SPAN>, <SPAN class=hljs-number>0</SPAN>(%<SPAN class=hljs-number>2</SPAN>);<SPAN class=hljs-string>" /*   *sd = y; y = success? */
+    "</SPAN>.<SPAN class=hljs-built_in>set</SPAN> pop<SPAN class=hljs-string>"      /* restore assembler mode */
+    : "</SPAN>=r<SPAN class=hljs-string>" (x), "</SPAN>+r<SPAN class=hljs-string>" (y) : "</SPAN>r<SPAN class=hljs-string>" (sd));
+if (y == 0) {
+  return 1;
+}</SPAN></CODE></PRE></DIV></DIV>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>Many processors provide either <STRONG>test and set</STRONG> or <STRONG>compare and swap</STRONG>.</P></LI>
+<LI>
+<P>On others equivalents can be implemented in software using other atomic hardware instructions.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_aside_shared_memory_multiprocessing class=anchor></A>
+<H2>Aside: Shared-Memory Multiprocessing</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>As the number of cores on typical machines has continued to grow, some memory-based synchronization mechanisms have not scaled well.</P></LI>
+<LI>
+<P>Building more scalable synchronization primitives for cache-coherent shared-memory machines is an <STRONG>open research problem</STRONG>.</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>(The architecture of these machines itself is an open research problem.)</P></LI></UL></DIV></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_the_bank_example_test_and_set class=anchor></A>
+<H2>The Bank Example: Test and Set</H2>
+<DIV class=sectionbody>
+<DIV class=paragraph>
+<P>Let&#8217;s modify our earlier example to use a test and set:</P></DIV>
+<DIV class="listingblock slide replace">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class="listingblock slide replace end">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c">+<SPAN class=hljs-keyword>int</SPAN> payGWA = <SPAN class=hljs-number>0</SPAN>; <SPAN class=hljs-comment>// Shared variable for our test and set.</SPAN>
+
+<SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
++ testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>); # Set the test and <SPAN class=hljs-built_in>set</SPAN>.
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
++ testAndSet(&amp;payGWA, <SPAN class=hljs-number>0</SPAN>); # Clear the test and <SPAN class=hljs-built_in>set</SPAN>.
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class="openblock slide">
+<DIV class=content>
+<DIV class=paragraph>
+<P><STRONG>Does this work?</STRONG> <SPAN class=slide>No! How do I tell if another thread has already set <CODE>payGWA</CODE>?</SPAN></P></DIV></DIV></DIV>
+<DIV class=paragraph>
+<P>Let&#8217;s try again:</P></DIV>
+<DIV class="listingblock slide replace">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class="listingblock slide replace end">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c">+<SPAN class=hljs-keyword>int</SPAN> payGWA = <SPAN class=hljs-number>0</SPAN>; <SPAN class=hljs-comment>// Shared variable for our test and set.</SPAN>
+
+<SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
++ <SPAN class=hljs-keyword>if</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>) == <SPAN class=hljs-number>1</SPAN>) {
++   <SPAN class=hljs-comment>// But then what?</SPAN>
++ }
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
++ testAndSet(&amp;payGWA, <SPAN class=hljs-number>0</SPAN>); # Clear the test and <SPAN class=hljs-built_in>set</SPAN>.
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>But what should I do if the <CODE>payGWA</CODE> is set?</P></LI></UL></DIV>
+<DIV class="listingblock slide replace">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class="listingblock slide replace end">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c">+<SPAN class=hljs-keyword>int</SPAN> payGWA = <SPAN class=hljs-number>0</SPAN>; <SPAN class=hljs-comment>// Shared variable for our test and set.</SPAN>
+
+<SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
++ <SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>) == <SPAN class=hljs-number>1</SPAN>) {
++   ; <SPAN class=hljs-comment>// Test it again!</SPAN>
++ }
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
++ testAndSet(&amp;payGWA, <SPAN class=hljs-number>0</SPAN>); # Clear the test and <SPAN class=hljs-built_in>set</SPAN>.
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV></DIV></DIV>
+<DIV class=sect1><A id=_busy_waiting class=anchor></A>
+<H2>Busy Waiting</H2>
+<DIV class=sectionbody>
+<TABLE class="tableblock frame-all grid-all spread">
+<COLGROUP>
+<COL style="WIDTH: 40%">
+<COL style="WIDTH: 40%">
+<COL style="WIDTH: 20%"></COLGROUP>
+<THEAD>
+<TR>
+<TH class="tableblock halign-left valign-top">A- Student</TH>
+<TH class="tableblock halign-left valign-top">B Student</TH>
+<TH class="tableblock halign-center valign-top">Balance</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class="tableblock halign-left valign-top">
+<P class=tableblock>&nbsp;</P></TD>
+<TD class="tableblock halign-left valign-top">
+<P class=tableblock>&nbsp;</P></TD>
+<TD class="tableblock halign-center valign-top">
+<P class=tableblock>$1000</P></TD></TR>
+<TR>
+<TD class="tableblock halign-left valign-top">
+<DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));
+<SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);</CODE></PRE></DIV></DIV></DIV></TD>
+<TD class="tableblock halign-left valign-top">
+<P class=tableblock>&nbsp;</P></TD>
+<TD class="tableblock halign-center valign-top">
+<P class=tableblock>&nbsp;</P></TD></TR>
+<TR>
+<TD class="tableblock halign-left valign-top">
+<P class=tableblock>&nbsp;</P></TD>
+<TD class="tableblock halign-left valign-top">
+<DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));</CODE></PRE></DIV></DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));</CODE></PRE></DIV></DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));</CODE></PRE></DIV></DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));
+<SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));
+<SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));
+<SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));
+<SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>));</CODE></PRE></DIV></DIV></DIV></TD>
+<TD class="tableblock halign-center valign-top">
+<P class=tableblock>&nbsp;</P></TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV class=sect1><A id=_the_bank_example_test_and_set_4 class=anchor></A>
+<H2>The Bank Example: Test and Set</H2>
+<DIV class=sectionbody>
+<DIV class=listingblock>
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-keyword>int</SPAN> payGWA = <SPAN class=hljs-number>0</SPAN>; <SPAN class=hljs-comment>// Shared variable for our test and set.</SPAN>
+
+<SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
+  <SPAN class=hljs-keyword>while</SPAN> (testAndSet(&amp;payGWA, <SPAN class=hljs-number>1</SPAN>) == <SPAN class=hljs-number>1</SPAN>) {
+   ; <SPAN class=hljs-comment>// Test it again!</SPAN>
+  }
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
+  testAndSet(&amp;payGWA, <SPAN class=hljs-number>0</SPAN>); # Clear the test and <SPAN class=hljs-built_in>set</SPAN>.
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class=ulist>
+<DIV class=title>What are the <STRONG>problems</STRONG> with this approach?</DIV>
+<UL>
+<LI>
+<P><STRONG>Busy waiting</STRONG>: threads wait for the critical section by "pounding on the door", executing the TAS repeatedly.</P></LI>
+<LI>
+<P>Bad on a multicore system. Worse on a single core system! <STRONG>Busy waiting prevents the thread in the critical section from making progress!</STRONG></P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_locks class=anchor></A>
+<H2>Locks</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title><STRONG>Locks</STRONG> are a synchronization primitive used to implement critical sections.</DIV>
+<UL>
+<LI>
+<P>Threads <STRONG>acquire</STRONG> a lock when entering a critical section.</P></LI>
+<LI>
+<P>Threads <STRONG>release</STRONG> a lock when leaving a critical section.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_spinlocks class=anchor></A>
+<H2>Spinlocks</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title>What we have implemented today is known as a <STRONG>spinlock</STRONG>:</DIV>
+<UL>
+<LI>
+<P><STRONG>lock</STRONG> for the fact that it guards a critical section (we will have more to say about locks next time), and</P></LI>
+<LI>
+<P><STRONG>spin</STRONG> describing the process of acquiring it.</P></LI></UL></DIV>
+<DIV class="openblock slide">
+<DIV class=content>
+<DIV class=paragraph>
+<P>Spinlocks are <STRONG>rarely used</STRONG> on their own to solve synchronization problems.</P></DIV></DIV></DIV>
+<DIV class="openblock slide">
+<DIV class=content>
+<DIV class=paragraph>
+<P>Spinlocks are <STRONG>commonly used</STRONG> to build more useful synchronization primitives.</P></DIV></DIV></DIV></DIV></DIV>
