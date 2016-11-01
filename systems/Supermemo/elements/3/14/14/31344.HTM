@@ -1,0 +1,362 @@
+<H1>Synchronization Primitives and Problems</H1>
+<DIV class=sect1><A id=_locks class=anchor></A>
+<H2>Locks</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title><STRONG>Locks</STRONG> are a synchronization primitive used to implement critical sections.</DIV>
+<UL>
+<LI>
+<P>Threads <STRONG>acquire</STRONG> a lock when entering a critical section.</P></LI>
+<LI>
+<P>Threads <STRONG>release</STRONG> a lock when leaving a critical section.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_spinlocks class=anchor></A>
+<H2>Spinlocks</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title>What we discussed Friday is known as a <STRONG>spinlock</STRONG>:</DIV>
+<UL>
+<LI>
+<P><STRONG>lock</STRONG> for the fact that it guards a critical section (we will have more to say about locks next time), and</P></LI>
+<LI>
+<P><STRONG>spin</STRONG> describing the process of acquiring it.</P></LI></UL></DIV>
+<DIV class="openblock slide">
+<DIV class=content>
+<DIV class=paragraph>
+<P>Spinlocks are <STRONG>rarely used</STRONG> on their own to solve synchronization problems.</P></DIV></DIV></DIV>
+<DIV class="openblock slide">
+<DIV class=content>
+<DIV class=paragraph>
+<P>Spinlocks are <STRONG>commonly used</STRONG> to build more useful synchronization primitives.</P></DIV></DIV></DIV></DIV></DIV>
+<DIV class=sect1><A id=_more_bank_example class=anchor></A>
+<H2>More Bank Example</H2>
+<DIV class=sectionbody>
+<DIV class="listingblock slide replace">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c"><SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class="listingblock slide replace end">
+<DIV class=content><PRE class=highlight><CODE class="language-c lang-c" data-lang="c">lock gwaWalletLock; <SPAN class=hljs-comment>// Need to initialize somewhere</SPAN>
+
+<SPAN class=hljs-function><SPAN class=hljs-keyword>void</SPAN> <SPAN class=hljs-title>giveGWATheMoolah</SPAN><SPAN class=hljs-params>(<SPAN class=hljs-keyword>account_t</SPAN> account, <SPAN class=hljs-keyword>int</SPAN> largeAmount)</SPAN> </SPAN>{
++ lock_acquire(&amp;gwaWalletLock);
+  <SPAN class=hljs-keyword>int</SPAN> gwaHas = get_balance(account);
+  gwaHas = gwaHas + largeAmount;
+  put_balance(account, gwaHas);
++ lock_release(&amp;gwaWalletLock);
+  notifyGWAThatHeIsRich(gwaHas);
+  <SPAN class=hljs-keyword>return</SPAN>;
+}</CODE></PRE></DIV></DIV>
+<DIV class=ulist>
+<DIV class=title>What happens if we call <CODE>lock_acquire()</CODE> while another thread is in the critical section?</DIV>
+<UL>
+<LI>
+<P><STRONG>The thread acquiring the lock must wait until the thread holding the lock calls <CODE>lock_release()</CODE></STRONG>.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_how_to_wait class=anchor></A>
+<H2>How To Wait</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title><STRONG>How</STRONG> do we wait?</DIV>
+<UL>
+<LI>
+<P><STRONG>Active</STRONG> (or busy) waiting: repeat some action until the lock is released.</P></LI>
+<LI>
+<P><STRONG>Passive</STRONG> waiting: tell the kernel what we are waiting for, go to sleep, and rely on <CODE>lock_release</CODE> to awaken us.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_spinning_v_sleeping class=anchor></A>
+<H2>Spinning v. Sleeping</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title>There are cases where spinning is the right thing to do. <STRONG>When?</STRONG></DIV>
+<UL>
+<LI>
+<P>Only on multicore systems. Why?</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>On single core systems <STRONG>nothing can change</STRONG> unless we allow another thread to run!</P></LI></UL></DIV></LI>
+<LI>
+<P>If the critical section is <STRONG>short</STRONG>.</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>Balance the length of the <STRONG>critical section</STRONG> against the overhead of a <STRONG>context switch</STRONG>.</P></LI></UL></DIV></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_when_to_spin class=anchor></A>
+<H2>When to Spin</H2>
+<DIV class=sectionbody>
+<DIV class=paragraph>
+<P>If the critical section is <STRONG>short</STRONG>:</P></DIV>
+<DIV class="openblock slide">
+<DIV class=content>
+<DIV class=imageblock>
+<DIV class=content><IMG style="WIDTH: 70%" alt=sleeplocks src="https://www.ops-class.org/img/slides/figures/synch/sleeplocks.svg" data-pagespeed-url-hash="2271725204"></DIV></DIV></DIV></DIV></DIV></DIV>
+<DIV class=sect1><A id=_when_to_sleep class=anchor></A>
+<H2>When to Sleep</H2>
+<DIV class=sectionbody>
+<DIV class=paragraph>
+<P>If the critical section is <STRONG>long</STRONG>:</P></DIV>
+<DIV class="openblock slide">
+<DIV class=content>
+<DIV class=imageblock>
+<DIV class=content><IMG style="WIDTH: 70%" alt=spinlocks src="https://www.ops-class.org/img/slides/figures/synch/spinlocks.svg" data-pagespeed-url-hash="3764939339"></DIV></DIV></DIV></DIV></DIV></DIV>
+<DIV class=sect1><A id=_how_to_sleep class=anchor></A>
+<H2>How to Sleep</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title>The kernel provide functionality allowing kernel threads to sleep and wake on a <STRONG>key</STRONG>:</DIV>
+<UL>
+<LI>
+<P><CODE>thread_sleep(key)</CODE>: "Hey kernel, I&#8217;m going to sleep, but please wake me up when <STRONG><CODE>key</CODE></STRONG> happens."</P></LI>
+<LI>
+<P><CODE>thread_wake(key)</CODE>: "Hey kernel, please wake up all (or one of) the threads who were waiting for <STRONG><CODE>key</CODE></STRONG>."</P></LI>
+<LI>
+<P>Similar functionality can be implemented in user space.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_thread_communication class=anchor></A>
+<H2>Thread Communication</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>Locks are designed to protect <STRONG>critical sections</STRONG>.</P></LI>
+<LI>
+<P><CODE>lock_release()</CODE> can be considered a <STRONG>signal</STRONG> from the thread inside the critical section to other threads indicating that they can proceed.</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>In order to receive this signal a thread <STRONG>must be sleeping</STRONG>.</P></LI></UL></DIV></LI>
+<LI>
+<P>What about other kinds of signals that I might want to deliver?</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>The buffer has data in it.</P></LI>
+<LI>
+<P>Your child has exited.</P></LI></UL></DIV></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_condition_variables class=anchor></A>
+<H2>Condition Variables</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>A <STRONG>condition variable</STRONG> is a signaling mechanism allowing threads to:</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P><CODE>cv_wait</CODE> until a <STRONG>condition</STRONG> is true, and</P></LI>
+<LI>
+<P><CODE>cv_notify</CODE> other threads when the condition becomes true.</P></LI></UL></DIV></LI>
+<LI>
+<P>The <STRONG>condition</STRONG> is usually represented as some change to shared state.</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>The buffer has data in it: <STRONG><CODE>bufsize &gt; 0</CODE></STRONG>.</P></LI>
+<LI>
+<P><CODE>cv_wait</CODE>: notify me when the buffer has data in it.</P></LI>
+<LI>
+<P><CODE>cv_signal</CODE>: I just put data in the buffer, so notify the threads that are waiting for the buffer to have data.</P></LI></UL></DIV></LI></UL></DIV>
+<DIV class=ulist>
+<UL>
+<LI>
+<P><STRONG>Condition variable</STRONG> can convey <STRONG>more information</STRONG> than locks about some change to the state of the world.</P></LI>
+<LI>
+<P>As an example, a buffer can be <STRONG>full</STRONG>, <STRONG>empty</STRONG>, or <STRONG>neither</STRONG>.</P>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>If the buffer is <STRONG>full</STRONG>, we can let threads withdraw but not add items.</P></LI>
+<LI>
+<P>If the buffer is <STRONG>empty</STRONG>, we can let threads add but not withdraw items.</P></LI>
+<LI>
+<P>If the buffer is neither full nor empty, we can let threads add and withdraw items.</P></LI></UL></DIV></LI>
+<LI>
+<P>We have <STRONG>three</STRONG> different buffer states (full, empty, or neither) and <STRONG>two</STRONG> different threads (producer, consumer).</P></LI></UL></DIV>
+<DIV class=ulist>
+<DIV class=title>Why are condition variables a synchronization mechanism?</DIV>
+<UL>
+<LI>
+<P>Want to ensure that the condition <STRONG>does not change</STRONG> between checking it and and deciding to wait!</P></LI></UL></DIV>
+<TABLE class="tableblock frame-all grid-all spread slide">
+<COLGROUP>
+<COL style="WIDTH: 50%">
+<COL style="WIDTH: 50%"></COLGROUP>
+<THEAD>
+<TR>
+<TH class="tableblock halign-left valign-top">Thread A</TH>
+<TH class="tableblock halign-left valign-top">Thread B</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD class="tableblock halign-left valign-top">
+<DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-python lang-python" data-lang="python"><SPAN class=hljs-keyword>if</SPAN> (buffer_is_empty):</CODE></PRE></DIV></DIV></DIV></TD>
+<TD class="tableblock halign-left valign-top">
+<P class=tableblock>&nbsp;</P></TD></TR>
+<TR>
+<TD class="tableblock halign-left valign-top">
+<P class=tableblock>&nbsp;</P></TD>
+<TD class="tableblock halign-left valign-top">
+<DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-python lang-python" data-lang="python">put(buffer)
+notify(buffer)</CODE></PRE></DIV></DIV></DIV></TD></TR>
+<TR>
+<TD class="tableblock halign-left valign-top">
+<DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-python lang-python" data-lang="python">sleep...</CODE></PRE></DIV></DIV></DIV></TD>
+<TD class="tableblock halign-left valign-top">
+<P class=tableblock>&nbsp;</P></TD></TR>
+<TR>
+<TD class="tableblock halign-left valign-top">
+<DIV>
+<DIV class="listingblock smallest slide">
+<DIV class=content><PRE class=highlight><CODE class="language-python lang-python" data-lang="python">...forever</CODE></PRE></DIV></DIV></DIV></TD>
+<TD class="tableblock halign-left valign-top">
+<P class=tableblock>&nbsp;</P></TD></TR></TBODY></TABLE></DIV></DIV>
+<DIV class=sect1><A id=_locking_multiple_resources class=anchor></A>
+<H2>Locking Multiple Resources</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<UL>
+<LI>
+<P><STRONG>Locks</STRONG> protect access to shared resources.</P></LI>
+<LI>
+<P>Threads may need <STRONG>multiple</STRONG> shared resources to perform some operation.</P></LI></UL></DIV>
+<DIV class=paragraph>
+<P>Consider two threads A and B that both need <STRONG>simultaneous</STRONG> access to resources 1 and 2:</P></DIV>
+<DIV class="olist arabic">
+<OL class=arabic>
+<LI>
+<P><STRONG>Thread A</STRONG> runs, grabs the lock for <STRONG>Resource 1</STRONG>.</P></LI>
+<LI>
+<P>&#8594; CONTEXT SWITCH &#8592;</P></LI>
+<LI>
+<P><STRONG>Thread B</STRONG> runs, grabs the lock for <STRONG>Resource 2</STRONG>.</P></LI>
+<LI>
+<P>&#8594; CONTEXT SWITCH &#8592;</P></LI>
+<LI>
+<P><STRONG>Thread A</STRONG> runs, tries to acquire the lock for <STRONG>Resource 2</STRONG>.</P></LI>
+<LI>
+<P>&#8594; THREAD A SLEEPS &#8592;</P></LI>
+<LI>
+<P><STRONG>Thread B</STRONG> runs, tries to acquire the lock for <STRONG>Resource 1</STRONG>.</P></LI>
+<LI>
+<P>&#8594; THREAD B SLEEPS &#8592;</P></LI></OL></DIV>
+<DIV class=openblock>
+<DIV class=content>
+<DIV class=paragraph>
+<P><STRONG>Now what?</STRONG></P></DIV></DIV></DIV></DIV></DIV>
+<DIV class=sect1><A id=_deadlock class=anchor></A>
+<H2>Deadlock</H2>
+<DIV class=sectionbody>
+<DIV class=paragraph>
+<P><STRONG>Deadlock</STRONG> occurs when a thread or set of threads are waiting for each other to finish and thus nobody ever does.</P></DIV></DIV></DIV>
+<DIV class=sect1><A id=_self_deadlock class=anchor></A>
+<H2>Self Deadlock</H2>
+<DIV class=sectionbody>
+<DIV class=openblock>
+<DIV class=content>
+<DIV class=ulist>
+<DIV class=title>A <STRONG>single thread</STRONG> can deadlock. How?</DIV>
+<UL>
+<LI>
+<P>Thread A acquires Resource 1. Thread A tries to reacquire Resource 1.</P></LI></UL></DIV>
+<DIV class=ulist>
+<DIV class=title>This seems inane. Why would this happen?</DIV>
+<UL>
+<LI>
+<P><CODE>foo()</CODE> needs Resource 1. <CODE>bar()</CODE> needs Resource 1. While locking Resource 1 <CODE>foo()</CODE> calls <CODE>bar()</CODE>.</P></LI></UL></DIV>
+<DIV class=ulist>
+<DIV class=title>Can we solve this problem?</DIV>
+<UL>
+<LI>
+<P><STRONG>Yes!</STRONG> Recursive locks. Allow a thread to reacquire a lock that it already holds, as long as calls to acquire are matched by calls to release.</P></LI>
+<LI>
+<P>This kind of problem is not uncommon. You may want to implement recursive locks for OS/161.</P></LI>
+<LI>
+<P>(But don&#8217;t make the locks we gave you suddenly recursive&#8230;&#8203;)</P></LI></UL></DIV></DIV></DIV></DIV></DIV>
+<DIV class=sect1><A id=_conditions_for_deadlock class=anchor></A>
+<H2>Conditions for Deadlock</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title>A deadlock <STRONG>cannot occur</STRONG> unless all of the following conditions are met:</DIV>
+<UL>
+<LI>
+<P><STRONG>Protected access</STRONG> to shared resources, which implies waiting.</P></LI>
+<LI>
+<P><STRONG>No resource preemption</STRONG>, meaning that the system cannot forcibly take a resource from a thread holding it.</P></LI>
+<LI>
+<P><STRONG>Multiple independent requests</STRONG>, meaning a thread can hold some resources while requesting others.</P></LI>
+<LI>
+<P><STRONG>Circular dependency graph</STRONG>, meaning that Thread A is waiting for Thread B which is waiting for Thread C which is waiting for Thread D which is waiting for Thread A.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_dining_philosophers class=anchor></A>
+<H2>Dining Philosophers</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<UL>
+<LI>
+<P>"Classic" synchronization problem which I feel obligated to discuss.</P></LI>
+<LI>
+<P>Illustrated below.</P></LI></UL></DIV>
+<DIV class="openblock slide replace">
+<DIV class=content>
+<DIV class=paragraph>
+<P><SPAN class="image expand"><IMG style="WIDTH: 50%" alt=philosophers src="https://www.ops-class.org/img/slides/figures/synch/philosophers.svg" data-pagespeed-url-hash="2748748781"></SPAN></P></DIV></DIV></DIV>
+<DIV class="openblock slide replace">
+<DIV class=content>
+<DIV class=paragraph>
+<P><SPAN class="image expand"><IMG style="WIDTH: 50%" alt="philosophers 1" src="https://www.ops-class.org/img/slides/figures/synch/philosophers-1.svg" data-pagespeed-url-hash="1603435421"></SPAN></P></DIV></DIV></DIV>
+<DIV class="openblock slide replace">
+<DIV class=content>
+<DIV class=paragraph>
+<P><SPAN class="image expand"><IMG style="WIDTH: 50%" alt="philosophers 2" src="https://www.ops-class.org/img/slides/figures/synch/philosophers-2.svg" data-pagespeed-url-hash="1897935342"></SPAN></P></DIV></DIV></DIV>
+<DIV class="openblock slide replace">
+<DIV class=content>
+<DIV class=paragraph>
+<P><SPAN class="image expand"><IMG style="WIDTH: 50%" alt="philosophers 3" src="https://www.ops-class.org/img/slides/figures/synch/philosophers-3.svg" data-pagespeed-url-hash="2192435263"></SPAN></P></DIV></DIV></DIV>
+<DIV class="openblock slide replace">
+<DIV class=content>
+<DIV class=paragraph>
+<P><SPAN class="image expand"><IMG style="WIDTH: 50%" alt="philosophers 4" src="https://www.ops-class.org/img/slides/figures/synch/philosophers-4.svg" data-pagespeed-url-hash="2486935184"></SPAN></P></DIV></DIV></DIV>
+<DIV class="openblock slide replace">
+<DIV class=content>
+<DIV class=paragraph>
+<P><SPAN class="image expand"><IMG style="WIDTH: 50%" alt="philosophers 5" src="https://www.ops-class.org/img/slides/figures/synch/philosophers-5.svg" data-pagespeed-url-hash="2781435105"></SPAN></P></DIV></DIV></DIV>
+<DIV class="openblock slide replace">
+<DIV class=content>
+<DIV class=paragraph>
+<P><SPAN class="image expand"><IMG style="WIDTH: 50%" alt="philosophers 6" src="https://www.ops-class.org/img/slides/figures/synch/philosophers-6.svg" data-pagespeed-url-hash="3075935026"></SPAN></P></DIV></DIV></DIV></DIV></DIV>
+<DIV class=sect1><A id=_feeding_philosophers class=anchor></A>
+<H2>Feeding Philosophers</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title>Breaking deadlock conditions usually requires eliminating one of the <STRONG>requirements</STRONG> for deadlock.</DIV>
+<UL>
+<LI>
+<P><STRONG>Don&#8217;t wait</STRONG>: don&#8217;t sleep if you can&#8217;t grab the second chopstick and put down the first.</P></LI>
+<LI>
+<P><STRONG>Break cycles</STRONG>: usually by acquiring resources in a <STRONG>well-defined order</STRONG>. Number chopsticks 0&#8211;4, always grab the higher-numbered chopstick first.</P></LI>
+<LI>
+<P><STRONG>Break out</STRONG>: detect the deadlock cycle and forcibly take away a resource from a thread to break it. (Requires a new mechanism.)</P></LI>
+<LI>
+<P><STRONG>Don&#8217;t make multiple independent requests</STRONG>: grab <STRONG>both</STRONG> chopsticks at once. (Requires a new mechanism.)</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_deadlock_v_starvation class=anchor></A>
+<H2>Deadlock v. Starvation</H2>
+<DIV class=sectionbody>
+<DIV class=ulist>
+<DIV class=title><STRONG>Starvation</STRONG> is an equally-problematic condition in which one or more threads do not make progress.</DIV>
+<UL>
+<LI>
+<P>Starvation differs from deadlock in that <STRONG>some</STRONG> threads make progress and it is, in fact, those threads that are preventing the "starving" threads from proceeding.</P></LI></UL></DIV></DIV></DIV>
+<DIV class=sect1><A id=_deadlock_v_race_conditions class=anchor></A>
+<H2>Deadlock v. Race Conditions</H2>
+<DIV class=sectionbody>
+<DIV class=paragraph>
+<P>What is better: a deadlock (perhaps from overly careful synchronization) or a race condition (perhaps from a lack of correct synchronization)?</P></DIV>
+<DIV class="openblock slide">
+<DIV class=content>
+<DIV class=paragraph>
+<P>I&#8217;ll take the deadlock. <STRONG>It&#8217;s much easier to detect!</STRONG></P></DIV></DIV></DIV></DIV></DIV>
