@@ -1,0 +1,95 @@
+These functions provide a portable way to dynamically load object files (commonly known as 'plug-ins'). The current implementation supports all systems that provide an implementation of <CODE class=function>dlopen()</CODE> (e.g. Linux/Sun), as well as Windows platforms via DLLs.</P>
+<P>A program which wants to use these functions must be linked to the libraries output by the command <CODE class=literal>pkg-config --libs gmodule-2.0</CODE>.</P>
+<P>To use them you must first determine whether dynamic loading is supported on the platform by calling <A title=g_module_supported&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-supported"><CODE class=function>g_module_supported()</CODE></A>. If it is, you can open a module with <A title=g_module_open&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-open"><CODE class=function>g_module_open()</CODE></A>, find the module's symbols (e.g. function names) with <A title=g_module_symbol&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-symbol"><CODE class=function>g_module_symbol()</CODE></A>, and later close the module with <A title=g_module_close&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-close"><CODE class=function>g_module_close()</CODE></A>. <A title=g_module_name&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-name"><CODE class=function>g_module_name()</CODE></A> will return the file name of a currently opened module.</P>
+<P>If any of the above functions fail, the error status can be found with <A title=g_module_error&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-error"><CODE class=function>g_module_error()</CODE></A>.</P>
+<P>The <A title=GModule class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#GModule"><SPAN class=type>GModule</SPAN></A> implementation features reference counting for opened modules, and supports hook functions within a module which are called when the module is loaded and unloaded (see <A title=GModuleCheckInit&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#GModuleCheckInit"><SPAN class=type>GModuleCheckInit</SPAN></A> and <A title=GModuleUnload&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#GModuleUnload"><SPAN class=type>GModuleUnload</SPAN></A>).</P>
+<P>If your module introduces static data to common subsystems in the running program, e.g. through calling <CODE class=literal>g_quark_from_static_string ("my-module-stuff")</CODE>, it must ensure that it is never unloaded, by calling <A title=g_module_make_resident&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-make-resident"><CODE class=function>g_module_make_resident()</CODE></A>.</P>
+<P>Example: Calling a function defined in a GModule</P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42</PRE></TD>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc slc">// the function signature for 'say_hello'</SPAN>
+<SPAN class="gtkdoc kwc">typedef</SPAN> <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN> SayHelloFunc<SPAN class="gtkdoc opt">) (</SPAN><SPAN class="gtkdoc kwb">const char</SPAN> <SPAN class="gtkdoc opt">*</SPAN>message<SPAN class="gtkdoc opt">);</SPAN>
+
+gboolean
+<SPAN class=function>just_say_hello</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">const char</SPAN> <SPAN class="gtkdoc opt">*</SPAN>filename<SPAN class="gtkdoc opt">,</SPAN> GError <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  SayHelloFunc  say_hello<SPAN class="gtkdoc opt">;</SPAN>
+  GModule      <SPAN class="gtkdoc opt">*</SPAN>module<SPAN class="gtkdoc opt">;</SPAN>
+
+  module <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-open">g_module_open</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>filename<SPAN class="gtkdoc opt">,</SPAN> G_MODULE_BIND_LAZY<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(!</SPAN>module<SPAN class="gtkdoc opt">)</SPAN>
+    <SPAN class="gtkdoc opt">{</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Error-Reporting.html#g-set-error">g_set_error</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error<SPAN class="gtkdoc opt">,</SPAN> FOO_ERROR<SPAN class="gtkdoc opt">,</SPAN> FOO_ERROR_BLAH<SPAN class="gtkdoc opt">,</SPAN>
+                   <SPAN class=string>"%s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-error">g_module_error</A></SPAN> <SPAN class="gtkdoc opt">());</SPAN>
+      <SPAN class=keyword>return</SPAN> FALSE<SPAN class="gtkdoc opt">;</SPAN>
+    <SPAN class="gtkdoc opt">}</SPAN>
+
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(!</SPAN><SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-symbol">g_module_symbol</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>module<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"say_hello"</SPAN><SPAN class="gtkdoc opt">, (</SPAN>gpointer <SPAN class="gtkdoc opt">*)&amp;</SPAN>say_hello<SPAN class="gtkdoc opt">))</SPAN>
+    <SPAN class="gtkdoc opt">{</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Error-Reporting.html#g-set-error">g_set_error</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error<SPAN class="gtkdoc opt">,</SPAN> SAY_ERROR<SPAN class="gtkdoc opt">,</SPAN> SAY_ERROR_OPEN<SPAN class="gtkdoc opt">,</SPAN>
+                   <SPAN class=string>"%s: %s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> filename<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-error">g_module_error</A></SPAN> <SPAN class="gtkdoc opt">());</SPAN>
+      <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(!</SPAN><SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-close">g_module_close</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>module<SPAN class="gtkdoc opt">))</SPAN>
+        <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Message-Logging.html#g-warning">g_warning</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"%s: %s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> filename<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-error">g_module_error</A></SPAN> <SPAN class="gtkdoc opt">());</SPAN>
+      <SPAN class=keyword>return</SPAN> FALSE<SPAN class="gtkdoc opt">;</SPAN>
+    <SPAN class="gtkdoc opt">}</SPAN>
+
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>say_hello <SPAN class="gtkdoc opt">==</SPAN> NULL<SPAN class="gtkdoc opt">)</SPAN>
+    <SPAN class="gtkdoc opt">{</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Error-Reporting.html#g-set-error">g_set_error</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error<SPAN class="gtkdoc opt">,</SPAN> SAY_ERROR<SPAN class="gtkdoc opt">,</SPAN> SAY_ERROR_OPEN<SPAN class="gtkdoc opt">,</SPAN>
+                   <SPAN class=string>"symbol say_hello is NULL"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(!</SPAN><SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-close">g_module_close</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>module<SPAN class="gtkdoc opt">))</SPAN>
+        <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Message-Logging.html#g-warning">g_warning</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"%s: %s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> filename<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-error">g_module_error</A></SPAN> <SPAN class="gtkdoc opt">());</SPAN>
+      <SPAN class=keyword>return</SPAN> FALSE<SPAN class="gtkdoc opt">;</SPAN>
+    <SPAN class="gtkdoc opt">}</SPAN>
+
+  <SPAN class="gtkdoc slc">// call our function in the module</SPAN>
+  <SPAN class=function>say_hello</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"Hello world!"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(!</SPAN><SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-close">g_module_close</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>module<SPAN class="gtkdoc opt">))</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Message-Logging.html#g-warning">g_warning</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"%s: %s"</SPAN><SPAN class="gtkdoc opt">,</SPAN> filename<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Dynamic-Loading-of-Modules.html#g-module-error">g_module_error</A></SPAN> <SPAN class="gtkdoc opt">());</SPAN>
+  <SPAN class=keyword>return</SPAN> TRUE<SPAN class="gtkdoc opt">;</SPAN>
+ <SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
