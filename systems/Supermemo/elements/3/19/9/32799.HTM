@@ -1,0 +1,77 @@
+Memory slices provide a space-efficient and multi-processing scalable way to allocate equal-sized pieces of memory, just like the original <SPAN class=type>GMemChunks</SPAN> (from GLib 2.8), while avoiding their excessive memory-waste, scalability and performance problems.</P>
+<P>To achieve these goals, the slice allocator uses a sophisticated, layered design that has been inspired by Bonwick's slab allocator (<A class=ulink href="http://citeseer.ist.psu.edu/bonwick94slab.html" target=_top>Bonwick94</A> Jeff Bonwick, The slab allocator: An object-caching kernel memory allocator. USENIX 1994, and <A class=ulink href="http://citeseer.ist.psu.edu/bonwick01magazines.html" target=_top>Bonwick01</A> Bonwick and Jonathan Adams, Magazines and vmem: Extending the slab allocator to many cpu's and arbitrary resources. USENIX 2001)</P>
+<P>It uses <CODE class=function>posix_memalign()</CODE> to optimize allocations of many equally-sized chunks, and has per-thread free lists (the so-called magazine layer) to quickly satisfy allocation requests of already known structure sizes. This is accompanied by extra caching logic to keep freed memory around for some time before returning it to the system. Memory that is unused due to alignment constraints is used for cache colorization (random distribution of chunk addresses) to improve CPU cache utilization. The caching layer of the slice allocator adapts itself to high lock contention to improve scalability.</P>
+<P>The slice allocator can allocate blocks as small as two pointers, and unlike <CODE class=function>malloc()</CODE>, it does not reserve extra space per block. For large block sizes, <A title=g_slice_new() class=link href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-new"><CODE class=function>g_slice_new()</CODE></A> and <A title=g_slice_alloc&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc"><CODE class=function>g_slice_alloc()</CODE></A> will automatically delegate to the system <CODE class=function>malloc()</CODE> implementation. For newly written code it is recommended to use the new <CODE class=literal>g_slice</CODE> API instead of <A title=g_malloc&nbsp;() class=link href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-malloc"><CODE class=function>g_malloc()</CODE></A> and friends, as long as objects are not resized during their lifetime and the object size used at allocation time is still available when freeing.</P>
+<P>Here is an example for using the slice allocator:</P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>gchar <SPAN class="gtkdoc opt">*</SPAN>mem<SPAN class="gtkdoc opt">[</SPAN><SPAN class=number>10000</SPAN><SPAN class="gtkdoc opt">];</SPAN>
+gint i<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class="gtkdoc slc">// Allocate 10000 blocks.</SPAN>
+<SPAN class=keyword>for</SPAN> <SPAN class="gtkdoc opt">(</SPAN>i <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN> i <SPAN class="gtkdoc opt">&lt;</SPAN> <SPAN class=number>10000</SPAN><SPAN class="gtkdoc opt">;</SPAN> i<SPAN class="gtkdoc opt">++)</SPAN>
+  <SPAN class="gtkdoc opt">{</SPAN>
+    mem<SPAN class="gtkdoc opt">[</SPAN>i<SPAN class="gtkdoc opt">] =</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-alloc">g_slice_alloc</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=number>50</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+    <SPAN class="gtkdoc slc">// Fill in the memory with some junk.</SPAN>
+    <SPAN class=keyword>for</SPAN> <SPAN class="gtkdoc opt">(</SPAN>j <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN> j <SPAN class="gtkdoc opt">&lt;</SPAN> <SPAN class=number>50</SPAN><SPAN class="gtkdoc opt">;</SPAN> j<SPAN class="gtkdoc opt">++)</SPAN>
+      mem<SPAN class="gtkdoc opt">[</SPAN>i<SPAN class="gtkdoc opt">][</SPAN>j<SPAN class="gtkdoc opt">] =</SPAN> i <SPAN class="gtkdoc opt">*</SPAN> j<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc slc">// Now free all of the blocks.</SPAN>
+<SPAN class=keyword>for</SPAN> <SPAN class="gtkdoc opt">(</SPAN>i <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN> i <SPAN class="gtkdoc opt">&lt;</SPAN> <SPAN class=number>10000</SPAN><SPAN class="gtkdoc opt">;</SPAN> i<SPAN class="gtkdoc opt">++)</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free1">g_slice_free1</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=number>50</SPAN><SPAN class="gtkdoc opt">,</SPAN> mem<SPAN class="gtkdoc opt">[</SPAN>i<SPAN class="gtkdoc opt">]);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>And here is an example for using the using the slice allocator with data structures:</P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>GRealArray <SPAN class="gtkdoc opt">*</SPAN>array<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class="gtkdoc slc">// Allocate one block, using the g_slice_new() macro.</SPAN>
+array <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-new">g_slice_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>GRealArray<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class="gtkdoc slc">// We can now use array just like a normal pointer to a structure.</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>data            <SPAN class="gtkdoc opt">=</SPAN> NULL<SPAN class="gtkdoc opt">;</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>len             <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>alloc           <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>zero_terminated <SPAN class="gtkdoc opt">= (</SPAN>zero_terminated ? <SPAN class=number>1</SPAN> <SPAN class="gtkdoc opt">:</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>clear           <SPAN class="gtkdoc opt">= (</SPAN>clear ? <SPAN class=number>1</SPAN> <SPAN class="gtkdoc opt">:</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+array<SPAN class="gtkdoc opt">-&gt;</SPAN>elt_size        <SPAN class="gtkdoc opt">=</SPAN> elt_size<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class="gtkdoc slc">// We can free the block, so it can be reused.</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Slices.html#g-slice-free">g_slice_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>GRealArray<SPAN class="gtkdoc opt">,</SPAN> array<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
