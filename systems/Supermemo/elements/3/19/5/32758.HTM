@@ -1,0 +1,39 @@
+Many times GLib, GTK+, and other libraries allow you to pass "user data" to a callback, in the form of a void pointer. From time to time you want to pass an integer instead of a pointer. You could allocate an integer, with something like: 
+<P><FONT class=clozed></FONT></P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE><FONT class=clozed>1
+2</FONT></PRE></TD>
+<TD class=listing_code><PRE class=programlisting><FONT class=clozed><SPAN class="gtkdoc kwb">int</SPAN> <SPAN class="gtkdoc opt">*</SPAN>ip <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/glib/stable/glib-Memory-Allocation.html#g-new">g_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">int</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>1</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">*</SPAN>ip <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>42</SPAN></FONT><SPAN class="gtkdoc opt">;</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>But this is inconvenient, and it's annoying to have to free the memory at some later time.</P>
+<P>Pointers are always at least 32 bits in size (on all platforms GLib intends to support). Thus you can store at least 32-bit integer values in a pointer value. Naively, you might try this, but it's incorrect:</P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>gpointer p<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc kwb">int</SPAN> i<SPAN class="gtkdoc opt">;</SPAN>
+p <SPAN class="gtkdoc opt">= (</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">*)</SPAN> <SPAN class=number>42</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+i <SPAN class="gtkdoc opt">= (</SPAN><SPAN class="gtkdoc kwb">int</SPAN><SPAN class="gtkdoc opt">)</SPAN> p<SPAN class="gtkdoc opt">;</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>Again, that example was not correct, don't copy it. The problem is that on some systems you need to do this:</P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_lines align=right><PRE>1
+2
+3
+4</PRE></TD>
+<TD class=listing_code><PRE class=programlisting>gpointer p<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc kwb">int</SPAN> i<SPAN class="gtkdoc opt">;</SPAN>
+p <SPAN class="gtkdoc opt">= (</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">*) (</SPAN><SPAN class="gtkdoc kwb">long</SPAN><SPAN class="gtkdoc opt">)</SPAN> <SPAN class=number>42</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+i <SPAN class="gtkdoc opt">= (</SPAN><SPAN class="gtkdoc kwb">int</SPAN><SPAN class="gtkdoc opt">) (</SPAN><SPAN class="gtkdoc kwb">long</SPAN><SPAN class="gtkdoc opt">)</SPAN> p<SPAN class="gtkdoc opt">;</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>The GLib macros<FONT class=clozed> </FONT><A title=GPOINTER_TO_INT() class=link href="https://developer.gnome.org/glib/stable/glib-Type-Conversion-Macros.html#GPOINTER-TO-INT:CAPS"><CODE class=function><FONT class=clozed>GPOINTER_TO_INT()</FONT></CODE></A><FONT class=clozed>, </FONT><A title=GINT_TO_POINTER() class=link href="https://developer.gnome.org/glib/stable/glib-Type-Conversion-Macros.html#GINT-TO-POINTER:CAPS"><CODE class=function><FONT class=clozed>GINT_TO_POINTER()</FONT></CODE></A>, etc. take care to do the right thing on the every platform.</P>
+<P>Warning: You may not store pointers in integers. This is not portable in any way, shape or form. These macros only allow storing integers in pointers, and only preserve 32 bits of the integer; values outside the range of a 32-bit integer will be mangled.
