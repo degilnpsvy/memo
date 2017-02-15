@@ -1,0 +1,61 @@
+<DIV class=SECT1>
+<H1 class=SECT1><A id=INSTALLATION-PARTITIONING name=INSTALLATION-PARTITIONING>3.3 Partitioning</A></H1>
+<P>After booting from your preferred media, you will need to partition your hard disk. The disk partition is where the Linux filesystem will be created and is where Slackware will be installed. At the very minimum we recommend creating two partitions; one for your root filesystem (<TT class=FILENAME>/</TT>) and one for swap space.</P>
+<P>After the root disk finishes loading, it will present you with a login prompt. Log in as root (there is no password). At the shell prompt, run either <TT class=COMMAND>cfdisk</TT>(8) or <TT class=COMMAND>fdisk</TT>(8). <FONT class=extract>The <TT class=COMMAND>cfdisk</TT> program provides a more user-friendly interface than the regular <TT class=COMMAND>fdisk</TT> program, but does lack some features.</FONT> We will briefly explain the <TT class=COMMAND>fdisk</TT> program below.</P>
+<P>Begin by running <TT class=COMMAND>fdisk</TT> for your hard disk. In Linux, the hard disks do not have drive letters, but are represented by a file. The first IDE hard disk (primary master) is <TT class=FILENAME>/dev/hda</TT>, the primary slave is <TT class=FILENAME>/dev/hdb</TT>, and so on. SCSI disks follow the same type system, but are in the form of <TT class=FILENAME>/dev/sd<VAR class=REPLACEABLE>X</VAR></TT>. You will need to start <TT class=COMMAND>fdisk</TT> and pass it your hard disk:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN><SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>fdisk /dev/hda</KBD>
+</PRE></TD></TR></TBODY></TABLE>
+<P>Like all good Unix programs, <TT class=COMMAND>fdisk</TT> gives you a prompt (thought you were getting a menu, right?). The first thing you should do is examine your current partitions. We do that by typing <KBD class=USERINPUT>p</KBD> at the <TT class=COMMAND>fdisk</TT> prompt:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN>Command (m for help): <KBD class=USERINPUT>p</KBD>
+</PRE></TD></TR></TBODY></TABLE>
+<P>This will display all sorts of information about your current partitions. Most people pick a free drive to install to and then remove any existing partitions on it to create room for the Linux partitions.</P>
+<DIV class=WARNING>
+<TABLE class=WARNING width="100%" border=0>
+<TBODY>
+<TR>
+<TD vAlign=top width=25 align=center><IMG hspace=5 alt=Warning src="http://www.slackbook.org/html/imagelib/admon/warning.png"></TD>
+<TD vAlign=top align=left>
+<P>IT IS VERY IMPORTANT THAT YOU BACK UP ANY INFORMATION YOU WANT TO SAVE BEFORE DESTROYING THE PARTITION IT LIVES ON.</P></TD></TR></TBODY></TABLE></DIV>
+<P>There is no easy way to recover from deleting a partition, so always back up before playing with them.</P>
+<P>Looking at the table of partition information you should see a partition number, the size of the partition, and its type. There's more information, but don't worry about that for now. We are going to delete all of the partitions on this drive to create the Linux ones. We run the <KBD class=USERINPUT>d</KBD> command to delete those:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN>Command (m for help): <KBD class=USERINPUT>d</KBD>
+Partition number (1-4): <KBD class=USERINPUT>1</KBD>
+</PRE></TD></TR></TBODY></TABLE>
+<P>This process should be continued for each of the partitions. After deleting the partitions we are ready to create the Linux ones. We have decided to create one partition for our root filesystem and one for swap. It is worth noting that Unix partitioning schemes are the subject of many flame wars, and that most users will tell you the best way to do it. At a minimum, you should create one partition for <TT class=FILENAME>/</TT> and one for swap. Over time, you'll develop a method that works well for you.</P>
+<P><FONT class=extract>I use two basic partition schemes. The first is for a desktop. I make 4 partitions, <TT class=FILENAME>/</TT>, <TT class=FILENAME>/home</TT>, <TT class=FILENAME>/usr/local</TT>, and swap. This lets me re-install or upgrade the entire installation under <TT class=FILENAME>/</TT> without wiping out my data files under /home or my custom compiled applications under <TT class=FILENAME>/usr/local</TT>. For servers, I often replace the <TT class=FILENAME>/usr/local</TT> partition with a <TT class=FILENAME>/var</TT> partition. Many different servers store information on that partition and having it kept separate from <TT class=FILENAME>/</TT> has certain performance benefits.</FONT> For now, we're sticking with just two partitions: <TT class=FILENAME>/</TT> and swap.</P>
+<P>Now we create the partitions with the <KBD class=USERINPUT>n</KBD> command:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN>Command (m for help): <KBD class=USERINPUT>n</KBD>
+Command action
+   e   extended
+   p   primary partition (1-4)
+<KBD class=USERINPUT>p</KBD>
+Partition number (1-4):<KBD class=USERINPUT>1</KBD>
+First cylinder (0-1060, default 0):<KBD class=USERINPUT>0</KBD>
+ Last cylinder or +size or +sizeM or +sizeK (0-1060, default 1060):<KBD class=USERINPUT>+64M</KBD>
+</PRE></TD></TR></TBODY></TABLE>
+<P>You need to make sure you create primary partitions. The first partition is going to be our swap partition. We tell fdisk to make partition number 1 a primary partition. We start it at cylinder 0 and for the ending cylinder we type +64M. This will give us a 64 megabyte partition for swap. (The size of the swap partition you need actually depends on the amount of RAM you have. It is conventional wisdom that a swap space double the size of your RAM should be created.) Then we define primary partition number 2 starting at the first available cylinder and going all the way to the end of the drive.</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN>Command (m for help):<KBD class=USERINPUT>n</KBD>
+Command action
+   e   extended
+   p   primary partition (1-4)
+<KBD class=USERINPUT>p</KBD>
+Partition number (1-4):<KBD class=USERINPUT>2</KBD>
+First cylinder (124-1060, default 124):<KBD class=USERINPUT>124</KBD>
+Last cylinder or +size or +sizeM or +sizeK (124-1060, default 1060):<KBD class=USERINPUT>1060</KBD>
+</PRE></TD></TR></TBODY></TABLE>
+<P>We are almost done. We need to change the type of the first partition to type 82 (Linux swap). Type <KBD class=USERINPUT>t</KBD> to change the type, select the first partition, and type <VAR class=LITERAL>82</VAR>. Before writing your changes to the disk, you should look at the new partition table one last time. Use the <KBD class=USERINPUT>p</KBD> in <TT class=COMMAND>fdisk</TT> to display the partition table. If everything looks good, type <KBD class=USERINPUT>w</KBD> to write your changes to the disk and quit <TT class=COMMAND>fdisk</TT>.</P></DIV>
