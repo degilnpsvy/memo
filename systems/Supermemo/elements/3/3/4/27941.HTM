@@ -1,0 +1,131 @@
+<H1 lang=en id=firstHeading class=firstHeading><SPAN>Features/QOM</SPAN></H1>
+<DIV id=bodyContent>
+<DIV id=contentSub></DIV></DIV>
+<DIV id=toc class=toc>
+<DIV id=toctitle>
+<H2>Contents</H2></DIV></DIV>
+<DIV id=toc class=toc>
+<UL>
+<LI class="toclevel-1 tocsection-1"><A href="http://wiki.qemu-project.org/Features/QOM#Device_Relationships"><SPAN class=tocnumber>1</SPAN> <SPAN class=toctext>Device Relationships</SPAN></A> 
+<UL>
+<LI class="toclevel-2 tocsection-2"><A href="http://wiki.qemu-project.org/Features/QOM#Device_Relationships_in_QDev"><SPAN class=tocnumber>1.1</SPAN> <SPAN class=toctext>Device Relationships in QDev</SPAN></A> 
+<LI class="toclevel-2 tocsection-3"><A href="http://wiki.qemu-project.org/Features/QOM#Device_Relationships_in_QOM"><SPAN class=tocnumber>1.2</SPAN> <SPAN class=toctext>Device Relationships in QOM</SPAN></A></LI></UL>
+<LI class="toclevel-1 tocsection-4"><A href="http://wiki.qemu-project.org/Features/QOM#Naming"><SPAN class=tocnumber>2</SPAN> <SPAN class=toctext>Naming</SPAN></A> 
+<UL>
+<LI class="toclevel-2 tocsection-5"><A href="http://wiki.qemu-project.org/Features/QOM#Naming_in_QDev"><SPAN class=tocnumber>2.1</SPAN> <SPAN class=toctext>Naming in QDev</SPAN></A> 
+<LI class="toclevel-2 tocsection-6"><A href="http://wiki.qemu-project.org/Features/QOM#Naming_in_QOM"><SPAN class=tocnumber>2.2</SPAN> <SPAN class=toctext>Naming in QOM</SPAN></A></LI></UL>
+<LI class="toclevel-1 tocsection-7"><A href="http://wiki.qemu-project.org/Features/QOM#Device_Properties"><SPAN class=tocnumber>3</SPAN> <SPAN class=toctext>Device Properties</SPAN></A> 
+<UL>
+<LI class="toclevel-2 tocsection-8"><A href="http://wiki.qemu-project.org/Features/QOM#Properties_in_QDev"><SPAN class=tocnumber>3.1</SPAN> <SPAN class=toctext>Properties in QDev</SPAN></A> 
+<LI class="toclevel-2 tocsection-9"><A href="http://wiki.qemu-project.org/Features/QOM#Properties_in_QOM"><SPAN class=tocnumber>3.2</SPAN> <SPAN class=toctext>Properties in QOM</SPAN></A></LI></UL>
+<LI class="toclevel-1 tocsection-10"><A href="http://wiki.qemu-project.org/Features/QOM#TODO"><SPAN class=tocnumber>4</SPAN> <SPAN class=toctext>TODO</SPAN></A></LI></UL></DIV>
+<H2><SPAN id=Device_Relationships class=mw-headline>Device Relationships</SPAN></H2>
+<H3><SPAN id=Device_Relationships_in_QDev class=mw-headline><FONT class=extract>Device Relationships in QDev</FONT></SPAN></H3>
+<P><FONT class=extract>The two main concepts in QDev are devices and busses. A device is represented by a DeviceState and a bus is represented by a BusState. They do not share a common base class. Devices can have properties but busses cannot. A device has no direct relationship with other devices. The only relationship is indirect through busses. </FONT></P>
+<P><FONT class=extract>A device may have zero or more busses associated with it via a has-a relationship. Each child bus may have multiple devices associated with it via a reference. All devices have a single parent bus and all busses have a single parent device. These relationships form a strict tree where every alternating level is a bus level followed by a device level. The root of the tree is the main system bus often referred to as SysBus.</FONT> </P>
+<H3><SPAN id=Device_Relationships_in_QOM class=mw-headline><FONT class=extract>Device Relationships in QOM</FONT></SPAN></H3>
+<P><FONT class=extract>Everything in QOM is a device. The concept of busses are implemented as an interface that a device implements. Devices can have two types of relationships with other devices: device composition or device backlinks. Device composition involves one device directly creating another device. It will own life cycle management for the created device and will generally propagate events to that device (although there are exceptions). </FONT></P>
+<P><FONT class=extract>Device backlinks allow one device to refer to another device in a looser fashion. While there can be only one device composition relationship that exists between two specific devices, a device can participate in an arbitrary number of backlinks. </FONT></P>
+<P><FONT class=extract>Device composition and backlinks are both strongly typed and can be typed as a specific device type or as an interface. When typed as an interface, any device that implements that interface can be used. </FONT></P>
+<P><FONT class=extract>There is no explicit notion of parents in QOM. A typical bus relationship would the bus having a backlink to the child device, and the child device having a backlink to the bus. </FONT></P>
+<P><FONT class=extract>Without device backlinks, device composition forms a multi-rooted strict tree. With backlinks, the result are multiple directed graphs.</FONT> </P>
+<H2><SPAN id=Naming class=mw-headline>Naming</SPAN></H2>
+<H3><SPAN id=Naming_in_QDev class=mw-headline><FONT class=extract>Naming in QDev</FONT></SPAN></H3>
+<P><FONT class=extract>QDev has three namespaces: the device namespace, the bus namespace, and property namespaces. </FONT></P>
+<P><FONT class=extract>The device namespace contains the names of qdev devices. qdev supports the ability to have anonymous devices. Anonymous devices are usually created through composition and are anonymous because the user controls the device namespace and the user has no way of allocating names for devices created through composition. </FONT></P>
+<P><FONT class=extract>The bus namespace is parallel to the device namespace. Unlike the device namespace, busses cannot be anonymous. For busses that are created as a result of composition, a name is derived either from the device name or via the type name. </FONT></P>
+<P><FONT class=extract>In qdev, implicit bus names are not considered stable and may change across invocations and/or versions of QEMU. </FONT></P>
+<P><FONT class=extract>Property namespaces are local to devices. The 'id' property is reserved to refer to the name of the device. Property names do not reference child devices. </FONT></P>
+<P><FONT class=extract>Paths cannot be meaningfully constructed in QDev. Devices can only be addressed directly by their name as there is no stable way to refer to busses under a device, or children under a bus.</FONT> </P>
+<H3><SPAN id=Naming_in_QOM class=mw-headline><FONT class=extract>Naming in QOM</FONT></SPAN></H3>
+<P><FONT class=extract>In QOM, there are only two namespaces, the device namespace and the property namespace. </FONT></P>
+<P><FONT class=extract>All devices have unique names. There are no exceptions. Devices created through composition are given unique names by deriving the name based on the parent device name and a special separator, "::", that cannot be used in user supplied names. </FONT></P>
+<P><FONT class=extract>Since a bus is-a device in QOM, there is no notion of having multiple busses under the same device. A device can implement multiple bus interfaces, but can only be a single bus of any given bus interface. </FONT></P>
+<P><FONT class=extract>Device names are completely independent of pathnames. For devices that are no user created, device names should be treated as opaque blobs with absolutely no semantic meaning. </FONT></P>
+<P><FONT class=extract>All device relationships are identified as named properties. A QOM path name consists of a named device, followed by a series of properties which may or may not refer to other devices. For instance, all of the following are valid paths: </FONT></P><PRE><FONT class=extract>/i440fx/piix3/i8042/aux
+/i440fx/slot[1.0]/i8042/aux
+/i440fx/slot[1.0]/bus/piix3/i8042/aux
+</FONT></PRE>
+<P><FONT class=extract>All of these path names are interpreted as follows: </FONT></P><PRE><FONT class=extract>def resolve_pathname(pathname):
+    root, props = pathname[1:].split('/')
+    dev = find_device(root)
+    for prop in props:
+        device_name = get_property(dev, prop)
+        dev = find_device(device_name)
+    return dev
+</FONT></PRE>
+<P><FONT class=extract>In this specific example, the i440fx object has two properties that both refer to the PIIX3 device. The 'piix3' device is a property that reflects a device composition relationship. The 'slot[1.0]' property represents a device backlink relationship. </FONT></P>
+<P><FONT class=extract>The PIIX3 device has a 'i8042' property based on device composition of the PC Keyboard Controller device. It also has a device backlink property, 'bus', that points to the bus that it sits on (which is the 'i440fx' object). </FONT></P>
+<P><FONT class=extract>Finally, the PC Keyboard Controller device has an 'aux' property which is a device backlink property that can point to a PS/2 Mouse device. </FONT></P>
+<P><FONT class=extract>The full set of devices names and properties used in this example are below: </FONT></P><PRE><FONT class=extract>Type: I440FX
+Is-a: Device
+Implements: PciBus
+Name: i440fx
+Properties:
+ piix3: Composition&lt;PIIX3&gt;
+ slot[1.0]: Backlink&lt;PciDevice&gt;
+
+Type: PIIX3
+Isa-a: PciDevice
+Implements: IsaBus
+Name: i440fx::piix3
+Properties:
+ i8042: Composition&lt;I8042&gt;
+ bus: Backlink&lt;PciDevice&gt; (inherited from PciDevice)
+
+Type: I8042
+Isa-a: Device
+Implements: Ps2Controller
+Name: i440fx::piix3::i8042
+Properties:
+ aux: Backlink&lt;Ps2Mouse&gt;</FONT>
+</PRE>
+<H2><SPAN id=Device_Properties class=mw-headline>Device Properties</SPAN></H2>
+<H3><SPAN id=Properties_in_QDev class=mw-headline><FONT class=extract>Properties in QDev</FONT></SPAN></H3>
+<P><FONT class=extract>Device properties in qdev are bound to classes and map directly to elements of the device structure. They are strongly typed. Each type is parsed directly from a string representation. There is no way to set qdev properties from anything but a string. </FONT></P>
+<P><FONT class=extract>Device properties in qdev are only settable during construction. After construction, they are read-only. Devices cannot hook setting or getting of a property.</FONT> </P>
+<H3><SPAN id=Properties_in_QOM class=mw-headline><FONT class=extract>Properties in QOM</FONT></SPAN></H3>
+<P><FONT class=extract>Device properties in QOM are bound to devices and are implemented by closures provided by the device. A Visitor is passed to the closure which effectively allows properties to be set/get through native C types. Mapping to any other type of representation (string or otherwise) is done by a Visitor with no knowledge of the device or property. </FONT></P>
+<P><FONT class=extract>By convention, most device properties are implemented by writing a C typed public getter/setter for the device, and then using a property wrapper to translate those typed functions to an untyped closure that accepts a Visitor. </FONT></P>
+<P><FONT class=extract>QOM has no notion of construction. All devices are created without properties. Properties can be set/get after initialization. Devices support the notion of "realize" which roughly corresponds to construction. More accurately, it corresponds to the moment before a device will be first consumed by a guest. </FONT></P>
+<P><FONT class=extract>"unrealize" roughly corresponds to reset. A device may be realized and unrealized many times during its lifecycle. </FONT></P>
+<P><FONT class=extract>Properties are, by default, locked while the device is realized. Exceptions can be made by the devices themselves in order to implement a way for a user to interact with a device while it is realized. </FONT></P>
+<P><FONT class=extract>Two special types of properties are child&lt;&gt; and link&lt;&gt; properties. A child&lt;&gt; property is used to represent device composition. When a child&lt;&gt; property is added, the child device has its life cycle automatically tied to the parent device. The link&lt;&gt; property represents a reference to another device. </FONT></P>
+<P><FONT class=extract>The child&lt;&gt; property type is always read-only and when read, will return the name of the child device. </FONT></P>
+<P><FONT class=extract>The link&lt;&gt; property type is by default read/write and locked during realize. Hotplug can be implemented by allowing a link to be writable after realize and installing a custom setter function that implements hotplug behavior.</FONT> </P>
+<H2><SPAN id=TODO class=mw-headline>TODO</SPAN></H2><PRE>1. Eliminate anonymous devices.
+ a. Will require touching any place in the tree that creates a qdev object and
+    giving a meaningful unique name.
+
+2. Refactor any device that creates 2 or more busses to only create a single
+   bus. This will mean using composition.
+ a. An example: IDE controller creates two busses, one for the primary and one
+    for the secondary.  Instead, IDE device should have two IDE controller sub
+    devices, each device having a single bus.
+
+3. Unify the bus/device namespaces 
+ a. This is a compatibility breaker
+ b. Depends on (1) and (2)
+
+4. Modify qdev properties to allow devices to register setters/getters that use
+   visitors to access properties.
+ a. Implement existing properties in terms of visitors
+
+5. Modify qdev properties to be stored in the object, not in the class
+
+6. Expose children as named properties
+ a. Read only to start with
+
+7. Change qdev to use QOM typing
+ a. Depends on (3)
+ b. Must change all init functions to use QOM init functions
+ c. Change all DO_UPCASTS to QOM macro casts
+ d. Can be largely done via sed
+
+8. Change children to be based on plug and socket properties
+ a. Eliminate children list in each device
+ b. Compatibility breaker
+
+9. Improve object model
+ a. Compatibility breaker
+</PRE>

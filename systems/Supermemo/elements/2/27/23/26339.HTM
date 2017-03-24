@@ -1,0 +1,42 @@
+<H3><SPAN id=Naming_in_QOM class=mw-headline>Naming in QOM</SPAN></H3>
+<P>In QOM, there are only two namespaces, the device namespace and the property namespace. </P>
+<P>All devices have unique names. There are no exceptions. Devices created through composition are given unique names by deriving the name based on the parent device name and a special separator, "::", that cannot be used in user supplied names. </P>
+<P>Since a bus is-a device in QOM, there is no notion of having multiple busses under the same device. A device can implement multiple bus interfaces, but can only be a single bus of any given bus interface. </P>
+<P>Device names are completely independent of pathnames. For devices that are no user created, device names should be treated as opaque blobs with absolutely no semantic meaning. </P>
+<P>All device relationships are identified as named properties. A QOM path name consists of a named device, followed by a series of properties which may or may not refer to other devices. For instance, all of the following are valid paths: </P><PRE>/i440fx/piix3/i8042/aux
+/i440fx/slot[1.0]/i8042/aux
+/i440fx/slot[1.0]/bus/piix3/i8042/aux
+</PRE>
+<P>All of these path names are interpreted as follows: </P><PRE>def resolve_pathname(pathname):
+    root, props = pathname[1:].split('/')
+    dev = find_device(root)
+    for prop in props:
+        device_name = get_property(dev, prop)
+        dev = find_device(device_name)
+    return dev
+</PRE>
+<P>In this specific example, the i440fx object has two properties that both refer to the PIIX3 device. The 'piix3' device is a property that reflects a device composition relationship. The 'slot[1.0]' property represents a device backlink relationship. </P>
+<P>The PIIX3 device has a 'i8042' property based on device composition of the PC Keyboard Controller device. It also has a device backlink property, 'bus', that points to the bus that it sits on (which is the 'i440fx' object). </P>
+<P>Finally, the PC Keyboard Controller device has an 'aux' property which is a device backlink property that can point to a PS/2 Mouse device. </P>
+<P>The full set of devices names and properties used in this example are below: </P><PRE>Type: I440FX
+Is-a: Device
+Implements: PciBus
+Name: i440fx
+Properties:
+ piix3: Composition&lt;PIIX3&gt;
+ slot[1.0]: Backlink&lt;PciDevice&gt;
+
+Type: PIIX3
+Isa-a: PciDevice
+Implements: IsaBus
+Name: i440fx::piix3
+Properties:
+ i8042: Composition&lt;I8042&gt;
+ bus: Backlink&lt;PciDevice&gt; (inherited from PciDevice)
+
+Type: I8042
+Isa-a: Device
+Implements: Ps2Controller
+Name: i440fx::piix3::i8042
+Properties:
+ aux: Backlink&lt;Ps2Mouse&gt;</PRE>
