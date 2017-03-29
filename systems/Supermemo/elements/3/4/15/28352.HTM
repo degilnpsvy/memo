@@ -1,0 +1,89 @@
+<DIV class=SECT1>
+<H1 class=SECT1><A id=NETWORK-CONFIGURATION-NFS name=NETWORK-CONFIGURATION-NFS>5.6 Network File Systems</A></H1>
+<P>At this point, you should have a working TCP/IP connection to your network. You should be able to ping other computers on your internal network and, if you have configured an appropriate gateway, you should also be able to ping computers on the Internet itself. As we know, the whole point in bringing a computer onto a network is to access information. While some people might bring a computer up on a network just for the fun of it, most people wish to be able to share files and printers. They wish to be able to access documents on the Internet or play an online game. Having TCP/IP installed and functional on your new Slackware system is a means to that end, but with just TCP/IP installed, functionality will be very rudimentary. To share files, we will have to transfer them back and forth using either FTP or SCP. We cannot browse files on our new Slackware computer from the Network Neighborhood or My Network Places icons on Windows computers. We'd like to be able to access files on other Unix machines seamlessly.</P>
+<P>Ideally, we'd like to be able to use a <SPAN class=emphasis><I class=EMPHASIS>network file system</I></SPAN> to allow us transparent access to our files on other computers. The programs that we use to interact with information stored on our computers really do not need to know on what computer a given file is stored; they just need to know that it exists and how to get to it. It is then the responsibility of the operating system to manage access to that file through the available file systems and network file systems. The two most commonly used network file systems are SMB (as implemented by Samba) and NFS.</P>
+<DIV class=SECT2>
+<H2 class=SECT2><A id=NETWORK-CONFIGURATION-NSF-SMB name=NETWORK-CONFIGURATION-NSF-SMB>5.6.1 SMB/Samba/CIFS</A></H2>
+<P>SMB (for Server Message Block) is a descendant of the older NetBIOS protocol that was initially used by IBM in their LAN Manager product. Microsoft has always been fairly interested in NetBIOS and it's successors (NetBEUI, SMB and CIFS). The Samba project has existed since 1991, when it was originally written to link an IBM PC running NetBIOS with a Unix server. These days, SMB is the preferred method for sharing file and print services over a network for virtually the entire civilized world because Windows supports it.</P>
+<P>Samba's configuration file is <TT class=FILENAME>/etc/samba/smb.conf</TT>; one of the most well commented and documented configuration files you will find anywhere. Sample shares have been setup for you to view and modify for your needs. If you need even tighter control the man page for smb.conf is indispensable. Since Samba is documented so well in the places I've mentioned above, we will not rewrite the documentation here. We will, however, quickly cover the basics.</P>
+<P><TT class=FILENAME>smb.conf</TT> is broken down into multiple sections: one section per share, and a global section for setting options that are to be used everywhere. Some options are only valid in the global section; some are only valid outside the global section. Remember that the global section can be over-ridden by any other section. Refer to the man pages for more information.</P>
+<P>You will most likely wish to edit your <TT class=FILENAME>smb.conf</TT> file to reflect the network settings in your LAN. I would suggest modifying the items listed below:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=PROGRAMLISTING>[global]
+# workgroup = NT-Domain-Name or Workgroup-Name, eg: LINUX2
+workgroup = MYGROUP
+</PRE></TD></TR></TBODY></TABLE>
+<P>Change the workgroup name to reflect the workgroup or domain name that you are using locally.</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=PROGRAMLISTING># server string is the equivalent of the NT Description field
+server string = Samba Server
+</PRE></TD></TR></TBODY></TABLE>
+<P>This will be the name of your Slackware computer displayed in the Network Neighborhood (or My Network Places) folder.</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=PROGRAMLISTING># Security mode. Most people will want user level security. See
+# security_level.txt for details. NOTE: To get the behaviour of
+# Samba-1.9.18, you'll need to use "security = share".
+security = user
+</PRE></TD></TR></TBODY></TABLE>
+<P>You'll almost certainly wish to implement user level security on your Slackware system.</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=PROGRAMLISTING># You may wish to use password encryption. Please read
+# ENCRYPTION.txt, Win95.txt and WinNT.txt in the Samba
+# documentation.
+# Do not enable this option unless you have read those documents
+encrypt passwords = yes
+</PRE></TD></TR></TBODY></TABLE>
+<P>If encrypt passwords is not enabled, you will not be able to use Samba with NT4.0, Win2k, WinXP, and Win2003. Earlier Windows operating systems did not require encryption to share files.</P>
+<P>SMB is an authenticated protocol, meaning you must supply a correct username and password in order to use this service. We tell the samba server what usernames and passwords are valid with the <TT class=COMMAND>smbpasswd</TT> command. <TT class=COMMAND>smbpasswd</TT> takes a couple of common switches to tell it to either add traditional users, or add machine users (SMB requires that you add the computers' NETBIOS names as machine users, restricting what computers one can authenticate from).</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN>Adding a user to the <TT class=FILENAME>/etc/samba/private/smbpasswd</TT> file.
+<SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>smbpasswd -a user</KBD>
+Adding a machine name to the /etc/samba/private/smbpasswd file.
+<SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>smbpasswd -a -m machine</KBD>
+</PRE></TD></TR></TBODY></TABLE>
+<P>It's important to note that a given username or machine name must already exist in the <TT class=FILENAME>/etc/passwd</TT> file. You can accomplish this simply with the <TT class=COMMAND>adduser</TT> command. Note that when using the <TT class=COMMAND>adduser</TT> command to add a machine name one must append a dollar sign (&#8220;<VAR class=LITERAL>$</VAR>&#8221;) to the machine name. This should <SPAN class=emphasis><I class=EMPHASIS>not</I></SPAN> however, be done with <TT class=COMMAND>smbpasswd</TT>. <TT class=COMMAND>smbpasswd</TT> appends the dollar sign on its own. Failing to mangle the machine name this way with <TT class=COMMAND>adduser</TT> will result in an error when adding the machine name to samba.</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN><SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>adduser machine$</KBD>
+</PRE></TD></TR></TBODY></TABLE></DIV>
+<DIV class=SECT2>
+<H2 class=SECT2><A id=NETWORK-CONFIGURATION-NFS-NFS name=NETWORK-CONFIGURATION-NFS-NFS>5.6.2 Network File System (NFS)</A></H2>
+<P>NFS (or Network File System) was originally written by Sun for their Solaris implementation of Unix. While it is significantly easier to get up and running when compared to SMB, it is also significantly less secure. The primary insecurity in NFS is that it is easy to spoof user and group id's from one machine to another. NFS is an unauthenticated protocol. Future versions of the NFS protocol are being devised that enhance security, but these are not common at the time of this writing.</P>
+<P>NFS configuration is governed by the <TT class=FILENAME>/etc/exports</TT> file. When you load the default <TT class=FILENAME>/etc/exports</TT> file into an editor, you'll see a blank file with a two line comment on top. We'll need to add a line to the exports file for each directory that we wish to export, with a listing of client workstations that will be allowed to access that file. For instance, if we wished to export directory <TT class=FILENAME>/home/foo</TT> to workstation Bar, we would simply add the line:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=PROGRAMLISTING>/home/foo Bar(rw)
+</PRE></TD></TR></TBODY></TABLE>
+<P>to our <TT class=FILENAME>/etc/exports</TT>. Below, you'll find the example from the man page for the <TT class=FILENAME>exports</TT> file:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=PROGRAMLISTING># sample /etc/exports file
+/               master(rw) trusty(rw,no_root_squash)
+/projects       proj*.local.domain(rw)
+/usr            *.local.domain(ro) @trusted(rw)
+/home/joe       pc001(rw,all_squash,anonuid=150,anongid=100)
+/pub            (ro,insecure,all_squash)
+</PRE></TD></TR></TBODY></TABLE>
+<P>As you can see, there are various options available, but most should be fairly clear from this example.</P>
+<P>NFS works under the assumption that a given user on one machine in a network has the same user ID on all machines across the network. When an attempt is made to read or write from a NFS client to an NFS server, a UID is passed as part of the read/write request. This UID is treated the same as if the read/write request originated on the local machine. As you can see, if one could arbitrarily specify a given UID when accessing resources on a remote system, Bad Things (tm) could and would happen. As a partial hedge against this, each directory is mounted with the <VAR class=OPTION>root_squash</VAR> option. This maps the UID for any user claiming to be root to a different UID, thus preventing root access to the files or folders in the exported directory. <VAR class=OPTION>root_squash</VAR> seems to be enabled by default as a security measure, but the authors recommend specifying it anyway in your <TT class=FILENAME>/etc/exports</TT> file.</P>
+<P>You can also export a directory directly from the command line on the server by using the <TT class=COMMAND>exportfs</TT> command as follows:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN><SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>exportfs -o rw,no_root_squash Bar:/home/foo</KBD>
+</PRE></TD></TR></TBODY></TABLE>
+<P>This line exports the <TT class=FILENAME>/home/foo</TT> directory to the computer &#8220;<TT class=HOSTID>Bar</TT>&#8221; and grants <TT class=HOSTID>Bar</TT> read/write access. Additionally, the NFS server will not invoke <VAR class=OPTION>root_squash</VAR>, which means any user on Bar with a UID of &#8220;0&#8221; (root's UID) will have the same privileges as root on the server. The syntax does look strange (usually when a directory is specified in <VAR class=LITERAL>computer:/directory/file</VAR> syntax, you are referring to a file in a directory on a given computer).</P>
+<P>You'll find more information on the man page for the exports file.</P></DIV></DIV>

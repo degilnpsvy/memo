@@ -1,0 +1,90 @@
+<DIV class=SECT1>
+<H1 class=SECT1><A id=NETWORK-CONFIGURATION-TCPIP name=NETWORK-CONFIGURATION-TCPIP>5.3 TCP/IP Configuration</A></H1>
+<P>At this point, your network card should be physically installed in your computer, and the relevant kernel modules should be loaded. You will not yet be able to communicate over your network card, but information about the network device can be obtained with <TT class=COMMAND>ifconfig -a</TT>.</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN><SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>ifconfig -a</KBD>
+eth0 Link encap:Ethernet HWaddr 00:A0:CC:3C:60:A4
+UP BROADCAST NOTRAILERS RUNNING MULTICAST MTU:1500 Metric:1
+RX packets:110081 errors:1 dropped:0 overruns:0 frame:0
+TX packets:84931 errors:0 dropped:0 overruns:0 carrier:0
+collisions:0 txqueuelen:100
+RX bytes:114824506 (109.5 Mb) TX bytes:9337924 (8.9 Mb)
+Interrupt:5 Base address:0x8400
+
+lo Link encap:Local Loopback
+inet addr:127.0.0.1 Mask:255.0.0.0
+UP LOOPBACK RUNNING MTU:16436 Metric:1
+RX packets:2234 errors:0 dropped:0 overruns:0 frame:0
+TX packets:2234 errors:0 dropped:0 overruns:0 carrier:0
+collisions:0 txqueuelen:0
+RX bytes:168758 (164.8 Kb) TX bytes:168758 (164.8 Kb)
+</PRE></TD></TR></TBODY></TABLE>
+<P>If you just typed <TT class=COMMAND>/sbin/ifconfig</TT> without the <VAR class=OPTION>-a</VAR> suffix, you would not see the <TT class=FILENAME>eth0</TT> interface, as your network card does not yet have a valid IP address or route.</P>
+<P>While there are many different ways to setup and subnet a network, all of them can be broken down into two types: Static and Dynamic. Static networks are setup such that each node (geek lingo for thing with an IP address) always has the same IP address. Dynamic networks are setup in such a way that the IP addresses for the nodes are controlled by a single server called the DHCP server.</P>
+<DIV class=SECT2>
+<H2 class=SECT2><A id=NETWORK-CONFIGURATION-TCPIP-DHCP name=NETWORK-CONFIGURATION-TCPIP-DHCP>5.3.1 DHCP</A></H2>
+<P>DHCP (or Dynamic Host Configuration Protocol), is a means by which an IP address may be assigned to a computer on boot. When the DHCP <SPAN class=emphasis><I class=EMPHASIS>client</I></SPAN> boots, it puts out a request on the Local Area Network for a DHCP <SPAN class=emphasis><I class=EMPHASIS>server</I></SPAN> to assign it an IP address. The DHCP server has a pool (or <SPAN class=emphasis><I class=EMPHASIS>scope</I></SPAN>) of IP addresses available. The server will respond to this request with an IP address from the pool, along with a <SPAN class=emphasis><I class=EMPHASIS>lease time</I></SPAN>. Once the lease time for a given IP address lease has expired, the client must contact the server again and repeat the negotiation.</P>
+<P>The client will then accept the IP address from the server and will configure the requested interface with the IP address. There is one more handy trick that DHCP clients use for negotiating the IP address that they will be assigned, however. The client will remember it's last assigned IP address, and will request that the server re-assign that IP address to the client again upon next negotiation. If possible, the server will do so, but if not, a new address is assigned. So, the negotiation resembles the following:</P>
+<P class=LITERALLAYOUT>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Client</I></SPAN>:&nbsp;Is&nbsp;there&nbsp;a&nbsp;DHCP&nbsp;server&nbsp;available&nbsp;on&nbsp;the&nbsp;LAN?<BR>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Server</I></SPAN>:&nbsp;Yes,&nbsp;there&nbsp;is.&nbsp;Here&nbsp;I&nbsp;am.<BR>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Client</I></SPAN>:&nbsp;I&nbsp;need&nbsp;an&nbsp;IP&nbsp;address.<BR>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Server</I></SPAN>:&nbsp;You&nbsp;may&nbsp;take&nbsp;192.168.10.10&nbsp;for&nbsp;19200&nbsp;seconds.<BR>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Client</I></SPAN>:&nbsp;Thank&nbsp;you.</P>
+<P class=LITERALLAYOUT>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Client</I></SPAN>:&nbsp;Is&nbsp;there&nbsp;a&nbsp;DHCP&nbsp;server&nbsp;available&nbsp;on&nbsp;the&nbsp;LAN?<BR>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Server</I></SPAN>:Yes,&nbsp;there&nbsp;is.&nbsp;Here&nbsp;I&nbsp;am.<BR>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Client</I></SPAN>:I&nbsp;need&nbsp;an&nbsp;IP&nbsp;address.&nbsp;The&nbsp;last&nbsp;time&nbsp;we<BR>&nbsp;&nbsp;&nbsp;&nbsp;talked,&nbsp;I&nbsp;had&nbsp;192.168.10.10;<BR>&nbsp;&nbsp;&nbsp;&nbsp;May&nbsp;I&nbsp;have&nbsp;it&nbsp;again?<BR>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Server</I></SPAN>:Yes,&nbsp;you&nbsp;may&nbsp;(or&nbsp;No,&nbsp;you&nbsp;may&nbsp;not:&nbsp;take&nbsp;192.168.10.12&nbsp;instead).<BR>&nbsp;&nbsp;&nbsp;&nbsp;<SPAN class=emphasis><I class=EMPHASIS>Client</I></SPAN>:&nbsp;Thank&nbsp;you.</P>
+<P>The DHCP client in Linux is <TT class=COMMAND>/sbin/dhcpcd</TT>. If you load <TT class=FILENAME>/etc/rc.d/rc.inet1</TT> in your favorite text editor, you will notice that <TT class=COMMAND>/sbin/dhcpcd</TT> is called about midway through the script. This will force the conversation shown above. <TT class=COMMAND>dhcpcd</TT> will also track the amount of time left on the lease for the current IP address, and will automatically contact the DHCP server with a request to renew the lease when necessary. DHCP can also control related information, such as what ntp server to use, what route to take, etc.</P>
+<P>Setting up DHCP on Slackware is simple. Just run <TT class=COMMAND>netconfig</TT> and select DHCP when offered. If you have more than one NIC and do not wish <TT class=FILENAME>eth0</TT> to be configured by DHCP, just edit the <TT class=FILENAME>/etc/rc.d/rc.inet1.conf</TT> file and change the related variable for your NIC to &#8220;<VAR class=LITERAL>YES</VAR>&#8221;.</P></DIV>
+<DIV class=SECT2>
+<H2 class=SECT2><A id=NETWORK-CONFIGURATION-TCPIP-STATIC name=NETWORK-CONFIGURATION-TCPIP-STATIC>5.3.2 Static IP</A></H2>
+<P>Static IP addresses are fixed addresses that only change if manually told to. These are used in any case where an administrator doesn't want the IP information to change, such for internal servers on a LAN, any server connected to the Internet, and networked routers. With static IP addressing, you assign an address and leave it at that. Other machines know that you are always at that certain IP address and can contact you at that address always.</P></DIV>
+<DIV class=SECT2>
+<H2 class=SECT2><A id=NETWORK-CONFIGURATION-TCPIP-CONF name=NETWORK-CONFIGURATION-TCPIP-CONF>5.3.3 <TT class=FILENAME>/etc/rc.d/rc.inet1.conf</TT></A></H2>
+<P>If you plan on assigning an IP address to your new Slackware box, you may do so either through the <TT class=FILENAME>netconfig</TT> script, or you may edit <TT class=FILENAME>/etc/rc.d/rc.inet1.conf</TT>. In <TT class=FILENAME>/etc/rc.d/rc.inet1.conf</TT> , you will notice:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=PROGRAMLISTING>    # Primary network interface card (eth0)
+    IPADDR[0]=""
+    NETMASK[0]=""
+    USE_DHCP[0]=""
+    DHCP_HOSTNAME[0]=""
+</PRE></TD></TR></TBODY></TABLE>
+<P>Then further at the bottom:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=PROGRAMLISTING>    GATEWAY=""
+</PRE></TD></TR></TBODY></TABLE>
+<P>In this case, our task is merely to place the correct information between the double-quotes. These variables are called by <TT class=FILENAME>/etc/rc.d/rc.inet1</TT> at boot time to setup the nics. For each NIC, just enter the correct IP information, or put &#8220;<VAR class=LITERAL>YES</VAR>&#8221; for <VAR class=LITERAL>USE_DHCP</VAR>. Slackware will startup the interfaces with the information placed here in the order they are found.</P>
+<P>The <VAR class=LITERAL>DEFAULT_GW</VAR> variable sets up the default route for Slackware. All communications between your computer and other computers on the Internet must pass through that gateway if no other route is specified for them. If you are using DHCP, you will usually not need to enter anything here, as the DHCP server will specify what gateway to use.</P></DIV>
+<DIV class=SECT2>
+<H2 class=SECT2><A id=NETWORK-CONFIGURATION-TCPIP-RESOLVER name=NETWORK-CONFIGURATION-TCPIP-RESOLVER>5.3.4 <TT class=FILENAME>/etc/resolv.conf</TT></A></H2>
+<P>Ok, so you've got an IP address, you've got a default gateway, you may even have ten million dollars (give us some), but what good is that if you can't resolve names to IP addresses? No one wants to type in <TT class=HOSTID>72.9.234.112</TT> into their web browser to reach <TT class=HOSTID>www.slackbook.org</TT>. After all, who other than the authors would memorize that IP address? We need to setup DNS, but how? That's where <TT class=FILENAME>/etc/resolv.conf</TT> comes into play.</P>
+<P>Chances are you already have the proper options in <TT class=FILENAME>/etc/resolv.conf</TT>. If you setup your network connection using DHCP, the DHCP server should handle updating this file for you. (Technically the DHCP server just tells <TT class=COMMAND>dhcpcd</TT> what to put here, and it obeys.) If you need to manually update your DNS server list though, you'll need to hand edit <TT class=FILENAME>/etc/resolv.conf</TT>. Below is an example:</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN><SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>cat /etc/resolv.conf</KBD>
+nameserver 192.168.1.254
+search lizella.net
+</PRE></TD></TR></TBODY></TABLE>
+<P>The first line is simple. The nameserver directive tells us what DNS servers to query. By necessity these are always IP addresses. You may have as many listed there as you like. Slackware will happily check one after the other until one returns a match.</P>
+<P>The second line is a little more interesting. The search directive gives us a list of domain names to assume whenever a DNS request is made. This allows you to contact a machine by only the first part of its FQDN (Fully Qualified Domain Name). For example, if &#8220;slackware.com&#8221; were in your search path, you could reach <TT class=HOSTID>http://store.slackware.com</TT> by just pointing your web browser at <TT class=HOSTID>http://store</TT>.</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN><SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>ping -c 1 store</KBD>
+PING store.slackware.com (69.50.233.153): 56 data bytes
+64 bytes from 69.50.233.153 : icmp_seq=0 ttl=64 time=0.251 ms
+1 packets transmitted, 1 packets received, 0% packet loss
+round-trip min/avg/max = 0.251/0.251/0.251 ms
+</PRE></TD></TR></TBODY></TABLE><BR><BR></DIV>
+<DIV class=SECT2>
+<H2 class=SECT2><A id=NETWORK-CONFIGURATION-TCPIP-HOSTS name=NETWORK-CONFIGURATION-TCPIP-HOSTS>5.3.5 <TT class=FILENAME>/etc/hosts</TT></A></H2>
+<P>Now that we've got DNS working fine, what if we want to bypass our DNS server, or add a DNS entry for a machine that isn't in DNS? Slackware includes the oft-loved <TT class=FILENAME>/etc/hosts</TT> file which contains a local list of DNS names and IP addresses they should match to.</P>
+<TABLE width="100%" bgColor=#e0e0e0 border=0>
+<TBODY>
+<TR>
+<TD><PRE class=SCREEN><SAMP class=PROMPT>#</SAMP> <KBD class=USERINPUT>cat /etc/hosts</KBD>
+127.0.0.1           localhost  locahost.localdomain
+192.168.1.101       redtail
+172.14.66.32        foobar.slackware.com
+</PRE></TD></TR></TBODY></TABLE>
+<P>Here you can see that localhost has an IP address of <TT class=HOSTID>127.0.0.1</TT> (always reserved for localhost), redtail can be reached at <TT class=HOSTID>192.168.1.101</TT>, and <TT class=HOSTID>foobar.slackware.com</TT> is <TT class=HOSTID>172.14.66.32</TT>.</P></DIV></DIV>
