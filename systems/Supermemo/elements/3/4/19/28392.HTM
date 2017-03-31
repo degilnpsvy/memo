@@ -1,0 +1,251 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both">Object methods</H2></DIV></DIV></DIV>
+<P>Just as with C++, there are many different ways to define object methods and extend them: the following list and sections draw on C++ vocabulary. (Readers are expected to know basic C++ concepts. Those who have not had to write C++ code recently can refer to e.g. <A class=ulink href="http://www.cplusplus.com/doc/tutorial/" target=_top>http://www.cplusplus.com/doc/tutorial/</A> to refresh their memories.) </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P>non-virtual public methods, </P></LI>
+<LI class=listitem>
+<P>virtual public methods and </P></LI>
+<LI class=listitem>
+<P>virtual private methods </P></LI></UL></DIV>
+<P></P>
+<DIV class=sect2>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=non-virtual-public-methods></A>Non-virtual public methods</H3></DIV></DIV></DIV>
+<P>These are the simplest, providing a simple method which acts on the object. Provide a function prototype in the header and an implementation of that prototype in the source file. </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/* declaration in the header. */</SPAN>
+<SPAN class="gtkdoc kwb">void</SPAN> <SPAN class=function>viewer_file_open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                       GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class=comment>/* implementation in the source file */</SPAN>
+<SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_file_open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                  GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL <SPAN class="gtkdoc opt">|| *</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* do stuff here. */</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P></DIV>
+<DIV class=sect2>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=virtual-public-methods></A>Virtual public methods</H3></DIV></DIV></DIV>
+<P>This is the preferred way to create GObjects with overridable methods: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P>Define the common method and its virtual function in the class structure in the public header </P></LI>
+<LI class=listitem>
+<P>Define the common method in the header file and implement it in the source file </P></LI>
+<LI class=listitem>
+<P>Implement a base version of the virtual function in the source file and initialize the virtual function pointer to this implementation in the object&#8217;s <CODE class=function>class_init</CODE> function; or leave it as <CODE class=constant>NULL</CODE> for a &#8216;pure virtual&#8217; method which must be overridden by derived classes </P></LI>
+<LI class=listitem>
+<P>Re-implement the virtual function in each derived class which needs to override it </P></LI></UL></DIV>
+<P></P>
+<P>Note that virtual functions can only be defined if the class is derivable, declared using <A title=G_DECLARE_DERIVABLE_TYPE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-DERIVABLE-TYPE:CAPS"><CODE class=function>G_DECLARE_DERIVABLE_TYPE</CODE></A> so the class structure can be defined. </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/* declaration in viewer-file.h. */</SPAN>
+<SPAN class="gtkdoc ppc">#define VIEWER_TYPE_FILE viewer_file_get_type ()</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-DERIVABLE-TYPE:CAPS">G_DECLARE_DERIVABLE_TYPE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">,</SPAN> viewer_file<SPAN class="gtkdoc opt">,</SPAN> VIEWER<SPAN class="gtkdoc opt">,</SPAN> <SPAN class="gtkdoc kwb">FILE</SPAN><SPAN class="gtkdoc opt">,</SPAN> GObject<SPAN class="gtkdoc opt">)</SPAN>
+
+<SPAN class="gtkdoc kwb">struct</SPAN> _ViewerFileClass
+<SPAN class="gtkdoc opt">{</SPAN>
+  GObjectClass parent_class<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=comment>/* stuff */</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>open<SPAN class="gtkdoc opt">) (</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* Padding to allow adding up to 12 new virtual functions without</SPAN>
+<SPAN class=comment>   * breaking ABI. */</SPAN>
+  gpointer padding<SPAN class="gtkdoc opt">[</SPAN><SPAN class=number>12</SPAN><SPAN class="gtkdoc opt">];</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN> <SPAN class=function>viewer_file_open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                       GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class=comment>/* implementation in viewer-file.c */</SPAN>
+<SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_file_open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                  GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFileClass <SPAN class="gtkdoc opt">*</SPAN>klass<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL <SPAN class="gtkdoc opt">|| *</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  klass <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_FILE_GET_CLASS</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>klass<SPAN class="gtkdoc opt">-&gt;</SPAN>open <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  klass<SPAN class="gtkdoc opt">-&gt;</SPAN><SPAN class=function>open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">,</SPAN> error<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>The code above simply redirects the <CODE class=function>open</CODE> call to the relevant virtual function. </P>
+<P>It is possible to provide a default implementation for this class method in the object's <CODE class=function>class_init</CODE> function: initialize the <CODE class=function>klass-&gt;open</CODE> field to a pointer to the actual implementation. By default, class methods that are not inherited are initialized to <CODE class=function>NULL</CODE>, and thus are to be considered "pure virtual". </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_real_close</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                        GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=comment>/* Default implementation for the virtual method. */</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_class_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFileClass <SPAN class="gtkdoc opt">*</SPAN>klass<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=comment>/* this is not necessary, except for demonstration purposes.</SPAN>
+<SPAN class=comment>   *</SPAN>
+<SPAN class=comment>   * pure virtual method: mandates implementation in children.</SPAN>
+<SPAN class=comment>   */</SPAN>
+  klass<SPAN class="gtkdoc opt">-&gt;</SPAN>open <SPAN class="gtkdoc opt">=</SPAN> NULL<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=comment>/* merely virtual method. */</SPAN>
+  klass<SPAN class="gtkdoc opt">-&gt;</SPAN>close <SPAN class="gtkdoc opt">=</SPAN> viewer_file_real_close<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_file_open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                  GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFileClass <SPAN class="gtkdoc opt">*</SPAN>klass<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL <SPAN class="gtkdoc opt">|| *</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  klass <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_FILE_GET_CLASS</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* if the method is purely virtual, then it is a good idea to</SPAN>
+<SPAN class=comment>   * check that it has been overridden before calling it, and,</SPAN>
+<SPAN class=comment>   * depending on the intent of the class, either ignore it silently</SPAN>
+<SPAN class=comment>   * or warn the user.</SPAN>
+<SPAN class=comment>   */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>klass<SPAN class="gtkdoc opt">-&gt;</SPAN>open <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+  klass<SPAN class="gtkdoc opt">-&gt;</SPAN><SPAN class=function>open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">,</SPAN> error<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_file_close</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                   GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFileClass <SPAN class="gtkdoc opt">*</SPAN>klass<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL <SPAN class="gtkdoc opt">|| *</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  klass <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_FILE_GET_CLASS</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>klass<SPAN class="gtkdoc opt">-&gt;</SPAN>close <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">)</SPAN>
+    klass<SPAN class="gtkdoc opt">-&gt;</SPAN><SPAN class=function>close</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">,</SPAN> error<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P></DIV>
+<DIV class=sect2>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=virtual-private-methods></A>Virtual private Methods</H3></DIV></DIV></DIV>
+<P>These are very similar to <A title="Virtual public methods" class=link href="https://developer.gnome.org/gobject/stable/howto-gobject-methods.html#virtual-public-methods">virtual public methods</A>. They just don't have a public function to call directly. The header file contains only a declaration of the virtual function: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/* declaration in viewer-file.h. */</SPAN>
+<SPAN class="gtkdoc kwb">struct</SPAN> _ViewerFileClass
+<SPAN class="gtkdoc opt">{</SPAN>
+  GObjectClass parent<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=comment>/* Public virtual method as before. */</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN>     <SPAN class="gtkdoc opt">(*</SPAN>open<SPAN class="gtkdoc opt">)           (</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                              GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* Private helper function to work out whether the file can be loaded via</SPAN>
+<SPAN class=comment>   * memory mapped I/O, or whether it has to be read as a stream. */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Basic-Types.html#gboolean">gboolean</A></SPAN> <SPAN class="gtkdoc opt">(*</SPAN>can_memory_map<SPAN class="gtkdoc opt">) (</SPAN>ViewerFile <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* Padding to allow adding up to 12 new virtual functions without</SPAN>
+<SPAN class=comment>   * breaking ABI. */</SPAN>
+  gpointer padding<SPAN class="gtkdoc opt">[</SPAN><SPAN class=number>12</SPAN><SPAN class="gtkdoc opt">];</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN> <SPAN class=function>viewer_file_open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN> GError <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>These virtual functions are often used to delegate part of the job to child classes: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/* this accessor function is static: it is not exported outside of this file. */</SPAN>
+<SPAN class="gtkdoc kwb">static</SPAN> gboolean 
+<SPAN class=function>viewer_file_can_memory_map</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=keyword>return</SPAN> <SPAN class=function>VIEWER_FILE_GET_CLASS</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">)-&gt;</SPAN><SPAN class=function>can_memory_map</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_file_open</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                  GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL <SPAN class="gtkdoc opt">|| *</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/*</SPAN>
+<SPAN class=comment>   * Try to load the file using memory mapped I/O, if the implementation of the</SPAN>
+<SPAN class=comment>   * class determines that is possible using its private virtual method.</SPAN>
+<SPAN class=comment>   */</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>viewer_file_can_memory_map</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">))</SPAN>
+    <SPAN class="gtkdoc opt">{</SPAN>
+      <SPAN class=comment>/* Load the file using memory mapped I/O. */</SPAN>
+    <SPAN class="gtkdoc opt">}</SPAN>
+  <SPAN class=keyword>else</SPAN>
+    <SPAN class="gtkdoc opt">{</SPAN>
+      <SPAN class=comment>/* Fall back to trying to load the file using streaming I/O&#8230; */</SPAN>
+    <SPAN class="gtkdoc opt">}</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>Again, it is possible to provide a default implementation for this private virtual function: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">static</SPAN> gboolean
+<SPAN class=function>viewer_file_real_can_memory_map</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=comment>/* As an example, always return false. Or, potentially return true if the</SPAN>
+<SPAN class=comment>   * file is local. */</SPAN>
+  <SPAN class=keyword>return</SPAN> FALSE<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_class_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFileClass <SPAN class="gtkdoc opt">*</SPAN>klass<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=comment>/* non-pure virtual method; does not have to be implemented in children. */</SPAN>
+  klass<SPAN class="gtkdoc opt">-&gt;</SPAN>can_memory_map <SPAN class="gtkdoc opt">=</SPAN> viewer_file_real_can_memory_map<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>Derived classes can then override the method with code such as: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_audio_file_class_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerAudioFileClass <SPAN class="gtkdoc opt">*</SPAN>klass<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFileClass <SPAN class="gtkdoc opt">*</SPAN>file_class <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_FILE_CLASS</SPAN> <SPAN class="gtkdoc opt">(</SPAN>klass<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* implement pure virtual function. */</SPAN>
+  file_class<SPAN class="gtkdoc opt">-&gt;</SPAN>can_memory_map <SPAN class="gtkdoc opt">=</SPAN> viewer_audio_file_can_memory_map<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV>

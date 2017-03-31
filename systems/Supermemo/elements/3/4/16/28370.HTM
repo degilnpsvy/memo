@@ -1,0 +1,67 @@
+<DIV class=sect1>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both">Conventions</H2></DIV></DIV></DIV>
+<P>There are a number of conventions users are expected to follow when creating new types which are to be exported in a header file: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P>Type names (including object names) must be at least three characters long and start with &#8216;a&#8211;z&#8217;, &#8216;A&#8211;Z&#8217; or &#8216;_&#8217;. </P></LI>
+<LI class=listitem>
+<P>Use the <CODE class=function>object_method</CODE> pattern for function names: to invoke the method named <CODE class=function>save</CODE> on an instance of object type <SPAN class=type>file</SPAN>, call <CODE class=function>file_save</CODE>. </P></LI>
+<LI class=listitem>
+<P>Use prefixing to avoid namespace conflicts with other projects. If your library (or application) is named <SPAN class=emphasis><EM>Viewer</EM></SPAN>, prefix all your function names with <SPAN class=emphasis><EM>viewer_</EM></SPAN>. For example: <CODE class=function>viewer_object_method</CODE>. </P></LI>
+<LI class=listitem>
+<P>Create a macro named <CODE class=function>PREFIX_TYPE_OBJECT</CODE> which always returns the GType for the associated object type. For an object of type <SPAN class=emphasis><EM>File</EM></SPAN> in the <SPAN class=emphasis><EM>Viewer</EM></SPAN> namespace, use: <CODE class=function>VIEWER_TYPE_FILE</CODE>. This macro is implemented using a function named <CODE class=function>prefix_object_get_type</CODE>; for example, <CODE class=function>viewer_file_get_type</CODE>. </P></LI>
+<LI class=listitem>
+<P>Use <A title=G_DECLARE_FINAL_TYPE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-FINAL-TYPE:CAPS"><CODE class=function>G_DECLARE_FINAL_TYPE</CODE></A> or <A title=G_DECLARE_DERIVABLE_TYPE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-DERIVABLE-TYPE:CAPS"><CODE class=function>G_DECLARE_DERIVABLE_TYPE</CODE></A> to define various other conventional macros for your object: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: circle">
+<LI class=listitem>
+<P><CODE class=function>PREFIX_OBJECT (obj)</CODE>, which returns a pointer of type <SPAN class=type>PrefixObject</SPAN>. This macro is used to enforce static type safety by doing explicit casts wherever needed. It also enforces dynamic type safety by doing runtime checks. It is possible to disable the dynamic type checks in production builds (see building GLib). For example, we would create <CODE class=function>VIEWER_FILE (obj)</CODE> to keep the previous example. </P></LI>
+<LI class=listitem>
+<P><CODE class=function>PREFIX_OBJECT_CLASS (klass)</CODE>, which is strictly equivalent to the previous casting macro: it does static casting with dynamic type checking of class structures. It is expected to return a pointer to a class structure of type <SPAN class=type>PrefixObjectClass</SPAN>. An example is: <CODE class=function>VIEWER_FILE_CLASS</CODE>. </P></LI>
+<LI class=listitem>
+<P><CODE class=function>PREFIX_IS_OBJECT (obj)</CODE>, which returns a <SPAN class=type>gboolean</SPAN> which indicates whether the input object instance pointer is non-<SPAN class=type>NULL</SPAN> and of type <SPAN class=type>OBJECT</SPAN>. For example, <CODE class=function>VIEWER_IS_FILE</CODE>. </P></LI>
+<LI class=listitem>
+<P><CODE class=function>PREFIX_IS_OBJECT_CLASS (klass)</CODE>, which returns a boolean if the input class pointer is a pointer to a class of type OBJECT. For example, <CODE class=function>VIEWER_IS_FILE_CLASS</CODE>. </P></LI>
+<LI class=listitem>
+<P><CODE class=function>PREFIX_OBJECT_GET_CLASS (obj)</CODE>, which returns the class pointer associated to an instance of a given type. This macro is used for static and dynamic type safety purposes (just like the previous casting macros). For example, <CODE class=function>VIEWER_FILE_GET_CLASS</CODE>. </P></LI></UL></DIV></LI></UL></DIV>
+<P>The implementation of these macros is pretty straightforward: a number of simple-to-use macros are provided in <CODE class=filename>gtype.h</CODE>. For the example we used above, we would write the following trivial code to declare the macros: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc ppc">#define VIEWER_TYPE_FILE viewer_file_get_type ()</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-FINAL-TYPE:CAPS">G_DECLARE_FINAL_TYPE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">,</SPAN> viewer_file<SPAN class="gtkdoc opt">,</SPAN> VIEWER<SPAN class="gtkdoc opt">,</SPAN> <SPAN class="gtkdoc kwb">FILE</SPAN><SPAN class="gtkdoc opt">,</SPAN> GObject<SPAN class="gtkdoc opt">)</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>Unless your code has special requirements, you can use the <CODE class=function><A title=G_DEFINE_TYPE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-TYPE:CAPS">G_DEFINE_TYPE</A></CODE> macro to define a class: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-TYPE:CAPS">G_DEFINE_TYPE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">,</SPAN> viewer_file<SPAN class="gtkdoc opt">,</SPAN> G_TYPE_OBJECT<SPAN class="gtkdoc opt">)</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>Otherwise, the <CODE class=function>viewer_file_get_type</CODE> function must be implemented manually: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting>GType <SPAN class=function>viewer_file_get_type</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class="gtkdoc kwb">static</SPAN> GType type <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>type <SPAN class="gtkdoc opt">==</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">) {</SPAN>
+    <SPAN class="gtkdoc kwb">const</SPAN> GTypeInfo info <SPAN class="gtkdoc opt">= {</SPAN>
+      <SPAN class=comment>/* You fill this structure. */</SPAN>
+    <SPAN class="gtkdoc opt">};</SPAN>
+    type <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-static">g_type_register_static</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>G_TYPE_OBJECT<SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class=string>"ViewerFile"</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class="gtkdoc opt">&amp;</SPAN>info<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc opt">}</SPAN>
+  <SPAN class=keyword>return</SPAN> type<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P></DIV>
+<DIV class=footer>
+<HR>
+</DIV>

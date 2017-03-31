@@ -1,0 +1,121 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title>How to define and implement a new GObject</H2></DIV></DIV></DIV>
+<DIV class=toc>
+<DL class=toc>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-gobject.html#howto-gobject-header">Boilerplate header code</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-gobject-code.html">Boilerplate code</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-gobject-construction.html">Object construction</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-gobject-destruction.html">Object destruction</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-gobject-methods.html">Object methods</A></SPAN></DT>
+<DD>
+<DL>
+<DT><SPAN class=sect2><A href="https://developer.gnome.org/gobject/stable/howto-gobject-methods.html#non-virtual-public-methods">Non-virtual public methods</A></SPAN></DT>
+<DT><SPAN class=sect2><A href="https://developer.gnome.org/gobject/stable/howto-gobject-methods.html#virtual-public-methods">Virtual public methods</A></SPAN></DT>
+<DT><SPAN class=sect2><A href="https://developer.gnome.org/gobject/stable/howto-gobject-methods.html#virtual-private-methods">Virtual private Methods</A></SPAN></DT></DL></DD>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-gobject-chainup.html">Chaining up</A></SPAN></DT></DL></DIV>
+<P>This chapter focuses on the implementation of a subtype of GObject, for example to create a custom class hierarchy, or to subclass a GTK+ widget. </P>
+<P>Throughout the chapter, a running example of a file viewer program is used, which has a <SPAN class=type>ViewerFile</SPAN> class to represent a single file being viewed, and various derived classes for different types of files with special functionality, such as audio files. The example application also supports editing files (for example, to tweak a photo being viewed), using a <SPAN class=type>ViewerEditable</SPAN> interface. </P>
+<DIV class=sect1>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=howto-gobject-header></A>Boilerplate header code</H2></DIV></DIV></DIV>
+<P>The first step before writing the code for your GObject is to write the type's header which contains the needed type, function and macro definitions. Each of these elements is nothing but a convention which is followed by almost all users of GObject, and has been refined over multiple years of experience developing GObject-based code. If you are writing a library, it is particularly important for you to adhere closely to these conventions; users of your library will assume that you have. Even if not writing a library, it will help other people who want to work on your project. </P>
+<P>Pick a name convention for your headers and source code and stick to it: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P>use a dash to separate the prefix from the typename: <CODE class=filename>viewer-file.h</CODE> and <CODE class=filename>viewer-file.c</CODE> (this is the convention used by Nautilus and most GNOME libraries).</P></LI>
+<LI class=listitem>
+<P>use an underscore to separate the prefix from the typename: <CODE class=filename>viewer_file.h</CODE> and <CODE class=filename>viewer_file.c</CODE>.</P></LI>
+<LI class=listitem>
+<P>Do not separate the prefix from the typename: <CODE class=filename>viewerfile.h</CODE> and <CODE class=filename>viewerfile.c</CODE>. (this is the convention used by GTK+)</P></LI></UL></DIV>
+<P>Some people like the first two solutions better: it makes reading file names easier for those with poor eyesight. </P>
+<P>The basic conventions for any header which exposes a GType are described in <A title=Conventions class=xref href="https://developer.gnome.org/gobject/stable/gtype-conventions.html">the section called &#8220;Conventions&#8221;</A>. </P>
+<P>If you want to declare a type named &#8216;file&#8217; in namespace &#8216;viewer&#8217;, name the type instance <CODE class=function>ViewerFile</CODE> and its class <CODE class=function>ViewerFileClass</CODE> (names are case sensitive). The recommended method of declaring a type differs based on whether the type is final or derivable. </P>
+<P>Final types cannot be subclassed further, and should be the default choice for new types &#8212; changing a final type to be derivable is always a change that will be compatible with existing uses of the code, but the converse will often cause problems. Final types are declared using <A title=G_DECLARE_FINAL_TYPE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-FINAL-TYPE:CAPS"><CODE class=function>G_DECLARE_FINAL_TYPE</CODE></A>, and require a structure to hold the instance data to be declared in the source code (not the header file). </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Copyright/Licensing information.</SPAN>
+<SPAN class=comment> */</SPAN>
+
+<SPAN class=comment>/* inclusion guard */</SPAN>
+<SPAN class="gtkdoc ppc">#ifndef __VIEWER_FILE_H__</SPAN>
+<SPAN class="gtkdoc ppc">#define __VIEWER_FILE_H__</SPAN>
+
+<SPAN class="gtkdoc ppc">#include &lt;glib-object.h&gt;</SPAN>
+<SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Potentially, include other headers on which this header depends.</SPAN>
+<SPAN class=comment> */</SPAN>
+
+G_BEGIN_DECLS
+
+<SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Type declaration.</SPAN>
+<SPAN class=comment> */</SPAN>
+<SPAN class="gtkdoc ppc">#define VIEWER_TYPE_FILE viewer_file_get_type ()</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-FINAL-TYPE:CAPS">G_DECLARE_FINAL_TYPE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">,</SPAN> viewer_file<SPAN class="gtkdoc opt">,</SPAN> VIEWER<SPAN class="gtkdoc opt">,</SPAN> <SPAN class="gtkdoc kwb">FILE</SPAN><SPAN class="gtkdoc opt">,</SPAN> GObject<SPAN class="gtkdoc opt">)</SPAN>
+
+<SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Method definitions.</SPAN>
+<SPAN class=comment> */</SPAN>
+ViewerFile <SPAN class="gtkdoc opt">*</SPAN><SPAN class=function>viewer_file_new</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+G_END_DECLS
+
+<SPAN class="gtkdoc ppc">#endif</SPAN> <SPAN class=comment>/* __VIEWER_FILE_H__ */</SPAN><SPAN class="gtkdoc ppc"></SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>Derivable types <SPAN class=emphasis><EM>can</EM></SPAN> be subclassed further, and their class and instance structures form part of the public API which must not be changed if API stability is cared about. They are declared using <A title=G_DECLARE_DERIVABLE_TYPE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-DERIVABLE-TYPE:CAPS"><CODE class=function>G_DECLARE_DERIVABLE_TYPE</CODE></A>: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Copyright/Licensing information.</SPAN>
+<SPAN class=comment> */</SPAN>
+
+<SPAN class=comment>/* inclusion guard */</SPAN>
+<SPAN class="gtkdoc ppc">#ifndef __VIEWER_FILE_H__</SPAN>
+<SPAN class="gtkdoc ppc">#define __VIEWER_FILE_H__</SPAN>
+
+<SPAN class="gtkdoc ppc">#include &lt;glib-object.h&gt;</SPAN>
+<SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Potentially, include other headers on which this header depends.</SPAN>
+<SPAN class=comment> */</SPAN>
+
+G_BEGIN_DECLS
+
+<SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Type declaration.</SPAN>
+<SPAN class=comment> */</SPAN>
+<SPAN class="gtkdoc ppc">#define VIEWER_TYPE_FILE viewer_file_get_type ()</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-DERIVABLE-TYPE:CAPS">G_DECLARE_DERIVABLE_TYPE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">,</SPAN> viewer_file<SPAN class="gtkdoc opt">,</SPAN> VIEWER<SPAN class="gtkdoc opt">,</SPAN> <SPAN class="gtkdoc kwb">FILE</SPAN><SPAN class="gtkdoc opt">,</SPAN> GObject<SPAN class="gtkdoc opt">)</SPAN>
+
+<SPAN class="gtkdoc kwb">struct</SPAN> _ViewerFileClass
+<SPAN class="gtkdoc opt">{</SPAN>
+  GObjectClass parent_class<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=comment>/* Class virtual function fields. */</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN> open<SPAN class="gtkdoc opt">) (</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>file<SPAN class="gtkdoc opt">,</SPAN>
+                 GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* Padding to allow adding up to 12 new virtual functions without</SPAN>
+<SPAN class=comment>   * breaking ABI. */</SPAN>
+  gpointer padding<SPAN class="gtkdoc opt">[</SPAN><SPAN class=number>12</SPAN><SPAN class="gtkdoc opt">];</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN>
+
+<SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Method definitions.</SPAN>
+<SPAN class=comment> */</SPAN>
+ViewerFile <SPAN class="gtkdoc opt">*</SPAN><SPAN class=function>viewer_file_new</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+G_END_DECLS
+
+<SPAN class="gtkdoc ppc">#endif</SPAN> <SPAN class=comment>/* __VIEWER_FILE_H__ */</SPAN><SPAN class="gtkdoc ppc"></SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>The convention for header includes is to add the minimum number of <CODE class=function>#include</CODE> directives to the top of your headers needed to compile that header. This allows client code to simply <CODE class=function>#include "viewer-file.h"</CODE>, without needing to know the prerequisites for <CODE class=filename>viewer-file.h</CODE>. </P></DIV>

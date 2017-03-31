@@ -1,0 +1,129 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title>How to define and implement interfaces</H2></DIV></DIV></DIV>
+<DIV class=toc>
+<DL class=toc>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-interface.html#howto-interface-define">Defining interfaces</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-interface-implement.html">Implementing interfaces</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-interface-prerequisite.html">Interface definition prerequisites</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-interface-properties.html">Interface properties</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/howto-interface-override.html">Overriding interface methods</A></SPAN></DT></DL></DIV>
+<DIV class=sect1>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=howto-interface-define></A>Defining interfaces</H2></DIV></DIV></DIV>
+<P>The theory behind how GObject interfaces work is given in <A title="Non-instantiable classed types: interfaces" class=xref href="https://developer.gnome.org/gobject/stable/gtype-non-instantiable-classed.html">the section called &#8220;Non-instantiable classed types: interfaces&#8221;</A>; this section covers how to define and implement an interface. </P>
+<P>The first step is to get the header right. This interface defines two methods: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/*</SPAN>
+<SPAN class=comment> * Copyright/Licensing information.</SPAN>
+<SPAN class=comment> */</SPAN>
+
+<SPAN class="gtkdoc ppc">#ifndef __VIEWER_EDITABLE_H__</SPAN>
+<SPAN class="gtkdoc ppc">#define __VIEWER_EDITABLE_H__</SPAN>
+
+<SPAN class="gtkdoc ppc">#include &lt;glib-object.h&gt;</SPAN>
+
+G_BEGIN_DECLS
+
+<SPAN class="gtkdoc ppc">#define VIEWER_TYPE_EDITABLE viewer_editable_get_type ()</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-INTERFACE:CAPS">G_DECLARE_INTERFACE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable<SPAN class="gtkdoc opt">,</SPAN> viewer_editable<SPAN class="gtkdoc opt">,</SPAN> VIEWER<SPAN class="gtkdoc opt">,</SPAN> EDITABLE<SPAN class="gtkdoc opt">,</SPAN> GObject<SPAN class="gtkdoc opt">)</SPAN>
+
+<SPAN class="gtkdoc kwb">struct</SPAN> _ViewerEditableInterface
+<SPAN class="gtkdoc opt">{</SPAN>
+  GTypeInterface parent_iface<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>save<SPAN class="gtkdoc opt">) (</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                GError         <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>undo<SPAN class="gtkdoc opt">) (</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                guint            n_steps<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>redo<SPAN class="gtkdoc opt">) (</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                guint            n_steps<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN> <SPAN class=function>viewer_editable_save</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                           GError         <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc kwb">void</SPAN> <SPAN class=function>viewer_editable_undo</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                           guint            n_steps<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc kwb">void</SPAN> <SPAN class=function>viewer_editable_redo</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                           guint            n_steps<SPAN class="gtkdoc opt">);</SPAN>
+
+G_END_DECLS
+
+<SPAN class="gtkdoc ppc">#endif</SPAN> <SPAN class=comment>/* __VIEWER_EDITABLE_H__ */</SPAN><SPAN class="gtkdoc ppc"></SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>This code is the same as the code for a normal <A title=GType class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType"><SPAN class=type>GType</SPAN></A> which derives from a <A class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#GObject"><SPAN class=type>GObject</SPAN></A> except for a few details: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P>The <CODE class=function>_GET_CLASS</CODE> function is called <CODE class=function>_GET_IFACE</CODE> (and is defined by <A title=G_DECLARE_INTERFACE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-INTERFACE:CAPS"><CODE class=function>G_DECLARE_INTERFACE</CODE></A>). </P></LI>
+<LI class=listitem>
+<P>The instance type, <SPAN class=type>ViewerEditable</SPAN>, is not fully defined: it is used merely as an abstract type which represents an instance of whatever object which implements the interface. </P></LI>
+<LI class=listitem>
+<P>The parent of the <SPAN class=type>ViewerEditableInterface</SPAN> is <SPAN class=type>GTypeInterface</SPAN>, not <SPAN class=type>GObjectClass</SPAN>. </P></LI></UL></DIV>
+<P></P>
+<P>The implementation of the <SPAN class=type>ViewerEditable</SPAN> type itself is trivial: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P><CODE class=function><A title=G_DEFINE_INTERFACE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-INTERFACE:CAPS">G_DEFINE_INTERFACE</A></CODE> creates a <CODE class=function>viewer_editable_get_type</CODE> function which registers the type in the type system. The third argument is used to define a <A title="Interface definition prerequisites" class=link href="https://developer.gnome.org/gobject/stable/howto-interface-prerequisite.html">prerequisite interface</A> (which we'll talk about more later). Just pass <CODE class=code>0</CODE> for this argument when an interface has no prerequisite. </P></LI>
+<LI class=listitem>
+<P><CODE class=function>viewer_editable_default_init</CODE> is expected to register the interface's signals if there are any (we will see a bit later how to use them).</P></LI>
+<LI class=listitem>
+<P>The interface methods <CODE class=function>viewer_editable_save</CODE>, <CODE class=function>viewer_editable_undo</CODE> and <CODE class=function>viewer_editable_redo</CODE> dereference the interface structure to access its associated interface function and call it. </P></LI></UL></DIV>
+<P></P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-INTERFACE:CAPS">G_DEFINE_INTERFACE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable<SPAN class="gtkdoc opt">,</SPAN> viewer_editable<SPAN class="gtkdoc opt">,</SPAN> G_TYPE_OBJECT<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_editable_default_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditableInterface <SPAN class="gtkdoc opt">*</SPAN>iface<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+    <SPAN class=comment>/* add properties and signals to the interface here */</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_editable_save</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                      GError         <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerEditableInterface <SPAN class="gtkdoc opt">*</SPAN>iface<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_EDITABLE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL <SPAN class="gtkdoc opt">|| *</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  iface <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_EDITABLE_GET_IFACE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>iface<SPAN class="gtkdoc opt">-&gt;</SPAN>save <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+  iface<SPAN class="gtkdoc opt">-&gt;</SPAN><SPAN class=function>save</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">,</SPAN> error<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_editable_undo</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                      guint           n_steps<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerEditableInterface <SPAN class="gtkdoc opt">*</SPAN>iface<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_EDITABLE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+
+  iface <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_EDITABLE_GET_IFACE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>iface<SPAN class="gtkdoc opt">-&gt;</SPAN>undo <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+  iface<SPAN class="gtkdoc opt">-&gt;</SPAN><SPAN class=function>undo</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">,</SPAN> n_steps<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_editable_redo</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                      guint           n_steps<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerEditableInterface <SPAN class="gtkdoc opt">*</SPAN>iface<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_EDITABLE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+
+  iface <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_EDITABLE_GET_IFACE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>iface<SPAN class="gtkdoc opt">-&gt;</SPAN>redo <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+  iface<SPAN class="gtkdoc opt">-&gt;</SPAN><SPAN class=function>redo</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">,</SPAN> n_steps<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV></DIV>

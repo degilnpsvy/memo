@@ -1,0 +1,155 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both">Object properties</H2></DIV></DIV></DIV>
+<P>One of GObject's nice features is its generic get/set mechanism for object properties. When an object is instantiated, the object's <CODE class=function>class_init</CODE> handler should be used to register the object's properties with <CODE class=function><A title=g_object_class_install_properties&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-class-install-properties">g_object_class_install_properties</A></CODE>. </P>
+<P>The best way to understand how object properties work is by looking at a real example of how it is used: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/************************************************/</SPAN>
+<SPAN class=comment>/* Implementation                               */</SPAN>
+<SPAN class=comment>/************************************************/</SPAN>
+
+<SPAN class="gtkdoc kwb">enum</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  PROP_FILENAME <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>1</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+  PROP_ZOOM_LEVEL<SPAN class="gtkdoc opt">,</SPAN>
+  N_PROPERTIES
+<SPAN class="gtkdoc opt">};</SPAN>
+
+<SPAN class="gtkdoc kwb">static</SPAN> GParamSpec <SPAN class="gtkdoc opt">*</SPAN>obj_properties<SPAN class="gtkdoc opt">[</SPAN>N_PROPERTIES<SPAN class="gtkdoc opt">] = {</SPAN> NULL<SPAN class="gtkdoc opt">, };</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_set_property</SPAN> <SPAN class="gtkdoc opt">(</SPAN>GObject      <SPAN class="gtkdoc opt">*</SPAN>object<SPAN class="gtkdoc opt">,</SPAN>
+                          guint         property_id<SPAN class="gtkdoc opt">,</SPAN>
+                          <SPAN class="gtkdoc kwb">const</SPAN> GValue <SPAN class="gtkdoc opt">*</SPAN>value<SPAN class="gtkdoc opt">,</SPAN>
+                          GParamSpec   <SPAN class="gtkdoc opt">*</SPAN>pspec<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFile <SPAN class="gtkdoc opt">*</SPAN>self <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>object<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=keyword>switch</SPAN> <SPAN class="gtkdoc opt">(</SPAN>property_id<SPAN class="gtkdoc opt">)</SPAN>
+    <SPAN class="gtkdoc opt">{</SPAN>
+    <SPAN class=keyword>case</SPAN> PROP_FILENAME<SPAN class="gtkdoc opt">:</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Memory-Allocation.html#g-free">g_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">-&gt;</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>filename<SPAN class="gtkdoc opt">);</SPAN>
+      self<SPAN class="gtkdoc opt">-&gt;</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>filename <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-value-dup-string">g_value_dup_string</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"filename: %s</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> self<SPAN class="gtkdoc opt">-&gt;</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>filename<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=keyword>break</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+
+    <SPAN class=keyword>case</SPAN> PROP_ZOOM_LEVEL<SPAN class="gtkdoc opt">:</SPAN>
+      self<SPAN class="gtkdoc opt">-&gt;</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>zoom_level <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-value-get-uint">g_value_get_uint</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"zoom level: %u</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">,</SPAN> self<SPAN class="gtkdoc opt">-&gt;</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>zoom_level<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=keyword>break</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+
+    <SPAN class=keyword>default</SPAN><SPAN class="gtkdoc opt">:</SPAN>
+      <SPAN class=comment>/* We don't have any other property... */</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT-WARN-INVALID-PROPERTY-ID:CAPS">G_OBJECT_WARN_INVALID_PROPERTY_ID</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>object<SPAN class="gtkdoc opt">,</SPAN> property_id<SPAN class="gtkdoc opt">,</SPAN> pspec<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=keyword>break</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+    <SPAN class="gtkdoc opt">}</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_get_property</SPAN> <SPAN class="gtkdoc opt">(</SPAN>GObject    <SPAN class="gtkdoc opt">*</SPAN>object<SPAN class="gtkdoc opt">,</SPAN>
+                          guint       property_id<SPAN class="gtkdoc opt">,</SPAN>
+                          GValue     <SPAN class="gtkdoc opt">*</SPAN>value<SPAN class="gtkdoc opt">,</SPAN>
+                          GParamSpec <SPAN class="gtkdoc opt">*</SPAN>pspec<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFile <SPAN class="gtkdoc opt">*</SPAN>self <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>object<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=keyword>switch</SPAN> <SPAN class="gtkdoc opt">(</SPAN>property_id<SPAN class="gtkdoc opt">)</SPAN>
+    <SPAN class="gtkdoc opt">{</SPAN>
+    <SPAN class=keyword>case</SPAN> PROP_FILENAME<SPAN class="gtkdoc opt">:</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-value-set-string">g_value_set_string</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value<SPAN class="gtkdoc opt">,</SPAN> self<SPAN class="gtkdoc opt">-&gt;</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>filename<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=keyword>break</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+
+    <SPAN class=keyword>case</SPAN> PROP_ZOOM_LEVEL<SPAN class="gtkdoc opt">:</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-value-set-uint">g_value_set_uint</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>value<SPAN class="gtkdoc opt">,</SPAN> self<SPAN class="gtkdoc opt">-&gt;</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>zoom_level<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=keyword>break</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+
+    <SPAN class=keyword>default</SPAN><SPAN class="gtkdoc opt">:</SPAN>
+      <SPAN class=comment>/* We don't have any other property... */</SPAN>
+      <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT-WARN-INVALID-PROPERTY-ID:CAPS">G_OBJECT_WARN_INVALID_PROPERTY_ID</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>object<SPAN class="gtkdoc opt">,</SPAN> property_id<SPAN class="gtkdoc opt">,</SPAN> pspec<SPAN class="gtkdoc opt">);</SPAN>
+      <SPAN class=keyword>break</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+    <SPAN class="gtkdoc opt">}</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_class_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFileClass <SPAN class="gtkdoc opt">*</SPAN>klass<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  GObjectClass <SPAN class="gtkdoc opt">*</SPAN>object_class <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT-CLASS:CAPS">G_OBJECT_CLASS</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>klass<SPAN class="gtkdoc opt">);</SPAN>
+
+  object_class<SPAN class="gtkdoc opt">-&gt;</SPAN>set_property <SPAN class="gtkdoc opt">=</SPAN> viewer_file_set_property<SPAN class="gtkdoc opt">;</SPAN>
+  object_class<SPAN class="gtkdoc opt">-&gt;</SPAN>get_property <SPAN class="gtkdoc opt">=</SPAN> viewer_file_get_property<SPAN class="gtkdoc opt">;</SPAN>
+
+  obj_properties<SPAN class="gtkdoc opt">[</SPAN>PROP_FILENAME<SPAN class="gtkdoc opt">] =</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-param-spec-string">g_param_spec_string</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"filename"</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                         <SPAN class=string>"Filename"</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                         <SPAN class=string>"Name of the file to load and display from."</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                         NULL  <SPAN class=comment>/* default value */</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                         G_PARAM_CONSTRUCT_ONLY <SPAN class="gtkdoc opt">|</SPAN> G_PARAM_READWRITE<SPAN class="gtkdoc opt">));</SPAN>
+
+  obj_properties<SPAN class="gtkdoc opt">[</SPAN>PROP_ZOOM_LEVEL<SPAN class="gtkdoc opt">] =</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-param-spec-uint">g_param_spec_uint</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"zoom-level"</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                       <SPAN class=string>"Zoom level"</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                       <SPAN class=string>"Zoom level to view the file at."</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                       <SPAN class=number>0</SPAN>  <SPAN class=comment>/* minimum value */</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                       <SPAN class=number>10</SPAN> <SPAN class=comment>/* maximum value */</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                       <SPAN class=number>2</SPAN>  <SPAN class=comment>/* default value */</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                       G_PARAM_READWRITE<SPAN class="gtkdoc opt">));</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-class-install-properties">g_object_class_install_properties</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>object_class<SPAN class="gtkdoc opt">,</SPAN>
+                                     N_PROPERTIES<SPAN class="gtkdoc opt">,</SPAN>
+                                     obj_properties<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class=comment>/************************************************/</SPAN>
+<SPAN class=comment>/* Use                                          */</SPAN>
+<SPAN class=comment>/************************************************/</SPAN>
+
+ViewerFile <SPAN class="gtkdoc opt">*</SPAN>file<SPAN class="gtkdoc opt">;</SPAN>
+GValue val <SPAN class="gtkdoc opt">=</SPAN> G_VALUE_INIT<SPAN class="gtkdoc opt">;</SPAN>
+
+file <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-new">g_object_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>VIEWER_TYPE_FILE<SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-init">g_value_init</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>val<SPAN class="gtkdoc opt">,</SPAN> G_TYPE_UINT<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-value-set-char">g_value_set_char</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>val<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>11</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set-property">g_object_set_property</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT:CAPS">G_OBJECT</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>file<SPAN class="gtkdoc opt">),</SPAN> <SPAN class=string>"zoom-level"</SPAN><SPAN class="gtkdoc opt">, &amp;</SPAN>val<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-unset">g_value_unset</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>val<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>The client code above looks simple but a lot of things happen under the hood: </P>
+<P><CODE class=function><A title=g_object_set_property&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set-property">g_object_set_property</A></CODE> first ensures a property with this name was registered in <SPAN class=emphasis><EM>file</EM></SPAN>'s <CODE class=function>class_init</CODE> handler. If so it walks the class hierarchy, from bottom-most most-derived type, to top-most fundamental type to find the class which registered that property. It then tries to convert the user-provided <A title=GValue class=link href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#GValue"><SPAN class=type>GValue</SPAN></A> into a <SPAN class=type>GValue</SPAN> whose type is that of the associated property. </P>
+<P>If the user provides a <SPAN class=type>signed char</SPAN> <SPAN class=type>GValue</SPAN>, as is shown here, and if the object's property was registered as an <SPAN class=type>unsigned int</SPAN>, <CODE class=function><A title=g_value_transform&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-transform">g_value_transform</A></CODE> will try to transform the input signed char into an unsigned int. Of course, the success of the transformation depends on the availability of the required transform function. In practice, there will almost always be a transformation <A class=footnote href="https://developer.gnome.org/gobject/stable/gobject-properties.html#ftn.id-1.3.4.6.5.5" name=id-1.3.4.6.5.5><SUP class=footnote>[2]</SUP></A> which matches and conversion will be carried out if needed. </P>
+<P>After transformation, the <A title=GValue class=link href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#GValue"><SPAN class=type>GValue</SPAN></A> is validated by <CODE class=function><A title=g_param_value_validate&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-GParamSpec.html#g-param-value-validate">g_param_value_validate</A></CODE> which makes sure the user's data stored in the <A title=GValue class=link href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#GValue"><SPAN class=type>GValue</SPAN></A> matches the characteristics specified by the property's <A title="struct GParamSpec" class=link href="https://developer.gnome.org/gobject/stable/gobject-GParamSpec.html#GParamSpec"><SPAN class=type>GParamSpec</SPAN></A>. Here, the <A title="struct GParamSpec" class=link href="https://developer.gnome.org/gobject/stable/gobject-GParamSpec.html#GParamSpec"><SPAN class=type>GParamSpec</SPAN></A> we provided in <CODE class=function>class_init</CODE> has a validation function which makes sure that the GValue contains a value which respects the minimum and maximum bounds of the <A title="struct GParamSpec" class=link href="https://developer.gnome.org/gobject/stable/gobject-GParamSpec.html#GParamSpec"><SPAN class=type>GParamSpec</SPAN></A>. In the example above, the client's GValue does not respect these constraints (it is set to 11, while the maximum is 10). As such, the <CODE class=function><A title=g_object_set_property&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set-property">g_object_set_property</A></CODE> function will return with an error. </P>
+<P>If the user's GValue had been set to a valid value, <CODE class=function><A title=g_object_set_property&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set-property">g_object_set_property</A></CODE> would have proceeded with calling the object's <CODE class=function>set_property</CODE> class method. Here, since our implementation of <SPAN class=type>ViewerFile</SPAN> did override this method, execution would jump to <CODE class=function>viewer_file_set_property</CODE> after having retrieved from the <A title="struct GParamSpec" class=link href="https://developer.gnome.org/gobject/stable/gobject-GParamSpec.html#GParamSpec"><SPAN class=type>GParamSpec</SPAN></A> the <SPAN class=emphasis><EM>param_id</EM></SPAN> <A class=footnote href="https://developer.gnome.org/gobject/stable/gobject-properties.html#ftn.id-1.3.4.6.7.7" name=id-1.3.4.6.7.7><SUP class=footnote>[3]</SUP></A> which had been stored by <CODE class=function><A title=g_object_class_install_property&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-class-install-property">g_object_class_install_property</A></CODE>. </P>
+<P>Once the property has been set by the object's <CODE class=function>set_property</CODE> class method, execution returns to <CODE class=function><A title=g_object_set_property&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set-property">g_object_set_property</A></CODE> which makes sure that the "notify" signal is emitted on the object's instance with the changed property as parameter unless notifications were frozen by <CODE class=function><A title=g_object_freeze_notify&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-freeze-notify">g_object_freeze_notify</A></CODE>. </P>
+<P><CODE class=function><A title=g_object_thaw_notify&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-thaw-notify">g_object_thaw_notify</A></CODE> can be used to re-enable notification of property modifications through the <A title="The &#8220;notify&#8221; signal" class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#GObject-notify"><SPAN class=type>&#8220;notify&#8221;</SPAN></A> signal. It is important to remember that even if properties are changed while property change notification is frozen, the "notify" signal will be emitted once for each of these changed properties as soon as the property change notification is thawed: no property change is lost for the "notify" signal, although multiple notifications for a single property are compressed. Signals can only be delayed by the notification freezing mechanism. </P>
+<P>It sounds like a tedious task to set up GValues every time when one wants to modify a property. In practice one will rarely do this. The functions <CODE class=function><A title=g_object_set_property&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set-property">g_object_set_property</A></CODE> and <CODE class=function><A title=g_object_get_property&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-get-property">g_object_get_property</A></CODE> are meant to be used by language bindings. For application there is an easier way and that is described next. </P>
+<DIV class=sect2>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=gobject-multi-properties></A>Accessing multiple properties at once</H3></DIV></DIV></DIV>
+<P>It is interesting to note that the <CODE class=function><A title=g_object_set&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set">g_object_set</A></CODE> and <CODE class=function><A title=g_object_set_valist&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set-valist">g_object_set_valist</A></CODE> (variadic version) functions can be used to set multiple properties at once. The client code shown above can then be re-written as: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting>ViewerFile <SPAN class="gtkdoc opt">*</SPAN>file<SPAN class="gtkdoc opt">;</SPAN>
+file <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=comment>/* */</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set">g_object_set</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT:CAPS">G_OBJECT</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>file<SPAN class="gtkdoc opt">),</SPAN>
+              <SPAN class=string>"zoom-level"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>6</SPAN><SPAN class="gtkdoc opt">,</SPAN> 
+              <SPAN class=string>"filename"</SPAN><SPAN class="gtkdoc opt">,</SPAN> <SPAN class=string>"~/some-file.txt"</SPAN><SPAN class="gtkdoc opt">,</SPAN> 
+              NULL<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>This saves us from managing the GValues that we were needing to handle when using <CODE class=function><A title=g_object_set_property&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set-property">g_object_set_property</A></CODE>. The code above will trigger one notify signal emission for each property modified. </P>
+<P>Equivalent <CODE class=function>_get</CODE> versions are also available: <CODE class=function><A title=g_object_get&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-get">g_object_get</A></CODE> and <CODE class=function><A title=g_object_get_valist&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-get-valist">g_object_get_valist</A></CODE> (variadic version) can be used to get numerous properties at once. </P>
+<P>These high level functions have one drawback &#8212; they don't provide a return value. One should pay attention to the argument types and ranges when using them. A known source of errors is to pass a different type from what the property expects; for instance, passing an integer when the property expects a floating point value and thus shifting all subsequent parameters by some number of bytes. Also forgetting the terminating <CODE class=literal>NULL</CODE> will lead to undefined behaviour. </P>
+<P>This explains how <CODE class=function><A title=g_object_new&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-new">g_object_new</A></CODE>, <CODE class=function><A title=g_object_newv&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-newv">g_object_newv</A></CODE> and <CODE class=function><A title=g_object_new_valist&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-new-valist">g_object_new_valist</A></CODE> work: they parse the user-provided variable number of parameters and invoke <CODE class=function><A title=g_object_set&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-set">g_object_set</A></CODE> on the parameters only after the object has been successfully constructed. The "notify" signal will be emitted for each property set. </P></DIV>
+<DIV class=footnotes><BR>
+<HR style="WIDTH: 100px; TEXT-ALIGN: left; MARGIN-LEFT: 0px">
+
+<DIV id=ftn.id-1.3.4.6.5.5 class=footnote>
+<P><A class=para href="https://developer.gnome.org/gobject/stable/gobject-properties.html#id-1.3.4.6.5.5"><SUP class=para>[2] </SUP></A>Its behaviour might not be what you expect but it is up to you to actually avoid relying on these transformations. </P></DIV>
+<DIV id=ftn.id-1.3.4.6.7.7 class=footnote>
+<P><A class=para href="https://developer.gnome.org/gobject/stable/gobject-properties.html#id-1.3.4.6.7.7"><SUP class=para>[3] </SUP></A>It should be noted that the param_id used here need only to uniquely identify each <A title="struct GParamSpec" class=link href="https://developer.gnome.org/gobject/stable/gobject-GParamSpec.html#GParamSpec"><SPAN class=type>GParamSpec</SPAN></A> within the <SPAN class=type>ViewerFileClass</SPAN> such that the switch used in the set and get methods actually works. Of course, this locally-unique integer is purely an optimization: it would have been possible to use a set of <SPAN class=emphasis><EM>if (strcmp (a, b) == 0) {} else if (strcmp (a, b) == 0) {}</EM></SPAN> statements. </P></DIV></DIV>

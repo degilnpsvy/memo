@@ -1,0 +1,51 @@
+<DIV class=sect1>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both">Chaining up</H2></DIV></DIV></DIV>
+<P>Chaining up is often loosely defined by the following set of conditions: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P>Parent class A defines a public virtual method named <CODE class=function>foo</CODE> and provides a default implementation.</P></LI>
+<LI class=listitem>
+<P>Child class B re-implements method <CODE class=function>foo</CODE>.</P></LI>
+<LI class=listitem>
+<P>B&#8217;s implementation of <CODE class=function>foo</CODE> calls (&#8216;chains up to&#8217;) its parent class A&#8217;s implementation of <CODE class=function>foo</CODE>.</P></LI></UL></DIV>
+<P>There are various uses of this idiom: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P>You need to extend the behaviour of a class without modifying its code. You create a subclass to inherit its implementation, re-implement a public virtual method to modify the behaviour and chain up to ensure that the previous behaviour is not really modified, just extended. </P></LI>
+<LI class=listitem>
+<P>You need to implement the <A class=ulink href="http://en.wikipedia.org/wiki/Chain-of-responsibility_pattern" target=_top>Chain Of Responsibility pattern</A>: each object of the inheritance tree chains up to its parent (typically, at the beginning or the end of the method) to ensure that each handler is run in turn.</P></LI></UL></DIV>
+<P></P>
+<P>To explicitly chain up to the implementation of the virtual method in the parent class, you first need a handle to the original parent class structure. This pointer can then be used to access the original virtual function pointer and invoke it directly. <A class=footnote href="https://developer.gnome.org/gobject/stable/howto-gobject-chainup.html#ftn.id-1.6.3.9.3.1" name=id-1.6.3.9.3.1><SUP class=footnote>[7]</SUP></A> </P>
+<P>Use the <CODE class=function>parent_class</CODE> pointer created and initialized by the <A title=G_DEFINE_TYPE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-TYPE:CAPS"><CODE class=function>G_DEFINE_TYPE</CODE></A> family of macros, for instance: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>b_method_to_call</SPAN> <SPAN class="gtkdoc opt">(</SPAN>B <SPAN class="gtkdoc opt">*</SPAN>obj<SPAN class="gtkdoc opt">,</SPAN> gint some_param<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=comment>/* do stuff before chain up */</SPAN>
+
+  <SPAN class=comment>/* call the method_to_call() virtual function on the</SPAN>
+<SPAN class=comment>   * parent of BClass, AClass.</SPAN>
+<SPAN class=comment>   *</SPAN>
+<SPAN class=comment>   * remember the explicit cast to AClass*</SPAN>
+<SPAN class=comment>   */</SPAN>
+  <SPAN class=function>A_CLASS</SPAN> <SPAN class="gtkdoc opt">(</SPAN>b_parent_class<SPAN class="gtkdoc opt">)-&gt;</SPAN><SPAN class=function>method_to_call</SPAN> <SPAN class="gtkdoc opt">(</SPAN>obj<SPAN class="gtkdoc opt">,</SPAN> some_param<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* do stuff after chain up */</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<DIV class=footnotes><BR>
+<HR style="WIDTH: 100px; TEXT-ALIGN: left; MARGIN-LEFT: 0px">
+
+<DIV id=ftn.id-1.6.3.9.3.1 class=footnote>
+<P><A class=para href="https://developer.gnome.org/gobject/stable/howto-gobject-chainup.html#id-1.6.3.9.3.1"><SUP class=para>[7] </SUP></A>The <SPAN class=emphasis><EM>original</EM></SPAN> adjective used in this sentence is not innocuous. To fully understand its meaning, recall how class structures are initialized: for each object type, the class structure associated with this object is created by first copying the class structure of its parent type (a simple <CODE class=function>memcpy</CODE>) and then by invoking the <CODE class=function>class_init</CODE> callback on the resulting class structure. Since the <CODE class=function>class_init</CODE> callback is responsible for overwriting the class structure with the user re-implementations of the class methods, the modified copy of the parent class structure stored in the derived instance cannot be used. A copy of the class structure of an instance of the parent class is needed. </P></DIV></DIV></DIV>
+<DIV class=footer>
+<HR>
+</DIV>

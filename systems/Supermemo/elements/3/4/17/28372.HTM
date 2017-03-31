@@ -1,0 +1,245 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both">Non-instantiable classed types: interfaces</H2></DIV></DIV></DIV>
+<P>This section covers the theory behind interfaces. See <A title="How to define and implement interfaces" class=xref href="https://developer.gnome.org/gobject/stable/howto-interface.html"><I>How to define and implement interfaces</I></A> for the recommended way to define an interface. </P>
+<P>GType's interfaces are very similar to Java's interfaces. They allow to describe a common API that several classes will adhere to. Imagine the play, pause and stop buttons on hi-fi equipment &#8212; those can be seen as a playback interface. Once you know what they do, you can control your CD player, MP3 player or anything that uses these symbols. To declare an interface you have to register a non-instantiable classed type which derives from <A title="struct GTypeInterface" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInterface"><SPAN class=type>GTypeInterface</SPAN></A>. The following piece of code declares such an interface. </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc ppc">#define VIEWER_TYPE_EDITABLE viewer_editable_get_type ()</SPAN>
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DECLARE-INTERFACE:CAPS">G_DECLARE_INTERFACE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable<SPAN class="gtkdoc opt">,</SPAN> viewer_editable<SPAN class="gtkdoc opt">,</SPAN> VIEWER<SPAN class="gtkdoc opt">,</SPAN> EDITABLE<SPAN class="gtkdoc opt">,</SPAN> GObject<SPAN class="gtkdoc opt">)</SPAN>
+
+<SPAN class="gtkdoc kwb">struct</SPAN> _ViewerEditableInterface <SPAN class="gtkdoc opt">{</SPAN>
+  GTypeInterface parent<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>save<SPAN class="gtkdoc opt">) (</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                GError         <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN>
+
+<SPAN class="gtkdoc kwb">void</SPAN> <SPAN class=function>viewer_editable_save</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                           GError         <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>The interface function, <CODE class=function>viewer_editable_save</CODE> is implemented in a pretty simple way: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">void</SPAN>
+<SPAN class=function>viewer_editable_save</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                      GError         <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerEditableinterface <SPAN class="gtkdoc opt">*</SPAN>iface<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_IS_EDITABLE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">));</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL <SPAN class="gtkdoc opt">|| *</SPAN>error <SPAN class="gtkdoc opt">==</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  iface <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>VIEWER_EDITABLE_GET_INTERFACE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-return-if-fail">g_return_if_fail</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>iface<SPAN class="gtkdoc opt">-&gt;</SPAN>save <SPAN class="gtkdoc opt">!=</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+  iface<SPAN class="gtkdoc opt">-&gt;</SPAN><SPAN class=function>save</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P><CODE class=function>viewer_editable_get_type</CODE> registers a type named <SPAN class=emphasis><EM>ViewerEditable</EM></SPAN> which inherits from <SPAN class=type>G_TYPE_INTERFACE</SPAN>. All interfaces must be children of <SPAN class=type>G_TYPE_INTERFACE</SPAN> in the inheritance tree. </P>
+<P>An interface is defined by only one structure which must contain as first member a <A title="struct GTypeInterface" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInterface"><SPAN class=type>GTypeInterface</SPAN></A> structure. The interface structure is expected to contain the function pointers of the interface methods. It is good style to define helper functions for each of the interface methods which simply call the interface's method directly: <CODE class=function>viewer_editable_save</CODE> is one of these. </P>
+<P>If you have no special requirements you can use the <A title=G_IMPLEMENT_INTERFACE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-IMPLEMENT-INTERFACE:CAPS">G_IMPLEMENT_INTERFACE</A> macro to implement an interface: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_save</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"File implementation of editable interface save method.</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_editable_interface_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditableInterface <SPAN class="gtkdoc opt">*</SPAN>iface<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  iface<SPAN class="gtkdoc opt">-&gt;</SPAN>save <SPAN class="gtkdoc opt">=</SPAN> viewer_file_save<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-TYPE-WITH-CODE:CAPS">G_DEFINE_TYPE_WITH_CODE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">,</SPAN> viewer_file<SPAN class="gtkdoc opt">,</SPAN> VIEWER_TYPE_FILE<SPAN class="gtkdoc opt">,</SPAN>
+                         <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-IMPLEMENT-INTERFACE:CAPS">G_IMPLEMENT_INTERFACE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>VIEWER_TYPE_EDITABLE<SPAN class="gtkdoc opt">,</SPAN>
+                                                viewer_file_editable_interface_init<SPAN class="gtkdoc opt">));</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>If your code does have special requirements, you must write a custom <CODE class=function>get_type</CODE> function to register your GType which inherits from some <A class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#GObject"><SPAN class=type>GObject</SPAN></A> and which implements the interface <SPAN class=type>ViewerEditable</SPAN>. For example, this code registers a new <SPAN class=type>ViewerFile</SPAN> class which implements <SPAN class=type>ViewerEditable</SPAN>: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_save</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable <SPAN class="gtkdoc opt">*</SPAN>editable<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"File implementation of editable interface save method.</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_editable_interface_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>gpointer g_iface<SPAN class="gtkdoc opt">,</SPAN>
+                                     gpointer iface_data<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerEditableInterface <SPAN class="gtkdoc opt">*</SPAN>iface <SPAN class="gtkdoc opt">=</SPAN> g_iface<SPAN class="gtkdoc opt">;</SPAN>
+
+  iface<SPAN class="gtkdoc opt">-&gt;</SPAN>save <SPAN class="gtkdoc opt">=</SPAN> viewer_file_save<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+GType 
+<SPAN class=function>viewer_file_get_type</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class="gtkdoc kwb">static</SPAN> GType type <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>type <SPAN class="gtkdoc opt">==</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">) {</SPAN>
+    <SPAN class="gtkdoc kwb">const</SPAN> GTypeInfo info <SPAN class="gtkdoc opt">= {</SPAN>
+      <SPAN class=keyword>sizeof</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFileClass<SPAN class="gtkdoc opt">),</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* base_init */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* base_finalize */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* class_init */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* class_finalize */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* class_data */</SPAN>
+      <SPAN class=keyword>sizeof</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">),</SPAN>
+      <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">,</SPAN>      <SPAN class=comment>/* n_preallocs */</SPAN>
+      NULL    <SPAN class=comment>/* instance_init */</SPAN>
+    <SPAN class="gtkdoc opt">};</SPAN>
+    <SPAN class="gtkdoc kwb">const</SPAN> GInterfaceInfo editable_info <SPAN class="gtkdoc opt">= {</SPAN>
+      <SPAN class="gtkdoc opt">(</SPAN>GInterfaceInitFunc<SPAN class="gtkdoc opt">)</SPAN> viewer_file_editable_interface_init<SPAN class="gtkdoc opt">,</SPAN>  <SPAN class=comment>/* interface_init */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* interface_finalize */</SPAN>
+      NULL    <SPAN class=comment>/* interface_data */</SPAN>
+    <SPAN class="gtkdoc opt">};</SPAN>
+    type <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-static">g_type_register_static</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>VIEWER_TYPE_FILE<SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class=string>"ViewerFile"</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class="gtkdoc opt">&amp;</SPAN>info<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-add-interface-static">g_type_add_interface_static</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>type<SPAN class="gtkdoc opt">,</SPAN>
+                                 VIEWER_TYPE_EDITABLE<SPAN class="gtkdoc opt">,</SPAN>
+                                 <SPAN class="gtkdoc opt">&amp;</SPAN>editable_info<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc opt">}</SPAN>
+  <SPAN class=keyword>return</SPAN> type<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P><CODE class=function><A title=g_type_add_interface_static&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-add-interface-static">g_type_add_interface_static</A></CODE> records in the type system that a given type implements also <SPAN class=type>FooInterface</SPAN> (<CODE class=function>foo_interface_get_type</CODE> returns the type of <SPAN class=type>FooInterface</SPAN>). The <A title="struct GInterfaceInfo" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GInterfaceInfo"><SPAN class=type>GInterfaceInfo</SPAN></A> structure holds information about the implementation of the interface: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">struct</SPAN> _GInterfaceInfo
+<SPAN class="gtkdoc opt">{</SPAN>
+  GInterfaceInitFunc     interface_init<SPAN class="gtkdoc opt">;</SPAN>
+  GInterfaceFinalizeFunc interface_finalize<SPAN class="gtkdoc opt">;</SPAN>
+  gpointer               interface_data<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<DIV class=sect2>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=gtype-non-instantiable-classed-init></A>Interface Initialization</H3></DIV></DIV></DIV>
+<P>When an instantiable classed type which implements an interface (either directly or by inheriting an implementation from a superclass) is created for the first time, its class structure is initialized following the process described in <A title="Instantiable classed types: objects" class=xref href="https://developer.gnome.org/gobject/stable/gtype-instantiable-classed.html">the section called &#8220;Instantiable classed types: objects&#8221;</A>. After that, the interface implementations associated with the type are initialized. </P>
+<P>First a memory buffer is allocated to hold the interface structure. The parent's interface structure is then copied over to the new interface structure (the parent interface is already initialized at that point). If there is no parent interface, the interface structure is initialized with zeros. The <EM class=structfield><CODE>g_type</CODE></EM> and the <EM class=structfield><CODE>g_instance_type</CODE></EM> fields are then initialized: <EM class=structfield><CODE>g_type</CODE></EM> is set to the type of the most-derived interface and <EM class=structfield><CODE>g_instance_type</CODE></EM> is set to the type of the most derived type which implements this interface. </P>
+<P>The interface's <CODE class=function>base_init</CODE> function is called, and then the interface's <CODE class=function>default_init</CODE> is invoked. Finally if the type has registered an implementation of the interface, the implementation's <CODE class=function>interface_init</CODE> function is invoked. If there are multiple implementations of an interface the <CODE class=function>base_init</CODE> and <CODE class=function>interface_init</CODE> functions will be invoked once for each implementation initialized. </P>
+<P>It is thus recommended to use a <CODE class=function>default_init</CODE> function to initialize an interface. This function is called only once for the interface no matter how many implementations there are. The <CODE class=function>default_init</CODE> function is declared by <A title=G_DEFINE_INTERFACE() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-INTERFACE:CAPS">G_DEFINE_INTERFACE</A> which can be used to define the interface: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-INTERFACE:CAPS">G_DEFINE_INTERFACE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditable<SPAN class="gtkdoc opt">,</SPAN> viewer_editable<SPAN class="gtkdoc opt">,</SPAN> G_TYPE_OBJECT<SPAN class="gtkdoc opt">);</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_editable_default_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditableInterface <SPAN class="gtkdoc opt">*</SPAN>iface<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=comment>/* add properties and signals here, will only be called once */</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>Or you can do that yourself in a GType function for your interface: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting>GType
+<SPAN class=function>viewer_editable_get_type</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class="gtkdoc kwb">static</SPAN> <SPAN class="gtkdoc kwc">volatile</SPAN> gsize type_id <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Threads.html#g-once-init-enter">g_once_init_enter</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>type_id<SPAN class="gtkdoc opt">)) {</SPAN>
+    <SPAN class="gtkdoc kwb">const</SPAN> GTypeInfo info <SPAN class="gtkdoc opt">= {</SPAN>
+      <SPAN class=keyword>sizeof</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditableInterface<SPAN class="gtkdoc opt">),</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* base_init */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* base_finalize */</SPAN>
+      viewer_editable_default_init<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=comment>/* class_init */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* class_finalize */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>   <SPAN class=comment>/* class_data */</SPAN>
+      <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">,</SPAN>      <SPAN class=comment>/* instance_size */</SPAN>
+      <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">,</SPAN>      <SPAN class=comment>/* n_preallocs */</SPAN>
+      NULL    <SPAN class=comment>/* instance_init */</SPAN>
+    <SPAN class="gtkdoc opt">};</SPAN>
+    GType type <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-static">g_type_register_static</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>G_TYPE_INTERFACE<SPAN class="gtkdoc opt">,</SPAN>
+                                         <SPAN class=string>"ViewerEditable"</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                                         <SPAN class="gtkdoc opt">&amp;</SPAN>info<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Threads.html#g-once-init-leave">g_once_init_leave</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>type_id<SPAN class="gtkdoc opt">,</SPAN> type<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc opt">}</SPAN>
+  <SPAN class=keyword>return</SPAN> type_id<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_editable_default_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerEditableInterface <SPAN class="gtkdoc opt">*</SPAN>iface<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=comment>/* add properties and signals here, will only called once */</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>In summary, interface initialization uses the following functions: </P>
+<P></P>
+<DIV class=table><A name=ginterface-init-table></A>
+<P class=title><B>Table&nbsp;2.&nbsp;Interface Initialization</B></P>
+<DIV class=table-contents>
+<TABLE class=table summary="Interface Initialization" border=1>
+<COLGROUP>
+<COL align=left>
+<COL align=left>
+<COL align=left></COLGROUP>
+<THEAD>
+<TR>
+<TH align=left>Invocation time</TH>
+<TH align=left>Function Invoked</TH>
+<TH align=left>Function's parameters</TH>
+<TH>Remark</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD align=left>First call to <CODE class=function><A title=g_type_create_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-create-instance">g_type_create_instance</A></CODE> for <SPAN class=emphasis><EM>any</EM></SPAN> type implementing interface </TD>
+<TD align=left>interface's <CODE class=function>base_init</CODE> function</TD>
+<TD align=left>On interface's vtable</TD>
+<TD>Rarely necessary to use this. Called once per instantiated classed type implementing the interface.</TD></TR>
+<TR>
+<TD align=left>First call to <CODE class=function><A title=g_type_create_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-create-instance">g_type_create_instance</A></CODE> for <SPAN class=emphasis><EM>each</EM></SPAN> type implementing interface </TD>
+<TD align=left>interface's <CODE class=function>default_init</CODE> function</TD>
+<TD align=left>On interface's vtable</TD>
+<TD>Register interface's signals, properties, etc. here. Will be called once.</TD></TR>
+<TR>
+<TD align=left>First call to <CODE class=function><A title=g_type_create_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-create-instance">g_type_create_instance</A></CODE> for <SPAN class=emphasis><EM>any</EM></SPAN> type implementing interface </TD>
+<TD align=left>implementation's <CODE class=function>interface_init</CODE> function</TD>
+<TD align=left>On interface's vtable</TD>
+<TD>Initialize interface implementation. Called for each class that that implements the interface. Initialize the interface method pointers in the interface structure to the implementing class's implementation. </TD></TR></TBODY></TABLE></DIV></DIV>
+<P><BR class=table-break></P></DIV>
+<DIV class=sect2>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=gtype-non-instantiable-classed-dest></A>Interface Destruction</H3></DIV></DIV></DIV>
+<P>When the last instance of an instantiable type which registered an interface implementation is destroyed, the interface's implementations associated to the type are destroyed. </P>
+<P>To destroy an interface implementation, GType first calls the implementation's <CODE class=function>interface_finalize</CODE> function and then the interface's most-derived <CODE class=function>base_finalize</CODE> function. </P>
+<P>Again, it is important to understand, as in <A title="Interface Initialization" class=xref href="https://developer.gnome.org/gobject/stable/gtype-non-instantiable-classed.html#gtype-non-instantiable-classed-init">the section called &#8220;Interface Initialization&#8221;</A>, that both <CODE class=function>interface_finalize</CODE> and <CODE class=function>base_finalize</CODE> are invoked exactly once for the destruction of each implementation of an interface. Thus, if you were to use one of these functions, you would need to use a static integer variable which would hold the number of instances of implementations of an interface such that the interface's class is destroyed only once (when the integer variable reaches zero). </P>
+<P>The above process can be summarized as follows: </P>
+<DIV class=table><A name=ginterface-fini-table></A>
+<P class=title><B>Table&nbsp;3.&nbsp;Interface Finalization</B></P>
+<DIV class=table-contents>
+<TABLE class=table summary="Interface Finalization" border=1>
+<COLGROUP>
+<COL align=left>
+<COL align=left>
+<COL align=left></COLGROUP>
+<THEAD>
+<TR>
+<TH align=left>Invocation time</TH>
+<TH align=left>Function Invoked</TH>
+<TH align=left>Function's parameters</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD rowSpan=2 align=left>Last call to <CODE class=function><A title=g_type_free_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-free-instance">g_type_free_instance</A></CODE> for type implementing interface </TD>
+<TD align=left>interface's <CODE class=function>interface_finalize</CODE> function</TD>
+<TD align=left>On interface's vtable</TD></TR>
+<TR>
+<TD align=left>interface's <CODE class=function>base_finalize</CODE> function</TD>
+<TD align=left>On interface's vtable</TD></TR></TBODY></TABLE></DIV></DIV></DIV>

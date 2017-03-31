@@ -1,0 +1,76 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both">Object destruction</H2></DIV></DIV></DIV>
+<P>Again, it is often difficult to figure out which mechanism to use to hook into the object's destruction process: when the last <CODE class=function><A title=g_object_unref&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-unref">g_object_unref</A></CODE> function call is made, a lot of things happen as described in <A title=Table&nbsp;5.&nbsp;g_object_unref class=xref href="https://developer.gnome.org/gobject/stable/gobject-memory.html#gobject-destruction-table">Table&nbsp;5, &#8220;g_object_unref&#8221;</A>. </P>
+<P>The destruction process of your object is in two phases: dispose and finalize. This split is necessary to handle potential cycles due to the nature of the reference counting mechanism used by GObject, as well as dealing with temporary revival of instances in case of signal emission during the destruction sequence. See <A title="Reference counts and cycles" class=xref href="https://developer.gnome.org/gobject/stable/gobject-memory.html#gobject-memory-cycles">the section called &#8220;Reference counts and cycles&#8221;</A> for more information. </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">struct</SPAN> _ViewerFilePrivate
+<SPAN class="gtkdoc opt">{</SPAN>
+  gchar <SPAN class="gtkdoc opt">*</SPAN>filename<SPAN class="gtkdoc opt">;</SPAN>
+  guint zoom_level<SPAN class="gtkdoc opt">;</SPAN>
+
+  GInputStream <SPAN class="gtkdoc opt">*</SPAN>input_stream<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN>
+
+<SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#G-DEFINE-TYPE-WITH-PRIVATE:CAPS">G_DEFINE_TYPE_WITH_PRIVATE</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">,</SPAN> viewer_file<SPAN class="gtkdoc opt">,</SPAN> G_TYPE_OBJECT<SPAN class="gtkdoc opt">)</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_dispose</SPAN> <SPAN class="gtkdoc opt">(</SPAN>GObject <SPAN class="gtkdoc opt">*</SPAN>gobject<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFilePrivate <SPAN class="gtkdoc opt">*</SPAN>priv <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>viewer_file_get_instance_private</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>gobject<SPAN class="gtkdoc opt">));</SPAN>
+
+  <SPAN class=comment>/* In dispose(), you are supposed to free all types referenced from this</SPAN>
+<SPAN class=comment>   * object which might themselves hold a reference to self. Generally,</SPAN>
+<SPAN class=comment>   * the most simple solution is to unref all members on which you own a </SPAN>
+<SPAN class=comment>   * reference.</SPAN>
+<SPAN class=comment>   */</SPAN>
+
+  <SPAN class=comment>/* dispose() might be called multiple times, so we must guard against</SPAN>
+<SPAN class=comment>   * calling g_object_unref() on an invalid GObject by setting the member</SPAN>
+<SPAN class=comment>   * NULL; g_clear_object() does this for us.</SPAN>
+<SPAN class=comment>   */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-clear-object">g_clear_object</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>input_stream<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* Always chain up to the parent class; there is no need to check if</SPAN>
+<SPAN class=comment>   * the parent class implements the dispose() virtual function: it is</SPAN>
+<SPAN class=comment>   * always guaranteed to do so</SPAN>
+<SPAN class=comment>   */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT-CLASS:CAPS">G_OBJECT_CLASS</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>viewer_file_parent_class<SPAN class="gtkdoc opt">)-&gt;</SPAN><SPAN class=function>dispose</SPAN> <SPAN class="gtkdoc opt">(</SPAN>gobject<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_finalize</SPAN> <SPAN class="gtkdoc opt">(</SPAN>GObject <SPAN class="gtkdoc opt">*</SPAN>gobject<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFilePrivate <SPAN class="gtkdoc opt">*</SPAN>priv <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>viewer_file_get_instance_private</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function>VIEWER_FILE</SPAN> <SPAN class="gtkdoc opt">(</SPAN>gobject<SPAN class="gtkdoc opt">));</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Memory-Allocation.html#g-free">g_free</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>priv<SPAN class="gtkdoc opt">-&gt;</SPAN>filename<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* Always chain up to the parent class; as with dispose(), finalize()</SPAN>
+<SPAN class=comment>   * is guaranteed to exist on the parent's class virtual function table</SPAN>
+<SPAN class=comment>   */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT-CLASS:CAPS">G_OBJECT_CLASS</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>viewer_file_parent_class<SPAN class="gtkdoc opt">)-&gt;</SPAN><SPAN class=function>finalize</SPAN> <SPAN class="gtkdoc opt">(</SPAN>gobject<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_class_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFileClass <SPAN class="gtkdoc opt">*</SPAN>klass<SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  GObjectClass <SPAN class="gtkdoc opt">*</SPAN>object_class <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT-CLASS:CAPS">G_OBJECT_CLASS</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>klass<SPAN class="gtkdoc opt">);</SPAN>
+
+  object_class<SPAN class="gtkdoc opt">-&gt;</SPAN>dispose <SPAN class="gtkdoc opt">=</SPAN> viewer_file_dispose<SPAN class="gtkdoc opt">;</SPAN>
+  object_class<SPAN class="gtkdoc opt">-&gt;</SPAN>finalize <SPAN class="gtkdoc opt">=</SPAN> viewer_file_finalize<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN>
+<SPAN class=function>viewer_file_init</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  ViewerFilePrivate <SPAN class="gtkdoc opt">*</SPAN>priv <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function>viewer_file_get_instance_private</SPAN> <SPAN class="gtkdoc opt">(</SPAN>self<SPAN class="gtkdoc opt">);</SPAN>
+
+  priv<SPAN class="gtkdoc opt">-&gt;</SPAN>input_stream <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-new">g_object_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>VIEWER_TYPE_INPUT_STREAM<SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+  priv<SPAN class="gtkdoc opt">-&gt;</SPAN>filename <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=comment>/* would be set as a property */</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P>It is possible that object methods might be invoked after dispose is run and before finalize runs. GObject does not consider this to be a program error: you must gracefully detect this and neither crash nor warn the user, by having a disposed instance revert to an inert state.

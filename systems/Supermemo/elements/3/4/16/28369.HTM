@@ -1,0 +1,135 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title>The GLib Dynamic Type System</H2></DIV></DIV></DIV>
+<DIV class=toc>
+<DL class=toc>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/chapter-gtype.html#gtype-copy">Copy functions</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/gtype-conventions.html">Conventions</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/gtype-non-instantiable.html">Non-instantiable non-classed fundamental types</A></SPAN></DT>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/gtype-instantiable-classed.html">Instantiable classed types: objects</A></SPAN></DT>
+<DD>
+<DL>
+<DT><SPAN class=sect2><A href="https://developer.gnome.org/gobject/stable/gtype-instantiable-classed.html#gtype-instantiable-classed-init-done">Initialization and Destruction</A></SPAN></DT></DL></DD>
+<DT><SPAN class=sect1><A href="https://developer.gnome.org/gobject/stable/gtype-non-instantiable-classed.html">Non-instantiable classed types: interfaces</A></SPAN></DT>
+<DD>
+<DL>
+<DT><SPAN class=sect2><A href="https://developer.gnome.org/gobject/stable/gtype-non-instantiable-classed.html#gtype-non-instantiable-classed-init">Interface Initialization</A></SPAN></DT>
+<DT><SPAN class=sect2><A href="https://developer.gnome.org/gobject/stable/gtype-non-instantiable-classed.html#gtype-non-instantiable-classed-dest">Interface Destruction</A></SPAN></DT></DL></DD></DL></DIV>
+<P>A type, as manipulated by the GLib type system, is much more generic than what is usually understood as an Object type. It is best explained by looking at the structure and the functions used to register new types in the type system. </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwc">typedef</SPAN> <SPAN class="gtkdoc kwb">struct</SPAN> _GTypeInfo               GTypeInfo<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc kwb">struct</SPAN> _GTypeInfo
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class=comment>/* interface types, classed types, instantiated types */</SPAN>
+  guint16                class_size<SPAN class="gtkdoc opt">;</SPAN>
+  
+  GBaseInitFunc          base_init<SPAN class="gtkdoc opt">;</SPAN>
+  GBaseFinalizeFunc      base_finalize<SPAN class="gtkdoc opt">;</SPAN>
+  
+  <SPAN class=comment>/* classed types, instantiated types */</SPAN>
+  GClassInitFunc         class_init<SPAN class="gtkdoc opt">;</SPAN>
+  GClassFinalizeFunc     class_finalize<SPAN class="gtkdoc opt">;</SPAN>
+  gconstpointer          class_data<SPAN class="gtkdoc opt">;</SPAN>
+  
+  <SPAN class=comment>/* instantiated types */</SPAN>
+  guint16                instance_size<SPAN class="gtkdoc opt">;</SPAN>
+  guint16                n_preallocs<SPAN class="gtkdoc opt">;</SPAN>
+  GInstanceInitFunc      instance_init<SPAN class="gtkdoc opt">;</SPAN>
+  
+  <SPAN class=comment>/* value handling */</SPAN>
+  <SPAN class="gtkdoc kwb">const</SPAN> GTypeValueTable <SPAN class="gtkdoc opt">*</SPAN>value_table<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN>
+GType <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-static">g_type_register_static</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>GType             parent_type<SPAN class="gtkdoc opt">,</SPAN>
+                              <SPAN class="gtkdoc kwb">const</SPAN> gchar      <SPAN class="gtkdoc opt">*</SPAN>type_name<SPAN class="gtkdoc opt">,</SPAN>
+                              <SPAN class="gtkdoc kwb">const</SPAN> GTypeInfo  <SPAN class="gtkdoc opt">*</SPAN>info<SPAN class="gtkdoc opt">,</SPAN>
+                              GTypeFlags        flags<SPAN class="gtkdoc opt">);</SPAN>
+GType <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-fundamental">g_type_register_fundamental</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>GType                       type_id<SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class="gtkdoc kwb">const</SPAN> gchar                <SPAN class="gtkdoc opt">*</SPAN>type_name<SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class="gtkdoc kwb">const</SPAN> GTypeInfo            <SPAN class="gtkdoc opt">*</SPAN>info<SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class="gtkdoc kwb">const</SPAN> GTypeFundamentalInfo <SPAN class="gtkdoc opt">*</SPAN>finfo<SPAN class="gtkdoc opt">,</SPAN>
+                                   GTypeFlags                  flags<SPAN class="gtkdoc opt">);</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<P><CODE class=function><A title=g_type_register_static&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-static">g_type_register_static</A></CODE>, <CODE class=function><A title=g_type_register_dynamic&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-dynamic">g_type_register_dynamic</A></CODE> and <CODE class=function><A title=g_type_register_fundamental&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-fundamental">g_type_register_fundamental</A></CODE> are the C functions, defined in <CODE class=filename>gtype.h</CODE> and implemented in <CODE class=filename>gtype.c</CODE> which you should use to register a new <A title=GType class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType"><SPAN class=type>GType</SPAN></A> in the program's type system. It is not likely you will ever need to use <CODE class=function><A title=g_type_register_fundamental&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-fundamental">g_type_register_fundamental</A></CODE> but in case you want to, the last chapter explains how to create new fundamental types. </P>
+<P>Fundamental types are top-level types which do not derive from any other type while other non-fundamental types derive from other types. Upon initialization, the type system not only initializes its internal data structures but it also registers a number of core types: some of these are fundamental types. Others are types derived from these fundamental types. </P>
+<P>Fundamental and non-fundamental types are defined by: </P>
+<DIV class=itemizedlist>
+<UL class=itemizedlist style="LIST-STYLE-TYPE: disc">
+<LI class=listitem>
+<P>class size: the class_size field in <A title="struct GTypeInfo" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInfo"><SPAN class=type>GTypeInfo</SPAN></A>. </P></LI>
+<LI class=listitem>
+<P>class initialization functions (C++ constructor): the <CODE class=function>base_init</CODE> and <CODE class=function>class_init</CODE> fields in <A title="struct GTypeInfo" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInfo"><SPAN class=type>GTypeInfo</SPAN></A>. </P></LI>
+<LI class=listitem>
+<P>class destruction functions (C++ destructor): the base_finalize and class_finalize fields in <A title="struct GTypeInfo" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInfo"><SPAN class=type>GTypeInfo</SPAN></A>. </P></LI>
+<LI class=listitem>
+<P>instance size (C++ parameter to new): the instance_size field in <A title="struct GTypeInfo" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInfo"><SPAN class=type>GTypeInfo</SPAN></A>. </P></LI>
+<LI class=listitem>
+<P>instantiation policy (C++ type of new operator): the n_preallocs field in <A title="struct GTypeInfo" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInfo"><SPAN class=type>GTypeInfo</SPAN></A>. </P></LI>
+<LI class=listitem>
+<P>copy functions (C++ copy operators): the value_table field in <A title="struct GTypeInfo" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInfo"><SPAN class=type>GTypeInfo</SPAN></A>. </P></LI>
+<LI class=listitem>
+<P>type characteristic flags: <A title="enum GTypeFlags" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeFlags"><SPAN class=type>GTypeFlags</SPAN></A>. </P></LI></UL></DIV>
+<P>Fundamental types are also defined by a set of <A title="enum GTypeFundamentalFlags" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeFundamentalFlags"><SPAN class=type>GTypeFundamentalFlags</SPAN></A> which are stored in a <A title="struct GTypeFundamentalInfo" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeFundamentalInfo"><SPAN class=type>GTypeFundamentalInfo</SPAN></A>. Non-fundamental types are furthermore defined by the type of their parent which is passed as the parent_type parameter to <CODE class=function><A title=g_type_register_static&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-static">g_type_register_static</A></CODE> and <CODE class=function><A title=g_type_register_dynamic&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-dynamic">g_type_register_dynamic</A></CODE>. </P>
+<DIV class=sect1>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both"><A name=gtype-copy></A>Copy functions</H2></DIV></DIV></DIV>
+<P>The major common point between <SPAN class=emphasis><EM>all</EM></SPAN> GLib types (fundamental and non-fundamental, classed and non-classed, instantiable and non-instantiable) is that they can all be manipulated through a single API to copy/assign them. </P>
+<P>The <A title=GValue class=link href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#GValue"><SPAN class=type>GValue</SPAN></A> structure is used as an abstract container for all of these types. Its simplistic API (defined in <CODE class=filename>gobject/gvalue.h</CODE>) can be used to invoke the value_table functions registered during type registration: for example <CODE class=function><A title=g_value_copy&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-copy">g_value_copy</A></CODE> copies the content of a <A title=GValue class=link href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#GValue"><SPAN class=type>GValue</SPAN></A> to another <A title=GValue class=link href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#GValue"><SPAN class=type>GValue</SPAN></A>. This is similar to a C++ assignment which invokes the C++ copy operator to modify the default bit-by-bit copy semantics of C++/C structures/classes. </P>
+<P>The following code shows how you can copy around a 64 bit integer, as well as a <A class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#GObject"><SPAN class=type>GObject</SPAN></A> instance pointer: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">static void</SPAN> <SPAN class=function>test_int</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  GValue a_value <SPAN class="gtkdoc opt">=</SPAN> G_VALUE_INIT<SPAN class="gtkdoc opt">;</SPAN>
+  GValue b_value <SPAN class="gtkdoc opt">=</SPAN> G_VALUE_INIT<SPAN class="gtkdoc opt">;</SPAN>
+  guint64 a<SPAN class="gtkdoc opt">,</SPAN> b<SPAN class="gtkdoc opt">;</SPAN>
+
+  a <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0xdeadbeef</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-init">g_value_init</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>a_value<SPAN class="gtkdoc opt">,</SPAN> G_TYPE_UINT64<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-value-set-uint64">g_value_set_uint64</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>a_value<SPAN class="gtkdoc opt">,</SPAN> a<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-init">g_value_init</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>b_value<SPAN class="gtkdoc opt">,</SPAN> G_TYPE_UINT64<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-copy">g_value_copy</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>a_value<SPAN class="gtkdoc opt">, &amp;</SPAN>b_value<SPAN class="gtkdoc opt">);</SPAN>
+
+  b <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-value-get-uint64">g_value_get_uint64</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>b_value<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>a <SPAN class="gtkdoc opt">==</SPAN> b<SPAN class="gtkdoc opt">) {</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"Yay !! 10 lines of code to copy around a uint64.</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc opt">}</SPAN> <SPAN class=keyword>else</SPAN> <SPAN class="gtkdoc opt">{</SPAN>
+    <SPAN class=function><A href="https://developer.gnome.org/gobject/glib-Warnings-and-Assertions.html#g-print">g_print</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=string>"Are you sure this is not a Z80 ?</SPAN><SPAN class="gtkdoc esc">\n</SPAN><SPAN class=string>"</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc opt">}</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN>
+
+<SPAN class="gtkdoc kwb">static void</SPAN> <SPAN class=function>test_object</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  GObject <SPAN class="gtkdoc opt">*</SPAN>obj<SPAN class="gtkdoc opt">;</SPAN>
+  GValue obj_vala <SPAN class="gtkdoc opt">=</SPAN> G_VALUE_INIT<SPAN class="gtkdoc opt">;</SPAN>
+  GValue obj_valb <SPAN class="gtkdoc opt">=</SPAN> G_VALUE_INIT<SPAN class="gtkdoc opt">;</SPAN>
+  obj <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-new">g_object_new</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>VIEWER_TYPE_FILE<SPAN class="gtkdoc opt">,</SPAN> NULL<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-init">g_value_init</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>obj_vala<SPAN class="gtkdoc opt">,</SPAN> VIEWER_TYPE_FILE<SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Standard-Parameter-and-Value-Types.html#g-value-set-object">g_value_set_object</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>obj_vala<SPAN class="gtkdoc opt">,</SPAN> obj<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-init">g_value_init</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>obj_valb<SPAN class="gtkdoc opt">,</SPAN> G_TYPE_OBJECT<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* g_value_copy's semantics for G_TYPE_OBJECT types is to copy the reference.</SPAN>
+<SPAN class=comment>   * This function thus calls g_object_ref.</SPAN>
+<SPAN class=comment>   * It is interesting to note that the assignment works here because</SPAN>
+<SPAN class=comment>   * VIEWER_TYPE_FILE is a G_TYPE_OBJECT.</SPAN>
+<SPAN class=comment>   */</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#g-value-copy">g_value_copy</A></SPAN> <SPAN class="gtkdoc opt">(&amp;</SPAN>obj_vala<SPAN class="gtkdoc opt">, &amp;</SPAN>obj_valb<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-unref">g_object_unref</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT:CAPS">G_OBJECT</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>obj<SPAN class="gtkdoc opt">));</SPAN>
+  <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#g-object-unref">g_object_unref</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#G-OBJECT:CAPS">G_OBJECT</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>obj<SPAN class="gtkdoc opt">));</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>The important point about the above code is that the exact semantics of the copy calls is undefined since they depend on the implementation of the copy function. Certain copy functions might decide to allocate a new chunk of memory and then to copy the data from the source to the destination. Others might want to simply increment the reference count of the instance and copy the reference to the new GValue. </P>
+<P>The value table used to specify these assignment functions is documented in <A title="struct GTypeValueTable" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeValueTable"><SPAN class=type>GTypeValueTable</SPAN></A>. </P>
+<P>Interestingly, it is also very unlikely you will ever need to specify a value_table during type registration because these value_tables are inherited from the parent types for non-fundamental types. </P></DIV>

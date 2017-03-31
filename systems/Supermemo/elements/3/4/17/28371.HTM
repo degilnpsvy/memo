@@ -1,0 +1,164 @@
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H2 class=title style="CLEAR: both">Instantiable classed types: objects</H2></DIV></DIV></DIV>
+<P>This section covers the theory behind objects. See <A title="How to define and implement a new GObject" class=xref href="https://developer.gnome.org/gobject/stable/howto-gobject.html"><I>How to define and implement a new GObject</I></A> for the recommended way to define a GObject. </P>
+<P>Types which are registered with a class and are declared instantiable are what most closely resembles an <SPAN class=emphasis><EM>object</EM></SPAN>. Although <A class=link href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#GObject"><SPAN class=type>GObject</SPAN></A>s (detailed in <A title="The GObject base class" class=xref href="https://developer.gnome.org/gobject/stable/chapter-gobject.html"><I>The GObject base class</I></A>) are the most well known type of instantiable classed types, other kinds of similar objects used as the base of an inheritance hierarchy have been externally developed and they are all built on the fundamental features described below. </P>
+<P>For example, the code below shows how you could register such a fundamental object type in the type system (using none of the GObject convenience API): </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwc">typedef</SPAN> <SPAN class="gtkdoc kwb">struct</SPAN> <SPAN class="gtkdoc opt">{</SPAN>
+  GObject parent<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=comment>/* instance members */</SPAN>
+  gchar <SPAN class="gtkdoc opt">*</SPAN>filename<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN> ViewerFile<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class="gtkdoc kwc">typedef</SPAN> <SPAN class="gtkdoc kwb">struct</SPAN> <SPAN class="gtkdoc opt">{</SPAN>
+  GObjectClass parent<SPAN class="gtkdoc opt">;</SPAN>
+
+  <SPAN class=comment>/* class members */</SPAN>
+  <SPAN class=comment>/* the first is public, pure and virtual */</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>open<SPAN class="gtkdoc opt">)  (</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                 GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+
+  <SPAN class=comment>/* the second is public and virtual */</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>close<SPAN class="gtkdoc opt">) (</SPAN>ViewerFile  <SPAN class="gtkdoc opt">*</SPAN>self<SPAN class="gtkdoc opt">,</SPAN>
+                 GError     <SPAN class="gtkdoc opt">**</SPAN>error<SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN> ViewerFileClass<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class="gtkdoc ppc">#define VIEWER_TYPE_FILE (viewer_file_get_type ())</SPAN>
+
+GType 
+<SPAN class=function>viewer_file_get_type</SPAN> <SPAN class="gtkdoc opt">(</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">)</SPAN>
+<SPAN class="gtkdoc opt">{</SPAN>
+  <SPAN class="gtkdoc kwb">static</SPAN> GType type <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class=keyword>if</SPAN> <SPAN class="gtkdoc opt">(</SPAN>type <SPAN class="gtkdoc opt">==</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">) {</SPAN>
+    <SPAN class="gtkdoc kwb">const</SPAN> GTypeInfo info <SPAN class="gtkdoc opt">= {</SPAN>
+      <SPAN class=keyword>sizeof</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFileClass<SPAN class="gtkdoc opt">),</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>           <SPAN class=comment>/* base_init */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>           <SPAN class=comment>/* base_finalize */</SPAN>
+      <SPAN class="gtkdoc opt">(</SPAN>GClassInitFunc<SPAN class="gtkdoc opt">)</SPAN> viewer_file_class_init<SPAN class="gtkdoc opt">,</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>           <SPAN class=comment>/* class_finalize */</SPAN>
+      NULL<SPAN class="gtkdoc opt">,</SPAN>           <SPAN class=comment>/* class_data */</SPAN>
+      <SPAN class=keyword>sizeof</SPAN> <SPAN class="gtkdoc opt">(</SPAN>ViewerFile<SPAN class="gtkdoc opt">),</SPAN>
+      <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">,</SPAN>              <SPAN class=comment>/* n_preallocs */</SPAN>
+      <SPAN class="gtkdoc opt">(</SPAN>GInstanceInitFunc<SPAN class="gtkdoc opt">)</SPAN> NULL <SPAN class=comment>/* instance_init */</SPAN>
+    <SPAN class="gtkdoc opt">};</SPAN>
+    type <SPAN class="gtkdoc opt">=</SPAN> <SPAN class=function><A href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-register-static">g_type_register_static</A></SPAN> <SPAN class="gtkdoc opt">(</SPAN>G_TYPE_OBJECT<SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class=string>"ViewerFile"</SPAN><SPAN class="gtkdoc opt">,</SPAN>
+                                   <SPAN class="gtkdoc opt">&amp;</SPAN>info<SPAN class="gtkdoc opt">,</SPAN> <SPAN class=number>0</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc opt">}</SPAN>
+  <SPAN class=keyword>return</SPAN> type<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>Upon the first call to <CODE class=function>viewer_file_get_type</CODE>, the type named <SPAN class=emphasis><EM>ViewerFile</EM></SPAN> will be registered in the type system as inheriting from the type <SPAN class=emphasis><EM>G_TYPE_OBJECT</EM></SPAN>. </P>
+<P>Every object must define two structures: its class structure and its instance structure. All class structures must contain as first member a <A title="struct GTypeClass" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeClass"><SPAN class=type>GTypeClass</SPAN></A> structure. All instance structures must contain as first member a <A title="struct GTypeInstance" class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GTypeInstance"><SPAN class=type>GTypeInstance</SPAN></A> structure. The declaration of these C types, coming from <CODE class=filename>gtype.h</CODE> is shown below: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class="gtkdoc kwb">struct</SPAN> _GTypeClass
+<SPAN class="gtkdoc opt">{</SPAN>
+  GType g_type<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN>
+<SPAN class="gtkdoc kwb">struct</SPAN> _GTypeInstance
+<SPAN class="gtkdoc opt">{</SPAN>
+  GTypeClass <SPAN class="gtkdoc opt">*</SPAN>g_class<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">};</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>These constraints allow the type system to make sure that every object instance (identified by a pointer to the object's instance structure) contains in its first bytes a pointer to the object's class structure. </P>
+<P>This relationship is best explained by an example: let's take object B which inherits from object A: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting><SPAN class=comment>/* A definitions */</SPAN>
+<SPAN class="gtkdoc kwc">typedef</SPAN> <SPAN class="gtkdoc kwb">struct</SPAN> <SPAN class="gtkdoc opt">{</SPAN>
+  GTypeInstance parent<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc kwb">int</SPAN> field_a<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc kwb">int</SPAN> field_b<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN> A<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc kwc">typedef</SPAN> <SPAN class="gtkdoc kwb">struct</SPAN> <SPAN class="gtkdoc opt">{</SPAN>
+  GTypeClass parent_class<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>method_a<SPAN class="gtkdoc opt">) (</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>method_b<SPAN class="gtkdoc opt">) (</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN> AClass<SPAN class="gtkdoc opt">;</SPAN>
+
+<SPAN class=comment>/* B definitions. */</SPAN>
+<SPAN class="gtkdoc kwc">typedef</SPAN> <SPAN class="gtkdoc kwb">struct</SPAN> <SPAN class="gtkdoc opt">{</SPAN>
+  A parent<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc kwb">int</SPAN> field_c<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc kwb">int</SPAN> field_d<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN> B<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc kwc">typedef</SPAN> <SPAN class="gtkdoc kwb">struct</SPAN> <SPAN class="gtkdoc opt">{</SPAN>
+  AClass parent_class<SPAN class="gtkdoc opt">;</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>method_c<SPAN class="gtkdoc opt">) (</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+  <SPAN class="gtkdoc kwb">void</SPAN> <SPAN class="gtkdoc opt">(*</SPAN>method_d<SPAN class="gtkdoc opt">) (</SPAN><SPAN class="gtkdoc kwb">void</SPAN><SPAN class="gtkdoc opt">);</SPAN>
+<SPAN class="gtkdoc opt">}</SPAN> BClass<SPAN class="gtkdoc opt">;</SPAN></PRE></TD></TR></TBODY></TABLE></DIV>
+<P>The C standard mandates that the first field of a C structure is stored starting in the first byte of the buffer used to hold the structure's fields in memory. This means that the first field of an instance of an object B is A's first field which in turn is <SPAN class=type>GTypeInstance</SPAN>'s first field which in turn is <EM class=structfield><CODE>g_class</CODE></EM>, a pointer to B's class structure. </P>
+<P>Thanks to these simple conditions, it is possible to detect the type of every object instance by doing: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting>B <SPAN class="gtkdoc opt">*</SPAN>b<SPAN class="gtkdoc opt">;</SPAN>
+b<SPAN class="gtkdoc opt">-&gt;</SPAN>parent<SPAN class="gtkdoc opt">.</SPAN>parent<SPAN class="gtkdoc opt">.</SPAN>g_class<SPAN class="gtkdoc opt">-&gt;</SPAN>g_type</PRE></TD></TR></TBODY></TABLE></DIV>
+<P>or, more quickly: </P>
+<DIV class=informalexample>
+<TABLE class=listing_frame cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR>
+<TD class=listing_code><PRE class=programlisting>B <SPAN class="gtkdoc opt">*</SPAN>b<SPAN class="gtkdoc opt">;</SPAN>
+<SPAN class="gtkdoc opt">((</SPAN>GTypeInstance <SPAN class="gtkdoc opt">*)</SPAN> b<SPAN class="gtkdoc opt">)-&gt;</SPAN>g_class<SPAN class="gtkdoc opt">-&gt;</SPAN>g_type</PRE></TD></TR></TBODY></TABLE></DIV>
+<P></P>
+<DIV class=sect2>
+<DIV class=titlepage>
+<DIV>
+<DIV>
+<H3 class=title><A name=gtype-instantiable-classed-init-done></A>Initialization and Destruction</H3></DIV></DIV></DIV>
+<P>instantiation of these types can be done with <CODE class=function><A title=g_type_create_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-create-instance">g_type_create_instance</A></CODE>, which will look up the type information structure associated with the type requested. Then, the instance size and instantiation policy (if the <EM class=structfield><CODE>n_preallocs</CODE></EM> field is set to a non-zero value, the type system allocates the object's instance structures in chunks rather than mallocing for every instance) declared by the user are used to get a buffer to hold the object's instance structure. </P>
+<P>If this is the first instance of the object ever created, the type system must create a class structure. It allocates a buffer to hold the object's class structure and initializes it. The first part of the class structure (ie: the embedded parent class structure) is initialized by copying the contents from the class structure of the parent class. The rest of class structure is initialized to zero. If there is no parent, the entire class structure is initialized to zero. The type system then invokes the <CODE class=function>base_class_initialization</CODE> functions (<A title=GBaseInitFunc&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GBaseInitFunc"><SPAN class=type>GBaseInitFunc</SPAN></A>) from topmost fundamental object to bottom-most most derived object. The object's <CODE class=function>class_init</CODE> (<A title=GClassInitFunc&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GClassInitFunc"><SPAN class=type>GClassInitFunc</SPAN></A>) function is invoked afterwards to complete initialization of the class structure. Finally, the object's interfaces are initialized (we will discuss interface initialization in more detail later). </P>
+<P>Once the type system has a pointer to an initialized class structure, it sets the object's instance class pointer to the object's class structure and invokes the object's <CODE class=function>instance_init</CODE> (<A title=GInstanceInitFunc&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GInstanceInitFunc"><SPAN class=type>GInstanceInitFunc</SPAN></A>) functions, from top-most fundamental type to bottom-most most-derived type. </P>
+<P>Object instance destruction through <CODE class=function><A title=g_type_free_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-free-instance">g_type_free_instance</A></CODE> is very simple: the instance structure is returned to the instance pool if there is one and if this was the last living instance of the object, the class is destroyed. </P>
+<P>Class destruction (the concept of destruction is sometimes partly referred to as finalization in GType) is the symmetric process of the initialization: interfaces are destroyed first. Then, the most derived class_finalize (<A title=GClassFinalizeFunc&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GClassFinalizeFunc"><SPAN class=type>GClassFinalizeFunc</SPAN></A>) function is invoked. Finally, the base_class_finalize (<A title=GBaseFinalizeFunc&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GBaseFinalizeFunc"><SPAN class=type>GBaseFinalizeFunc</SPAN></A>) functions are invoked from bottom-most most-derived type to top-most fundamental type and the class structure is freed. </P>
+<P>The base initialization/finalization process is very similar to the C++ constructor/destructor paradigm. The practical details are different though and it is important not to get confused by superficial similarities. GTypes have no instance destruction mechanism. It is the user's responsibility to implement correct destruction semantics on top of the existing GType code. (This is what GObject does: see <A title="The GObject base class" class=xref href="https://developer.gnome.org/gobject/stable/chapter-gobject.html"><I>The GObject base class</I></A>.) Furthermore, C++ code equivalent to the <CODE class=function>base_init</CODE> and <CODE class=function>class_init</CODE> callbacks of GType is usually not needed because C++ cannot really create object types at runtime. </P>
+<P>The instantiation/finalization process can be summarized as follows: </P>
+<DIV class=table><A name=gtype-init-fini-table></A>
+<P class=title><B>Table&nbsp;1.&nbsp;GType Instantiation/Finalization</B></P>
+<DIV class=table-contents>
+<TABLE class=table summary="GType Instantiation/Finalization" border=1>
+<COLGROUP>
+<COL align=left>
+<COL align=left>
+<COL align=left></COLGROUP>
+<THEAD>
+<TR>
+<TH align=left>Invocation time</TH>
+<TH align=left>Function invoked</TH>
+<TH align=left>Function's parameters</TH></TR></THEAD>
+<TBODY>
+<TR>
+<TD rowSpan=3 align=left>First call to <CODE class=function><A title=g_type_create_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-create-instance">g_type_create_instance</A></CODE> for target type</TD>
+<TD align=left>type's <CODE class=function>base_init</CODE> function</TD>
+<TD align=left>On the inheritance tree of classes from fundamental type to target type. <CODE class=function>base_init</CODE> is invoked once for each class structure.</TD></TR>
+<TR>
+<TD align=left>target type's <CODE class=function>class_init</CODE> function</TD>
+<TD align=left>On target type's class structure</TD></TR>
+<TR>
+<TD align=left>interface initialization, see <A title="Interface Initialization" class=xref href="https://developer.gnome.org/gobject/stable/gtype-non-instantiable-classed.html#gtype-non-instantiable-classed-init">the section called &#8220;Interface Initialization&#8221;</A> </TD>
+<TD align=left>&nbsp;</TD></TR>
+<TR>
+<TD align=left>Each call to <CODE class=function><A title=g_type_create_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-create-instance">g_type_create_instance</A></CODE> for target type</TD>
+<TD align=left>target type's <CODE class=function>instance_init</CODE> function</TD>
+<TD align=left>On object's instance</TD></TR>
+<TR>
+<TD rowSpan=3 align=left>Last call to <CODE class=function><A title=g_type_free_instance&nbsp;() class=link href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#g-type-free-instance">g_type_free_instance</A></CODE> for target type</TD>
+<TD align=left>interface destruction, see <A title="Interface Destruction" class=xref href="https://developer.gnome.org/gobject/stable/gtype-non-instantiable-classed.html#gtype-non-instantiable-classed-dest">the section called &#8220;Interface Destruction&#8221;</A> </TD>
+<TD align=left>&nbsp;</TD></TR>
+<TR>
+<TD align=left>target type's <CODE class=function>class_finalize</CODE> function</TD>
+<TD align=left>On target type's class structure</TD></TR>
+<TR>
+<TD align=left>type's <CODE class=function>base_finalize</CODE> function</TD>
+<TD align=left>On the inheritance tree of classes from fundamental type to target type. <CODE class=function>base_finalize</CODE> is invoked once for each class structure.</TD></TR></TBODY></TABLE></DIV></DIV></DIV>
